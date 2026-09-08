@@ -45,7 +45,10 @@ export const WALKER_SERVICE: Partial<Record<WalkerKind, ServiceKind>> = {
 const SOLD_AS: Record<Good, ServiceKind | null> = {
   food: 'food',
   oil: 'oil',
+  wine: 'wine',
+  fleece: 'fleece',
   olives: null,
+  grapes: null,
 };
 
 const SUPPLY_FULL = 100;
@@ -231,7 +234,7 @@ function stockHome(world: World, walker: Walker): void {
 function deliverCargo(world: World, walker: Walker): void {
   for (const neighbour of world.grid.neighbours(walker.from)) {
     const store = world.buildingAt(neighbour);
-    if (!store || BUILDINGS[store.kind].accepts !== walker.good) continue;
+    if (!store || !BUILDINGS[store.kind].accepts.includes(walker.good)) continue;
     store.stock[walker.good] = Math.min(BUILDINGS[store.kind].capacity, store.stock[walker.good] + walker.cargo);
     walker.cargo = 0;
     break;

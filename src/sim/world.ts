@@ -67,7 +67,7 @@ import {
   type Monster,
 } from './heroes';
 import { TICKS_PER_MONTH } from './time';
-import { createBuilding } from './types';
+import { GOODS, createBuilding } from './types';
 import type { Building, BuildingKind, Good, Walker, WalkerKind } from './types';
 import { PEDDLER_LOAD, spawnCartPusher, spawnDeliveryman, spawnPhilosopher, spawnRoamer } from './walkers';
 import { updateWalkers } from './walkers';
@@ -79,7 +79,7 @@ const MONTH_NAMES = [
 
 const TICKS_PER_LOAD = 150;
 const AGORA_SPAWN_INTERVAL = 90;
-const AGORA_GOODS: Good[] = ['food', 'oil'];
+const AGORA_GOODS: Good[] = ['food', 'oil', 'wine', 'fleece'];
 const COLLEGE_SPAWN_INTERVAL = 90;
 const MAINTENANCE_SPAWN_INTERVAL = 70;
 const STAGGERED_RISK = 40;
@@ -152,11 +152,9 @@ export class World {
 
   private nextId = 1;
   private appealDirty = false;
-  private readonly outputByMonth: Record<Good, number[]> = {
-    food: new Array(MONTHS_PER_YEAR).fill(0),
-    olives: new Array(MONTHS_PER_YEAR).fill(0),
-    oil: new Array(MONTHS_PER_YEAR).fill(0),
-  };
+  private readonly outputByMonth = Object.fromEntries(
+    GOODS.map((good) => [good, new Array(MONTHS_PER_YEAR).fill(0)]),
+  ) as Record<Good, number[]>;
   private readonly changedTiles = new Set<number>();
 
   constructor(size: number, seed: number) {
@@ -443,11 +441,9 @@ export class World {
       population: this.population,
       treasury: this.treasury,
       peopleByTier,
-      yearlyOutput: {
-        food: sum(this.outputByMonth.food),
-        olives: sum(this.outputByMonth.olives),
-        oil: sum(this.outputByMonth.oil),
-      },
+      yearlyOutput: Object.fromEntries(
+        GOODS.map((good) => [good, sum(this.outputByMonth[good])]),
+      ) as Record<Good, number>,
     };
   }
 
@@ -567,7 +563,9 @@ export class World {
     if (!request) return false;
 
     const sources = [...this.buildings.values()].filter(
-      (building) => BUILDINGS[building.kind].accepts === request.good || BUILDINGS[building.kind].supplies === request.good,
+      (building) =>
+        BUILDINGS[building.kind].accepts.includes(request.good) ||
+        BUILDINGS[building.kind].supplies === request.good,
     );
     const available = sources.reduce((total, building) => total + building.stock[request.good], 0);
     if (available < request.cartloads) return false;
@@ -786,7 +784,7 @@ export class World {
   private tilesAccepting(good: Good): Set<number> {
     return this.accessTiles((building) => {
       const def = BUILDINGS[building.kind];
-      return def.accepts === good && building.stock[good] < def.capacity;
+      return def.accepts.includes(good) && building.stock[good] < def.capacity;
     });
   }
 

@@ -17,6 +17,8 @@ export const TRADE_ROUTES: TradeRoute[] = [
   { id: 'knossos', city: 'Knossos', good: 'oil', direction: 'export', price: 21, cartloadsPerMonth: 12 },
   { id: 'mycenae', city: 'Mycenae', good: 'food', direction: 'import', price: 17, cartloadsPerMonth: 8 },
   { id: 'troy', city: 'Troy', good: 'food', direction: 'import', price: 12, cartloadsPerMonth: 4 },
+  { id: 'thebes', city: 'Thebes', good: 'wine', direction: 'export', price: 34, cartloadsPerMonth: 5 },
+  { id: 'sparta', city: 'Sparta', good: 'fleece', direction: 'import', price: 15, cartloadsPerMonth: 6 },
 ];
 
 export interface TradeReport {

@@ -370,7 +370,7 @@ function renderPopup(popup: HTMLElement, inspection: Inspection | null, closable
 function groupFor(kind: string): string {
   if (kind === 'house' || kind === 'estate') return 'Housing';
   if (kind === 'wheatFarm' || kind === 'granary' || kind === 'growersLodge' || kind === 'agora') return 'Food';
-  if (kind === 'olivePress') return 'Industry';
+  if (kind === 'olivePress' || kind === 'winery' || kind === 'cardingShed' || kind === 'vineyard') return 'Industry';
   if (kind === 'college' || kind === 'podium') return 'Culture';
   if (kind === 'infirmary' || kind === 'watchpost') return 'Services';
   if (kind === 'palace' || kind === 'taxOffice' || kind === 'tradingPost') return 'Government';

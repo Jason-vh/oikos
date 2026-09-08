@@ -1334,6 +1334,114 @@ def build_tower():
     return {"kind": "tower", "variant": 0, "footprint": 2, "height": parapet_z + 0.5}
 
 
+def build_vineyard():
+    """Vineyard: trellised rows of vines on the meadow, with a picker's hut and baskets."""
+    soil = plaster_material("soil", SOIL, roughness=0.98, variation=0.1, scale=12.0)
+    grass = plaster_material("vine_grass", (0.45, 0.47, 0.26), roughness=0.95, variation=0.12, scale=14.0)
+    stone = plaster_material("stone", STONE, roughness=0.85, variation=0.06, scale=10.0)
+    ochre = plaster_material("ochre", OCHRE, roughness=0.9, variation=0.08, scale=8.0)
+    terracotta = roof_material("terracotta", TERRACOTTA)
+    wood = material("wood", WOOD, roughness=0.86)
+    vine = material("vine", (0.28, 0.4, 0.2), roughness=0.9)
+    grape = material("grape", hex_rgb("6b3a63"), roughness=0.75)
+    clay = material("clay", CLAY, roughness=0.8)
+
+    add_box("ground", (-0.1, -0.1, 0.02), (1.7, 1.7, 0.04), grass)
+    add_wall("wall_south", (-0.1, -0.96, 0.09), 1.7, 0.18, 0.06, stone, along_x=True)
+
+    for row, x in enumerate((-0.66, -0.16, 0.34)):
+        add_box(f"bed_{row}", (x, -0.1, 0.05), (0.2, 1.4, 0.03), soil)
+        for post_y in (-0.66, 0.0, 0.66):
+            add_cylinder(f"post_{row}{post_y}", (x, post_y, 0.2), 0.022, 0.32, wood, vertices=6)
+        add_box(f"wire_{row}", (x, -0.1, 0.34), (0.03, 1.4, 0.02), wood)
+        for leaf_y in (-0.62, -0.28, 0.06, 0.4, 0.7):
+            add_box(f"vine_{row}{leaf_y}", (x, leaf_y, 0.28), (0.22, 0.24, 0.2), vine)
+            add_cylinder(f"bunch_{row}{leaf_y}", (x + 0.1, leaf_y, 0.2), 0.05, 0.1, grape, vertices=8)
+
+    hx, hy = 0.68, 0.66
+    half = 0.26
+    wall_h = 0.36
+    add_box("hut_wall", (hx, hy, wall_h / 2), (half * 2, half * 2, wall_h), ochre)
+    add_hip_roof("hut_roof", (hx, hy, wall_h + 0.09), half + 0.05, 0.18, terracotta, ridge_half=0.07)
+    add_door(half, 0.22, wood, (hx, hy))
+    add_amphora("basket", (0.72, -0.3, 0.04), 0.24, clay)
+
+    return {"kind": "vineyard", "variant": 0, "footprint": 2, "height": 0.75}
+
+
+def build_winery():
+    """Winery: a press house with a vat, jars racked in the yard and stained treading floor."""
+    paving = plaster_material("paving", STONE, roughness=0.9, variation=0.06, scale=12.0)
+    plaster = plaster_material("plaster", hex_rgb("d8c8a4"), roughness=0.86, variation=0.05, scale=8.0)
+    tiles = roof_material("tiles", hex_rgb("8f4526"), rows_per_unit=18.0)
+    wood = material("wood", WOOD, roughness=0.86)
+    must = material("must", hex_rgb("6b2f3e"), roughness=0.4)
+    clay = material("clay", CLAY, roughness=0.8)
+    vine = material("vine", (0.28, 0.4, 0.2), roughness=0.9)
+
+    half = 0.94
+    yard = add_box("yard", (0, 0, 0.03), (half * 2, half * 2, 0.06), paving)
+    yard.visible_shadow = False
+
+    house_half = 0.46
+    wall_h = 0.62
+    hx, hy = -0.38, -0.38
+    add_box("press_house", (hx, hy, 0.06 + wall_h / 2), (house_half * 2, house_half * 2, wall_h), plaster)
+    add_hip_roof("roof", (hx, hy, 0.06 + wall_h + 0.14), house_half + 0.12, 0.28, tiles, ridge_half=0.12)
+    add_doorway(house_half, 0.4, (hx, hy))
+
+    add_cylinder("vat", (0.52, 0.1, 0.06 + 0.22), 0.34, 0.44, wood, vertices=18)
+    add_cylinder("must", (0.52, 0.1, 0.06 + 0.43), 0.3, 0.03, must, vertices=18)
+    add_box("beam_post", (0.52, 0.72, 0.06 + 0.34), (0.09, 0.09, 0.68), wood)
+    add_box("press_beam", (0.52, 0.42, 0.06 + 0.66), (0.12, 0.7, 0.1), wood)
+
+    for jar_y in (-0.86, -0.5):
+        add_amphora("jar", (0.72, jar_y, 0.06), 0.34, clay)
+    add_amphora("jar", (-0.9, 0.62, 0.06), 0.3, clay)
+    add_box("vine_rack", (-0.9, -0.1, 0.06 + 0.2), (0.1, 0.6, 0.4), vine)
+
+    return {"kind": "winery", "variant": 0, "footprint": 2, "height": 1.05}
+
+
+def build_carding_shed():
+    """Carding shed: an open shed of fleeces on racks, with a pen of sheep beside it."""
+    earth = plaster_material("earth", EARTH, roughness=0.97, variation=0.09, scale=15.0)
+    grass = plaster_material("pen_grass", (0.45, 0.47, 0.26), roughness=0.95, variation=0.12, scale=14.0)
+    daub = plaster_material("daub", DAUB_LIGHT, roughness=0.94, variation=0.12, scale=10.0)
+    thatch = plaster_material("thatch", THATCH, roughness=0.95, variation=0.1, scale=20.0)
+    wool = material("wool", hex_rgb("efe7d6"), roughness=0.95)
+    wood = material("wood", WOOD, roughness=0.88)
+    clay = material("clay", CLAY, roughness=0.8)
+
+    half = 0.94
+    yard = add_box("yard", (0, 0, 0.03), (half * 2, half * 2, 0.06), earth)
+    yard.visible_shadow = False
+    add_box("pen_ground", (0.4, 0.36, 0.065), (1.0, 1.1, 0.02), grass)
+
+    shed_half = 0.4
+    wall_h = 0.44
+    sx, sy = -0.44, -0.42
+    add_box("shed", (sx, sy, 0.06 + wall_h / 2), (shed_half * 2, shed_half * 2, wall_h), daub)
+    add_gable_roof("shed_roof", (sx, sy, 0.06 + wall_h), shed_half + 0.08, shed_half + 0.07, 0.22, 0.05, thatch)
+    add_doorway(shed_half, 0.3, (sx, sy))
+
+    for rail in (0.62, 0.82):
+        add_box("pen_rail", (0.4, 0.36 + rail * 0.5, 0.06 + 0.16), (1.0, 0.04, 0.06), wood)
+    for post_x in (-0.08, 0.4, 0.88):
+        add_cylinder("pen_post", (post_x, 0.9, 0.06 + 0.14), 0.03, 0.28, wood, vertices=6)
+
+    for sheep_x, sheep_y in ((0.16, 0.3), (0.6, 0.14), (0.66, 0.62)):
+        add_box("sheep", (sheep_x, sheep_y, 0.06 + 0.13), (0.26, 0.16, 0.16), wool)
+        add_box("sheep_head", (sheep_x + 0.16, sheep_y, 0.06 + 0.16), (0.09, 0.08, 0.09), daub)
+
+    add_box("rack", (-0.86, 0.5, 0.06 + 0.3), (0.08, 0.7, 0.06), wood)
+    for fleece_y in (0.28, 0.62):
+        add_box("fleece", (-0.86, fleece_y, 0.06 + 0.2), (0.14, 0.22, 0.2), wool)
+    add_amphora("jar", (-0.2, -0.84, 0.06), 0.26, clay)
+
+    return {"kind": "cardingShed", "variant": 0, "footprint": 2, "height": 0.9}
+
+
 def build_fountain():
     """Marble basin with a raised centre and a small bronze statue; light blue water."""
     marble = material("marble", MARBLE, roughness=0.3)
@@ -1439,6 +1547,9 @@ MODELS = {
     "tower": build_tower,
     "watchpost": build_watchpost,
     "olive-press": build_olive_press,
+    "vineyard": build_vineyard,
+    "winery": build_winery,
+    "carding-shed": build_carding_shed,
     "wheat-farm": build_wheat_farm,
     "fountain": build_fountain,
     "statue": build_statue,

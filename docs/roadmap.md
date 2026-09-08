@@ -212,7 +212,13 @@ fish/urchins, meat, cheese, oranges — max **4 food types in an entire adventur
 fleece, olive oil, wine, bronze, armor, sculpture, marble, wood, horses, orichalc,
 black marble. Chariots cannot be imported or exported.
 
-🟡 Two chains: wheat farm → granary, and growers' lodge → olive press → oil, with goods
+🟡 Four chains: wheat farm → granary, growers' lodge → olive press → oil, vineyard →
+winery → wine (appeal +4, as in the original), and a carding shed's sheep → fleece.
+Homesteads and above ask for fleece, manors and estates for wine, and a trading post
+takes all three for export. Carrots, onions, meat, cheese, fish, timber, marble,
+bronze, armour, sculpture, horses and the mint are not started.
+
+🟡 Earlier: wheat farm → granary, and growers' lodge → olive press → oil, with goods
 carted by producers and pulled by the agora. Husbandry, the rest of industry, harvest
 months and distance-to-storage effects are not modelled.
 

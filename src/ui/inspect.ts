@@ -23,6 +23,9 @@ const GOOD_NAMES: Record<Good, string> = {
   food: 'Wheat',
   olives: 'Olives',
   oil: 'Oil',
+  grapes: 'Grapes',
+  wine: 'Wine',
+  fleece: 'Fleece',
 };
 
 const WALKER_OF: Partial<Record<BuildingKind, { name: string; kind: WalkerKind }>> = {
@@ -119,8 +122,9 @@ function inspectBuilding(world: World, building: Building, index: number): Inspe
   }
   if (def.produces) facts.push([`${GOOD_NAMES[def.produces]} ready`, `${building.stock[def.produces]} cartloads`]);
   if (def.consumes) facts.push([`${GOOD_NAMES[def.consumes]} waiting`, `${building.stock[def.consumes]} cartloads`]);
-  if (def.accepts && !def.consumes) {
-    facts.push(['Stored', `${building.stock[def.accepts]} of ${def.capacity} cartloads`]);
+  for (const good of def.accepts) {
+    if (good === def.consumes) continue;
+    facts.push([`${GOOD_NAMES[good]} stored`, `${building.stock[good]} of ${def.capacity} cartloads`]);
   }
   if (building.kind === 'agora') {
     facts.push(['Stalls hold', `${Math.round(building.stock.food)} food, ${Math.round(building.stock.oil)} oil`]);
