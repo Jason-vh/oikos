@@ -3,6 +3,7 @@ import { BUILDINGS, PLACEABLE, ROAD_COST } from '../sim/buildings';
 
 interface ToolButton {
   label: string;
+  cost: number | null;
   hint: string;
   shortcut: string;
   tool: Tool;
@@ -96,7 +97,8 @@ function toolButtons(): ToolButton[] {
     const def = BUILDINGS[kind];
     return {
       label: def.name,
-      hint: `${def.cost} dr — ${def.description}`,
+      cost: def.cost,
+      hint: def.description,
       shortcut: String(index + 1),
       tool: { kind: 'build', building: kind } as Tool,
       group: groupFor(kind),
@@ -104,9 +106,9 @@ function toolButtons(): ToolButton[] {
   });
 
   return [
-    { label: 'Road', hint: `${ROAD_COST} dr per tile`, shortcut: 'r', tool: { kind: 'road' }, group: 'Road' },
+    { label: 'Road', cost: ROAD_COST, hint: 'Per tile', shortcut: 'r', tool: { kind: 'road' }, group: 'Road' },
     ...structures,
-    { label: 'Demolish', hint: 'Remove roads and buildings', shortcut: 'x', tool: { kind: 'demolish' }, group: 'Demolish' },
+    { label: 'Demolish', cost: null, hint: 'Remove roads and buildings', shortcut: 'x', tool: { kind: 'demolish' }, group: 'Demolish' },
   ];
 }
 
@@ -149,8 +151,9 @@ function speedLabel(speed: number): string {
 }
 
 function renderButton(button: ToolButton, index: number): string {
+  const cost = button.cost === null ? '' : `<small>${button.cost} dr</small>`;
   return `<button class="tool" data-tool="${index}" title="${button.hint}">
-    <span>${button.label}</span>
+    <span class="tool-label">${button.label}${cost}</span>
     <kbd>${button.shortcut.toUpperCase()}</kbd>
   </button>`;
 }

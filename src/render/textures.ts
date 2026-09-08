@@ -665,8 +665,18 @@ function groundShadow(
   ctx.restore();
 }
 
+function castShadow(ctx: CanvasRenderingContext2D, cx: number, baseY: number, length: number, girth: number): void {
+  ctx.save();
+  ctx.filter = 'blur(3px)';
+  ctx.fillStyle = 'rgba(24, 19, 12, 0.22)';
+  ctx.beginPath();
+  ctx.ellipse(cx - length * 0.5, baseY + length * 0.12, length * 0.55, girth, -0.35, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 function drawCypress(variant: number): { surface: DrawSurface; baseY: number } {
-  const width = 36;
+  const width = 72;
   const height = 112;
   const surface = createSurface(width, height);
   const { ctx } = surface;
@@ -679,6 +689,7 @@ function drawCypress(variant: number): { surface: DrawSurface; baseY: number } {
   const canopyBottom = baseY - trunkHeight;
   const lean = (random() - 0.5) * 3;
 
+  castShadow(ctx, cx, baseY, 34, 5);
   groundShadow(ctx, cx, baseY, 12, 4);
 
   ctx.fillStyle = css(shade(0x5a4630, light));
@@ -714,7 +725,7 @@ function drawCypress(variant: number): { surface: DrawSurface; baseY: number } {
 }
 
 function drawOlive(variant: number): { surface: DrawSurface; baseY: number } {
-  const width = 88;
+  const width = 110;
   const height = 88;
   const surface = createSurface(width, height);
   const { ctx } = surface;
@@ -723,6 +734,7 @@ function drawOlive(variant: number): { surface: DrawSurface; baseY: number } {
   const cx = width / 2;
   const baseY = height - 6;
 
+  castShadow(ctx, cx, baseY, 30, 9);
   groundShadow(ctx, cx, baseY, 20, 6);
 
   const trunkTop = baseY - 27;
@@ -826,40 +838,62 @@ function drawBoulder(variant: number): { surface: DrawSurface; baseY: number } {
   const light = topLight(DECOR_SUN);
   const cx = width / 2;
   const baseY = height - 6;
-  const domeWidth = 17 + random() * 3;
-  const domeHeight = 11.5 + random() * 1.8;
-  const domeCy = baseY - domeHeight * 0.72;
+  const halfWidth = 15 + random() * 4;
+  const rockHeight = 12 + random() * 3;
 
-  groundShadow(ctx, cx, baseY, domeWidth, 4);
+  castShadow(ctx, cx, baseY, halfWidth * 1.2, 4);
+  groundShadow(ctx, cx, baseY + 1, halfWidth * 0.9, 3.5);
 
-  const highlight = shade(0xd9d0b6, light);
-  const base = shade(0xbab29a, light);
-  const shadowSide = shade(0x8f8770, light * 0.75);
+  const points: Array<[number, number]> = [];
+  const corners = 7;
+  for (let i = 0; i < corners; i++) {
+    const angle = Math.PI + (i / (corners - 1)) * Math.PI;
+    const wobble = 0.82 + random() * 0.18;
+    const px = cx + Math.cos(angle) * halfWidth * wobble;
+    const py = baseY - 1 + Math.sin(angle) * rockHeight * wobble;
+    points.push([px, py]);
+  }
 
-  const gradient = ctx.createLinearGradient(cx - domeWidth, domeCy - domeHeight, cx + domeWidth, domeCy + domeHeight);
-  gradient.addColorStop(0, css(highlight));
-  gradient.addColorStop(0.55, css(base));
-  gradient.addColorStop(1, css(shadowSide));
+  const lit = shade(0xb9ad92, light);
+  const mid = shade(0x9a8f76, light);
+  const dark = shade(0x6f6652, light * 0.8);
+
+  const gradient = ctx.createLinearGradient(cx - halfWidth, baseY - rockHeight, cx + halfWidth * 0.6, baseY);
+  gradient.addColorStop(0, css(lit));
+  gradient.addColorStop(0.5, css(mid));
+  gradient.addColorStop(1, css(dark));
 
   ctx.fillStyle = gradient;
   ctx.beginPath();
-  ctx.ellipse(cx, domeCy, domeWidth, domeHeight, 0, 0, Math.PI * 2);
+  ctx.moveTo(cx - halfWidth * 0.95, baseY + 1);
+  for (const [px, py] of points) ctx.lineTo(px, py);
+  ctx.lineTo(cx + halfWidth * 0.95, baseY + 1);
+  ctx.closePath();
   ctx.fill();
 
-  ctx.strokeStyle = css(shadowSide, 0.5);
+  const ridge = points[Math.floor(corners / 2) - 1];
+  ctx.fillStyle = css(dark, 0.55);
+  ctx.beginPath();
+  ctx.moveTo(ridge[0], ridge[1]);
+  ctx.lineTo(cx + halfWidth * 0.95, baseY + 1);
+  ctx.lineTo(cx + halfWidth * 0.2, baseY + 1);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = css(dark, 0.6);
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.ellipse(cx, domeCy, domeWidth, domeHeight, 0, 0, Math.PI * 2);
+  ctx.moveTo(cx - halfWidth * 0.95, baseY + 1);
+  for (const [px, py] of points) ctx.lineTo(px, py);
+  ctx.lineTo(cx + halfWidth * 0.95, baseY + 1);
   ctx.stroke();
 
-  ctx.strokeStyle = 'rgba(70, 62, 46, 0.32)';
-  ctx.lineWidth = 1.4;
-  for (let i = 0; i < 3; i++) {
-    const ox = (random() - 0.5) * domeWidth;
+  ctx.fillStyle = css(shade(0x6f7a3c, light), 0.85);
+  for (let i = 0; i < 4; i++) {
+    const tx = cx + (random() - 0.5) * halfWidth * 2;
     ctx.beginPath();
-    ctx.moveTo(cx + ox, domeCy - domeHeight * 0.4);
-    ctx.quadraticCurveTo(cx + ox + 2.4, domeCy, cx + ox - 1.6, domeCy + domeHeight * 0.5);
-    ctx.stroke();
+    ctx.ellipse(tx, baseY + 1, 3, 1.6, 0, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   return { surface, baseY };

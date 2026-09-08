@@ -195,7 +195,7 @@ export class TerrainLayer {
 
 function groundTint(x: number, y: number, height: number): number {
   const noise = 0.5 + 0.25 * Math.sin(x * 0.21 + 0.7) + 0.25 * Math.sin(y * 0.17 + 2.1);
-  return shade(0xffffff, 0.9 + 0.08 * noise + height * 0.04);
+  return shade(0xffffff, 0.94 + 0.05 * noise + height * 0.03);
 }
 
 function variantOf(x: number, y: number, count: number): number {

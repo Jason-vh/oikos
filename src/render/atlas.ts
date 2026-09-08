@@ -14,7 +14,7 @@ const CELL_PAD = 6;
 const CELL_WIDTH = TILE_WIDTH + 4;
 const CELL_HEIGHT = TILE_HEIGHT + 4;
 const CLIFF_WIDTH = 72;
-const CLIFF_HEIGHT = 110;
+const CLIFF_HEIGHT = 44;
 const ATLAS_MAX_WIDTH = 2048;
 
 const HALF_W = TILE_WIDTH / 2 + 0.75;
@@ -60,7 +60,7 @@ const TERRAIN_PALETTES: Record<number, TerrainPalette> = {
   },
 };
 
-const WILDFLOWER_COLOURS = [0xf5f2e8, 0xb79bd1, 0xffffff, 0xc9a6dc];
+const WILDFLOWER_COLOURS = [0xc94a3a, 0xe4c25a, 0xf5f2e8, 0xb79bd1];
 const PEBBLE_COLOUR = 0xa89c82;
 
 interface Cell {
@@ -217,15 +217,15 @@ function drawTerrain(
   const random = createRandom(kind * 7919 + variant * 104729 + 17);
   const cx = x + width / 2;
   const cy = y + height / 2;
-  const tone = 0.97 + random() * 0.07;
+  const tone = 0.98 + random() * 0.04;
 
   ctx.save();
   diamondPath(ctx, cx, cy, HALF_W, HALF_H);
   ctx.clip();
 
   const gradient = ctx.createLinearGradient(0, cy - HALF_H, 0, cy + HALF_H);
-  gradient.addColorStop(0, css(shade(palette.base, tone * 1.03)));
-  gradient.addColorStop(1, css(shade(palette.base, tone * 0.97)));
+  gradient.addColorStop(0, css(shade(palette.base, tone * 1.01)));
+  gradient.addColorStop(1, css(shade(palette.base, tone * 0.99)));
   ctx.fillStyle = gradient;
   ctx.fillRect(x, y, width, height);
 
@@ -275,9 +275,9 @@ function drawWildflowers(
   for (let i = 0; i < count; i++) {
     const fx = x + random() * width;
     const fy = y + random() * height;
-    ctx.fillStyle = css(WILDFLOWER_COLOURS[Math.floor(random() * WILDFLOWER_COLOURS.length)], 0.85);
+    ctx.fillStyle = css(WILDFLOWER_COLOURS[Math.floor(random() * WILDFLOWER_COLOURS.length)], 0.75);
     ctx.beginPath();
-    ctx.arc(fx, fy, 1.1, 0, Math.PI * 2);
+    ctx.arc(fx, fy, 1, 0, Math.PI * 2);
     ctx.fill();
   }
 }
@@ -551,17 +551,17 @@ function drawCliff(
   ctx.fillStyle = css(base);
   ctx.fillRect(x, y, width, height);
 
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 9; i++) {
     const stratum = y + random() * height;
-    const bandTone = 0.9 + random() * 0.24;
-    ctx.fillStyle = css(shade(base, bandTone), 0.55);
-    ctx.fillRect(x, stratum, width, 2 + random() * 6);
+    const bandTone = 0.8 + random() * 0.36;
+    ctx.fillStyle = css(shade(base, bandTone), 0.7);
+    ctx.fillRect(x, stratum, width, 2 + random() * 4);
   }
 
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 5; i++) {
     const crackY = y + random() * height;
-    ctx.strokeStyle = shadowed ? 'rgba(96, 82, 58, 0.4)' : 'rgba(120, 104, 74, 0.32)';
-    ctx.lineWidth = 0.8 + random() * 0.8;
+    ctx.strokeStyle = shadowed ? 'rgba(80, 66, 44, 0.6)' : 'rgba(110, 92, 62, 0.5)';
+    ctx.lineWidth = 0.8 + random() * 0.6;
     ctx.beginPath();
     ctx.moveTo(x, crackY);
     for (let px = 0; px <= width; px += 8) {
@@ -570,7 +570,7 @@ function drawCliff(
     ctx.stroke();
   }
 
-  speckle(ctx, random, { x, y, width, height }, 160, [shade(base, 0.82), shade(base, 1.12)], 2, 0.4);
+  speckle(ctx, random, { x, y, width, height }, 70, [shade(base, 0.82), shade(base, 1.12)], 1.5, 0.4);
 
   const warmth = shadowed ? 'rgba(70, 52, 34, 0.22)' : 'rgba(255, 224, 170, 0.08)';
   ctx.fillStyle = warmth;
@@ -579,9 +579,18 @@ function drawCliff(
   const occlusion = ctx.createLinearGradient(0, y, 0, y + height);
   occlusion.addColorStop(0, 'rgba(0,0,0,0.03)');
   occlusion.addColorStop(0.6, shadowed ? 'rgba(50,38,24,0.28)' : 'rgba(0,0,0,0.16)');
-  occlusion.addColorStop(1, shadowed ? 'rgba(40,30,20,0.46)' : 'rgba(0,0,0,0.34)');
+  occlusion.addColorStop(1, shadowed ? 'rgba(40,30,20,0.5)' : 'rgba(0,0,0,0.38)');
   ctx.fillStyle = occlusion;
   ctx.fillRect(x, y, width, height);
+
+  const lip = ctx.createLinearGradient(0, y, 0, y + 4);
+  lip.addColorStop(0, 'rgba(96, 92, 48, 0.9)');
+  lip.addColorStop(1, 'rgba(96, 92, 48, 0)');
+  ctx.fillStyle = lip;
+  ctx.fillRect(x, y, width, 4);
+
+  ctx.fillStyle = 'rgba(40, 30, 20, 0.35)';
+  ctx.fillRect(x, y + height - 1, width, 1);
 }
 
 function drawMarker(

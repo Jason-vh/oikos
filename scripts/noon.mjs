@@ -1,10 +1,10 @@
 import { chromium } from 'playwright';
-const [url, out, tick] = process.argv.slice(2);
+const [url, out, tick, zoom = '1'] = process.argv.slice(2);
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 await page.goto(url, { waitUntil: 'networkidle' });
 await page.waitForFunction(() => Reflect.get(window, 'game') !== undefined);
-await page.evaluate((t) => {
+await page.evaluate(({ tick: t, zoom: z }) => {
   const game = Reflect.get(window, 'game');
   const { world } = game;
   world.treasury = 200000;
@@ -18,12 +18,12 @@ await page.evaluate((t) => {
     if (kinds.length && world.place(kinds[0], x, y)) { kinds.shift(); continue; }
     world.place('house', x, y);
   }
-  game.camera.scale = 1;
+  game.camera.scale = Number(z);
   game.camera.centreOnTile(spot.x, row, 1440, 900);
   game.speed = 0;
   for (let i = 0; i < 4000; i++) world.update();
   world.tick = Number(t);
-}, tick);
+}, { tick, zoom });
 await page.waitForTimeout(1200);
 await page.screenshot({ path: out });
 await browser.close();
