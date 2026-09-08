@@ -123,6 +123,9 @@ export class World {
   canPlace(kind: BuildingKind, x: number, y: number): PlacementCheck {
     const def = BUILDINGS[kind];
     if (this.treasury < def.cost) return { ok: false, reason: 'Not enough drachmas' };
+    if (def.requires && !this.has(def.requires)) {
+      return { ok: false, reason: `Not until a ${BUILDINGS[def.requires].name.toLowerCase()} stands` };
+    }
 
     for (let dy = 0; dy < def.size; dy++) {
       for (let dx = 0; dx < def.size; dx++) {
@@ -135,6 +138,11 @@ export class World {
     }
     if (!this.grid.isFlat(x, y, def.size)) return { ok: false, reason: 'Ground must be level' };
     return { ok: true, reason: def.description };
+  }
+
+  has(kind: BuildingKind): boolean {
+    for (const building of this.buildings.values()) if (building.kind === kind) return true;
+    return false;
   }
 
   place(kind: BuildingKind, x: number, y: number): boolean {

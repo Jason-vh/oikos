@@ -66,6 +66,7 @@ const FOOTPRINT_INSET: Record<BuildingKind, number> = {
   fountain: 1,
   statue: 1,
   taxOffice: 0.88,
+  palace: 0.86,
   agora: 0.94,
   growersLodge: 1,
   olivePress: 0.88,

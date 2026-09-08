@@ -20,7 +20,8 @@ export type BuildingKind =
   | 'maintenanceOffice'
   | 'fountain'
   | 'statue'
-  | 'taxOffice';
+  | 'taxOffice'
+  | 'palace';
 
 export type ServiceSupply = Record<ServiceKind, number>;
 

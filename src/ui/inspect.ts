@@ -48,6 +48,7 @@ export function describeBuildingTool(kind: BuildingKind): Inspection {
   if (def.workers > 0) facts.push(['Workers', `${def.workers}`]);
   if (def.requiresMeadow) facts.push(['Ground', 'Meadow only']);
   if (def.needsRoad) facts.push(['Road', 'Must touch one']);
+  if (def.requires) facts.push(['Requires', BUILDINGS[def.requires].name]);
   facts.push(['Appeal', appealSummary(def)]);
 
   return { title: def.name, subtitle: 'Building', description: def.description, facts };

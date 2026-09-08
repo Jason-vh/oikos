@@ -263,8 +263,9 @@ difficulty).
 🟡 Tax office, clerk and the `TRM × people × rate` table are in `src/sim/taxation.ts`,
 with the seven rates and multiplier 1 below homestead, 2 above. Fire and damage risk
 per building, and the maintenance office whose superintendent clears both, are in
-`src/sim/hazards.ts`. The palace prerequisite, elite multipliers, infirmary, watchpost,
-crime, unrest and plague are not.
+`src/sim/hazards.ts`. The palace stands, 4×4 rather than 9×6 because the grid holds
+square footprints, and `BuildingDef.requires` gates the tax office behind it. Elite
+multipliers, infirmary, watchpost, crime, unrest and plague are not started.
 
 ---
 

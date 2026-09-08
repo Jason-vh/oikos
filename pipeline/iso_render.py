@@ -920,6 +920,67 @@ def build_tax_office():
     return {"kind": "taxOffice", "variant": 0, "footprint": 2, "height": roof_z + roof_h + 0.1}
 
 
+def build_palace():
+    """Palace: a colonnaded hall on a stepped marble terrace, flanked by wings and statues."""
+    marble = material("marble", MARBLE, roughness=0.3)
+    paving = plaster_material("paving", MARBLE, roughness=0.6, variation=0.03, scale=18.0)
+    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.84, variation=0.04, scale=6.0)
+    terracotta = roof_material("terracotta", TERRACOTTA, rows_per_unit=18.0)
+    stone = plaster_material("stone", STONE, roughness=0.8, variation=0.05, scale=10.0)
+    bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
+    clay = material("clay", CLAY, roughness=0.8)
+    cypress = material("cypress", CYPRESS, roughness=0.9)
+
+    terrace = add_box("terrace", (0, 0, 0.03), (3.9, 3.9, 0.06), paving)
+    terrace.visible_shadow = False
+    for step, (size, z) in enumerate(((3.2, 0.11), (3.0, 0.19))):
+        add_box(f"step_{step}", (-0.2, -0.2, z), (size, size, 0.08), marble)
+
+    hall_half = 0.94
+    hall_h = 1.5
+    hx, hy = -0.5, -0.5
+    base_z = 0.23
+    add_box("stylobate", (hx, hy, base_z + 0.05), (hall_half * 2 + 0.34, hall_half * 2 + 0.34, 0.1), marble)
+    add_box("hall", (hx, hy, base_z + 0.1 + hall_h / 2), (hall_half * 2, hall_half * 2, hall_h), whitewash)
+    add_box("architrave", (hx, hy, base_z + 0.1 + hall_h + 0.04), (hall_half * 2 + 0.3, hall_half * 2 + 0.3, 0.09), marble)
+    add_doorway(hall_half, 0.62, (hx, hy), width=0.5)
+    add_window_row(hall_half, base_z + 1.0, (0.16, 0.24), (hx, hy), on_door_face=True)
+
+    roof_z = base_z + 0.1 + hall_h + 0.09
+    roof_h = 0.42
+    add_hip_roof("hall_roof", (hx, hy, roof_z + roof_h / 2), hall_half + 0.2, roof_h, terracotta, ridge_half=0.3)
+    add_box("ridge", (hx, hy, roof_z + roof_h + 0.02), (0.6, 0.09, 0.06), terracotta)
+    add_cylinder("finial", (hx, hy, roof_z + roof_h + 0.12), 0.06, 0.2, bronze, vertices=10)
+
+    for offset in (-0.72, -0.24, 0.24, 0.72):
+        add_cylinder("column_east", (hx + hall_half + 0.24, hy + offset, base_z + 0.1 + 0.6), 0.07, 1.2, marble, vertices=16)
+        add_box("capital_east", (hx + hall_half + 0.24, hy + offset, base_z + 0.1 + 1.22), (0.18, 0.18, 0.06), marble)
+        add_cylinder("column_south", (hx + offset, hy - hall_half - 0.24, base_z + 0.1 + 0.6), 0.07, 1.2, marble, vertices=16)
+        add_box("capital_south", (hx + offset, hy - hall_half - 0.24, base_z + 0.1 + 1.22), (0.18, 0.18, 0.06), marble)
+    add_box("portico_east", (hx + hall_half + 0.24, hy, base_z + 1.36), (0.44, hall_half * 2 + 0.5, 0.1), marble)
+    add_box("portico_south", (hx, hy - hall_half - 0.24, base_z + 1.36), (hall_half * 2 + 0.5, 0.44, 0.1), marble)
+
+    wing_half = 0.52
+    wing_h = 0.78
+    for wx, wy in ((1.42, 0.9), (-0.9, 1.42)):
+        add_box("wing", (wx, wy, 0.06 + wing_h / 2), (wing_half * 2, wing_half * 2, wing_h), whitewash)
+        add_box("wing_cornice", (wx, wy, 0.06 + wing_h + 0.03), (wing_half * 2 + 0.12, wing_half * 2 + 0.12, 0.06), marble)
+        add_hip_roof("wing_roof", (wx, wy, 0.06 + wing_h + 0.2), wing_half + 0.14, 0.26, terracotta, ridge_half=0.16)
+        add_doorway(wing_half, 0.4, (wx, wy))
+
+    for sx, sy in ((1.52, -1.5), (1.52, -0.62)):
+        add_box("plinth", (sx, sy, 0.2), (0.26, 0.26, 0.28), marble)
+        add_cylinder("statue", (sx, sy, 0.52), 0.07, 0.36, bronze, vertices=12)
+    add_cylinder("brazier", (1.56, 0.24, 0.2), 0.09, 0.28, bronze, vertices=12)
+    add_cylinder("brazier_bowl", (1.56, 0.24, 0.36), 0.17, 0.1, bronze, vertices=16)
+    add_cypress_pot("cypress1", (-1.74, 0.7, 0.06), 0.5, clay, cypress)
+    add_cypress_pot("cypress2", (0.24, 1.74, 0.06), 0.46, clay, cypress)
+    add_amphora("jar", (-1.7, -0.4, 0.06), 0.34, clay)
+    add_box("bench", (-1.74, -1.2, 0.16), (0.26, 0.8, 0.2), stone)
+
+    return {"kind": "palace", "variant": 0, "footprint": 4, "height": roof_z + roof_h + 0.34}
+
+
 def build_fountain():
     """Marble basin with a raised centre and a small bronze statue; light blue water."""
     marble = material("marble", MARBLE, roughness=0.3)
@@ -1011,6 +1072,7 @@ HOUSES = [
 ]
 
 MODELS = {
+    "palace": build_palace,
     "granary": build_granary,
     "tax-office": build_tax_office,
     "agora": build_agora,

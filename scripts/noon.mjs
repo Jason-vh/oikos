@@ -13,6 +13,7 @@ await page.evaluate(({ tick: t, zoom: z }) => {
   const row = spot.y + 3;
   for (let x = spot.x - 8; x < spot.x + 12; x++) world.placeRoad(x, row);
   world.place('wheatFarm', spot.x, spot.y);
+  for (let x = spot.x + 11; x > spot.x - 8; x--) if (world.place('palace', x, row + 1)) break;
   const kinds = ['granary', 'fountain', 'statue'];
   for (let x = spot.x - 7; x < spot.x + 11; x += 2) for (const y of [row - 2, row + 1]) {
     if (kinds.length && world.place(kinds[0], x, y)) { kinds.shift(); continue; }

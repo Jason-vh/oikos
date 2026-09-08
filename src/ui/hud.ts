@@ -239,6 +239,7 @@ function groupFor(kind: string): string {
   if (kind === 'wheatFarm' || kind === 'granary' || kind === 'growersLodge' || kind === 'agora') return 'Food';
   if (kind === 'olivePress') return 'Industry';
   if (kind === 'college' || kind === 'podium') return 'Culture';
+  if (kind === 'palace' || kind === 'taxOffice') return 'Government';
   return 'Services';
 }
 
