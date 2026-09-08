@@ -382,9 +382,9 @@
       "x": 730,
       "y": 1446,
       "width": 240,
-      "height": 209,
+      "height": 264,
       "anchorX": 0.5,
-      "anchorY": 0.97561
+      "anchorY": 0.77236
     },
     {
       "kind": "house",
@@ -459,9 +459,9 @@
       "x": 366,
       "y": 1807,
       "width": 240,
-      "height": 252,
+      "height": 297,
       "anchorX": 0.5,
-      "anchorY": 0.90492
+      "anchorY": 0.76781
     },
     {
       "kind": "statue",

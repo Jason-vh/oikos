@@ -38,7 +38,7 @@ BRONZE = hex_rgb("8a6a34")
 STRAW = hex_rgb("c9a94f")
 STRAW_DULL = hex_rgb("b8963f")
 STRAW_RIDGE = hex_rgb("e0c478")
-WINDOW_GLOW = (1.0, 0.55, 0.15)
+WINDOW_GLOW = (1.0, 0.45, 0.1)
 STONE = (0.70, 0.66, 0.58)
 FIELDSTONE = (0.62, 0.58, 0.50)
 OCHRE = (0.78, 0.58, 0.34)
@@ -255,7 +255,7 @@ def window_material(night):
     if night:
         bsdf.inputs["Base Color"].default_value = (*WINDOW_GLOW, 1)
         bsdf.inputs["Emission Color"].default_value = (*WINDOW_GLOW, 1)
-        bsdf.inputs["Emission Strength"].default_value = 3.5
+        bsdf.inputs["Emission Strength"].default_value = 1.4
     else:
         bsdf.inputs["Base Color"].default_value = (0.09, 0.07, 0.05, 1)
         bsdf.inputs["Roughness"].default_value = 0.4
@@ -268,7 +268,7 @@ def door_glow_material():
     bsdf = mat.node_tree.nodes["Principled BSDF"]
     bsdf.inputs["Base Color"].default_value = (*WINDOW_GLOW, 1)
     bsdf.inputs["Emission Color"].default_value = (*WINDOW_GLOW, 1)
-    bsdf.inputs["Emission Strength"].default_value = 2.5
+    bsdf.inputs["Emission Strength"].default_value = 1.2
     return mat
 
 
