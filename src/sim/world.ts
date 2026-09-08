@@ -17,6 +17,7 @@ import { accrueAfflictions, plagueToll, tendHouse, theftLoss } from './unrest';
 import {
   GODS,
   GOD_KINDS,
+  SANCTUARY_KINDS,
   actFor,
   moodAfterMonth,
   newPantheon,
@@ -25,6 +26,7 @@ import {
 } from './gods';
 import { judgeCity, migrantsFor, type Sentiment } from './popularity';
 import {
+  CAMPAIGN,
   DEFAULT_SCENARIO,
   allGoalsMet,
   measureGoals,
@@ -33,8 +35,8 @@ import {
   type Scenario,
 } from './scenario';
 import { DEFAULT_TAX_RATE, collectTax, type TaxReport } from './taxation';
-import { NO_TRADE, newTradeOrders, trade, type TradeReport } from './trade';
-import { NO_ARMY, fightInvasion, musterArmy, type Army, type Battle } from './military';
+import { NO_TRADE, TRADE_ROUTES, newTradeOrders, trade, type TradeReport } from './trade';
+import { NO_ARMY, companiesIn, fightInvasion, musterArmy, type Army, type Battle } from './military';
 import { TICKS_PER_MONTH } from './time';
 import { createBuilding } from './types';
 import type { Building, BuildingKind, Good, Walker, WalkerKind } from './types';
@@ -53,6 +55,7 @@ const COLLEGE_SPAWN_INTERVAL = 90;
 const MAINTENANCE_SPAWN_INTERVAL = 70;
 const STAGGERED_RISK = 40;
 const INVASION_MONTH = 6;
+const MONTHS_OF_DEBT_ALLOWED = 24;
 const PLUNDER_PER_COMPANY = 250;
 const HADES_GIFT = 600;
 const HADES_TRIBUTE = 400;
@@ -96,8 +99,11 @@ export class World {
   army: Army = { ...NO_ARMY };
   lastBattle: Battle | null = null;
   scenario: Scenario = DEFAULT_SCENARIO;
+  episode = 0;
   goals: GoalProgress[] = [];
   scenarioWon = false;
+  scenarioLost = false;
+  monthsInDebt = 0;
   tick = 0;
   month = 0;
   year = -500;
@@ -359,6 +365,9 @@ export class World {
     }
 
     return {
+      sanctuaries: [...this.buildings.values()].filter((building) => SANCTUARY_KINDS.includes(building.kind)).length,
+      companies: companiesIn(this.army),
+      tradePartners: TRADE_ROUTES.filter((route) => this.tradeOrders[route.id]).length,
       population: this.population,
       treasury: this.treasury,
       peopleByTier,
@@ -372,10 +381,31 @@ export class World {
 
   private reviewGoals(): void {
     this.goals = measureGoals(this.scenario, this.citySnapshot());
+    this.monthsInDebt = this.treasury < 0 ? this.monthsInDebt + 1 : 0;
+
+    if (!this.scenarioLost && this.monthsInDebt >= MONTHS_OF_DEBT_ALLOWED) {
+      this.scenarioLost = true;
+      this.log('The city has been in debt for two years. Your rule is over, Archon.');
+      return;
+    }
+
     if (this.scenarioWon || !allGoalsMet(this.goals)) return;
 
     this.scenarioWon = true;
     this.log(`Every goal of ${this.scenario.name} is met, Archon.`);
+  }
+
+  beginEpisode(episode: number): void {
+    this.episode = Math.min(episode, CAMPAIGN.length - 1);
+    this.scenario = CAMPAIGN[this.episode];
+    this.scenarioWon = false;
+    this.scenarioLost = false;
+    this.monthsInDebt = 0;
+    this.goals = measureGoals(this.scenario, this.citySnapshot());
+  }
+
+  get hasNextEpisode(): boolean {
+    return this.episode + 1 < CAMPAIGN.length;
   }
 
   private runTrade(): void {

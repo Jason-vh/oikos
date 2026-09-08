@@ -669,3 +669,25 @@ button.cartouche:hover {
 .goals-list li.met b {
   color: #4f7d3a;
 }
+
+.goals-next {
+  width: 100%;
+  margin-top: 10px;
+  padding: 7px 10px;
+  cursor: pointer;
+  border: 1px solid var(--bronze-3);
+  border-radius: 6px;
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold) 60%, var(--bronze-2));
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.goals-next[hidden] {
+  display: none;
+}
+
+.goals-next:hover {
+  filter: brightness(1.08);
+}

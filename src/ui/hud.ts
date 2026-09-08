@@ -5,6 +5,7 @@ import { monthlyWages, WAGE_LEVELS, type LabourReport } from '../sim/labour';
 import { TAX_RATES } from '../sim/taxation';
 import { GODS, GOD_KINDS, moodName } from '../sim/gods';
 import { UNITS, companiesIn, type UnitKind } from '../sim/military';
+import { CAMPAIGN } from '../sim/scenario';
 import { abandonCity } from '../sim/save';
 import { TRADE_ROUTES } from '../sim/trade';
 import { COIN, money } from './money';
@@ -65,6 +66,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
         </button>
         <p class="goals-blurb" data-goals-blurb></p>
         <ul class="goals-list" data-goals-list></ul>
+        <button class="goals-next" data-next-episode hidden></button>
       </section>
       <section class="popup" data-popup hidden>
         <button class="popup-close" data-popup-close>×</button>
@@ -153,6 +155,10 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
     if (!confirm('Abandon this city and found a new one?')) return;
     abandonCity();
     location.reload();
+  });
+
+  hud.querySelector('[data-next-episode]')?.addEventListener('click', () => {
+    game.world.beginEpisode(game.world.episode + 1);
   });
 
   const goals = hud.querySelector('[data-goals]') as HTMLElement;
@@ -286,9 +292,12 @@ function renderGoals(hud: HTMLElement, world: Game['world']): void {
   const title = hud.querySelector('[data-goals-title]') as HTMLElement;
   const blurb = hud.querySelector('[data-goals-blurb]') as HTMLElement;
   const list = hud.querySelector('[data-goals-list]') as HTMLElement;
+  const next = hud.querySelector('[data-next-episode]') as HTMLButtonElement;
 
-  title.textContent = world.scenario.name;
-  blurb.textContent = world.scenarioWon ? 'Every goal is met. The city is yours.' : world.scenario.blurb;
+  title.textContent = `${world.episode + 1}. ${world.scenario.name}`;
+  blurb.textContent = episodeBlurb(world);
+  next.hidden = !world.scenarioWon || !world.hasNextEpisode;
+  next.textContent = world.hasNextEpisode ? `On to ${CAMPAIGN[world.episode + 1].name}` : '';
 
   const rows = world.goals
     .map(
@@ -371,6 +380,13 @@ function godsNote(world: Game['world']): string {
   const honoured = GOD_KINDS.some((kind) => world.gods[kind].honoured);
   if (honoured) return 'No god has stirred yet.';
   return 'Raise a sanctuary and a god will take an interest.';
+}
+
+function episodeBlurb(world: Game['world']): string {
+  if (world.scenarioLost) return 'The city is bankrupt and your rule is over.';
+  if (!world.scenarioWon) return world.scenario.blurb;
+  if (world.hasNextEpisode) return 'Every goal is met. Another city awaits.';
+  return 'Every goal of the campaign is met. Greece is yours.';
 }
 
 function taxCoverage(world: Game['world']): number {

@@ -10,6 +10,9 @@ const city = (over: Partial<CitySnapshot> = {}): CitySnapshot => ({
   treasury: 0,
   peopleByTier: HOUSE_TIERS.map(() => 0),
   yearlyOutput: { food: 0, olives: 0, oil: 0 },
+  sanctuaries: 0,
+  companies: 0,
+  tradePartners: 0,
   ...over,
 });
 

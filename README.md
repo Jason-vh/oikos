@@ -203,8 +203,8 @@ The game picks it up with no client changes.
 The full inventory lives in [docs/roadmap.md](docs/roadmap.md). Next up:
 
 1. **Heroes and monsters** — halls, summoning conditions, a monster each hero can kill.
-2. **Campaign** — more than one scenario, episodes, ratings, failure conditions.
-3. **Walls and towers** — a defence to place, rather than a battle decided on paper.
+2. **Walls and towers** — a defence to place, rather than a battle decided on paper.
+3. **Events** — requests, gifts, quests and disasters on a schedule.
 
 ## Art licence
 

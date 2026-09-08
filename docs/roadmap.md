@@ -536,7 +536,12 @@ messages and archives, undo of the last build, autosave every 6 months, help
 balloons, and a full adventure editor (map painting, city properties, events,
 per-episode text, MP3 briefings).
 
-⬜ All.
+🟡 Four episodes run in sequence from `CAMPAIGN` in `src/sim/scenario.ts`: Thebes,
+Corinth, Delphi and Mycenae, each with its own goals, blurb and invasions. Goals now
+cover population, treasury, housing level, yearly production, sanctuaries, companies
+and trading partners; meeting them all offers the next city, and two years in debt
+ends the rule. Adventures, colonies, ratings, the event system and the editor are not
+started.
 
 ---
 
