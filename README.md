@@ -19,7 +19,9 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
 | Right / middle drag | Pan |
 | WASD / arrows | Pan |
 | Wheel | Zoom |
-| `R`, `B`, `1`–`5`, `X` | Select tool |
+| `I`, `R`, `B`, `1`–`7`, `X` | Select tool |
+| Click with `I` | Inspect a building, road or tile |
+| `Esc` | Back to inspect, close the popup |
 | `O` | Appeal overlay |
 | Space | Pause |
 
@@ -80,6 +82,8 @@ src/render/
   atmosphere.ts   colour grade, bloom, vignette
   particles.ts    chimney smoke and cart dust
 src/ui/         DOM overlay
+  hud.ts          top bar, tool panel, message scroll
+  inspect.ts      what every building, tile and tool says about itself
 pipeline/       Blender → sprite atlas asset pipeline
 ```
 

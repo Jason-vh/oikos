@@ -9,6 +9,7 @@ import { TextureCache } from './render/textures';
 import { BUILDINGS, HOUSE_TIERS, ROAD_COST } from './sim/buildings';
 import { MAX_HEIGHT, TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_SAND, TERRAIN_WATER } from './sim/grid';
 import type { View } from './sim/save';
+import { inspectTile, type Inspection } from './ui/inspect';
 import type { Building, BuildingKind, ServiceSupply } from './sim/types';
 import { TICKS_PER_SECOND } from './sim/time';
 import { World } from './sim/world';
@@ -30,8 +31,9 @@ export class Game {
   readonly camera = new Camera();
   readonly atmosphere: Atmosphere;
 
-  tool: Tool = { kind: 'road' };
+  tool: Tool = { kind: 'inspect' };
   speed = 1;
+  selected: Point | null = null;
 
   private readonly atlas: TileAtlas;
   readonly textures: TextureCache;
@@ -102,6 +104,15 @@ export class Game {
     this.scene.setOverlayMode(next);
   }
 
+  inspectSelection(): Inspection | null {
+    if (!this.selected) return null;
+    return inspectTile(this.world, this.selected.x, this.selected.y);
+  }
+
+  clearSelection(): void {
+    this.selected = null;
+  }
+
   describeHover(): string {
     const { x, y } = this.hovered;
     const grid = this.world.grid;
@@ -131,6 +142,11 @@ export class Game {
   private onPress(tile: Point): void {
     this.hovered = tile;
     this.dragOrigin = tile;
+
+    if (this.tool.kind === 'inspect') {
+      this.selected = this.world.grid.contains(tile.x, tile.y) ? tile : null;
+      return;
+    }
 
     if (this.tool.kind === 'demolish') {
       this.world.demolish(tile.x, tile.y);
@@ -176,6 +192,8 @@ export class Game {
       this.tool.kind === 'build' ? this.tool.building : '',
       this.hovered.x,
       this.hovered.y,
+      this.selected?.x ?? -1,
+      this.selected?.y ?? -1,
       this.dragOrigin?.x ?? -1,
       this.dragOrigin?.y ?? -1,
       this.world.structureVersion,
@@ -196,6 +214,11 @@ export class Game {
 
     if (this.tool.kind === 'demolish') {
       this.addTileMarker(this.hovered, 0xe07070);
+      return;
+    }
+
+    if (this.tool.kind === 'inspect') {
+      if (this.selected) this.addTileMarker(this.selected, 0xf0d99b);
       return;
     }
 

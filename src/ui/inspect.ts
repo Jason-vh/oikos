@@ -1,0 +1,182 @@
+import { bandValues } from '../sim/appeal';
+import { BUILDINGS, HOUSE_TIERS, ROADBLOCK_COST, ROAD_COST } from '../sim/buildings';
+import type { BuildingDef } from '../sim/buildings';
+import { TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_SAND, TERRAIN_WATER } from '../sim/grid';
+import { ROAM_RANGE } from '../sim/walkers';
+import type { Building, BuildingKind } from '../sim/types';
+import type { World } from '../sim/world';
+
+export interface Inspection {
+  title: string;
+  subtitle: string;
+  description: string;
+  facts: [string, string][];
+}
+
+const WALKER_OF: Partial<Record<BuildingKind, { name: string; kind: 'peddler' | 'waterCarrier' | 'clerk' }>> = {
+  agora: { name: 'Peddler', kind: 'peddler' },
+  fountain: { name: 'Water carrier', kind: 'waterCarrier' },
+  taxOffice: { name: 'Clerk', kind: 'clerk' },
+};
+
+export function inspectTile(world: World, x: number, y: number): Inspection | null {
+  const { grid } = world;
+  if (!grid.contains(x, y)) return null;
+
+  const index = grid.index(x, y);
+  const building = world.buildingAt(index);
+  if (building) return inspectBuilding(world, building, index);
+  if (grid.isRoadblock(index)) return inspectRoadblock(world, index);
+  if (grid.isRoad(index)) return inspectRoad(world, index);
+  return inspectGround(world, index);
+}
+
+export function describeBuildingTool(kind: BuildingKind): Inspection {
+  const def = BUILDINGS[kind];
+  const facts: [string, string][] = [
+    ['Cost', `${def.cost} dr`],
+    ['Size', `${def.size}×${def.size} tiles`],
+  ];
+  if (def.workers > 0) facts.push(['Workers', `${def.workers}`]);
+  if (def.requiresMeadow) facts.push(['Ground', 'Meadow only']);
+  if (def.needsRoad) facts.push(['Road', 'Must touch one']);
+  facts.push(['Appeal', appealSummary(def)]);
+
+  return { title: def.name, subtitle: 'Building', description: def.description, facts };
+}
+
+export function describeRoadTool(): Inspection {
+  return {
+    title: 'Road',
+    subtitle: 'Network',
+    description: 'The only network in the city. Every walker follows it, and nothing social crosses bare ground.',
+    facts: [['Cost', `${ROAD_COST} dr per tile`]],
+  };
+}
+
+export function describeRoadblockTool(): Inspection {
+  return {
+    title: 'Roadblock',
+    subtitle: 'Network',
+    description:
+      'Roaming walkers turn back here, so a block can be sealed off from wandering vendors. Anyone walking to a destination — a cart pusher, a deliveryman, a walker heading home — passes straight through.',
+    facts: [['Cost', `${ROADBLOCK_COST} dr`]],
+  };
+}
+
+export function describeDemolishTool(): Inspection {
+  return {
+    title: 'Demolish',
+    subtitle: 'Tool',
+    description: 'Clears a roadblock, then a road, then a building. Nothing is refunded.',
+    facts: [],
+  };
+}
+
+export function describeInspectTool(): Inspection {
+  return {
+    title: 'Inspect',
+    subtitle: 'Tool',
+    description: 'Click anything in the city to read what it is doing.',
+    facts: [],
+  };
+}
+
+function inspectBuilding(world: World, building: Building, index: number): Inspection {
+  const def = BUILDINGS[building.kind];
+  const facts: [string, string][] = [];
+
+  if (building.kind === 'house') return inspectHouse(world, building, index);
+
+  if (def.workers > 0) {
+    const short = def.workers - building.staff;
+    facts.push(['Workers', short > 0 ? `${building.staff} of ${def.workers} — ${short} short` : `${def.workers}, fully staffed`]);
+  }
+  if (building.kind === 'wheatFarm' || building.kind === 'granary') {
+    facts.push(['Stored', `${building.stock} cartloads`]);
+  }
+  if (building.kind === 'agora') facts.push(['Stalls hold', `${Math.round(building.stock)} units of food`]);
+
+  const walker = WALKER_OF[building.kind];
+  if (walker) {
+    facts.push([walker.name, `roams ${ROAM_RANGE[walker.kind]} tiles`]);
+    facts.push(['Out now', `${building.walkersOut} of ${def.maxWalkers}`]);
+  }
+  facts.push(['Appeal', appealSummary(def)]);
+  facts.push(['Appeal here', `${world.grid.appeal[index]}`]);
+
+  return { title: def.name, subtitle: 'Building', description: def.description, facts };
+}
+
+function inspectHouse(world: World, house: Building, index: number): Inspection {
+  const tier = HOUSE_TIERS[house.tier];
+  const next = HOUSE_TIERS[house.tier + 1];
+  const appeal = world.grid.appeal[index];
+
+  const facts: [string, string][] = [
+    ['Citizens', `${house.population} of ${tier.capacity}`],
+    ['Water', house.supply.water > 0 ? 'supplied' : 'none'],
+    ['Food', house.supply.food > 0 ? 'supplied' : 'none'],
+    ['Tax', house.supply.tax > 0 ? `paying, ×${tier.taxMultiplier}` : 'no clerk has called'],
+    ['Appeal here', `${appeal}`],
+  ];
+
+  if (next) {
+    const needs = next.needs.length > 0 ? next.needs.join(' and ') : 'nothing';
+    const gate = Number.isFinite(next.evolveAppeal) ? ` and appeal ${next.evolveAppeal}` : '';
+    facts.push([`Becomes a ${next.name.toLowerCase()}`, `with ${needs}${gate}`]);
+  }
+
+  return {
+    title: tier.name,
+    subtitle: 'Housing',
+    description:
+      house.tier === 0
+        ? 'Newcomers camp here. Bring water and a peddler and they will build something better.'
+        : `Home to ${house.population} citizens. It falls back a tier if its services lapse or its surroundings decay.`,
+    facts,
+  };
+}
+
+function inspectRoadblock(world: World, index: number): Inspection {
+  return { ...describeRoadblockTool(), facts: [['Appeal here', `${world.grid.appeal[index]}`]] };
+}
+
+function inspectRoad(world: World, index: number): Inspection {
+  return { ...describeRoadTool(), facts: [['Appeal here', `${world.grid.appeal[index]}`]] };
+}
+
+function inspectGround(world: World, index: number): Inspection {
+  const terrain = world.grid.terrain[index];
+  return {
+    title: terrainName(terrain),
+    subtitle: 'Ground',
+    description: terrainDescription(terrain),
+    facts: [
+      ['Appeal here', `${world.grid.appeal[index]}`],
+      ['Elevation', `level ${world.grid.height[index]}`],
+    ],
+  };
+}
+
+function appealSummary(def: BuildingDef): string {
+  const values = bandValues(def.appeal);
+  if (values.length === 0) return 'none';
+  return values.map((value) => (value > 0 ? `+${value}` : `${value}`)).join(' ');
+}
+
+function terrainName(terrain: number): string {
+  if (terrain === TERRAIN_WATER) return 'Water';
+  if (terrain === TERRAIN_MEADOW) return 'Meadow';
+  if (terrain === TERRAIN_ROCK) return 'Rocks';
+  if (terrain === TERRAIN_SAND) return 'Sand';
+  return 'Grass';
+}
+
+function terrainDescription(terrain: number): string {
+  if (terrain === TERRAIN_WATER) return 'Nothing can be built on open water.';
+  if (terrain === TERRAIN_MEADOW) return 'Rich purple-tufted ground. Farms grow here and nowhere else.';
+  if (terrain === TERRAIN_ROCK) return 'Bare rock. It carries no buildings.';
+  if (terrain === TERRAIN_SAND) return 'Dry sand. Buildable, but nothing grows.';
+  return 'Open grass. Anything but a farm can stand here.';
+}

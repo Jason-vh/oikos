@@ -3,14 +3,22 @@ import { BUILDINGS, PLACEABLE, ROADBLOCK_COST, ROAD_COST } from '../sim/building
 import { WAGE_LEVELS, type LabourReport } from '../sim/labour';
 import { TAX_RATES } from '../sim/taxation';
 import { abandonCity } from '../sim/save';
+import {
+  describeBuildingTool,
+  describeDemolishTool,
+  describeInspectTool,
+  describeRoadTool,
+  describeRoadblockTool,
+  type Inspection,
+} from './inspect';
 
 interface ToolButton {
   label: string;
   cost: number | null;
-  hint: string;
   shortcut: string;
   tool: Tool;
   group: string;
+  describe: () => Inspection;
 }
 
 export function createHud(root: HTMLElement, game: Game): { update: () => void } {
@@ -40,6 +48,13 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
           ${renderPanel(buttons)}
         </div>
       </aside>
+      <section class="popup" data-popup hidden>
+        <button class="popup-close" data-popup-close>×</button>
+        <h2 data-popup-title></h2>
+        <p class="popup-subtitle" data-popup-subtitle></p>
+        <p class="popup-description" data-popup-description></p>
+        <dl class="popup-facts" data-popup-facts></dl>
+      </section>
       <footer class="scroll">
         <span data-field="hover"></span>
         <span data-field="messages"></span>
@@ -51,9 +66,20 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
   const hud = root.querySelector('.hud') as HTMLElement;
   const field = (name: string) => hud.querySelector(`[data-field="${name}"]`) as HTMLElement;
 
+  const popup = hud.querySelector('[data-popup]') as HTMLElement;
+  let balloon: Inspection | null = null;
+
   hud.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((element) => {
+    const button = buttons[Number(element.dataset.tool)];
     element.addEventListener('click', () => selectTool(Number(element.dataset.tool)));
+    element.addEventListener('mouseenter', () => {
+      balloon = button.describe();
+    });
+    element.addEventListener('mouseleave', () => {
+      balloon = null;
+    });
   });
+  hud.querySelector('[data-popup-close]')?.addEventListener('click', () => game.clearSelection());
   hud.querySelectorAll<HTMLButtonElement>('[data-speed]').forEach((element) => {
     element.addEventListener('click', () => {
       game.speed = Number(element.dataset.speed);
@@ -81,6 +107,12 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
 
   window.addEventListener('keydown', (event) => {
     const key = event.key.toLowerCase();
+    if (key === 'escape') {
+      game.clearSelection();
+      selectTool(buttons.findIndex((button) => button.tool.kind === 'inspect'));
+      return;
+    }
+
     const index = buttons.findIndex((button) => button.shortcut === key);
     if (index >= 0) selectTool(index);
     if (key === 'o') game.toggleAppealOverlay();
@@ -98,6 +130,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       field('labour').textContent = labourLabel(game.world.labour);
       field('wages').textContent = `Wages: ${WAGE_LEVELS[game.world.wageLevel].name}`;
       field('taxes').textContent = taxLabel(game.world);
+      renderPopup(popup, balloon ?? game.inspectSelection(), balloon === null);
       field('hover').textContent = game.describeHover();
       field('messages').textContent = game.world.messages[0] ?? '';
 
@@ -113,31 +146,62 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
 }
 
 function toolButtons(): ToolButton[] {
-  const structures = PLACEABLE.map((kind, index) => {
-    const def = BUILDINGS[kind];
-    return {
-      label: def.name,
-      cost: def.cost,
-      hint: def.description,
-      shortcut: String(index + 1),
-      tool: { kind: 'build', building: kind } as Tool,
-      group: groupFor(kind),
-    };
-  });
+  const structures = PLACEABLE.map((kind, index) => ({
+    label: BUILDINGS[kind].name,
+    cost: BUILDINGS[kind].cost,
+    shortcut: String(index + 1),
+    tool: { kind: 'build', building: kind } as Tool,
+    group: groupFor(kind),
+    describe: () => describeBuildingTool(kind),
+  }));
 
   return [
-    { label: 'Road', cost: ROAD_COST, hint: 'Per tile', shortcut: 'r', tool: { kind: 'road' }, group: 'Road' },
+    {
+      label: 'Inspect',
+      cost: null,
+      shortcut: 'i',
+      tool: { kind: 'inspect' },
+      group: 'Road',
+      describe: describeInspectTool,
+    },
+    { label: 'Road', cost: ROAD_COST, shortcut: 'r', tool: { kind: 'road' }, group: 'Road', describe: describeRoadTool },
     {
       label: 'Roadblock',
       cost: ROADBLOCK_COST,
-      hint: 'Roaming walkers turn back here; deliverymen pass',
       shortcut: 'b',
       tool: { kind: 'roadblock' },
       group: 'Road',
+      describe: describeRoadblockTool,
     },
     ...structures,
-    { label: 'Demolish', cost: null, hint: 'Remove roads and buildings', shortcut: 'x', tool: { kind: 'demolish' }, group: 'Demolish' },
+    {
+      label: 'Demolish',
+      cost: null,
+      shortcut: 'x',
+      tool: { kind: 'demolish' },
+      group: 'Demolish',
+      describe: describeDemolishTool,
+    },
   ];
+}
+
+function renderPopup(popup: HTMLElement, inspection: Inspection | null, closable: boolean): void {
+  popup.hidden = inspection === null;
+  if (!inspection) return;
+
+  (popup.querySelector('[data-popup-close]') as HTMLElement).hidden = !closable;
+
+  const set = (name: string, text: string) => {
+    (popup.querySelector(`[data-popup-${name}]`) as HTMLElement).textContent = text;
+  };
+  set('title', inspection.title);
+  set('subtitle', inspection.subtitle);
+  set('description', inspection.description);
+
+  const facts = popup.querySelector('[data-popup-facts]') as HTMLElement;
+  facts.innerHTML = inspection.facts
+    .map(([term, value]) => `<dt>${term}</dt><dd>${value}</dd>`)
+    .join('');
 }
 
 function groupFor(kind: string): string {
@@ -192,7 +256,7 @@ function speedLabel(speed: number): string {
 
 function renderButton(button: ToolButton, index: number): string {
   const cost = button.cost === null ? '' : `<small>${button.cost} dr</small>`;
-  return `<button class="tool" data-tool="${index}" title="${button.hint}">
+  return `<button class="tool" data-tool="${index}">
     <span class="tool-label">${button.label}${cost}</span>
     <kbd>${button.shortcut.toUpperCase()}</kbd>
   </button>`;

@@ -127,7 +127,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     appeal: { initial: -12, bandSize: 1, step: 2, range: 4 },
     requiresMeadow: false,
     needsRoad: true,
-    description: 'Stores food and sends vendors along the roads to feed houses.',
+    description: 'Holds the cartloads farms bring in. Agora deliverymen collect from here.',
   },
   agora: {
     kind: 'agora',

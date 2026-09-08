@@ -373,3 +373,81 @@ button.cartouche:hover {
   color: var(--bronze-3);
   font-weight: 600;
 }
+
+/* ---------- inspection popup ---------- */
+
+.popup {
+  position: absolute;
+  left: 18px;
+  bottom: 68px;
+  width: 320px;
+  padding: 14px 16px 12px;
+  pointer-events: auto;
+  border: 1px solid var(--stone-shadow);
+  border-radius: 8px;
+  background:
+    radial-gradient(ellipse at 15% 10%, rgba(255, 255, 255, 0.25), transparent 55%),
+    linear-gradient(200deg, var(--parchment-1), var(--parchment-2));
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  color: var(--ink);
+}
+
+.popup[hidden] {
+  display: none;
+}
+
+.popup h2 {
+  margin: 0;
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  color: var(--bronze-3);
+}
+
+.popup-subtitle {
+  margin: 0 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--stone-shadow);
+}
+
+.popup-description {
+  margin: 0 0 10px;
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--ink-soft);
+}
+
+.popup-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  margin: 0;
+  font-size: 14px;
+}
+
+.popup-facts dt {
+  color: var(--stone-shadow);
+}
+
+.popup-facts dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.popup-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  border: none;
+  background: none;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--stone-shadow);
+}
+
+.popup-close:hover {
+  color: var(--bronze-3);
+}
