@@ -39,26 +39,29 @@ interface TerrainPalette {
 
 const TERRAIN_PALETTES: Record<number, TerrainPalette> = {
   [TERRAIN_GRASS]: {
-    base: 0x6c9b4a,
-    highlight: 0x86b45c,
-    speckles: [0x5c8a3e, 0x7fae54, 0x9cc169, 0x4f7a36],
+    base: 0x8f8a4e,
+    highlight: 0xa89e5f,
+    speckles: [0x776f38, 0xb0a566, 0xc4a94f, 0x6b6431],
   },
   [TERRAIN_MEADOW]: {
-    base: 0x8fbb55,
-    highlight: 0xa8cf68,
-    speckles: [0xb6d477, 0x789f45, 0xd8dd7a, 0xc7d06a],
+    base: 0xc3b96a,
+    highlight: 0xd8cd82,
+    speckles: [0xaea053, 0xe2d68e, 0x9c9048, 0xd0c26a],
   },
   [TERRAIN_ROCK]: {
-    base: 0x8d8779,
-    highlight: 0xa39c8c,
-    speckles: [0x6f6a5e, 0xb0a897, 0x7d7768, 0x9a9384],
+    base: 0xb8ae98,
+    highlight: 0xcfc6b0,
+    speckles: [0xa89c82, 0xdcd3ba, 0x9c8f74, 0xc4bba1],
   },
   [TERRAIN_SAND]: {
-    base: 0xd8c898,
-    highlight: 0xe6d8ae,
-    speckles: [0xc4b283, 0xece0bb, 0xb9a677],
+    base: 0xe3d8ad,
+    highlight: 0xefe6c4,
+    speckles: [0xd4c795, 0xf5eeda, 0xc7b986],
   },
 };
+
+const WILDFLOWER_COLOURS = [0xf5f2e8, 0xb79bd1, 0xffffff, 0xc9a6dc];
+const PEBBLE_COLOUR = 0xa89c82;
 
 interface Cell {
   key: string;
@@ -230,11 +233,53 @@ function drawTerrain(
 
   if (kind === TERRAIN_GRASS || kind === TERRAIN_MEADOW) {
     drawBlades(ctx, random, palette, x, y, width, height);
+    drawPebbles(ctx, random, x, y, width, height, 3 + (variant % 3));
+    drawWildflowers(ctx, random, x, y, width, height, variant % 4);
   }
   if (kind === TERRAIN_MEADOW) drawFurrows(ctx, cx, cy);
   if (kind === TERRAIN_ROCK) drawStones(ctx, random, x, y, width, height);
+  if (kind === TERRAIN_SAND) drawPebbles(ctx, random, x, y, width, height, 4);
 
   ctx.restore();
+}
+
+function drawPebbles(
+  ctx: CanvasRenderingContext2D,
+  random: () => number,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  count: number,
+): void {
+  for (let i = 0; i < count; i++) {
+    const px = x + random() * width;
+    const py = y + random() * height;
+    const size = 1 + random() * 1.8;
+    ctx.fillStyle = css(PEBBLE_COLOUR, 0.5);
+    ctx.beginPath();
+    ctx.ellipse(px, py, size, size * 0.7, random() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawWildflowers(
+  ctx: CanvasRenderingContext2D,
+  random: () => number,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  count: number,
+): void {
+  for (let i = 0; i < count; i++) {
+    const fx = x + random() * width;
+    const fy = y + random() * height;
+    ctx.fillStyle = css(WILDFLOWER_COLOURS[Math.floor(random() * WILDFLOWER_COLOURS.length)], 0.85);
+    ctx.beginPath();
+    ctx.arc(fx, fy, 1.1, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 function drawBlades(
@@ -260,7 +305,7 @@ function drawBlades(
 }
 
 function drawFurrows(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
-  ctx.strokeStyle = 'rgba(116, 148, 58, 0.3)';
+  ctx.strokeStyle = 'rgba(150, 130, 60, 0.3)';
   ctx.lineWidth = 1.5;
   for (let i = -4; i <= 4; i++) {
     const offset = i * 7;
@@ -290,9 +335,9 @@ function drawStones(
       sx - size * 0.7, sy + size * 0.4,
       sx - size, sy - size * 0.4,
     ]);
-    ctx.fillStyle = css(0x9a9285, 0.75);
+    ctx.fillStyle = css(0xcfc6b0, 0.75);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(60,56,48,0.5)';
+    ctx.strokeStyle = 'rgba(110,100,80,0.45)';
     ctx.lineWidth = 1;
     ctx.stroke();
   }
@@ -314,32 +359,94 @@ function drawRoad(
   diamondPath(ctx, cx, cy, HALF_W, HALF_H);
   ctx.clip();
 
-  ctx.fillStyle = css(0xa89a7c);
+  ctx.fillStyle = css(0xc9b389);
   ctx.fillRect(x, y, width, height);
-  speckle(ctx, random, { x, y, width, height }, 200, [0x8d7f63, 0xc0b291, 0x776a52], 2.4, 0.6);
+  speckle(ctx, random, { x, y, width, height }, 140, [0xb8a077, 0xd8c69c, 0xa6926a], 2, 0.4);
 
-  for (let i = 0; i < 16; i++) {
-    ctx.fillStyle = css(0x6f6450, 0.32);
-    ctx.beginPath();
-    ctx.ellipse(
-      x + random() * width,
-      y + random() * height,
-      2 + random() * 3,
-      1 + random() * 1.6,
-      random() * Math.PI,
-      0,
-      Math.PI * 2,
-    );
-    ctx.fill();
-  }
+  drawFlagstones(ctx, random, x, y, width, height);
+
+  const north = { x: cx, y: cy - HALF_H };
+  const east = { x: cx + HALF_W, y: cy };
+  const south = { x: cx, y: cy + HALF_H };
+  const west = { x: cx - HALF_W, y: cy };
+  drawEdgingStones(ctx, random, north, east);
+  drawEdgingStones(ctx, random, south, west);
 
   const rut = ctx.createLinearGradient(0, cy - HALF_H, 0, cy + HALF_H);
-  rut.addColorStop(0, 'rgba(0,0,0,0.16)');
+  rut.addColorStop(0, 'rgba(0,0,0,0.14)');
   rut.addColorStop(0.5, 'rgba(0,0,0,0)');
-  rut.addColorStop(1, 'rgba(0,0,0,0.18)');
+  rut.addColorStop(1, 'rgba(0,0,0,0.16)');
   ctx.fillStyle = rut;
   ctx.fillRect(x, y, width, height);
   ctx.restore();
+}
+
+function drawFlagstones(
+  ctx: CanvasRenderingContext2D,
+  random: () => number,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): void {
+  const cols = 4;
+  const rows = 4;
+  const cellW = width / cols;
+  const cellH = height / rows;
+
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const jitter = 0.28;
+      const sx = x + (col + 0.5 + (random() - 0.5) * jitter) * cellW;
+      const sy = y + (row + 0.5 + (random() - 0.5) * jitter) * cellH;
+      const sw = cellW * (0.62 + random() * 0.24);
+      const sh = cellH * (0.62 + random() * 0.24);
+      const rot = (random() - 0.5) * 0.3;
+      const tone = 0.92 + random() * 0.16;
+
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.rotate(rot);
+      polygonPath(ctx, [
+        -sw / 2, -sh / 2,
+        sw / 2, -sh / 2 + sh * 0.08,
+        sw / 2 - sw * 0.06, sh / 2,
+        -sw / 2 + sw * 0.05, sh / 2 - sh * 0.05,
+      ]);
+      ctx.fillStyle = css(shade(0xc9b389, tone), 0.55);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(94, 78, 54, 0.4)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+}
+
+function drawEdgingStones(
+  ctx: CanvasRenderingContext2D,
+  random: () => number,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+): void {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const length = Math.hypot(dx, dy);
+  const nx = -dy / length;
+  const ny = dx / length;
+  const steps = 9;
+
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps;
+    const inward = 3 + random() * 2;
+    const px = from.x + dx * t + nx * inward;
+    const py = from.y + dy * t + ny * inward;
+    const size = 1.6 + random() * 1.4;
+    ctx.fillStyle = css(0x8d7f63, 0.7);
+    ctx.beginPath();
+    ctx.ellipse(px, py, size, size * 0.7, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 function drawWater(
@@ -359,15 +466,15 @@ function drawWater(
   ctx.clip();
 
   const gradient = ctx.createLinearGradient(0, cy - HALF_H, 0, cy + HALF_H);
-  gradient.addColorStop(0, css(0x2f6f9e));
-  gradient.addColorStop(0.55, css(0x3f89b8));
-  gradient.addColorStop(1, css(0x2a5f8c));
+  gradient.addColorStop(0, css(0x2a9aa6));
+  gradient.addColorStop(0.55, css(0x1f7f8a));
+  gradient.addColorStop(1, css(0x186670));
   ctx.fillStyle = gradient;
   ctx.fillRect(x, y, width, height);
 
   ctx.lineWidth = 1.6;
   for (let band = 0; band < 7; band++) {
-    ctx.strokeStyle = `rgba(198, 231, 248, ${0.09 + 0.07 * Math.sin(phase + band * 1.7)})`;
+    ctx.strokeStyle = `rgba(214, 245, 240, ${0.1 + 0.08 * Math.sin(phase + band * 1.7)})`;
     ctx.beginPath();
     for (let px = 0; px <= width; px += 6) {
       const py =
@@ -378,11 +485,11 @@ function drawWater(
     ctx.stroke();
   }
 
-  for (let i = 0; i < 10; i++) {
-    const t = phase + i * 2.1;
-    ctx.fillStyle = `rgba(255,255,255,${0.05 + 0.1 * Math.abs(Math.sin(t))})`;
+  for (let i = 0; i < 14; i++) {
+    const t = phase + i * 1.6;
+    ctx.fillStyle = `rgba(255,255,255,${0.06 + 0.14 * Math.abs(Math.sin(t))})`;
     ctx.beginPath();
-    ctx.ellipse(cx + Math.cos(t) * HALF_W * 0.55, cy + Math.sin(t * 1.3) * HALF_H * 0.5, 4, 1.4, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + Math.cos(t) * HALF_W * 0.6, cy + Math.sin(t * 1.3) * HALF_H * 0.55, 4, 1.4, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -427,34 +534,41 @@ function drawCliff(
   light: number,
 ): void {
   const random = createRandom(Math.round(light * 1000) + 31);
-  const base = shade(0x9a8b73, light);
+  const shadowed = light < 1;
+  const base = shade(shadowed ? 0xc4b89c : 0xd4c9ab, light);
 
   ctx.fillStyle = css(base);
   ctx.fillRect(x, y, width, height);
 
-  for (let i = 0; i < 24; i++) {
+  for (let i = 0; i < 20; i++) {
     const stratum = y + random() * height;
-    ctx.fillStyle = css(shade(base, 0.84 + random() * 0.28), 0.5);
-    ctx.fillRect(x, stratum, width, 1 + random() * 5);
+    const bandTone = 0.9 + random() * 0.24;
+    ctx.fillStyle = css(shade(base, bandTone), 0.55);
+    ctx.fillRect(x, stratum, width, 2 + random() * 6);
   }
 
-  speckle(ctx, random, { x, y, width, height }, 200, [shade(base, 0.7), shade(base, 1.2)], 2.4, 0.45);
-
-  for (let i = 0; i < 14; i++) {
-    const fx = x + random() * width;
-    const fy = y + random() * height;
-    ctx.strokeStyle = 'rgba(40,34,26,0.32)';
-    ctx.lineWidth = 1;
+  for (let i = 0; i < 16; i++) {
+    const crackY = y + random() * height;
+    ctx.strokeStyle = shadowed ? 'rgba(96, 82, 58, 0.4)' : 'rgba(120, 104, 74, 0.32)';
+    ctx.lineWidth = 0.8 + random() * 0.8;
     ctx.beginPath();
-    ctx.moveTo(fx, fy);
-    ctx.lineTo(fx + (random() - 0.5) * 20, fy + random() * 26);
+    ctx.moveTo(x, crackY);
+    for (let px = 0; px <= width; px += 8) {
+      ctx.lineTo(x + px, crackY + Math.sin(px * 0.3 + i) * 1.4);
+    }
     ctx.stroke();
   }
 
+  speckle(ctx, random, { x, y, width, height }, 160, [shade(base, 0.82), shade(base, 1.12)], 2, 0.4);
+
+  const warmth = shadowed ? 'rgba(70, 52, 34, 0.22)' : 'rgba(255, 224, 170, 0.08)';
+  ctx.fillStyle = warmth;
+  ctx.fillRect(x, y, width, height);
+
   const occlusion = ctx.createLinearGradient(0, y, 0, y + height);
-  occlusion.addColorStop(0, 'rgba(0,0,0,0.04)');
-  occlusion.addColorStop(0.6, 'rgba(0,0,0,0.2)');
-  occlusion.addColorStop(1, 'rgba(0,0,0,0.4)');
+  occlusion.addColorStop(0, 'rgba(0,0,0,0.03)');
+  occlusion.addColorStop(0.6, shadowed ? 'rgba(50,38,24,0.28)' : 'rgba(0,0,0,0.16)');
+  occlusion.addColorStop(1, shadowed ? 'rgba(40,30,20,0.46)' : 'rgba(0,0,0,0.34)');
   ctx.fillStyle = occlusion;
   ctx.fillRect(x, y, width, height);
 }
