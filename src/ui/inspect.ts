@@ -148,7 +148,7 @@ function inspectHouse(world: World, house: Building, index: number): Inspection 
     subtitle: 'Housing',
     description:
       house.tier === 0
-        ? 'Newcomers camp here. Bring water and a peddler and they will build something better.'
+        ? 'Newcomers throw up a hut on the plot. Feed them and they will build something better.'
         : `Home to ${house.population} citizens. It falls back a tier if its services lapse or its surroundings decay.`,
     facts,
   };

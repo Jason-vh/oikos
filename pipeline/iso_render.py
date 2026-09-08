@@ -51,6 +51,12 @@ CYPRESS = (0.13, 0.30, 0.18)
 WATER_LIGHT = (0.40, 0.74, 0.77)
 SOIL = (0.36, 0.27, 0.17)
 SLATE = (0.30, 0.36, 0.40)
+EARTH = hex_rgb("bda875")
+DAUB = hex_rgb("a98f5f")
+DAUB_LIGHT = hex_rgb("bda173")
+THATCH = hex_rgb("c2a45c")
+THATCH_DARK = hex_rgb("9c8241")
+SHADOW_DARK = (0.06, 0.05, 0.04)
 
 
 def parse_args():
@@ -195,9 +201,10 @@ def square_radius(half_side):
     return half_side * math.sqrt(2)
 
 
-def add_eaves(name, half_side, z, mat):
+def add_eaves(name, half_side, z, mat, centre=(0.0, 0.0)):
     """Thin slab under the roof edge so the overhang reads from below."""
-    return add_box(name, (0, 0, z - 0.0125), (half_side * 2, half_side * 2, 0.025), mat)
+    cx, cy = centre
+    return add_box(name, (cx, cy, z - 0.0125), (half_side * 2, half_side * 2, 0.025), mat)
 
 
 def add_hip_roof(name, centre, half_side, depth, mat, ridge_half=0.08):
@@ -294,98 +301,202 @@ def add_openings(half, sill, tall, door_mat, centre=(0.0, 0.0)):
     add_window_row(half, sill + tall * 0.15, (window_w, window_h), centre)
 
 
+PLOT_HALF = 0.96
+
+
+def add_yard(mat, half=PLOT_HALF):
+    """The packed earth of a housing plot: every tier is built on one of these.
+
+    It casts no shadow, or every plot would sit in a dark square of its own making.
+    """
+    yard = add_box("yard", (0, 0, 0.02), (half * 2, half * 2, 0.04), mat)
+    yard.visible_shadow = False
+    return yard
+
+
+def add_shed_roof(name, centre, half_x, half_y, thickness, mat, pitch=0.3):
+    """A single-pitch roof sloping down towards +X, the face the camera sees."""
+    obj = add_box(name, centre, (half_x * 2, half_y * 2, thickness), mat)
+    obj.rotation_euler[1] = pitch
+    return obj
+
+
+def add_gable_roof(name, centre, half_x, half_y, rise, thickness, mat):
+    """Two pitched planes meeting at a ridge running north-south."""
+    cx, cy, cz = centre
+    pitch = math.atan2(rise, half_x)
+    slope = math.hypot(rise, half_x)
+    for side in (-1, 1):
+        plane = add_box(
+            f"{name}_{'west' if side < 0 else 'east'}",
+            (cx + side * half_x / 2, cy, cz + rise / 2),
+            (slope, half_y * 2, thickness),
+            mat,
+        )
+        plane.rotation_euler[1] = -side * pitch
+    return add_box(f"{name}_ridge", (cx, cy, cz + rise), (thickness * 1.6, half_y * 2, thickness), mat)
+
+
+def add_doorway(half, height, centre=(0.0, 0.0), width=None):
+    """An open door: a dark recess rather than a painted panel."""
+    cx, cy = centre
+    dark = material("doorway", SHADOW_DARK, roughness=0.9)
+    door_w = width if width else max(0.16, half * 0.42)
+    return add_box("doorway", (cx + half - 0.02, cy, height / 2), (0.06, door_w, height), dark)
+
+
+def add_rack(name, centre, span, height, wood_mat, cover_mat):
+    """A drying rack: four posts, a plank bed and a thatch cover, angled to the sun."""
+    cx, cy, cz = centre
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            add_cylinder(
+                f"{name}_post", (cx + sx * span * 0.42, cy + sy * span * 0.3, cz + height / 2),
+                0.018, height, wood_mat, vertices=6,
+            )
+    add_box(f"{name}_bed", (cx, cy, cz + height), (span, span * 0.66, 0.03), wood_mat)
+    add_shed_roof(f"{name}_cover", (cx, cy, cz + height + 0.05), span * 0.55, span * 0.36, 0.03, cover_mat, pitch=0.22)
+
+
+def add_stump(name, centre, mat):
+    cx, cy, cz = centre
+    return add_cylinder(name, (cx, cy, cz + 0.07), 0.09, 0.14, mat, vertices=10)
+
+
 def build_house_0():
-    """Shack: rough fieldstone walls, deep straw roof, lean-to, pot by the door."""
-    fieldstone = plaster_material("fieldstone", FIELDSTONE, roughness=0.95, variation=0.12, scale=14.0)
-    straw_dull = plaster_material("straw_dull", STRAW_DULL, roughness=0.95, variation=0.1, scale=20.0)
-    straw_ridge = material("straw_ridge", STRAW_RIDGE, roughness=0.85)
-    wood = material("wood", WOOD, roughness=0.85)
-    clay = material("clay", CLAY, roughness=0.8)
+    """Hut: wattle-and-daub walls under a straw shed roof, an open doorway, racks in the dirt."""
+    earth = plaster_material("earth", EARTH, roughness=0.98, variation=0.1, scale=16.0)
+    daub = plaster_material("daub", DAUB, roughness=0.97, variation=0.16, scale=13.0)
+    thatch = plaster_material("thatch", THATCH, roughness=0.96, variation=0.12, scale=22.0)
+    thatch_dark = plaster_material("thatch_dark", THATCH_DARK, roughness=0.96, variation=0.1, scale=18.0)
+    wood = material("wood", WOOD, roughness=0.9)
+    clay = material("clay", CLAY, roughness=0.85)
 
-    half = 0.32
-    wall_h = 0.34
-    add_box("walls", (0, 0, wall_h / 2), (half * 2, half * 2, wall_h), fieldstone)
-    add_door(half, 0.26, wood)
-    add_window_row(half, 0.2, (0.1, 0.1))
-
-    eave_half = half + 0.07
-    eave_h = 0.05
-    cap_h = 0.24
-    ridge_h = 0.05
-    add_hip_roof("roof_eave", (0, 0, wall_h + eave_h / 2), eave_half, eave_h, straw_dull, ridge_half=eave_half - 0.02)
-    add_hip_roof("roof_cap", (0, 0, wall_h + eave_h + cap_h / 2), eave_half - 0.02, cap_h, straw_dull, ridge_half=0.07)
-    add_hip_roof("roof_ridge", (0, 0, wall_h + eave_h + cap_h + ridge_h / 2), 0.08, ridge_h, straw_ridge, ridge_half=0.02)
-    top = wall_h + eave_h + cap_h + ridge_h
-
-    lean_x = half + 0.08
-    add_box("leanto_roof", (lean_x, -0.02, 0.24), (0.16, 0.3, 0.02), straw_dull)
-    for y in (-0.15, 0.11):
-        add_cylinder("leanto_post", (lean_x + 0.07, y, 0.12), 0.014, 0.23, wood, vertices=8)
-    add_amphora("pot", (half + 0.07, 0.2, 0.0), 0.12, clay)
-
-    return {"kind": "house", "variant": 0, "footprint": 1, "height": top + 0.1}
-
-
-def build_house_1():
-    """Hovel: mud-plaster ochre walls, pitched terracotta roof, small wooden awning."""
-    ochre = plaster_material("ochre", OCHRE, roughness=0.9, variation=0.08, scale=8.0)
-    terracotta = roof_material("terracotta", TERRACOTTA)
-    stone = plaster_material("stone", STONE, roughness=0.85, variation=0.06, scale=10.0)
-    wood = material("wood", WOOD, roughness=0.85)
+    add_yard(earth)
 
     half = 0.34
     wall_h = 0.42
-    add_box("plinth", (0, 0, 0.02), (half * 2 + 0.05, half * 2 + 0.05, 0.04), stone)
-    add_box("walls", (0, 0, 0.04 + wall_h / 2), (half * 2, half * 2, wall_h), ochre)
-    add_door(half, 0.3, wood)
-    add_window_row(half, 0.28, (0.12, 0.12))
+    cx, cy = -0.24, -0.16
+    add_box("walls", (cx, cy, 0.04 + wall_h / 2), (half * 2, half * 2, wall_h), daub)
+    for sy in (-1, 1):
+        add_cylinder("corner_post", (cx + half - 0.02, cy + sy * (half - 0.03), 0.04 + wall_h / 2), 0.024, wall_h, wood, vertices=6)
+    add_doorway(half, 0.3, (cx, cy))
 
-    roof_z = 0.04 + wall_h
-    roof_h = 0.2
-    add_hip_roof("roof", (0, 0, roof_z + roof_h / 2), half + 0.05, roof_h, terracotta, ridge_half=0.09)
-    add_box("ridge", (0, 0, roof_z + roof_h + 0.01), (0.2, 0.05, 0.03), terracotta)
+    add_gable_roof("roof", (cx, cy, 0.04 + wall_h), half + 0.06, half + 0.05, 0.2, 0.045, thatch)
+    add_box("eave_beam", (cx, cy - half - 0.04, 0.04 + wall_h + 0.01), (half * 2 + 0.1, 0.035, 0.035), thatch_dark)
 
-    add_box("awning", (half + 0.05, 0, 0.3), (0.1, 0.32, 0.02), wood)
-    for y in (-0.13, 0.13):
-        add_cylinder("awning_post", (half + 0.09, y, 0.15), 0.014, 0.29, wood, vertices=8)
+    add_rack("rack_east", (0.58, 0.5, 0.04), 0.4, 0.18, wood, thatch_dark)
+    add_stump("stump", (0.5, -0.42, 0.04), wood)
+    add_amphora("pot", (0.06, -0.66, 0.04), 0.16, clay)
 
-    return {"kind": "house", "variant": 2, "footprint": 1, "height": roof_z + roof_h + 0.1}
+    return {"kind": "house", "variant": 0, "footprint": 2, "height": 0.76}
+
+
+def build_house_1():
+    """Shack: the hut gains a second room, a lean-to store and a brushwood fence."""
+    earth = plaster_material("earth", EARTH, roughness=0.98, variation=0.1, scale=16.0)
+    daub = plaster_material("daub", DAUB_LIGHT, roughness=0.95, variation=0.14, scale=12.0)
+    thatch = plaster_material("thatch", THATCH, roughness=0.96, variation=0.12, scale=22.0)
+    thatch_dark = plaster_material("thatch_dark", THATCH_DARK, roughness=0.96, variation=0.1, scale=18.0)
+    wood = material("wood", WOOD, roughness=0.9)
+    clay = material("clay", CLAY, roughness=0.85)
+
+    add_yard(earth)
+
+    half = 0.4
+    wall_h = 0.5
+    cx, cy = -0.26, -0.2
+    add_box("walls", (cx, cy, 0.04 + wall_h / 2), (half * 2, half * 2, wall_h), daub)
+    add_doorway(half, 0.32, (cx, cy))
+    add_window_row(half, 0.32, (0.1, 0.09), (cx, cy))
+    add_gable_roof("roof", (cx, cy, 0.04 + wall_h), half + 0.07, half + 0.06, 0.22, 0.05, thatch)
+
+    annex_half = 0.24
+    ax, ay = cx + half + annex_half - 0.02, cy + 0.42
+    add_box("annex", (ax, ay, 0.04 + 0.3 / 2), (annex_half * 2, annex_half * 2, 0.3), daub)
+    add_shed_roof("annex_roof", (ax, ay, 0.04 + 0.3 + 0.06), annex_half + 0.06, annex_half + 0.05, 0.04, thatch_dark, pitch=0.34)
+
+    add_rack("rack", (0.6, -0.5, 0.04), 0.4, 0.2, wood, thatch_dark)
+    for x in (0.1, 0.44, 0.78):
+        add_cylinder("fence_post", (x, -0.86, 0.16), 0.02, 0.24, wood, vertices=6)
+    add_wall("fence_rail", (0.44, -0.86, 0.24), 0.76, 0.05, 0.03, wood, along_x=True)
+    add_amphora("jar", (-0.62, 0.66, 0.04), 0.2, clay)
+    add_stump("stump", (0.72, 0.62, 0.04), wood)
+
+    return {"kind": "house", "variant": 2, "footprint": 2, "height": 0.68}
 
 
 def build_house_2():
-    """Tenement: whitewashed walls, terracotta hip roof, pergola, amphorae, chimney."""
-    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.85, variation=0.05, scale=6.0)
+    """Hovel: mud-brick walls rendered in ochre, the first tiled roof, an awning and jars."""
+    earth = plaster_material("earth", EARTH, roughness=0.98, variation=0.08, scale=16.0)
+    ochre = plaster_material("ochre", OCHRE, roughness=0.9, variation=0.09, scale=9.0)
     terracotta = roof_material("terracotta", TERRACOTTA)
-    stone = plaster_material("stone", STONE, roughness=0.8, variation=0.06, scale=10.0)
-    wood = material("wood", WOOD, roughness=0.8)
-    clay = material("clay", CLAY, roughness=0.8)
-    brick = material("brick", (0.5, 0.3, 0.22), roughness=0.85)
+    stone = plaster_material("stone", STONE, roughness=0.88, variation=0.06, scale=11.0)
+    wood = material("wood", WOOD, roughness=0.88)
+    clay = material("clay", CLAY, roughness=0.82)
 
-    half = 0.35
-    wall_h = 0.54
-    add_box("plinth", (0, 0, 0.025), (half * 2 + 0.05, half * 2 + 0.05, 0.05), stone)
-    add_box("walls", (0, 0, 0.05 + wall_h / 2), (half * 2, half * 2, wall_h), whitewash)
-    add_box("cornice", (0, 0, 0.05 + wall_h + 0.015), (half * 2 + 0.04, half * 2 + 0.04, 0.03), stone)
-    add_door(half, 0.32, wood)
-    add_window_row(half, 0.4, (0.12, 0.14), on_door_face=True)
+    add_yard(earth)
 
-    roof_z = 0.05 + wall_h + 0.03
-    roof_h = 0.22
-    eave = half + 0.09
-    add_eaves("eaves", eave, roof_z, wood)
-    add_hip_roof("roof", (0, 0, roof_z + roof_h / 2), eave, roof_h, terracotta, ridge_half=0.1)
-    add_box("ridge", (0, 0, roof_z + roof_h + 0.01), (0.22, 0.05, 0.03), terracotta)
-    add_box("chimney", (-0.16, 0.16, roof_z + roof_h - 0.02), (0.07, 0.07, 0.2), brick)
+    half = 0.5
+    wall_h = 0.44
+    cx, cy = -0.16, -0.14
+    add_box("plinth", (cx, cy, 0.06), (half * 2 + 0.06, half * 2 + 0.06, 0.08), stone)
+    add_box("walls", (cx, cy, 0.1 + wall_h / 2), (half * 2, half * 2, wall_h), ochre)
+    add_doorway(half, 0.3, (cx, cy))
+    add_window_row(half, 0.34, (0.12, 0.11), (cx, cy))
 
-    add_pergola("pergola", -half, 0.0, 0.0, 0.12, 0.44, 0.3, wood)
-    add_amphora("jar1", (half + 0.07, -0.2, 0.0), 0.14, clay)
-    add_amphora("jar2", (half + 0.07, 0.24, 0.0), 0.12, clay)
+    roof_z = 0.1 + wall_h
+    roof_h = 0.2
+    add_hip_roof("roof", (cx, cy, roof_z + roof_h / 2), half + 0.08, roof_h, terracotta, ridge_half=0.14)
+    add_box("ridge", (cx, cy, roof_z + roof_h + 0.01), (0.3, 0.06, 0.035), terracotta)
 
-    return {"kind": "house", "variant": 4, "footprint": 1, "height": roof_z + roof_h + 0.1}
+    add_pergola("awning", cx + half, cy - 0.06, 0.1, 0.16, 0.5, 0.3, wood)
+    add_amphora("jar1", (0.62, 0.52, 0.04), 0.24, clay)
+    add_amphora("jar2", (0.3, 0.72, 0.04), 0.2, clay)
+    add_wall("yard_wall", (-0.1, 0.84, 0.14), 1.5, 0.2, 0.06, stone, along_x=True)
+
+    return {"kind": "house", "variant": 4, "footprint": 2, "height": roof_z + roof_h + 0.1}
 
 
 def build_house_3():
-    """Homestead: two storeys of whitewash with marble trim, clerestory roof, columned porch, cypress."""
+    """Homestead: whitewashed walls, a hip-tiled roof, pergola, chimney and a walled yard."""
+    earth = plaster_material("earth", EARTH, roughness=0.98, variation=0.08, scale=16.0)
+    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.86, variation=0.05, scale=7.0)
+    terracotta = roof_material("terracotta", TERRACOTTA)
+    stone = plaster_material("stone", STONE, roughness=0.82, variation=0.06, scale=10.0)
+    wood = material("wood", WOOD, roughness=0.82)
+    clay = material("clay", CLAY, roughness=0.8)
+    brick = material("brick", (0.5, 0.3, 0.22), roughness=0.85)
+
+    add_yard(earth)
+
+    half = 0.56
+    wall_h = 0.56
+    cx, cy = -0.1, -0.1
+    add_box("plinth", (cx, cy, 0.07), (half * 2 + 0.07, half * 2 + 0.07, 0.1), stone)
+    add_box("walls", (cx, cy, 0.12 + wall_h / 2), (half * 2, half * 2, wall_h), whitewash)
+    add_box("cornice", (cx, cy, 0.12 + wall_h + 0.02), (half * 2 + 0.05, half * 2 + 0.05, 0.035), stone)
+    add_doorway(half, 0.34, (cx, cy))
+    add_window_row(half, 0.42, (0.13, 0.15), (cx, cy), on_door_face=True)
+
+    roof_z = 0.12 + wall_h + 0.035
+    roof_h = 0.24
+    eave = half + 0.1
+    add_hip_roof("roof", (cx, cy, roof_z + roof_h / 2), eave, roof_h, terracotta, ridge_half=0.18)
+    add_box("ridge", (cx, cy, roof_z + roof_h + 0.01), (0.36, 0.06, 0.04), terracotta)
+    add_box("chimney", (cx - 0.3, cy + 0.3, roof_z + roof_h - 0.02), (0.08, 0.08, 0.22), brick)
+
+    add_pergola("pergola", cx - half, cy + 0.1, 0.04, 0.16, 0.6, 0.32, wood)
+    add_amphora("jar1", (0.74, -0.36, 0.04), 0.26, clay)
+    add_amphora("jar2", (0.68, 0.24, 0.04), 0.22, clay)
+    add_wall("yard_wall", (0.0, 0.86, 0.14), 1.6, 0.2, 0.06, stone, along_x=True)
+
+    return {"kind": "house", "variant": 6, "footprint": 2, "height": roof_z + roof_h + 0.12}
+
+
+def build_house_4():
+    """Tenement: two storeys of whitewash with a marble string course, porch and cypress."""
+    paving = plaster_material("paving", STONE, roughness=0.9, variation=0.05, scale=14.0)
     whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.85, variation=0.05, scale=6.0)
     terracotta = roof_material("terracotta", TERRACOTTA)
     marble = material("marble", MARBLE, roughness=0.35)
@@ -395,40 +506,42 @@ def build_house_3():
     cypress = material("cypress", CYPRESS, roughness=0.9)
     brick = material("brick", (0.5, 0.3, 0.22), roughness=0.85)
 
-    half = 0.36
-    wall_h = 0.72
-    add_box("plinth", (0, 0, 0.03), (half * 2 + 0.05, half * 2 + 0.05, 0.06), stone)
-    add_box("walls", (0, 0, 0.06 + wall_h / 2), (half * 2, half * 2, wall_h), whitewash)
-    add_box("string_course", (0, 0, 0.06 + 0.38), (half * 2 + 0.03, half * 2 + 0.03, 0.025), marble)
-    add_box("cornice", (0, 0, 0.06 + wall_h + 0.02), (half * 2 + 0.05, half * 2 + 0.05, 0.04), marble)
-    add_door(half, 0.34, wood)
-    add_window_row(half, 0.26, (0.12, 0.14))
-    add_window_row(half, 0.6, (0.12, 0.14), on_door_face=True)
+    add_yard(paving)
 
-    roof_z = 0.06 + wall_h + 0.04
-    roof_h = 0.18
-    eave = half + 0.09
-    add_eaves("eaves", eave, roof_z, wood)
-    add_hip_roof("roof", (0, 0, roof_z + roof_h / 2), eave, roof_h, terracotta, ridge_half=0.14)
-    add_box("clerestory", (0, 0, roof_z + roof_h + 0.06), (0.22, 0.22, 0.12), whitewash)
-    add_box("chimney", (-0.2, 0.2, roof_z + roof_h * 0.45 + 0.1), (0.07, 0.07, 0.24), brick)
-    add_hip_roof("clerestory_roof", (0, 0, roof_z + roof_h + 0.12 + 0.04), 0.15, 0.08, terracotta, ridge_half=0.03)
-    top = roof_z + roof_h + 0.2
+    half = 0.58
+    wall_h = 0.86
+    cx, cy = -0.1, -0.08
+    add_box("plinth", (cx, cy, 0.07), (half * 2 + 0.08, half * 2 + 0.08, 0.1), stone)
+    add_box("walls", (cx, cy, 0.12 + wall_h / 2), (half * 2, half * 2, wall_h), whitewash)
+    add_box("string_course", (cx, cy, 0.12 + 0.46), (half * 2 + 0.04, half * 2 + 0.04, 0.03), marble)
+    add_box("cornice", (cx, cy, 0.12 + wall_h + 0.02), (half * 2 + 0.06, half * 2 + 0.06, 0.04), marble)
+    add_doorway(half, 0.36, (cx, cy))
+    add_window_row(half, 0.3, (0.13, 0.15), (cx, cy))
+    add_window_row(half, 0.74, (0.13, 0.16), (cx, cy), on_door_face=True)
 
-    porch_x = half + 0.06
-    for y in (-0.18, 0.18):
-        add_cylinder("column", (porch_x, y, 0.06 + 0.19), 0.03, 0.38, marble, vertices=14)
-        add_box("capital", (porch_x, y, 0.06 + 0.39), (0.08, 0.08, 0.03), marble)
-    add_box("porch_roof", (half + 0.05, 0, 0.06 + 0.42), (0.14, 0.44, 0.03), marble)
+    roof_z = 0.12 + wall_h + 0.04
+    roof_h = 0.24
+    eave = half + 0.11
+    add_eaves("eaves", eave, roof_z, wood, (cx, cy))
+    add_hip_roof("roof", (cx, cy, roof_z + roof_h / 2), eave, roof_h, terracotta, ridge_half=0.2)
+    add_box("ridge", (cx, cy, roof_z + roof_h + 0.01), (0.4, 0.06, 0.04), terracotta)
+    add_box("chimney", (cx - 0.32, cy + 0.32, roof_z + roof_h - 0.02), (0.08, 0.08, 0.24), brick)
 
-    add_wall("courtyard_wall", (0.05, -half - 0.08, 0.08), 0.5, 0.16, 0.035, stone, along_x=True)
-    add_cypress_pot("cypress", (-half - 0.09, half + 0.05, 0.0), 0.32, clay, cypress)
+    porch_x = cx + half + 0.1
+    for y in (cy - 0.26, cy + 0.26):
+        add_cylinder("column", (porch_x, y, 0.12 + 0.23), 0.04, 0.46, marble, vertices=14)
+        add_box("capital", (porch_x, y, 0.12 + 0.47), (0.1, 0.1, 0.035), marble)
+    add_box("porch_roof", (porch_x, cy, 0.12 + 0.52), (0.24, 0.66, 0.05), marble)
 
-    return {"kind": "house", "variant": 6, "footprint": 1, "height": top + 0.1}
+    add_cypress_pot("cypress", (-0.72, 0.72, 0.04), 0.36, clay, cypress)
+    add_amphora("jar", (0.7, 0.66, 0.04), 0.26, clay)
+
+    return {"kind": "house", "variant": 8, "footprint": 2, "height": roof_z + roof_h + 0.12}
 
 
-def build_house_4():
-    """Apartment: a taller block with a loggia, tiled roof, balcony rail and a roof terrace."""
+def build_house_5():
+    """Apartment: a taller block with a balcony, roof terrace and a colonnaded front."""
+    paving = plaster_material("paving", STONE, roughness=0.9, variation=0.05, scale=14.0)
     whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.85, variation=0.05, scale=6.0)
     terracotta = roof_material("terracotta", TERRACOTTA)
     marble = material("marble", MARBLE, roughness=0.32)
@@ -437,34 +550,90 @@ def build_house_4():
     clay = material("clay", CLAY, roughness=0.8)
     cypress = material("cypress", CYPRESS, roughness=0.9)
 
-    half = 0.38
-    wall_h = 0.92
-    add_box("plinth", (0, 0, 0.035), (half * 2 + 0.07, half * 2 + 0.07, 0.07), stone)
-    add_box("walls", (0, 0, 0.07 + wall_h / 2), (half * 2, half * 2, wall_h), whitewash)
-    add_box("string_course", (0, 0, 0.07 + 0.44), (half * 2 + 0.04, half * 2 + 0.04, 0.03), marble)
-    add_box("cornice", (0, 0, 0.07 + wall_h + 0.02), (half * 2 + 0.06, half * 2 + 0.06, 0.045), marble)
-    add_door(half, 0.36, wood)
-    add_window_row(half, 0.24, (0.12, 0.14))
-    add_window_row(half, 0.58, (0.12, 0.16), on_door_face=True)
-    add_window_row(half, 0.78, (0.12, 0.14))
+    add_yard(paving)
 
-    balcony_z = 0.07 + 0.56
-    add_box("balcony", (half + 0.07, 0, balcony_z), (0.18, half * 1.5, 0.04), marble)
-    for y in (-0.26, 0.0, 0.26):
-        add_cylinder("baluster", (half + 0.14, y, balcony_z + 0.07), 0.018, 0.14, marble, vertices=8)
-    add_box("balcony_rail", (half + 0.14, 0, balcony_z + 0.15), (0.05, half * 1.5, 0.025), marble)
+    half = 0.6
+    wall_h = 1.12
+    cx, cy = -0.08, -0.06
+    add_box("plinth", (cx, cy, 0.08), (half * 2 + 0.1, half * 2 + 0.1, 0.12), stone)
+    add_box("walls", (cx, cy, 0.14 + wall_h / 2), (half * 2, half * 2, wall_h), whitewash)
+    add_box("string_course", (cx, cy, 0.14 + 0.52), (half * 2 + 0.05, half * 2 + 0.05, 0.035), marble)
+    add_box("cornice", (cx, cy, 0.14 + wall_h + 0.025), (half * 2 + 0.08, half * 2 + 0.08, 0.05), marble)
+    add_doorway(half, 0.38, (cx, cy))
+    add_window_row(half, 0.3, (0.13, 0.16), (cx, cy))
+    add_window_row(half, 0.72, (0.13, 0.17), (cx, cy), on_door_face=True)
+    add_window_row(half, 1.0, (0.13, 0.15), (cx, cy))
 
-    roof_z = 0.07 + wall_h + 0.045
-    roof_h = 0.2
-    eave = half + 0.1
-    add_eaves("eaves", eave, roof_z, wood)
-    add_hip_roof("roof", (0, 0, roof_z + roof_h / 2), eave, roof_h, terracotta, ridge_half=0.16)
-    top = roof_z + roof_h
+    balcony_z = 0.14 + 0.66
+    add_box("balcony", (cx + half + 0.1, cy, balcony_z), (0.22, half * 1.5, 0.045), marble)
+    for y in (cy - 0.3, cy, cy + 0.3):
+        add_cylinder("baluster", (cx + half + 0.18, y, balcony_z + 0.08), 0.018, 0.16, marble, vertices=8)
+    add_box("balcony_rail", (cx + half + 0.18, cy, balcony_z + 0.17), (0.05, half * 1.5, 0.03), marble)
 
-    add_cypress_pot("cypress", (-half - 0.11, half + 0.06, 0.0), 0.34, clay, cypress)
-    add_amphora("jar", (half + 0.12, -half - 0.06, 0.0), 0.26, clay)
+    roof_z = 0.14 + wall_h + 0.05
+    roof_h = 0.24
+    eave = half + 0.12
+    add_eaves("eaves", eave, roof_z, wood, (cx, cy))
+    add_hip_roof("roof", (cx, cy, roof_z + roof_h / 2), eave, roof_h, terracotta, ridge_half=0.22)
+    add_box("ridge", (cx, cy, roof_z + roof_h + 0.01), (0.44, 0.06, 0.04), terracotta)
 
-    return {"kind": "house", "variant": 8, "footprint": 1, "height": top + 0.1}
+    add_cypress_pot("cypress", (-0.74, 0.74, 0.04), 0.4, clay, cypress)
+    add_amphora("jar", (0.74, -0.7, 0.04), 0.3, clay)
+    add_box("bench", (0.2, 0.82, 0.14), (0.5, 0.16, 0.16), marble)
+
+    return {"kind": "house", "variant": 10, "footprint": 2, "height": roof_z + roof_h + 0.12}
+
+
+def build_house_6():
+    """Townhouse: two wings around a courtyard, marble trim, statue niche and cypresses."""
+    paving = plaster_material("paving", MARBLE, roughness=0.6, variation=0.04, scale=16.0)
+    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.84, variation=0.04, scale=6.0)
+    terracotta = roof_material("terracotta", TERRACOTTA)
+    marble = material("marble", MARBLE, roughness=0.3)
+    stone = plaster_material("stone", STONE, roughness=0.8, variation=0.06, scale=10.0)
+    wood = material("wood", WOOD, roughness=0.8)
+    clay = material("clay", CLAY, roughness=0.8)
+    cypress = material("cypress", CYPRESS, roughness=0.9)
+    bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
+
+    add_yard(paving)
+    add_box("kerb", (0, 0, 0.015), (PLOT_HALF * 2 + 0.05, PLOT_HALF * 2 + 0.05, 0.03), marble)
+
+    main_half = 0.52
+    main_h = 1.1
+    mx, my = -0.36, -0.34
+    add_box("plinth", (mx, my, 0.08), (main_half * 2 + 0.1, main_half * 2 + 0.1, 0.12), stone)
+    add_box("main", (mx, my, 0.14 + main_h / 2), (main_half * 2, main_half * 2, main_h), whitewash)
+    add_box("main_course", (mx, my, 0.14 + 0.52), (main_half * 2 + 0.05, main_half * 2 + 0.05, 0.035), marble)
+    add_box("main_cornice", (mx, my, 0.14 + main_h + 0.025), (main_half * 2 + 0.08, main_half * 2 + 0.08, 0.05), marble)
+    add_doorway(main_half, 0.4, (mx, my))
+    add_window_row(main_half, 0.34, (0.13, 0.16), (mx, my))
+    add_window_row(main_half, 0.78, (0.13, 0.17), (mx, my), on_door_face=True)
+
+    roof_z = 0.14 + main_h + 0.05
+    roof_h = 0.24
+    add_eaves("eaves", main_half + 0.12, roof_z, wood, (mx, my))
+    add_hip_roof("main_roof", (mx, my, roof_z + roof_h / 2), main_half + 0.12, roof_h, terracotta, ridge_half=0.2)
+
+    wing_half = 0.34
+    wx, wy = 0.5, 0.5
+    wing_h = 0.66
+    add_box("wing", (wx, wy, 0.04 + wing_h / 2), (wing_half * 2, wing_half * 2, wing_h), whitewash)
+    add_box("wing_cornice", (wx, wy, 0.04 + wing_h + 0.02), (wing_half * 2 + 0.05, wing_half * 2 + 0.05, 0.04), marble)
+    add_hip_roof("wing_roof", (wx, wy, 0.04 + wing_h + 0.14), wing_half + 0.08, 0.2, terracotta, ridge_half=0.12)
+    add_doorway(wing_half, 0.3, (wx, wy))
+
+    for y in (-0.62, -0.2, 0.22):
+        add_cylinder("column", (0.62, y, 0.04 + 0.3), 0.045, 0.6, marble, vertices=14)
+        add_box("capital", (0.62, y, 0.04 + 0.62), (0.11, 0.11, 0.04), marble)
+    add_box("stoa_roof", (0.62, -0.2, 0.04 + 0.68), (0.3, 1.0, 0.06), marble)
+
+    add_cylinder("statue_plinth", (-0.72, 0.66, 0.18), 0.1, 0.28, marble, vertices=12)
+    add_cylinder("statue", (-0.72, 0.66, 0.44), 0.05, 0.24, bronze, vertices=10)
+    add_cypress_pot("cypress1", (-0.2, 0.82, 0.04), 0.42, clay, cypress)
+    add_cypress_pot("cypress2", (0.86, -0.86, 0.04), 0.38, clay, cypress)
+
+    return {"kind": "house", "variant": 12, "footprint": 2, "height": roof_z + roof_h + 0.14}
 
 
 def build_growers_lodge():
@@ -811,19 +980,35 @@ MIRROR_DIAGONAL = Matrix(((0, -1, 0, 0), (-1, 0, 0, 0), (0, 0, 1, 0), (0, 0, 0, 
 
 
 def mirrored(builder):
-    """Reflect across the x = -y plane so the door and windows swap camera-facing sides."""
+    """Reflect across the x = -y plane so the door and windows swap camera-facing sides.
+
+    The reflection is baked into the mesh, from `matrix_basis` rather than `matrix_world`:
+    an object matrix cannot hold a reflection, and `matrix_world` is still stale for
+    objects the builder has only just created.
+    """
 
     def build():
         spec = builder()
         for obj in bpy.data.objects:
-            if obj.type == "MESH":
-                obj.matrix_world = MIRROR_DIAGONAL @ obj.matrix_world
+            if obj.type != "MESH":
+                continue
+            obj.data.transform(MIRROR_DIAGONAL @ obj.matrix_basis)
+            obj.data.flip_normals()
+            obj.matrix_basis = Matrix.Identity(4)
         return {**spec, "variant": spec["variant"] + 1}
 
     return build
 
 
-HOUSES = [build_house_0, build_house_1, build_house_2, build_house_3, build_house_4]
+HOUSES = [
+    build_house_0,
+    build_house_1,
+    build_house_2,
+    build_house_3,
+    build_house_4,
+    build_house_5,
+    build_house_6,
+]
 
 MODELS = {
     "granary": build_granary,

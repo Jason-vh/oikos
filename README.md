@@ -43,9 +43,9 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
   27 tiles, vendor 44) serving houses beside the road, then take the shortest road
   home. Everyone moves at a citizen's 54.4 tiles a month. Cart pushers route with BFS
   to a granary.
-- **Housing**: Shack → Hovel → Tenement → Homestead → Apartment, gated on supplied
-  services — water, then food and culture, then olive oil — and, from Tenement up, on
-  local appeal.
+- **Housing**: a 2×2 plot evolving Hut → Shack → Hovel → Homestead → Tenement →
+  Apartment → Townhouse (8 to 60 citizens), gated on supplied services — food, then
+  water, then culture, then olive oil — and, from Homestead up, on local appeal.
 - **Culture**: a college trains a philosopher and walks him to a podium; from there he
   roams 35 tiles teaching the houses he passes. A college with no podium sends nobody. Houses devolve when their tier's needs
   lapse or their surroundings decay.
@@ -176,10 +176,15 @@ renders drop into the game's metric with no fudging. Anchors are derived
 analytically from that camera rather than eyeballed. A Cycles shadow-catcher plane
 becomes the shadow sprite, framed wide enough for the shadow the sun actually casts.
 
-Models live in `pipeline/iso_render.py`: the five housing tiers, wheat farm, growers'
+Models live in `pipeline/iso_render.py`: the seven housing tiers, wheat farm, growers'
 lodge, olive press, granary, agora, college, podium, maintenance office, tax office,
 fountain and statue, each rendered as a body and a shadow. Sprites are keyed by
-`kind:variant:layer` — housing uses the tier as its variant.
+`kind:variant:layer` — housing uses `tier * 2`, plus one for the mirrored copy.
+
+Mirrored variants reflect across `x = -y`, and the reflection is **baked into the mesh
+from `matrix_basis`**: an object matrix cannot hold a reflection, and `matrix_world` is
+still stale for objects the builder has only just created — reading it collapses every
+box back to the unit cube.
 
 To add a building: write a builder, register it in `MODELS`, re-run the two commands.
 The game picks it up with no client changes.

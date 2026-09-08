@@ -29,8 +29,8 @@ const report = await page.evaluate(async () => {
   const farmPlaced = world.place('wheatFarm', farmSpot.x, farmSpot.y);
   const placed = { granary: false, fountain: false, statue: false, houses: 0 };
 
-  for (let x = farmSpot.x - 7; x < farmSpot.x + 11; x++) {
-    for (const y of [row - 1, row + 1]) {
+  for (let x = farmSpot.x - 7; x < farmSpot.x + 11; x += 2) {
+    for (const y of [row - 2, row + 1]) {
       if (!placed.granary && world.place('granary', x, y)) {
         placed.granary = true;
         continue;

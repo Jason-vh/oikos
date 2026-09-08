@@ -63,9 +63,9 @@ describe('appeal field', () => {
     const homestead = HOUSE_TIERS.findIndex((tier) => tier.name === 'Homestead');
 
     recomputeAppeal(grid, [building('house', 4, 4, 0)]);
-    expect(grid.appeal[grid.index(5, 4)]).toBe(HOUSE_TIERS[0].appeal.initial);
+    expect(grid.appeal[grid.index(6, 4)]).toBe(HOUSE_TIERS[0].appeal.initial);
 
     recomputeAppeal(grid, [building('house', 4, 4, homestead)]);
-    expect(grid.appeal[grid.index(5, 4)]).toBe(0);
+    expect(grid.appeal[grid.index(6, 4)]).toBe(HOUSE_TIERS[homestead].appeal.initial);
   });
 });

@@ -30,9 +30,9 @@ describe('inspecting the city', () => {
     const world = cityWith('house');
     const facts = factsOf(world, 4, 4);
 
-    expect(inspectTile(world, 4, 4)?.title).toBe('Shack');
-    expect(facts.get('Water')).toBe('none');
-    expect(facts.get('Becomes a hovel')).toBe('with water');
+    expect(inspectTile(world, 4, 4)?.title).toBe('Hut');
+    expect(facts.get('Food')).toBe('none');
+    expect(facts.get('Becomes a shack')).toBe('with food');
   });
 
   test('reports the walker a service building sends', () => {

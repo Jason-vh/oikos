@@ -14,7 +14,7 @@ await page.evaluate(({ tick: t, zoom: z }) => {
   for (let x = spot.x - 8; x < spot.x + 12; x++) world.placeRoad(x, row);
   world.place('wheatFarm', spot.x, spot.y);
   const kinds = ['granary', 'fountain', 'statue'];
-  for (let x = spot.x - 7; x < spot.x + 11; x++) for (const y of [row - 1, row + 1]) {
+  for (let x = spot.x - 7; x < spot.x + 11; x += 2) for (const y of [row - 2, row + 1]) {
     if (kinds.length && world.place(kinds[0], x, y)) { kinds.shift(); continue; }
     world.place('house', x, y);
   }
@@ -39,7 +39,7 @@ await page.evaluate(() => {
   for (const building of world.buildings.values()) {
     if (building.kind !== 'house') continue;
     building.tier = tier;
-    tier = (tier + 1) % 4;
+    tier = (tier + 1) % 7;
   }
 });
 await page.waitForTimeout(2500);
