@@ -24,15 +24,13 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
         <span class="cartouche" data-field="population"></span>
         <span class="spacer"></span>
         <span class="speeds">
-          ${[0, 1, 2, 4]
-            .map((speed) => `<button class="medallion" data-speed="${speed}">${speed === 0 ? '❚❚' : `${speed}×`}</button>`)
-            .join('')}
+          ${[0, 1, 2, 4].map((speed) => `<button class="medallion" data-speed="${speed}">${speedLabel(speed)}</button>`).join('')}
         </span>
         <button class="overlay-toggle" data-overlay>Desirability <kbd>O</kbd></button>
       </header>
       <aside class="panel">
         <div class="panel-inner">
-          ${renderGroups(buttons)}
+          ${renderPanel(buttons)}
         </div>
       </aside>
       <footer class="scroll">
@@ -118,29 +116,36 @@ function groupFor(kind: string): string {
   return 'Services';
 }
 
-function renderGroups(buttons: ToolButton[]): string {
-  const groups: { name: string; items: { button: ToolButton; index: number }[] }[] = [];
-  buttons.forEach((button, index) => {
-    let group = groups.find((entry) => entry.name === button.group);
-    if (!group) {
-      group = { name: button.group, items: [] };
-      groups.push(group);
-    }
-    group.items.push({ button, index });
-  });
+function renderPanel(buttons: ToolButton[]): string {
+  const headed = ['Housing', 'Food', 'Services'];
+  const road = buttons.findIndex((button) => button.group === 'Road');
+  const demolish = buttons.findIndex((button) => button.group === 'Demolish');
 
-  return groups
-    .map(
-      (group) => `
-      <section class="tool-group">
-        <h3>${group.name}</h3>
-        <div class="tool-group-buttons">
-          ${group.items.map(({ button, index }) => renderButton(button, index)).join('')}
-        </div>
-      </section>
-    `,
-    )
+  const sections = headed
+    .map((name) => {
+      const items = buttons.map((button, index) => ({ button, index })).filter(({ button }) => button.group === name);
+      return `
+        <section class="tool-group">
+          <h3>${name}</h3>
+          <div class="tool-group-buttons">
+            ${items.map(({ button, index }) => renderButton(button, index)).join('')}
+          </div>
+        </section>
+      `;
+    })
     .join('');
+
+  return `
+    ${renderButton(buttons[road], road)}
+    ${sections}
+    <div class="divider"></div>
+    ${renderButton(buttons[demolish], demolish)}
+  `;
+}
+
+function speedLabel(speed: number): string {
+  if (speed === 0) return '<span class="pause-icon"><span></span><span></span></span>';
+  return `${speed}×`;
 }
 
 function renderButton(button: ToolButton, index: number): string {
