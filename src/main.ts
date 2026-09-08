@@ -1,7 +1,10 @@
 import { Application } from 'pixi.js';
 import { Game } from './game';
 import { loadBakedStructures } from './render/baked';
+import { loadCity, saveCity } from './sim/save';
 import { createHud } from './ui/hud';
+
+const AUTOSAVE_INTERVAL_MS = 5000;
 
 async function boot(): Promise<void> {
   const root = document.getElementById('app') as HTMLElement;
@@ -17,12 +20,16 @@ async function boot(): Promise<void> {
 
   root.appendChild(app.canvas);
 
-  const game = new Game(app);
+  const saved = loadCity();
+  const game = new Game(app, saved?.world);
+  if (saved) game.restoreView(saved.view);
   const hud = createHud(document.body, game);
 
-  if (import.meta.env.DEV) Reflect.set(window, 'game', game);
+  if (import.meta.env.DEV || location.search.includes('debug')) Reflect.set(window, 'game', game);
 
   window.addEventListener('resize', () => game.resize());
+  window.addEventListener('pagehide', () => saveCity(game.world, game.camera));
+  setInterval(() => saveCity(game.world, game.camera), AUTOSAVE_INTERVAL_MS);
 
   loadBakedStructures().then((baked) => {
     if (baked) game.scene.setBakedStructures(baked);

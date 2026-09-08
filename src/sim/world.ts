@@ -30,6 +30,7 @@ export interface PlacementCheck {
 }
 
 export class World {
+  readonly seed: number;
   readonly grid: Grid;
   readonly buildings = new Map<number, Building>();
   readonly walkers = new Map<number, Walker>();
@@ -46,6 +47,7 @@ export class World {
   private readonly changedTiles = new Set<number>();
 
   constructor(size: number, seed: number) {
+    this.seed = seed;
     this.grid = new Grid(size);
     generateMap(this.grid, seed);
     this.log('Found your city, Archon. Lay roads, then housing.');
@@ -115,6 +117,19 @@ export class World {
     this.treasury -= def.cost;
     this.markChanged(this.grid.footprint(x, y, def.size));
     return true;
+  }
+
+  restore(building: Building): void {
+    this.buildings.set(building.id, building);
+    for (const tile of this.grid.footprint(building.x, building.y, building.size)) {
+      this.grid.occupant[tile] = building.id;
+    }
+    this.nextId = Math.max(this.nextId, building.id + 1);
+  }
+
+  settle(): void {
+    recomputeDesirability(this.grid, this.buildings.values());
+    this.structureVersion += 1;
   }
 
   canPlaceRoad(x: number, y: number): boolean {

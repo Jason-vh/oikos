@@ -1,5 +1,6 @@
 import type { Game, Tool } from '../game';
 import { BUILDINGS, PLACEABLE, ROAD_COST } from '../sim/buildings';
+import { abandonCity } from '../sim/save';
 
 interface ToolButton {
   label: string;
@@ -28,6 +29,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
           ${[0, 1, 2, 4].map((speed) => `<button class="medallion" data-speed="${speed}">${speedLabel(speed)}</button>`).join('')}
         </span>
         <button class="overlay-toggle" data-overlay>Desirability <kbd>O</kbd></button>
+        <button class="overlay-toggle" data-new-city>New city</button>
       </header>
       <aside class="panel">
         <div class="panel-inner">
@@ -54,6 +56,11 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
     });
   });
   hud.querySelector('[data-overlay]')?.addEventListener('click', () => game.toggleDesirabilityOverlay());
+  hud.querySelector('[data-new-city]')?.addEventListener('click', () => {
+    if (!confirm('Abandon this city and found a new one?')) return;
+    abandonCity();
+    location.reload();
+  });
 
   const selectTool = (index: number) => {
     const button = buttons[index];

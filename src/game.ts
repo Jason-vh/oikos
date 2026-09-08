@@ -8,6 +8,7 @@ import { Scene, structureLook } from './render/scene';
 import { TextureCache } from './render/textures';
 import { BUILDINGS, HOUSE_TIERS, ROAD_COST } from './sim/buildings';
 import { MAX_HEIGHT, TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_SAND, TERRAIN_WATER } from './sim/grid';
+import type { View } from './sim/save';
 import type { BuildingKind } from './sim/types';
 import { TICKS_PER_SECOND, World } from './sim/world';
 
@@ -38,8 +39,8 @@ export class Game {
   private accumulator = 0;
   private cursorKey = '';
 
-  constructor(app: Application, seed = Math.floor(Math.random() * 1e9)) {
-    this.world = new World(MAP_SIZE, seed);
+  constructor(app: Application, world = new World(MAP_SIZE, randomSeed())) {
+    this.world = world;
     this.atlas = new TileAtlas();
     this.textures = new TextureCache();
     this.scene = new Scene(this.world, this.atlas, this.textures);
@@ -83,6 +84,12 @@ export class Game {
     this.scene.sync(deltaMs, this.atmosphere.sunPhase);
     this.updateCursor();
     this.camera.applyTo(this.scene.root);
+  }
+
+  restoreView(view: View): void {
+    this.camera.x = view.x;
+    this.camera.y = view.y;
+    this.camera.scale = view.scale;
   }
 
   resize(): void {
@@ -227,6 +234,10 @@ export class Game {
     marker.tint = colour;
     this.scene.cursor.addChild(marker);
   }
+}
+
+function randomSeed(): number {
+  return Math.floor(Math.random() * 1e9);
 }
 
 function roadPath(from: Point, to: Point): Point[] {
