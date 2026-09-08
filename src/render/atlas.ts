@@ -460,25 +460,10 @@ function drawWater(
   const cx = x + width / 2;
   const cy = y + height / 2;
   const phase = (frame / WATER_FRAMES) * Math.PI * 2;
-  const EDGE_MARGIN = 3;
 
   ctx.save();
   diamondPath(ctx, cx, cy, HALF_W, HALF_H);
   ctx.clip();
-  ctx.fillStyle = css(0x1f7f8a);
-  ctx.fillRect(x, y, width, height);
-  ctx.restore();
-
-  ctx.save();
-  diamondPath(ctx, cx, cy, HALF_W - EDGE_MARGIN, HALF_H - EDGE_MARGIN);
-  ctx.clip();
-
-  const gradient = ctx.createLinearGradient(0, cy - HALF_H, 0, cy + HALF_H);
-  gradient.addColorStop(0, css(0x2a9aa6));
-  gradient.addColorStop(0.55, css(0x1f7f8a));
-  gradient.addColorStop(1, css(0x186670));
-  ctx.fillStyle = gradient;
-  ctx.fillRect(x, y, width, height);
 
   ctx.lineWidth = 1.6;
   for (let band = 0; band < 7; band++) {
@@ -500,7 +485,25 @@ function drawWater(
     ctx.ellipse(cx + Math.cos(t) * HALF_W * 0.55, cy + Math.sin(t * 1.3) * HALF_H * 0.5, 4, 1.4, 0, 0, Math.PI * 2);
     ctx.fill();
   }
+  ctx.restore();
 
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.translate(cx, cy);
+  ctx.scale(1, HALF_H / HALF_W);
+  const fade = ctx.createRadialGradient(0, 0, 0, 0, 0, HALF_W);
+  fade.addColorStop(0.5, 'rgba(0,0,0,1)');
+  fade.addColorStop(0.9, 'rgba(0,0,0,0)');
+  ctx.fillStyle = fade;
+  ctx.fillRect(-HALF_W, -HALF_W, HALF_W * 2, HALF_W * 2);
+  ctx.restore();
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-over';
+  diamondPath(ctx, cx, cy, HALF_W, HALF_H);
+  ctx.clip();
+  ctx.fillStyle = css(0x1f7f8a);
+  ctx.fillRect(x, y, width, height);
   ctx.restore();
 }
 
