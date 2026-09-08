@@ -5,6 +5,7 @@ import type { Building, BuildingKind } from '../sim/types';
 import type { World } from '../sim/world';
 import type { TileAtlas } from './atlas';
 import type { BakedStructures } from './baked';
+import { DecorLayer } from './decor';
 import { depthOf, footprintAnchor, tileToScreen } from './iso';
 import { Particles } from './particles';
 import { TerrainLayer } from './terrain';
@@ -35,6 +36,7 @@ export class Scene {
   private readonly atlas: TileAtlas;
   private readonly textures: TextureCache;
   private readonly terrain: TerrainLayer;
+  private readonly decor: DecorLayer;
   private readonly particles: Particles;
   private readonly overlayTiles = new Container();
   private readonly structures = new Container();
@@ -57,6 +59,7 @@ export class Scene {
     this.particles = new Particles(textures);
 
     this.structures.sortableChildren = true;
+    this.decor = new DecorLayer(world, textures, this.structures);
     this.overlayTiles.visible = false;
     this.root.addChild(
       this.terrain.container,
@@ -89,8 +92,10 @@ export class Scene {
 
   sync(deltaMs: number, sunPhase: number): void {
     this.clock += deltaMs;
-    this.terrain.rebuildTiles(this.world.consumeChangedTiles());
+    const changedTiles = this.world.consumeChangedTiles();
+    this.terrain.rebuildTiles(changedTiles);
     this.terrain.update(deltaMs);
+    this.decor.sync(changedTiles);
 
     if (this.syncedVersion !== this.world.structureVersion) {
       this.syncedVersion = this.world.structureVersion;

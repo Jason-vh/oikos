@@ -1,5 +1,5 @@
 import type { Texture } from 'pixi.js';
-import { createRandom } from '../sim/mapgen';
+import { createRandom, type DecorKind } from '../sim/mapgen';
 import type { BuildingKind, WalkerKind } from '../sim/types';
 import { TILE_HEIGHT, TILE_WIDTH } from './iso';
 import {
@@ -25,6 +25,8 @@ export interface StructureSprite {
   anchorX: number;
   anchorY: number;
 }
+
+export type DecorSprite = StructureSprite;
 
 export interface StructureLook {
   size: number;
@@ -58,6 +60,7 @@ const FOOTPRINT_INSET: Record<BuildingKind, number> = {
 export class TextureCache {
   private readonly textures = new Map<string, Texture>();
   private readonly structures = new Map<string, StructureSprite>();
+  private readonly decorSprites = new Map<string, DecorSprite>();
 
   walker(kind: WalkerKind, direction: number, frame: number): Texture {
     return this.cache(`walker:${kind}:${direction}:${frame}`, () => {
@@ -100,6 +103,16 @@ export class TextureCache {
       ctx.fillRect(0, 0, width, height);
       return surface;
     });
+  }
+
+  decor(kind: DecorKind, variant: number): DecorSprite {
+    const key = `${kind}:${variant}`;
+    const existing = this.decorSprites.get(key);
+    if (existing) return existing;
+
+    const sprite = buildDecor(kind, variant);
+    this.decorSprites.set(key, sprite);
+    return sprite;
   }
 
   structure(request: StructureRequest): StructureSprite {
@@ -620,4 +633,225 @@ function drawCart(ctx: CanvasRenderingContext2D, cx: number, feet: number, direc
   ctx.beginPath();
   ctx.arc(x, feet - 7, 3.6, 0, Math.PI * 2);
   ctx.fill();
+}
+
+const DECOR_SUN = sunForPhase(2);
+
+function buildDecor(kind: DecorKind, variant: number): DecorSprite {
+  const { surface, baseY } = drawDecorSurface(kind, variant);
+  return { texture: toTexture(surface), anchorX: 0.5, anchorY: baseY / surface.height };
+}
+
+function drawDecorSurface(kind: DecorKind, variant: number): { surface: DrawSurface; baseY: number } {
+  if (kind === 'cypress') return drawCypress(variant);
+  if (kind === 'olive') return drawOlive(variant);
+  if (kind === 'scrub') return drawScrub(variant);
+  return drawBoulder(variant);
+}
+
+function groundShadow(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  baseY: number,
+  radiusX: number,
+  radiusY: number,
+): void {
+  ctx.save();
+  ctx.filter = 'blur(2.5px)';
+  ctx.fillStyle = 'rgba(24, 19, 12, 0.3)';
+  ctx.beginPath();
+  ctx.ellipse(cx, baseY, radiusX, radiusY, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawCypress(variant: number): { surface: DrawSurface; baseY: number } {
+  const width = 30;
+  const height = 68;
+  const surface = createSurface(width, height);
+  const { ctx } = surface;
+  const random = createRandom(variant * 733 + 41);
+  const light = topLight(DECOR_SUN);
+  const cx = width / 2;
+  const baseY = height - 5;
+  const trunkHeight = 6 + random() * 2;
+  const canopyTop = 4 + random() * 4;
+  const canopyBottom = baseY - trunkHeight;
+  const lean = (random() - 0.5) * 2;
+
+  groundShadow(ctx, cx, baseY, 8, 3);
+
+  ctx.fillStyle = css(shade(0x5a4630, light));
+  ctx.fillRect(cx - 1.4, canopyBottom, 2.8, trunkHeight);
+
+  const dark = shade(0x2e4630, light * 0.85);
+  const base = shade(0x37533b, light);
+  const lit = shade(0x4c6c4a, light * 1.18);
+
+  const segments = 7;
+  for (let i = segments - 1; i >= 0; i--) {
+    const t = i / (segments - 1);
+    const y = canopyBottom - t * (canopyBottom - canopyTop);
+    const spread = (1 - t * 0.82) * (7.5 - random() * 1.2);
+    const shift = lean * t;
+    ctx.fillStyle = css(i % 2 === 0 ? base : dark);
+    ctx.beginPath();
+    ctx.ellipse(cx + shift, y, spread, 5.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = css(lit, 0.55);
+  for (let i = segments - 1; i >= 1; i -= 2) {
+    const t = i / (segments - 1);
+    const y = canopyBottom - t * (canopyBottom - canopyTop);
+    const spread = (1 - t * 0.82) * 7.5;
+    ctx.beginPath();
+    ctx.ellipse(cx + lean * t + spread * 0.3, y, spread * 0.45, 4.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  return { surface, baseY };
+}
+
+function drawOlive(variant: number): { surface: DrawSurface; baseY: number } {
+  const width = 34;
+  const height = 46;
+  const surface = createSurface(width, height);
+  const { ctx } = surface;
+  const random = createRandom(variant * 919 + 7);
+  const light = topLight(DECOR_SUN);
+  const cx = width / 2;
+  const baseY = height - 5;
+
+  groundShadow(ctx, cx, baseY, 9, 3.2);
+
+  const trunkTop = baseY - 20;
+  ctx.strokeStyle = css(shade(0x6b5636, light));
+  ctx.lineWidth = 3.4;
+  ctx.beginPath();
+  ctx.moveTo(cx - 2, baseY);
+  ctx.quadraticCurveTo(cx + 3, baseY - 12, cx - 1, trunkTop);
+  ctx.stroke();
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(cx - 1, trunkTop + 6);
+  ctx.quadraticCurveTo(cx - 6, trunkTop - 2, cx - 8, trunkTop - 8);
+  ctx.stroke();
+
+  const dark = shade(0x5e6b52, light * 0.9);
+  const mid = shade(0x7c8a6c, light);
+  const lit = shade(0x9aa78c, light * 1.05);
+  const canopyCx = cx - 2;
+  const canopyCy = trunkTop - 10;
+
+  ctx.fillStyle = css(mid);
+  ctx.beginPath();
+  ctx.ellipse(canopyCx, canopyCy, 11, 8.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  for (let i = 0; i < 13; i++) {
+    const angle = (i / 13) * Math.PI * 2 + random();
+    const radius = 6 + random() * 3;
+    const px = canopyCx + Math.cos(angle) * radius * 1.1;
+    const py = canopyCy + Math.sin(angle) * radius * 0.7;
+    ctx.fillStyle = css(i % 3 === 0 ? dark : mid);
+    ctx.beginPath();
+    ctx.ellipse(px, py, 3.6 + random() * 1.6, 3 + random() * 1.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = css(lit, 0.45);
+  for (let i = 0; i < 3; i++) {
+    const px = canopyCx - 4 + random() * 4;
+    const py = canopyCy - 6 + random() * 4;
+    ctx.beginPath();
+    ctx.ellipse(px, py, 3.4, 2.6, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  return { surface, baseY };
+}
+
+function drawScrub(variant: number): { surface: DrawSurface; baseY: number } {
+  const width = 26;
+  const height = 20;
+  const surface = createSurface(width, height);
+  const { ctx } = surface;
+  const random = createRandom(variant * 331 + 3);
+  const light = topLight(DECOR_SUN);
+  const cx = width / 2;
+  const baseY = height - 4;
+
+  groundShadow(ctx, cx, baseY, 7, 2.4);
+
+  const dark = shade(0x6d6640, light * 0.85);
+  const mid = shade(0x8a7f4f, light);
+  const lit = shade(0xa89c68, light * 1.05);
+
+  const tufts = 5;
+  for (let i = 0; i < tufts; i++) {
+    const angle = (i / tufts) * Math.PI * 2;
+    const px = cx + Math.cos(angle) * 5;
+    const py = baseY - 4 + Math.sin(angle) * 2.2;
+    const radius = 4.4 + random() * 2;
+    ctx.fillStyle = css(i % 2 === 0 ? mid : dark);
+    ctx.beginPath();
+    ctx.ellipse(px, py, radius, radius * 0.7, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = css(lit, 0.7);
+  ctx.beginPath();
+  ctx.ellipse(cx - 2, baseY - 7, 4, 2.6, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  return { surface, baseY };
+}
+
+function drawBoulder(variant: number): { surface: DrawSurface; baseY: number } {
+  const width = 30;
+  const height = 20;
+  const surface = createSurface(width, height);
+  const { ctx } = surface;
+  const random = createRandom(variant * 511 + 19);
+  const light = topLight(DECOR_SUN);
+  const cx = width / 2;
+  const baseY = height - 4;
+  const domeWidth = 9.5 + random() * 1.5;
+  const domeHeight = 6.5 + random();
+  const domeCy = baseY - domeHeight * 0.72;
+
+  groundShadow(ctx, cx, baseY, domeWidth, 2.6);
+
+  const highlight = shade(0xece4cc, light);
+  const base = shade(0xc7bfa6, light);
+  const shadowSide = shade(0x8f8770, light * 0.75);
+
+  const gradient = ctx.createLinearGradient(cx - domeWidth, domeCy - domeHeight, cx + domeWidth, domeCy + domeHeight);
+  gradient.addColorStop(0, css(highlight));
+  gradient.addColorStop(0.55, css(base));
+  gradient.addColorStop(1, css(shadowSide));
+
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.ellipse(cx, domeCy, domeWidth, domeHeight, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = css(shadowSide, 0.5);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.ellipse(cx, domeCy, domeWidth, domeHeight, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(70, 62, 46, 0.3)';
+  ctx.lineWidth = 0.9;
+  for (let i = 0; i < 2; i++) {
+    const ox = (random() - 0.5) * domeWidth;
+    ctx.beginPath();
+    ctx.moveTo(cx + ox, domeCy - domeHeight * 0.4);
+    ctx.quadraticCurveTo(cx + ox + 1.5, domeCy, cx + ox - 1, domeCy + domeHeight * 0.5);
+    ctx.stroke();
+  }
+
+  return { surface, baseY };
 }

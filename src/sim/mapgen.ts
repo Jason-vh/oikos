@@ -28,6 +28,60 @@ export function generateMap(grid: Grid, seed: number): void {
   scatterBlobs(grid, random, TERRAIN_MEADOW, 8, 2.5, 5, (index) => grid.height[index] <= 1);
   scatterBlobs(grid, random, TERRAIN_ROCK, 6, 1.5, 3, (index) => grid.height[index] >= 2);
   fringeWaterWithSand(grid);
+  scatterDecor(grid, random);
+}
+
+export const DECOR_KINDS = ['cypress', 'olive', 'scrub', 'boulder'] as const;
+export type DecorKind = (typeof DECOR_KINDS)[number];
+export const DECOR_VARIANTS = 3;
+
+export function decorKindOf(byte: number): DecorKind {
+  return DECOR_KINDS[Math.floor((byte - 1) / DECOR_VARIANTS)];
+}
+
+export function decorVariantOf(byte: number): number {
+  return (byte - 1) % DECOR_VARIANTS;
+}
+
+function scatterDecor(grid: Grid, random: () => number): void {
+  for (let index = 0; index < grid.terrain.length; index++) {
+    const terrain = grid.terrain[index];
+    if (terrain === TERRAIN_WATER || terrain === TERRAIN_SAND) continue;
+
+    if (random() >= decorDensity(grid, index, terrain)) continue;
+
+    const kindIndex = pickDecorKind(terrain, random);
+    const variant = Math.floor(random() * DECOR_VARIANTS);
+    grid.decor[index] = kindIndex * DECOR_VARIANTS + variant + 1;
+  }
+}
+
+function decorDensity(grid: Grid, index: number, terrain: number): number {
+  const nearCliff = grid
+    .neighbours(index)
+    .some((neighbour) => grid.height[neighbour] !== grid.height[index]);
+
+  if (terrain === TERRAIN_ROCK) return nearCliff ? 0.55 : 0.35;
+  if (terrain === TERRAIN_MEADOW) return 0.04;
+  return nearCliff ? 0.22 : 0.12;
+}
+
+function pickDecorKind(terrain: number, random: () => number): number {
+  const roll = random();
+
+  if (terrain === TERRAIN_ROCK) {
+    if (roll < 0.5) return 3;
+    if (roll < 0.7) return 0;
+    if (roll < 0.85) return 1;
+    return 2;
+  }
+
+  if (terrain === TERRAIN_MEADOW) return roll < 0.7 ? 2 : 1;
+
+  if (roll < 0.3) return 0;
+  if (roll < 0.6) return 1;
+  if (roll < 0.9) return 2;
+  return 3;
 }
 
 function fractalNoise(size: number, random: () => number): Float32Array {
