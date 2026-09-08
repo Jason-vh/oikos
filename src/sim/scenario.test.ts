@@ -21,6 +21,7 @@ const scenario: Scenario = {
     { kind: 'housing', tier: homestead, target: 50 },
     { kind: 'production', good: 'oil', target: 6 },
   ],
+  invasions: [],
 };
 
 describe('goals', () => {

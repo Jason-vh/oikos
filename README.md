@@ -202,9 +202,9 @@ The game picks it up with no client changes.
 
 The full inventory lives in [docs/roadmap.md](docs/roadmap.md). Next up:
 
-1. **Military** — rabble and hoplites raised from housing, invasions that head for the palace.
-2. **Heroes and monsters** — halls, summoning conditions, a monster each hero can kill.
-3. **Campaign** — more than one scenario, episodes, ratings, failure conditions.
+1. **Heroes and monsters** — halls, summoning conditions, a monster each hero can kill.
+2. **Campaign** — more than one scenario, episodes, ratings, failure conditions.
+3. **Walls and towers** — a defence to place, rather than a battle decided on paper.
 
 ## Art licence
 

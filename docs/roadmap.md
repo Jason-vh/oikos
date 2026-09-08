@@ -445,7 +445,13 @@ twice to the same rival on home soil loses the episode. Offensive options are ra
 at Beginner, 0.5× at Olympian) and conquest (city becomes a vassal). Rabble cannot
 be sent abroad. Borrowed allied troops defend only; god-sent troops do both.
 
-⬜ All.
+🟡 Companies muster from housing in `src/sim/military.ts`, and only with a palace:
+5 soldiers a hovel up to 15 a townhouse, 48 to a rabble company; mansions and manors
+raise hoplites 16 to a company, estates horsemen 8 to a company, capped at 20
+companies. A scenario carries a list of invasions by year and nation, and the battle
+is decided on attack × hit points against the invader's companies — a defeat costs
+250 dr a company in plunder and razes a building for each. Unit movement, walls,
+towers, wharves, sieges, morale and sending troops abroad are not started.
 
 ---
 

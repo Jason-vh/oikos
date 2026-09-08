@@ -1,4 +1,5 @@
 import { HOUSE_TIERS } from './buildings';
+import type { Invasion } from './military';
 import type { Good } from './types';
 
 export type Goal =
@@ -11,6 +12,7 @@ export interface Scenario {
   name: string;
   blurb: string;
   goals: Goal[];
+  invasions: Invasion[];
 }
 
 export interface CitySnapshot {
@@ -35,6 +37,11 @@ export const DEFAULT_SCENARIO: Scenario = {
     { kind: 'housing', tier: HOUSE_TIERS.findIndex((tier) => tier.name === 'Homestead'), target: 150 },
     { kind: 'production', good: 'oil', target: 6 },
     { kind: 'treasury', target: 3000 },
+  ],
+  invasions: [
+    { year: -494, nation: 'Thessalians', companies: 2 },
+    { year: -490, nation: 'Trojans', companies: 5 },
+    { year: -485, nation: 'Persians', companies: 9 },
   ],
 };
 

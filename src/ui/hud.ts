@@ -4,6 +4,7 @@ import { BUILDINGS, PLACEABLE, ROADBLOCK_COST, ROAD_COST } from '../sim/building
 import { monthlyWages, WAGE_LEVELS, type LabourReport } from '../sim/labour';
 import { TAX_RATES } from '../sim/taxation';
 import { GODS, GOD_KINDS, moodName } from '../sim/gods';
+import { UNITS, companiesIn, type UnitKind } from '../sim/military';
 import { abandonCity } from '../sim/save';
 import { TRADE_ROUTES } from '../sim/trade';
 import { COIN, money } from './money';
@@ -44,6 +45,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
         <span class="cartouche" data-field="date"></span>
         ${renderMenu('treasury', 'treasury', financeMenu())}
         ${renderMenu('people', '', peopleMenu())}
+        ${renderMenu('army', '', armyMenu())}
         ${renderMenu('trade', '', tradeMenu())}
         ${renderMenu('gods', '', godsMenu())}
         ${renderMenu('speed', '', speedMenu())}
@@ -198,6 +200,11 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       field('date').textContent = world.dateLabel;
       field('treasury').innerHTML = money(world.treasury);
       field('speed').textContent = speedLabel(game.speed);
+      field('army').textContent = armyLabel(world);
+      for (const kind of Object.keys(UNITS) as UnitKind[]) {
+        field(`army-${kind}`).textContent = `${world.army[kind]} compan${world.army[kind] === 1 ? 'y' : 'ies'}`;
+      }
+      field('armyNote').textContent = armyNote(world);
       field('trade').textContent = tradeLabel(world);
       field('tradeNote').innerHTML = tradeNote(world);
       field('gods').textContent = godsLabel(world);
@@ -320,6 +327,20 @@ function groupFor(kind: string): string {
   if (kind === 'palace' || kind === 'taxOffice' || kind === 'tradingPost') return 'Government';
   if (kind.startsWith('sanctuary')) return 'Mythology';
   return 'Services';
+}
+
+function armyLabel(world: Game['world']): string {
+  const companies = companiesIn(world.army);
+  if (companies === 0) return 'No army';
+  return `${companies} compan${companies === 1 ? 'y' : 'ies'}`;
+}
+
+function armyNote(world: Game['world']): string {
+  if (!world.has('palace')) return 'Without a palace nobody musters.';
+  const battle = world.lastBattle;
+  if (!battle) return 'Housing raises the companies; the better the house, the better the soldier.';
+  if (battle.won) return `The ${battle.invasion.nation} were thrown back.`;
+  return `The ${battle.invasion.nation} sacked the city.`;
 }
 
 function tradeLabel(world: Game['world']): string {
@@ -448,6 +469,13 @@ function migrationLabel(migrants: number): string {
   if (migrants > 0) return `${migrants} settling`;
   if (migrants < 0) return `${-migrants} leaving`;
   return 'Steady';
+}
+
+function armyMenu(): string {
+  const rows = (Object.keys(UNITS) as UnitKind[])
+    .map((kind) => `<div class="dropdown-row"><span>${UNITS[kind].name}</span><b data-field="army-${kind}"></b></div>`)
+    .join('');
+  return `${rows}<p class="dropdown-note" data-field="armyNote"></p>`;
 }
 
 function tradeMenu(): string {

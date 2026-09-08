@@ -34,6 +34,7 @@ import {
 } from './scenario';
 import { DEFAULT_TAX_RATE, collectTax, type TaxReport } from './taxation';
 import { NO_TRADE, newTradeOrders, trade, type TradeReport } from './trade';
+import { NO_ARMY, fightInvasion, musterArmy, type Army, type Battle } from './military';
 import { TICKS_PER_MONTH } from './time';
 import { createBuilding } from './types';
 import type { Building, BuildingKind, Good, Walker, WalkerKind } from './types';
@@ -51,6 +52,8 @@ const AGORA_GOODS: Good[] = ['food', 'oil'];
 const COLLEGE_SPAWN_INTERVAL = 90;
 const MAINTENANCE_SPAWN_INTERVAL = 70;
 const STAGGERED_RISK = 40;
+const INVASION_MONTH = 6;
+const PLUNDER_PER_COMPANY = 250;
 const HADES_GIFT = 600;
 const HADES_TRIBUTE = 400;
 const MONTHS_PER_YEAR = 12;
@@ -90,6 +93,8 @@ export class World {
   migrants = 0;
   tradeOrders: Record<string, boolean> = newTradeOrders();
   trade: TradeReport = NO_TRADE;
+  army: Army = { ...NO_ARMY };
+  lastBattle: Battle | null = null;
   scenario: Scenario = DEFAULT_SCENARIO;
   goals: GoalProgress[] = [];
   scenarioWon = false;
@@ -318,6 +323,8 @@ export class World {
       inDebt: this.treasury < 0,
     });
     this.migrate();
+    this.army = musterArmy(this.buildings.values(), this.has('palace'));
+    this.defendCity();
     this.sufferAfflictions();
     this.attendGods();
     this.sufferMishaps();
@@ -378,6 +385,28 @@ export class World {
 
     this.trade = posts.length === 0 ? NO_TRADE : trade(posts, this.tradeOrders, this.treasury);
     this.treasury += this.trade.earned - this.trade.spent;
+  }
+
+  private defendCity(): void {
+    const invasion = this.scenario.invasions.find(
+      (candidate) => candidate.year === this.year && this.month === INVASION_MONTH,
+    );
+    if (!invasion) return;
+
+    const battle = fightInvasion(this.army, invasion);
+    this.lastBattle = battle;
+
+    if (battle.won) {
+      this.log(`The ${invasion.nation} are thrown back from the walls.`);
+      return;
+    }
+
+    this.treasury -= Math.min(this.treasury, invasion.companies * PLUNDER_PER_COMPANY);
+    for (let razed = 0; razed < invasion.companies; razed++) {
+      const victim = this.randomBuilding();
+      if (victim) this.demolish(victim.x, victim.y);
+    }
+    this.log(`The ${invasion.nation} sack the city, Archon.`);
   }
 
   private sufferAfflictions(): void {
