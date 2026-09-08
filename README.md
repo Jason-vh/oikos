@@ -100,7 +100,7 @@ is seconds rather than minutes.
 
 ```bash
 python3 pipeline/sheet.py 2 /tmp/sheet.png            # every sprite over its tile diamond
-bun scripts/noon.mjs http://localhost:5180 out.png 100  # in-game shot; tick 100/220/300 = morning/dusk/night, optional zoom
+bun scripts/noon.mjs http://localhost:5180 out.png 100 [zoom] [liveMs]  # in-game shot; tick 100/220/260 = morning/dusk/night; liveMs runs the sim first (~20 ticks/s)
 ```
 
 One model unit is one tile side, so a 1×1 building's walls should stay inside
