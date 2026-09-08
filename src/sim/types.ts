@@ -17,6 +17,7 @@ export type BuildingKind =
   | 'agora'
   | 'college'
   | 'podium'
+  | 'maintenanceOffice'
   | 'fountain'
   | 'statue'
   | 'taxOffice';
@@ -34,6 +35,8 @@ export interface Building {
   staff: number;
   supply: ServiceSupply;
   stock: GoodStock;
+  fireRisk: number;
+  damageRisk: number;
   productionProgress: number;
   spawnTimer: number;
   walkersOut: number;
@@ -45,6 +48,7 @@ export type WalkerKind =
   | 'peddler'
   | 'waterCarrier'
   | 'philosopher'
+  | 'superintendent'
   | 'clerk';
 
 export type WalkerState = 'roaming' | 'delivering' | 'returning';
@@ -82,6 +86,8 @@ export function createBuilding(id: number, kind: BuildingKind, x: number, y: num
     staff: 0,
     supply: emptySupply(),
     stock: emptyStock(),
+    fireRisk: 0,
+    damageRisk: 0,
     productionProgress: 0,
     spawnTimer: 0,
     walkersOut: 0,

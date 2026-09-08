@@ -1,6 +1,7 @@
 import { Container, Sprite } from 'pixi.js';
 import { BUILDINGS, HOUSE_TIERS } from '../sim/buildings';
 import { TERRAIN_WATER } from '../sim/grid';
+import { RISK_LIMIT, riskOf } from '../sim/hazards';
 import type { Building, BuildingKind } from '../sim/types';
 import type { World } from '../sim/world';
 import type { TileAtlas } from './atlas';
@@ -20,7 +21,7 @@ import {
   type TextureCache,
 } from './textures';
 
-export type OverlayMode = 'none' | 'appeal';
+export type OverlayMode = 'none' | 'appeal' | 'hazard';
 
 const WALKER_FRAME_MS = 130;
 const SMOKE_INTERVAL_MS = 700;
@@ -107,7 +108,8 @@ export class Scene {
   setOverlayMode(mode: OverlayMode): void {
     this.overlayMode = mode;
     this.overlayTiles.visible = mode === 'appeal';
-    if (mode === 'appeal') this.refreshOverlay();
+    if (mode !== 'hazard') this.clearBuildingTints();
+    if (mode !== 'none') this.refreshOverlay();
   }
 
   sync(deltaMs: number): void {
@@ -124,6 +126,7 @@ export class Scene {
     }
 
     this.syncBuildings();
+    if (this.overlayMode === 'hazard') this.refreshOverlay();
     this.syncWalkers();
     this.emitParticles();
     this.particles.update(deltaMs);
@@ -147,10 +150,21 @@ export class Scene {
   }
 
   private refreshOverlay(): void {
+    if (this.overlayMode === 'hazard') {
+      for (const [id, entry] of this.buildingSprites) {
+        entry.body.tint = hazardColour(this.world.buildings.get(id));
+      }
+      return;
+    }
+
     const { grid } = this.world;
     for (let index = 0; index < this.overlaySprites.length; index++) {
       this.overlaySprites[index].tint = appealColour(grid.appeal[index]);
     }
+  }
+
+  private clearBuildingTints(): void {
+    for (const entry of this.buildingSprites.values()) entry.body.tint = 0xffffff;
   }
 
   private syncBuildings(): void {
@@ -331,6 +345,11 @@ function lookOf(building: Building): StructureLook {
 export function structureLook(kind: BuildingKind): StructureLook {
   const def = BUILDINGS[kind];
   return { size: def.size, height: def.height, colour: def.colour, roofColour: def.roofColour };
+}
+
+function hazardColour(building: Building | undefined): number {
+  if (!building) return 0xffffff;
+  return blend(0x9ce8a0, 0xff4b3a, riskOf(building) / RISK_LIMIT);
 }
 
 function appealColour(value: number): number {

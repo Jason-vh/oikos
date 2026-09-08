@@ -261,9 +261,10 @@ economy: 100 people in estates on Mortal yield 1,944 dr/yr against 1,728 dr from
 difficulty).
 
 🟡 Tax office, clerk and the `TRM × people × rate` table are in `src/sim/taxation.ts`,
-with the seven rates and multiplier 1 below homestead, 2 above. The palace
-prerequisite, elite multipliers, fountain/infirmary/watchpost/maintenance risks and
-the whole risk model are not.
+with the seven rates and multiplier 1 below homestead, 2 above. Fire and damage risk
+per building, and the maintenance office whose superintendent clears both, are in
+`src/sim/hazards.ts`. The palace prerequisite, elite multipliers, infirmary, watchpost,
+crime, unrest and plague are not.
 
 ---
 

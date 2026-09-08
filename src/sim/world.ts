@@ -12,6 +12,7 @@ import {
 } from './labour';
 import { generateMap } from './mapgen';
 import { hasRoadAccess, roadAccessTiles } from './pathing';
+import { accrueRisk, nameOf } from './hazards';
 import { judgeCity, migrantsFor, type Sentiment } from './popularity';
 import { DEFAULT_TAX_RATE, collectTax, type TaxReport } from './taxation';
 import { TICKS_PER_MONTH } from './time';
@@ -29,6 +30,8 @@ const TICKS_PER_LOAD = 150;
 const AGORA_SPAWN_INTERVAL = 90;
 const AGORA_GOODS: Good[] = ['food', 'oil'];
 const COLLEGE_SPAWN_INTERVAL = 90;
+const MAINTENANCE_SPAWN_INTERVAL = 70;
+const STAGGERED_RISK = 40;
 const FOUNTAIN_SPAWN_INTERVAL = 70;
 const TAX_OFFICE_SPAWN_INTERVAL = 70;
 
@@ -120,6 +123,8 @@ export class World {
 
     const def = BUILDINGS[kind];
     const building = createBuilding(this.nextId++, kind, x, y, def.size);
+    building.fireRisk = Math.random() * STAGGERED_RISK;
+    building.damageRisk = Math.random() * STAGGERED_RISK;
 
     this.buildings.set(building.id, building);
     for (const tile of this.grid.footprint(x, y, def.size)) this.grid.occupant[tile] = building.id;
@@ -264,6 +269,7 @@ export class World {
       inDebt: this.treasury < 0,
     });
     this.migrate();
+    this.sufferMishaps();
 
     if (this.labour.employed < this.labour.required) this.log('Buildings stand short of workers.');
     else if (this.sentiment.complaint) this.log(this.sentiment.complaint);
@@ -284,6 +290,18 @@ export class World {
     const { workforce, employed } = this.labour;
     if (workforce === 0) return 0;
     return (workforce - employed) / workforce;
+  }
+
+  private sufferMishaps(): void {
+    for (const { building, disaster } of accrueRisk(this.buildings.values())) {
+      const name = nameOf(building);
+      this.demolish(building.x, building.y);
+      this.log(
+        disaster === 'fire'
+          ? `Fire has destroyed a ${name.toLowerCase()}, Archon.`
+          : `A ${name.toLowerCase()} has collapsed, Archon.`,
+      );
+    }
   }
 
   private migrate(): void {
@@ -315,6 +333,9 @@ export class World {
           break;
         case 'college':
           this.updateCollege(building);
+          break;
+        case 'maintenanceOffice':
+          this.updateMaintenanceOffice(building);
           break;
         case 'taxOffice':
           this.updateTaxOffice(building);
@@ -422,6 +443,14 @@ export class World {
       if (hasRoadAccess(this.grid, building)) return building;
     }
     return undefined;
+  }
+
+  private updateMaintenanceOffice(office: Building): void {
+    office.spawnTimer += staffing(office);
+    if (office.spawnTimer < MAINTENANCE_SPAWN_INTERVAL) return;
+    if (atWalkerLimit(office) || !hasRoadAccess(this.grid, office)) return;
+
+    if (spawnRoamer(this, office, 'superintendent')) office.spawnTimer = 0;
   }
 
   private updateTaxOffice(office: Building): void {

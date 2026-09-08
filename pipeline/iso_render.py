@@ -684,6 +684,37 @@ def build_podium():
     return {"kind": "podium", "variant": 0, "footprint": 2, "height": 0.7}
 
 
+def build_maintenance_office():
+    """Working yard: tiled shed, water butt, ladder against the wall, buckets and timber."""
+    stone = plaster_material("stone", STONE, roughness=0.85, variation=0.06, scale=10.0)
+    ochre = plaster_material("ochre", OCHRE, roughness=0.9, variation=0.08, scale=8.0)
+    terracotta = roof_material("terracotta", TERRACOTTA)
+    wood = material("wood", WOOD, roughness=0.85)
+    clay = material("clay", CLAY, roughness=0.8)
+    water = material("water", WATER_LIGHT, roughness=0.08)
+
+    add_box("yard", (0, 0, 0.03), (1.7, 1.7, 0.06), stone)
+
+    half = 0.42
+    wall_h = 0.5
+    hx, hy = -0.3, -0.3
+    add_box("shed", (hx, hy, 0.06 + wall_h / 2), (half * 2, half * 2, wall_h), ochre)
+    add_hip_roof("shed_roof", (hx, hy, 0.06 + wall_h + 0.11), half + 0.07, 0.22, terracotta, ridge_half=0.1)
+    add_door(half, 0.3, wood, (hx, hy))
+
+    for index, offset in enumerate((-0.12, 0.12)):
+        add_box(f"ladder_rail_{index}", (hx + half + 0.04, hy + offset, 0.06 + 0.34), (0.04, 0.04, 0.68), wood)
+    for step in range(4):
+        add_box(f"ladder_rung_{step}", (hx + half + 0.04, hy, 0.14 + step * 0.16), (0.03, 0.24, 0.03), wood)
+
+    add_cylinder("butt", (0.56, 0.5, 0.06 + 0.16), 0.22, 0.32, wood, vertices=18)
+    add_cylinder("butt_water", (0.56, 0.5, 0.06 + 0.3), 0.19, 0.04, water, vertices=18)
+    add_amphora("bucket", (0.2, 0.74, 0.06), 0.2, clay)
+    add_box("timber", (0.5, -0.6, 0.12), (0.9, 0.22, 0.12), wood)
+
+    return {"kind": "maintenanceOffice", "variant": 0, "footprint": 2, "height": 0.95}
+
+
 def build_tax_office():
     """Civic hall on a stone plinth: portico, slate roof, strongbox and record jars."""
     stone = plaster_material("stone", STONE, roughness=0.8, variation=0.06, scale=10.0)
@@ -801,6 +832,7 @@ MODELS = {
     "growers-lodge": build_growers_lodge,
     "college": build_college,
     "podium": build_podium,
+    "maintenance-office": build_maintenance_office,
     "olive-press": build_olive_press,
     "wheat-farm": build_wheat_farm,
     "fountain": build_fountain,

@@ -2,6 +2,7 @@ import { bandValues } from '../sim/appeal';
 import { BUILDINGS, HOUSE_TIERS, ROADBLOCK_COST, ROAD_COST } from '../sim/buildings';
 import type { BuildingDef } from '../sim/buildings';
 import { TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_SAND, TERRAIN_WATER } from '../sim/grid';
+import { describeRisk } from '../sim/hazards';
 import { ROAM_RANGE } from '../sim/walkers';
 import type { Building, BuildingKind, Good, WalkerKind } from '../sim/types';
 import type { World } from '../sim/world';
@@ -115,6 +116,7 @@ function inspectBuilding(world: World, building: Building, index: number): Inspe
   }
   facts.push(['Appeal', appealSummary(def)]);
   facts.push(['Appeal here', `${world.grid.appeal[index]}`]);
+  facts.push(['Risk', describeRisk(building)]);
 
   return { title: def.name, subtitle: 'Building', description: def.description, facts };
 }
@@ -132,6 +134,7 @@ function inspectHouse(world: World, house: Building, index: number): Inspection 
     ['Culture', house.supply.culture > 0 ? 'taught' : 'none'],
     ['Tax', house.supply.tax > 0 ? `paying, ×${tier.taxMultiplier}` : 'no clerk has called'],
     ['Appeal here', `${appeal}`],
+    ['Risk', describeRisk(house)],
   ];
 
   if (next) {

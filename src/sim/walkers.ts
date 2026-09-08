@@ -1,4 +1,5 @@
 import { BUILDINGS, UNITS_PER_CARTLOAD } from './buildings';
+import { reassure } from './hazards';
 import { bfsRoute, exitTile, nextRoamTile, northOf, roadAccessTiles } from './pathing';
 import { TICKS_PER_MONTH } from './time';
 import type { Building, Good, ServiceKind, Walker, WalkerKind } from './types';
@@ -12,6 +13,7 @@ export const ROAM_RANGE: Record<WalkerKind, number> = {
   peddler: 44,
   waterCarrier: 27,
   philosopher: 35,
+  superintendent: 44,
   clerk: 35,
 };
 
@@ -21,6 +23,7 @@ export const WALKER_SPEED: Record<WalkerKind, number> = {
   peddler: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
   waterCarrier: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
   philosopher: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
+  superintendent: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
   clerk: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
 };
 
@@ -154,6 +157,11 @@ function onTileEntered(world: World, walker: Walker): void {
     return;
   }
 
+  if (walker.kind === 'superintendent') {
+    if (walker.state !== 'delivering') maintainNeighbours(world, walker.from);
+    return;
+  }
+
   const service = walker.kind === 'peddler' ? SOLD_AS[walker.good] : WALKER_SERVICE[walker.kind];
   if (service) {
     if (walker.state === 'roaming' || walker.state === 'returning') serve(world, walker, service);
@@ -175,6 +183,13 @@ function serve(world: World, walker: Walker, service: ServiceKind): void {
 
   walker.cargo -= served * SALE_PER_HOUSE;
   if (walker.cargo < SALE_PER_HOUSE) walker.stepsLeft = 0;
+}
+
+function maintainNeighbours(world: World, tile: number): void {
+  for (const neighbour of world.grid.neighbours(tile)) {
+    const building = world.buildingAt(neighbour);
+    if (building) reassure(building);
+  }
 }
 
 function serveAdjacentHouses(world: World, tile: number, service: ServiceKind): number {

@@ -23,6 +23,7 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
 | Click with `I` | Inspect a building, road or tile |
 | `Esc` | Back to inspect, close the popup |
 | `O` | Appeal overlay |
+| `H` | Hazard overlay |
 | Space | Pause |
 
 ## What is simulated
@@ -53,6 +54,10 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
   its footprint — a fountain gives 4,4,2,2, a granary −12,−10,−8,−6. Housing itself
   is a source: shacks push their neighbours down and stop doing so as they evolve,
   so a block that improves keeps improving.
+- **Hazards**: every building accrues fire and damage risk each month at its own rate —
+  an olive press far faster than a podium. At 100 it burns down or collapses. A
+  maintenance office sends a superintendent 44 tiles, and he wipes both risks clean on
+  everything he walks past. A city without one is gone within a few years.
 - **Popularity and migration**: citizens no longer appear from nowhere. Each month the
   city is judged on wages, taxes, whether the houses that need food have it,
   unemployment and debt; settlers move into empty rooms when it is liked and leave when
@@ -77,6 +82,7 @@ src/sim/      headless simulation — no Pixi imports
   housing.ts      evolution rules
   appeal.ts       band model field
   labour.ts       wage levels, workforce, staffing
+  hazards.ts      fire and collapse risk
   popularity.ts   sentiment and migration
   taxation.ts     tax rates, tier multipliers, collection
   mapgen.ts       seeded terraced terrain
@@ -163,8 +169,8 @@ analytically from that camera rather than eyeballed. A Cycles shadow-catcher pla
 becomes the shadow sprite, framed wide enough for the shadow the sun actually casts.
 
 Models live in `pipeline/iso_render.py`: the five housing tiers, wheat farm, growers'
-lodge, olive press, granary, agora, college, podium, tax office, fountain and statue,
-each rendered as a body and a shadow. Sprites are keyed by
+lodge, olive press, granary, agora, college, podium, maintenance office, tax office,
+fountain and statue, each rendered as a body and a shadow. Sprites are keyed by
 `kind:variant:layer` — housing uses the tier as its variant.
 
 To add a building: write a builder, register it in `MODELS`, re-run the two commands.

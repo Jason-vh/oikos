@@ -19,6 +19,8 @@ export interface BuildingDef {
   accepts: Good | null;
   supplies: Good | null;
   capacity: number;
+  fireRisk: number;
+  damageRisk: number;
   description: string;
 }
 
@@ -119,6 +121,8 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     accepts: null,
     supplies: null,
     capacity: 0,
+    fireRisk: 8,
+    damageRisk: 5,
     description: 'Citizens settle here and evolve as their needs are met.',
   },
   wheatFarm: {
@@ -139,6 +143,8 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     accepts: null,
     supplies: null,
     capacity: 4,
+    fireRisk: 10,
+    damageRisk: 4,
     description: 'Grows wheat on meadow. Cart pushers carry it to a granary.',
   },
   growersLodge: {
@@ -159,6 +165,8 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     accepts: null,
     supplies: null,
     capacity: 4,
+    fireRisk: 10,
+    damageRisk: 4,
     description: 'Tends an olive grove on meadow and carts the harvest to a press.',
   },
   olivePress: {
@@ -179,6 +187,8 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     accepts: 'olives',
     supplies: 'oil',
     capacity: 4,
+    fireRisk: 14,
+    damageRisk: 8,
     description: 'Presses olives into oil. Agora deliverymen collect the jars.',
   },
   granary: {
@@ -199,6 +209,8 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     accepts: 'food',
     supplies: 'food',
     capacity: 24,
+    fireRisk: 6,
+    damageRisk: 8,
     description: 'Holds the cartloads farms bring in. Agora deliverymen collect from here.',
   },
   agora: {
@@ -219,6 +231,8 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     accepts: null,
     supplies: null,
     capacity: 400,
+    fireRisk: 8,
+    damageRisk: 6,
     description: 'Deliverymen fetch food and oil; peddlers sell them house to house.',
   },
   college: {
@@ -239,6 +253,8 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     accepts: null,
     supplies: null,
     capacity: 0,
+    fireRisk: 6,
+    damageRisk: 6,
     description: 'Trains philosophers and sends them to a podium to hold forth.',
   },
   podium: {
@@ -259,7 +275,31 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     accepts: null,
     supplies: null,
     capacity: 0,
+    fireRisk: 0,
+    damageRisk: 3,
     description: 'A philosopher from a college speaks here, then walks the streets teaching.',
+  },
+  maintenanceOffice: {
+    kind: 'maintenanceOffice',
+    name: 'Maintenance Office',
+    size: 2,
+    cost: 10,
+    colour: 0xc9bfa4,
+    roofColour: 0x6e5a3c,
+    height: 15,
+    workers: 5,
+    maxWalkers: 1,
+    appeal: { initial: -2, bandSize: 1, step: 1, range: 2 },
+    requiresMeadow: false,
+    needsRoad: true,
+    produces: null,
+    consumes: null,
+    accepts: null,
+    supplies: null,
+    capacity: 0,
+    fireRisk: 0,
+    damageRisk: 4,
+    description: 'Its superintendent keeps fire and collapse away from all he passes.',
   },
   fountain: {
     kind: 'fountain',
@@ -279,6 +319,8 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     accepts: null,
     supplies: null,
     capacity: 0,
+    fireRisk: 0,
+    damageRisk: 6,
     description: 'Sends water carriers along the roads.',
   },
   statue: {
@@ -299,6 +341,8 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     accepts: null,
     supplies: null,
     capacity: 0,
+    fireRisk: 0,
+    damageRisk: 2,
     description: 'Beautifies the surrounding area.',
   },
   taxOffice: {
@@ -319,6 +363,8 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     accepts: null,
     supplies: null,
     capacity: 0,
+    fireRisk: 6,
+    damageRisk: 5,
     description: 'Sends a clerk to collect tax from the houses he passes.',
   },
 };
@@ -332,6 +378,7 @@ export const PLACEABLE: BuildingKind[] = [
   'agora',
   'college',
   'podium',
+  'maintenanceOffice',
   'fountain',
   'taxOffice',
   'statue',
@@ -343,6 +390,7 @@ export const LABOUR_PRIORITY: BuildingKind[] = [
   'growersLodge',
   'olivePress',
   'agora',
+  'maintenanceOffice',
   'college',
   'podium',
   'fountain',

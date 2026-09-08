@@ -4,7 +4,7 @@ import { TileAtlas } from './render/atlas';
 import { Camera } from './render/camera';
 import { attachKeyboardPan, attachPointerInput } from './render/input';
 import { footprintAnchor, pickTile, tileToScreen, type Point } from './render/iso';
-import { Scene, structureLook } from './render/scene';
+import { Scene, structureLook, type OverlayMode } from './render/scene';
 import { TextureCache } from './render/textures';
 import { BUILDINGS, HOUSE_TIERS, ROAD_COST } from './sim/buildings';
 import { MAX_HEIGHT, TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_SAND, TERRAIN_WATER } from './sim/grid';
@@ -100,9 +100,8 @@ export class Game {
     this.atmosphere.resize();
   }
 
-  toggleAppealOverlay(): void {
-    const next = this.scene.currentOverlayMode === 'appeal' ? 'none' : 'appeal';
-    this.scene.setOverlayMode(next);
+  toggleOverlay(mode: OverlayMode): void {
+    this.scene.setOverlayMode(this.scene.currentOverlayMode === mode ? 'none' : mode);
   }
 
   inspectSelection(): Inspection | null {

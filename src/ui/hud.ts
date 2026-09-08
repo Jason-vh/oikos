@@ -1,4 +1,5 @@
 import type { Game, Tool } from '../game';
+import type { OverlayMode } from '../render/scene';
 import { BUILDINGS, PLACEABLE, ROADBLOCK_COST, ROAD_COST } from '../sim/buildings';
 import { WAGE_LEVELS, type LabourReport } from '../sim/labour';
 import { TAX_RATES } from '../sim/taxation';
@@ -41,7 +42,8 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
         <span class="speeds">
           ${[0, 1, 2, 4].map((speed) => `<button class="medallion" data-speed="${speed}">${speedLabel(speed)}</button>`).join('')}
         </span>
-        <button class="overlay-toggle" data-overlay>Appeal <kbd>O</kbd></button>
+        <button class="overlay-toggle" data-overlay="appeal">Appeal <kbd>O</kbd></button>
+        <button class="overlay-toggle" data-overlay="hazard">Hazards <kbd>H</kbd></button>
         <button class="overlay-toggle" data-new-city>New city</button>
       </header>
       <aside class="panel">
@@ -86,7 +88,9 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       game.speed = Number(element.dataset.speed);
     });
   });
-  hud.querySelector('[data-overlay]')?.addEventListener('click', () => game.toggleAppealOverlay());
+  hud.querySelectorAll<HTMLButtonElement>('[data-overlay]').forEach((element) => {
+    element.addEventListener('click', () => game.toggleOverlay(element.dataset.overlay as OverlayMode));
+  });
   hud.querySelector('[data-wages]')?.addEventListener('click', () => {
     game.world.wageLevel = (game.world.wageLevel + 1) % WAGE_LEVELS.length;
     game.world.hireWorkers();
@@ -116,7 +120,8 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
 
     const index = buttons.findIndex((button) => button.shortcut === key);
     if (index >= 0) selectTool(index);
-    if (key === 'o') game.toggleAppealOverlay();
+    if (key === 'o') game.toggleOverlay('appeal');
+    if (key === 'h') game.toggleOverlay('hazard');
     if (key === ' ') {
       event.preventDefault();
       game.speed = game.speed === 0 ? 1 : 0;
