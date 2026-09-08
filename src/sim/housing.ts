@@ -38,9 +38,7 @@ function evaluate(world: World, house: Building): void {
     setTier(world, house, house.tier - 1);
   }
 
-  const capacity = HOUSE_TIERS[house.tier].capacity;
-  if (house.population < capacity) house.population += 1;
-  if (house.population > capacity) house.population = capacity;
+  house.population = Math.min(house.population, HOUSE_TIERS[house.tier].capacity);
 }
 
 function setTier(world: World, house: Building, tier: number): void {

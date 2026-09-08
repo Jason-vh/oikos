@@ -53,6 +53,10 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
   its footprint — a fountain gives 4,4,2,2, a granary −12,−10,−8,−6. Housing itself
   is a source: shacks push their neighbours down and stop doing so as they evolve,
   so a block that improves keeps improving.
+- **Popularity and migration**: citizens no longer appear from nowhere. Each month the
+  city is judged on wages, taxes, whether the houses that need food have it,
+  unemployment and debt; settlers move into empty rooms when it is liked and leave when
+  it is not. Build workplaces or the idle turn against you.
 - **Labour**: a share of the population works — 37% at no wages up to 52% at very
   high, as on Mortal difficulty. Buildings are staffed in priority order, and an
   understaffed one runs at the fraction it is staffed to; an empty one stands idle.
@@ -73,6 +77,7 @@ src/sim/      headless simulation — no Pixi imports
   housing.ts      evolution rules
   appeal.ts       band model field
   labour.ts       wage levels, workforce, staffing
+  popularity.ts   sentiment and migration
   taxation.ts     tax rates, tier multipliers, collection
   mapgen.ts       seeded terraced terrain
 src/render/

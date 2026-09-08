@@ -34,6 +34,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
         <span class="cartouche treasury" data-field="treasury"></span>
         <span class="cartouche" data-field="population"></span>
         <span class="cartouche" data-field="labour"></span>
+        <span class="cartouche" data-field="popularity"></span>
         <button class="cartouche" data-wages data-field="wages"></button>
         <button class="cartouche" data-taxes data-field="taxes"></button>
         <span class="spacer"></span>
@@ -128,6 +129,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       field('treasury').textContent = `${Math.floor(game.world.treasury)} dr`;
       field('population').textContent = `${game.world.population} citizens`;
       field('labour').textContent = labourLabel(game.world.labour);
+      field('popularity').textContent = popularityLabel(game.world.sentiment.popularity, game.world.migrants);
       field('wages').textContent = `Wages: ${WAGE_LEVELS[game.world.wageLevel].name}`;
       field('taxes').textContent = taxLabel(game.world);
       renderPopup(popup, balloon ?? game.inspectSelection(), balloon === null);
@@ -249,6 +251,12 @@ function labourLabel({ employed, required, workforce }: LabourReport): string {
   const idle = workforce - employed;
   if (employed < required) return `${employed}/${required} workers · ${required - employed} short`;
   return `${employed}/${required} workers · ${idle} idle`;
+}
+
+function popularityLabel(popularity: number, migrants: number): string {
+  if (migrants > 0) return `Popularity ${popularity} · ${migrants} settling`;
+  if (migrants < 0) return `Popularity ${popularity} · ${-migrants} leaving`;
+  return `Popularity ${popularity}`;
 }
 
 function speedLabel(speed: number): string {

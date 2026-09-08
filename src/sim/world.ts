@@ -1,5 +1,5 @@
 import { recomputeAppeal } from './appeal';
-import { BUILDINGS, ROADBLOCK_COST, ROAD_COST, UNITS_PER_CARTLOAD } from './buildings';
+import { BUILDINGS, HOUSE_TIERS, ROADBLOCK_COST, ROAD_COST, UNITS_PER_CARTLOAD } from './buildings';
 import { Grid, NO_BUILDING, TERRAIN_MEADOW } from './grid';
 import { updateHouses } from './housing';
 import {
@@ -12,6 +12,7 @@ import {
 } from './labour';
 import { generateMap } from './mapgen';
 import { hasRoadAccess, roadAccessTiles } from './pathing';
+import { judgeCity, migrantsFor, type Sentiment } from './popularity';
 import { DEFAULT_TAX_RATE, collectTax, type TaxReport } from './taxation';
 import { TICKS_PER_MONTH } from './time';
 import { createBuilding } from './types';
@@ -30,6 +31,10 @@ const AGORA_GOODS: Good[] = ['food', 'oil'];
 const COLLEGE_SPAWN_INTERVAL = 90;
 const FOUNTAIN_SPAWN_INTERVAL = 70;
 const TAX_OFFICE_SPAWN_INTERVAL = 70;
+
+function roomIn(house: Building): number {
+  return Math.max(0, HOUSE_TIERS[house.tier].capacity - house.population);
+}
 
 function atWalkerLimit(building: Building): boolean {
   return building.walkersOut >= BUILDINGS[building.kind].maxWalkers;
@@ -52,6 +57,8 @@ export class World {
   taxRate = DEFAULT_TAX_RATE;
   labour: LabourReport = { workforce: 0, employed: 0, required: 0 };
   taxes: TaxReport = { collected: 0, taxedPeople: 0, untaxedPeople: 0 };
+  sentiment: Sentiment = { popularity: 50, complaint: null };
+  migrants = 0;
   tick = 0;
   month = 0;
   year = -500;
@@ -249,8 +256,50 @@ export class World {
     this.treasury += this.taxes.collected;
     this.treasury -= monthlyWages(this.labour.employed, this.wageLevel);
 
-    if (this.treasury < 0) this.log('The treasury is in debt, Archon.');
-    else if (this.labour.employed < this.labour.required) this.log('Buildings stand short of workers.');
+    this.sentiment = judgeCity({
+      wageLevel: this.wageLevel,
+      taxRate: this.taxRate,
+      fedShare: this.fedShare(),
+      unemployment: this.unemployment(),
+      inDebt: this.treasury < 0,
+    });
+    this.migrate();
+
+    if (this.labour.employed < this.labour.required) this.log('Buildings stand short of workers.');
+    else if (this.sentiment.complaint) this.log(this.sentiment.complaint);
+  }
+
+  private fedShare(): number {
+    let fed = 0;
+    let hungry = 0;
+    for (const building of this.buildings.values()) {
+      if (building.kind !== 'house' || !HOUSE_TIERS[building.tier].needs.includes('food')) continue;
+      hungry += building.population;
+      if (building.supply.food > 0) fed += building.population;
+    }
+    return hungry === 0 ? 1 : fed / hungry;
+  }
+
+  private unemployment(): number {
+    const { workforce, employed } = this.labour;
+    if (workforce === 0) return 0;
+    return (workforce - employed) / workforce;
+  }
+
+  private migrate(): void {
+    const houses = [...this.buildings.values()].filter((building) => building.kind === 'house');
+    const freeCapacity = houses.reduce((free, house) => free + roomIn(house), 0);
+
+    this.migrants = migrantsFor(this.sentiment.popularity, freeCapacity, this.population);
+    let remaining = Math.abs(this.migrants);
+    const settling = this.migrants > 0;
+
+    for (const house of houses) {
+      if (remaining === 0) break;
+      const moving = settling ? Math.min(remaining, roomIn(house)) : Math.min(remaining, house.population);
+      house.population += settling ? moving : -moving;
+      remaining -= moving;
+    }
   }
 
   private updateProduction(): void {
