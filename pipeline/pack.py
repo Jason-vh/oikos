@@ -19,11 +19,14 @@ ATLAS_PAD = 4
 SHADOW_FLOOR = 12
 MAX_ATLAS_WIDTH = 4096
 
-RIGHT = (math.cos(math.radians(45)), math.sin(math.radians(45)), 0.0)
+YAW = math.radians(45)
+ELEVATION = math.radians(30)
+
+RIGHT = (math.cos(YAW), math.sin(YAW), 0.0)
 UP = (
-    -math.sin(math.radians(45)) * math.cos(math.radians(30)),
-    math.cos(math.radians(45)) * math.cos(math.radians(30)),
-    math.sin(math.radians(30)),
+    -math.sin(ELEVATION) * math.sin(YAW),
+    math.sin(ELEVATION) * math.cos(YAW),
+    math.cos(ELEVATION),
 )
 
 

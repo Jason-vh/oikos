@@ -10,7 +10,7 @@
       "width": 525,
       "height": 474,
       "anchorX": 0.2381,
-      "anchorY": 1.06872
+      "anchorY": 1.00718
     },
     {
       "kind": "olivePress",
@@ -21,7 +21,7 @@
       "width": 544,
       "height": 471,
       "anchorX": 0.26471,
-      "anchorY": 1.07553
+      "anchorY": 1.0136
     },
     {
       "kind": "statue",
@@ -32,7 +32,7 @@
       "width": 359,
       "height": 381,
       "anchorX": 0.2312,
-      "anchorY": 1.01601
+      "anchorY": 1.01339
     },
     {
       "kind": "palace",
@@ -43,7 +43,7 @@
       "width": 474,
       "height": 332,
       "anchorX": 0.5,
-      "anchorY": 1.13915
+      "anchorY": 0.99991
     },
     {
       "kind": "palace",
@@ -54,7 +54,7 @@
       "width": 538,
       "height": 246,
       "anchorX": 0.56413,
-      "anchorY": 1.18983
+      "anchorY": 1.00191
     },
     {
       "kind": "agora",
@@ -65,7 +65,7 @@
       "width": 358,
       "height": 236,
       "anchorX": 0.5,
-      "anchorY": 1.21812
+      "anchorY": 0.99817
     },
     {
       "kind": "house",
@@ -76,7 +76,7 @@
       "width": 256,
       "height": 219,
       "anchorX": 0.5,
-      "anchorY": 1.03812
+      "anchorY": 0.95598
     },
     {
       "kind": "house",
@@ -87,7 +87,7 @@
       "width": 256,
       "height": 219,
       "anchorX": 0.5,
-      "anchorY": 1.03812
+      "anchorY": 0.95598
     },
     {
       "kind": "house",
@@ -98,7 +98,7 @@
       "width": 262,
       "height": 214,
       "anchorX": 0.5,
-      "anchorY": 1.02967
+      "anchorY": 0.94561
     },
     {
       "kind": "house",
@@ -109,7 +109,7 @@
       "width": 262,
       "height": 214,
       "anchorX": 0.5,
-      "anchorY": 1.02967
+      "anchorY": 0.94561
     },
     {
       "kind": "college",
@@ -120,7 +120,7 @@
       "width": 358,
       "height": 196,
       "anchorX": 0.5,
-      "anchorY": 1.24377
+      "anchorY": 0.99874
     },
     {
       "kind": "house",
@@ -131,7 +131,7 @@
       "width": 238,
       "height": 187,
       "anchorX": 0.5,
-      "anchorY": 1.11335
+      "anchorY": 0.99307
     },
     {
       "kind": "house",
@@ -142,7 +142,7 @@
       "width": 238,
       "height": 187,
       "anchorX": 0.5,
-      "anchorY": 1.11335
+      "anchorY": 0.99307
     },
     {
       "kind": "agora",
@@ -153,7 +153,7 @@
       "width": 390,
       "height": 184,
       "anchorX": 0.54615,
-      "anchorY": 1.27433
+      "anchorY": 0.99222
     },
     {
       "kind": "college",
@@ -164,7 +164,7 @@
       "width": 394,
       "height": 180,
       "anchorX": 0.54695,
-      "anchorY": 1.26267
+      "anchorY": 0.99585
     },
     {
       "kind": "granary",
@@ -175,7 +175,7 @@
       "width": 222,
       "height": 167,
       "anchorX": 0.5,
-      "anchorY": 1.16168
+      "anchorY": 1.01955
     },
     {
       "kind": "house",
@@ -186,7 +186,7 @@
       "width": 236,
       "height": 160,
       "anchorX": 0.5,
-      "anchorY": 1.16705
+      "anchorY": 0.99686
     },
     {
       "kind": "house",
@@ -197,7 +197,7 @@
       "width": 236,
       "height": 160,
       "anchorX": 0.5,
-      "anchorY": 1.16705
+      "anchorY": 0.99686
     },
     {
       "kind": "taxOffice",
@@ -208,7 +208,7 @@
       "width": 210,
       "height": 152,
       "anchorX": 0.5,
-      "anchorY": 1.21501
+      "anchorY": 1.04047
     },
     {
       "kind": "house",
@@ -219,7 +219,7 @@
       "width": 236,
       "height": 150,
       "anchorX": 0.5,
-      "anchorY": 1.21899
+      "anchorY": 0.99657
     },
     {
       "kind": "house",
@@ -230,7 +230,7 @@
       "width": 236,
       "height": 150,
       "anchorX": 0.5,
-      "anchorY": 1.21899
+      "anchorY": 0.99657
     },
     {
       "kind": "statue",
@@ -241,7 +241,7 @@
       "width": 68,
       "height": 142,
       "anchorX": 0.5,
-      "anchorY": 1.0007
+      "anchorY": 0.99368
     },
     {
       "kind": "house",
@@ -252,7 +252,7 @@
       "width": 294,
       "height": 138,
       "anchorX": 0.57823,
-      "anchorY": 1.03876
+      "anchorY": 0.9084
     },
     {
       "kind": "house",
@@ -263,7 +263,7 @@
       "width": 236,
       "height": 138,
       "anchorX": 0.5,
-      "anchorY": 1.23221
+      "anchorY": 0.99945
     },
     {
       "kind": "house",
@@ -274,7 +274,7 @@
       "width": 236,
       "height": 138,
       "anchorX": 0.5,
-      "anchorY": 1.23221
+      "anchorY": 0.99945
     },
     {
       "kind": "growersLodge",
@@ -285,7 +285,7 @@
       "width": 238,
       "height": 137,
       "anchorX": 0.5,
-      "anchorY": 1.26244
+      "anchorY": 1.03818
     },
     {
       "kind": "house",
@@ -296,7 +296,7 @@
       "width": 236,
       "height": 137,
       "anchorX": 0.5,
-      "anchorY": 1.22804
+      "anchorY": 1.00265
     },
     {
       "kind": "house",
@@ -307,7 +307,7 @@
       "width": 236,
       "height": 137,
       "anchorX": 0.5,
-      "anchorY": 1.22804
+      "anchorY": 1.00265
     },
     {
       "kind": "house",
@@ -318,7 +318,7 @@
       "width": 300,
       "height": 135,
       "anchorX": 0.51667,
-      "anchorY": 1.03222
+      "anchorY": 0.89896
     },
     {
       "kind": "house",
@@ -329,7 +329,7 @@
       "width": 278,
       "height": 134,
       "anchorX": 0.55036,
-      "anchorY": 1.05484
+      "anchorY": 0.92059
     },
     {
       "kind": "olivePress",
@@ -340,7 +340,7 @@
       "width": 226,
       "height": 133,
       "anchorX": 0.50442,
-      "anchorY": 1.26749
+      "anchorY": 1.04816
     },
     {
       "kind": "house",
@@ -351,7 +351,7 @@
       "width": 317,
       "height": 131,
       "anchorX": 0.61199,
-      "anchorY": 1.0561
+      "anchorY": 0.91878
     },
     {
       "kind": "maintenanceOffice",
@@ -362,7 +362,7 @@
       "width": 210,
       "height": 127,
       "anchorX": 0.5,
-      "anchorY": 1.28012
+      "anchorY": 1.05043
     },
     {
       "kind": "granary",
@@ -373,7 +373,7 @@
       "width": 254,
       "height": 125,
       "anchorX": 0.52953,
-      "anchorY": 1.164
+      "anchorY": 0.97412
     },
     {
       "kind": "house",
@@ -384,7 +384,7 @@
       "width": 250,
       "height": 125,
       "anchorX": 0.51,
-      "anchorY": 1.15758
+      "anchorY": 0.97764
     },
     {
       "kind": "house",
@@ -395,7 +395,7 @@
       "width": 267,
       "height": 124,
       "anchorX": 0.55618,
-      "anchorY": 1.15885
+      "anchorY": 0.97746
     },
     {
       "kind": "house",
@@ -406,7 +406,7 @@
       "width": 246,
       "height": 120,
       "anchorX": 0.52642,
-      "anchorY": 1.22689
+      "anchorY": 0.99998
     },
     {
       "kind": "house",
@@ -417,7 +417,7 @@
       "width": 242,
       "height": 120,
       "anchorX": 0.5186,
-      "anchorY": 1.26957
+      "anchorY": 0.99154
     },
     {
       "kind": "taxOffice",
@@ -428,7 +428,7 @@
       "width": 237,
       "height": 120,
       "anchorX": 0.51055,
-      "anchorY": 1.18902
+      "anchorY": 0.96793
     },
     {
       "kind": "house",
@@ -439,7 +439,7 @@
       "width": 238,
       "height": 119,
       "anchorX": 0.4937,
-      "anchorY": 1.2372
+      "anchorY": 1.00839
     },
     {
       "kind": "wheatFarm",
@@ -450,7 +450,7 @@
       "width": 237,
       "height": 119,
       "anchorX": 0.51477,
-      "anchorY": 1.33053
+      "anchorY": 1.0593
     },
     {
       "kind": "house",
@@ -461,7 +461,7 @@
       "width": 237,
       "height": 119,
       "anchorX": 0.49578,
-      "anchorY": 1.28024
+      "anchorY": 0.99987
     },
     {
       "kind": "house",
@@ -472,7 +472,7 @@
       "width": 236,
       "height": 118,
       "anchorX": 0.50424,
-      "anchorY": 1.27324
+      "anchorY": 1.01156
     },
     {
       "kind": "house",
@@ -483,7 +483,7 @@
       "width": 236,
       "height": 118,
       "anchorX": 0.49576,
-      "anchorY": 1.27324
+      "anchorY": 1.01156
     },
     {
       "kind": "house",
@@ -494,7 +494,7 @@
       "width": 235,
       "height": 117,
       "anchorX": 0.50213,
-      "anchorY": 1.28244
+      "anchorY": 1.0079
     },
     {
       "kind": "house",
@@ -505,7 +505,7 @@
       "width": 234,
       "height": 117,
       "anchorX": 0.5,
-      "anchorY": 1.28244
+      "anchorY": 1.0079
     },
     {
       "kind": "growersLodge",
@@ -516,7 +516,7 @@
       "width": 261,
       "height": 116,
       "anchorX": 0.48467,
-      "anchorY": 1.29702
+      "anchorY": 1.03216
     },
     {
       "kind": "podium",
@@ -527,7 +527,7 @@
       "width": 210,
       "height": 112,
       "anchorX": 0.5,
-      "anchorY": 1.35065
+      "anchorY": 1.05553
     },
     {
       "kind": "wheatFarm",
@@ -538,7 +538,7 @@
       "width": 260,
       "height": 110,
       "anchorX": 0.49615,
-      "anchorY": 1.33939
+      "anchorY": 1.04597
     },
     {
       "kind": "podium",
@@ -549,7 +549,7 @@
       "width": 210,
       "height": 106,
       "anchorX": 0.50238,
-      "anchorY": 1.37521
+      "anchorY": 1.06339
     },
     {
       "kind": "fountain",
@@ -560,7 +560,7 @@
       "width": 86,
       "height": 94,
       "anchorX": 0.5,
-      "anchorY": 1.12291
+      "anchorY": 1.03796
     },
     {
       "kind": "fountain",
@@ -571,7 +571,7 @@
       "width": 99,
       "height": 51,
       "anchorX": 0.5404,
-      "anchorY": 1.21673
+      "anchorY": 1.06016
     }
   ]
 }

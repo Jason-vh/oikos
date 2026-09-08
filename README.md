@@ -173,7 +173,10 @@ boundary — passing sRGB straight to Blender is what makes renders look washed 
 The camera is orthographic at yaw 45° and **elevation 30°** — the angle at which one
 tile step projects to exactly `TILE_WIDTH/2` across and `TILE_HEIGHT/2` down, so
 renders drop into the game's metric with no fudging. Anchors are derived
-analytically from that camera rather than eyeballed. A Cycles shadow-catcher plane
+analytically from that camera rather than eyeballed: `pack.py` projects the
+footprint's south vertex through the camera's own basis, whose up vector is
+`(-sin e·sin yaw, sin e·cos yaw, cos e)` — an up vector that is not perpendicular
+to the view direction lifts every sprite off its plot. A Cycles shadow-catcher plane
 becomes the shadow sprite, framed wide enough for the shadow the sun actually casts.
 
 Models live in `pipeline/iso_render.py`: the seven housing tiers, wheat farm, growers'
