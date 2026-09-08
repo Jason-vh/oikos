@@ -1,10 +1,18 @@
 import { ColorMatrixFilter, Container, Rectangle, Sprite, type Application } from 'pixi.js';
 import { AdvancedBloomFilter } from 'pixi-filters';
+import { TICKS_PER_MONTH } from '../sim/world';
 import { NIGHT_PHASE, SUN_PHASES } from './canvas';
 import type { TextureCache } from './textures';
 
-export const DAY_TICKS = 320;
+export const DAY_TICKS = TICKS_PER_MONTH;
 const DAYLIGHT_FRACTION = 0.72;
+const PHASE_CENTRES = phaseCentres();
+
+export interface Lighting {
+  from: number;
+  to: number;
+  blend: number;
+}
 
 interface Ambient {
   red: number;
@@ -30,6 +38,7 @@ export class Atmosphere {
 
   private world: Container | null = null;
   private daylight = 1;
+  private progress = 0;
 
   constructor(app: Application, textures: TextureCache) {
     this.app = app;
@@ -46,22 +55,31 @@ export class Atmosphere {
     this.resize();
   }
 
-  get sunPhase(): number {
-    if (this.daylight < 0) return NIGHT_PHASE;
-    const phase = Math.floor(this.daylight * SUN_PHASES);
-    return Math.min(SUN_PHASES - 1, Math.max(0, phase));
+  get lighting(): Lighting {
+    for (let phase = 0; phase < PHASE_CENTRES.length; phase++) {
+      const start = PHASE_CENTRES[phase];
+      const next = (phase + 1) % PHASE_CENTRES.length;
+      const end = phase === PHASE_CENTRES.length - 1 ? PHASE_CENTRES[0] + 1 : PHASE_CENTRES[next];
+      const position = this.progress < start ? this.progress + 1 : this.progress;
+      if (position >= start && position < end) {
+        return { from: phase, to: next, blend: (position - start) / (end - start) };
+      }
+    }
+    return { from: NIGHT_PHASE, to: 0, blend: 0 };
   }
 
   get timeOfDay(): string {
     if (this.daylight <= 0) return 'Night';
     if (this.daylight < 0.2) return 'Dawn';
     if (this.daylight < 0.45) return 'Morning';
-    if (this.daylight < 0.7) return 'Afternoon';
+    if (this.daylight < 0.55) return 'Midday';
+    if (this.daylight < 0.8) return 'Afternoon';
     return 'Dusk';
   }
 
   update(tick: number): void {
     const progress = (tick % DAY_TICKS) / DAY_TICKS;
+    this.progress = progress;
     this.daylight = progress < DAYLIGHT_FRACTION ? progress / DAYLIGHT_FRACTION : -1;
 
     const ambient = ambientFor(progress);
@@ -84,20 +102,35 @@ export class Atmosphere {
   }
 }
 
-function ambientFor(progress: number): Ambient {
-  if (progress >= DAYLIGHT_FRACTION) {
-    const nightProgress = (progress - DAYLIGHT_FRACTION) / (1 - DAYLIGHT_FRACTION);
-    const depth = Math.sin(nightProgress * Math.PI);
-    const dusk = Math.max(0, 1 - nightProgress * 3);
-    return {
-      red: 0.62 - 0.1 * depth + 0.26 * dusk,
-      green: 0.64 - 0.1 * depth + 0.1 * dusk,
-      blue: 0.92 - 0.02 * depth - 0.06 * dusk,
-      brightness: 0.68 - 0.08 * depth + 0.12 * dusk,
-    };
+function phaseCentres(): number[] {
+  const centres: number[] = [];
+  for (let phase = 0; phase < SUN_PHASES; phase++) {
+    centres.push(((phase + 0.5) / SUN_PHASES) * DAYLIGHT_FRACTION);
   }
+  centres.push(DAYLIGHT_FRACTION + (1 - DAYLIGHT_FRACTION) / 2);
+  return centres;
+}
 
-  const day = progress / DAYLIGHT_FRACTION;
+function ambientFor(progress: number): Ambient {
+  if (progress < DAYLIGHT_FRACTION) return daylightAmbient(progress / DAYLIGHT_FRACTION);
+
+  const night = (progress - DAYLIGHT_FRACTION) / (1 - DAYLIGHT_FRACTION);
+  const depth = smoothstep(Math.sin(night * Math.PI));
+  const horizon = daylightAmbient(0);
+
+  return {
+    red: horizon.red + (0.62 - horizon.red) * depth,
+    green: horizon.green + (0.66 - horizon.green) * depth,
+    blue: horizon.blue + (0.92 - horizon.blue) * depth,
+    brightness: horizon.brightness + (0.58 - horizon.brightness) * depth,
+  };
+}
+
+function smoothstep(t: number): number {
+  return t * t * (3 - 2 * t);
+}
+
+function daylightAmbient(day: number): Ambient {
   const altitude = Math.sin(day * Math.PI);
   const warmth = 1 - altitude;
 

@@ -81,7 +81,7 @@ export class Game {
     if (steps === MAX_TICKS_PER_FRAME) this.accumulator = 0;
 
     this.atmosphere.update(this.world.tick);
-    this.scene.sync(deltaMs, this.atmosphere.sunPhase);
+    this.scene.sync(deltaMs, this.atmosphere.lighting);
     this.updateCursor();
     this.camera.applyTo(this.scene.root);
   }
@@ -208,7 +208,7 @@ export class Game {
           ...structureLook(this.tool.building),
           kind: this.tool.building,
           variant: 0,
-          phase: this.atmosphere.sunPhase,
+          phase: this.atmosphere.lighting.from,
         },
         0,
       );

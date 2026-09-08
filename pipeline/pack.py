@@ -16,6 +16,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 IN_DIR = os.path.join(ROOT, "pipeline", "out")
 OUT_DIR = os.path.join(ROOT, "public", "assets")
 ATLAS_PAD = 4
+MAX_ATLAS_WIDTH = 4096
 
 RIGHT = (math.cos(math.radians(45)), math.sin(math.radians(45)), 0.0)
 UP = (
@@ -36,6 +37,31 @@ def south_vertex_offset(footprint, height, pixels_per_unit):
 def load_manifest():
     with open(os.path.join(IN_DIR, "manifest.json")) as handle:
         return json.load(handle)
+
+
+def shelf_pack(items):
+    """Rows of equal-height sprites, tallest first: far tighter than a uniform grid."""
+    area = sum((item["image"].width + ATLAS_PAD) * (item["image"].height + ATLAS_PAD) for item in items)
+    widest = max(item["image"].width for item in items) + ATLAS_PAD
+    width = min(MAX_ATLAS_WIDTH, max(widest, int(math.sqrt(area * 1.1))))
+
+    ordered = sorted(items, key=lambda item: (-item["image"].height, -item["image"].width))
+    placements = []
+    shelf_y = 0
+    shelf_height = 0
+    cursor = 0
+
+    for item in ordered:
+        cell_width = item["image"].width + ATLAS_PAD
+        if cursor + cell_width > width and cursor > 0:
+            shelf_y += shelf_height
+            shelf_height = 0
+            cursor = 0
+        placements.append((item, (cursor + ATLAS_PAD // 2, shelf_y + ATLAS_PAD // 2)))
+        cursor += cell_width
+        shelf_height = max(shelf_height, item["image"].height + ATLAS_PAD)
+
+    return placements, (width, shelf_y + shelf_height)
 
 
 def main():
@@ -62,30 +88,26 @@ def main():
                 "kind": sprite["kind"],
                 "variant": sprite.get("variant", 0),
                 "phase": sprite["phase"],
+                "layer": sprite.get("layer", "body"),
                 "image": trimmed,
                 "anchorX": (image.width / 2 - bbox[0]) / trimmed.width,
                 "anchorY": (anchor_y - bbox[1]) / trimmed.height,
             }
         )
 
-    prepared.sort(key=lambda item: (item["kind"], item["variant"], item["phase"]))
-    columns = max(1, math.ceil(math.sqrt(len(prepared))))
-    cell_width = max(item["image"].width for item in prepared) + ATLAS_PAD
-    cell_height = max(item["image"].height for item in prepared) + ATLAS_PAD
-    rows = math.ceil(len(prepared) / columns)
+    placements, size = shelf_pack(prepared)
 
-    atlas = Image.new("RGBA", (columns * cell_width, rows * cell_height), (0, 0, 0, 0))
+    atlas = Image.new("RGBA", size, (0, 0, 0, 0))
     frames = []
 
-    for index, item in enumerate(prepared):
-        x = (index % columns) * cell_width + ATLAS_PAD // 2
-        y = (index // columns) * cell_height + ATLAS_PAD // 2
+    for item, (x, y) in placements:
         atlas.paste(item["image"], (x, y))
         frames.append(
             {
                 "kind": item["kind"],
                 "variant": item["variant"],
                 "phase": item["phase"],
+                "layer": item["layer"],
                 "x": x,
                 "y": y,
                 "width": item["image"].width,

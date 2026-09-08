@@ -2,10 +2,13 @@ import { Assets, Rectangle, Texture } from 'pixi.js';
 import type { BuildingKind } from '../sim/types';
 import type { StructureSprite } from './textures';
 
+type BakedLayer = 'body' | 'shadow';
+
 interface BakedFrame {
   kind: string;
   variant: number;
   phase: number;
+  layer?: BakedLayer;
   x: number;
   y: number;
   width: number;
@@ -26,7 +29,7 @@ export class BakedStructures {
 
   constructor(manifest: BakedManifest, sheet: Texture) {
     for (const frame of manifest.frames) {
-      this.sprites.set(`${frame.kind}:${frame.variant ?? 0}:${frame.phase}`, {
+      this.sprites.set(`${frame.kind}:${frame.variant ?? 0}:${frame.phase}:${frame.layer ?? 'body'}`, {
         texture: new Texture({
           source: sheet.source,
           frame: new Rectangle(frame.x, frame.y, frame.width, frame.height),
@@ -38,7 +41,17 @@ export class BakedStructures {
   }
 
   get(kind: BuildingKind, variant: number, phase: number): StructureSprite | undefined {
-    return this.sprites.get(`${kind}:${variant}:${phase}`) ?? this.sprites.get(`${kind}:0:${phase}`);
+    return this.lookup(kind, variant, phase, 'body');
+  }
+
+  shadow(kind: BuildingKind, variant: number, phase: number): StructureSprite | undefined {
+    return this.lookup(kind, variant, phase, 'shadow');
+  }
+
+  private lookup(kind: BuildingKind, variant: number, phase: number, layer: BakedLayer): StructureSprite | undefined {
+    return (
+      this.sprites.get(`${kind}:${variant}:${phase}:${layer}`) ?? this.sprites.get(`${kind}:0:${phase}:${layer}`)
+    );
   }
 
   get size(): number {

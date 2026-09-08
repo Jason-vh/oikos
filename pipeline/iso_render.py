@@ -658,7 +658,13 @@ def add_sun(phase):
     return sun
 
 
-def render_phase(name, spec, phase, out_dir):
+def render_phase(name, spec, phase, out_dir, ground):
+    """Two passes: the body with no shadow catcher, then the shadow with no body.
+
+    A building's silhouette is the same at every sun angle; only its shadow moves.
+    Kept in one sprite the two cannot be cross-faded — the outgoing shadow has
+    nowhere to fade to. Split, each layer dissolves cleanly.
+    """
     resolution = (
         int((spec["footprint"] * TILE_WIDTH + 120) * SUPERSAMPLE),
         int((spec["footprint"] * TILE_HEIGHT + spec["height"] * 90 + 120) * SUPERSAMPLE),
@@ -666,12 +672,26 @@ def render_phase(name, spec, phase, out_dir):
     add_camera(spec["footprint"], spec["height"], resolution)
     add_sun(phase)
 
-    path = os.path.join(out_dir, f"{name}-{phase}.png")
-    bpy.context.scene.render.filepath = path
-    bpy.context.scene.render.image_settings.file_format = "PNG"
-    bpy.context.scene.render.image_settings.color_mode = "RGBA"
+    scene = bpy.context.scene
+    scene.render.image_settings.file_format = "PNG"
+    scene.render.image_settings.color_mode = "RGBA"
+
+    ground.is_shadow_catcher = False
+    ground.visible_camera = False
+    body = os.path.join(out_dir, f"{name}-{phase}.png")
+    scene.render.filepath = body
     bpy.ops.render.render(write_still=True)
-    return path, resolution
+
+    ground.is_shadow_catcher = True
+    ground.visible_camera = True
+    for obj in bpy.data.objects:
+        if obj.type == "MESH" and obj is not ground:
+            obj.visible_camera = False
+    shadow = os.path.join(out_dir, f"{name}-{phase}-shadow.png")
+    scene.render.filepath = shadow
+    bpy.ops.render.render(write_still=True)
+
+    return body, shadow, resolution
 
 
 def main():
@@ -684,9 +704,13 @@ def main():
 
     names = args.only.split(",") if args.only else list(MODELS)
     phases = [int(phase) for phase in args.phases.split(",")] if args.phases else list(range(SUN_PHASES + 1))
-    rebuilt = {f"{name}-{phase}.png" for name in names for phase in phases}
+    rebuilt = set()
+    for name in names:
+        for phase in phases:
+            rebuilt.add(f"{name}-{phase}.png")
+            rebuilt.add(f"{name}-{phase}-shadow.png")
 
-    if len(rebuilt) < len(MODELS) * (SUN_PHASES + 1) and os.path.exists(manifest_path):
+    if len(rebuilt) < len(MODELS) * (SUN_PHASES + 1) * 2 and os.path.exists(manifest_path):
         with open(manifest_path) as handle:
             existing = json.load(handle)
         manifest["sprites"] = [s for s in existing["sprites"] if s["file"] not in rebuilt]
@@ -695,21 +719,23 @@ def main():
         for phase in phases:
             clear_scene(args.samples, args.device)
             spec = MODELS[name](phase)
-            add_ground()
-            path, resolution = render_phase(name, spec, phase, out_dir)
+            ground = add_ground()
+            body, shadow, resolution = render_phase(name, spec, phase, out_dir, ground)
 
-            manifest["sprites"].append(
-                {
-                    "kind": spec["kind"],
-                    "variant": spec["variant"],
-                    "phase": phase,
-                    "file": os.path.basename(path),
-                    "footprint": spec["footprint"],
-                    "heightUnits": spec["height"],
-                    "width": resolution[0] // SUPERSAMPLE,
-                    "height": resolution[1] // SUPERSAMPLE,
-                }
-            )
+            for layer, path in (("body", body), ("shadow", shadow)):
+                manifest["sprites"].append(
+                    {
+                        "kind": spec["kind"],
+                        "variant": spec["variant"],
+                        "phase": phase,
+                        "layer": layer,
+                        "file": os.path.basename(path),
+                        "footprint": spec["footprint"],
+                        "heightUnits": spec["height"],
+                        "width": resolution[0] // SUPERSAMPLE,
+                        "height": resolution[1] // SUPERSAMPLE,
+                    }
+                )
 
     with open(manifest_path, "w") as handle:
         json.dump(manifest, handle, indent=2)

@@ -73,11 +73,17 @@ Nothing is hand-drawn. Two sources feed the same sprite interface:
    `public/assets/structures.png`. If that file exists the game prefers it.
 
 **Lighting is baked per sun phase, not shaded at runtime.** Each building is drawn
-six times across the day arc plus once at night, and the renderer swaps textures as
-the clock turns. That gives directional light, moving shadows and lit windows after
-dark without a normal-mapped shader, and it works identically for procedural and
-Blender-rendered art. Global time of day is a `ColorMatrixFilter` over the world,
-with bloom and a vignette on top.
+six times across the day arc plus once at night, and the renderer cross-fades
+between the two phases either side of the current time. That gives directional
+light, moving shadows and lit windows after dark without a normal-mapped shader,
+and it works identically for procedural and Blender-rendered art. Global time of
+day is a `ColorMatrixFilter` over the world, with bloom and a vignette on top.
+
+Body and shadow are baked as **separate sprites**. A building's silhouette is the
+same at every sun angle, so bodies cross-fade exactly; shadows move, and kept in
+the same sprite the outgoing one has nowhere to fade to — you see both shadows,
+then one vanishes. Split, each layer dissolves cleanly. One day/night cycle is one
+calendar month (1200 ticks, 60s at 1x).
 
 Elevation is a real terrain layer: tiles are offset vertically, cliff faces are
 drawn as affine-transformed rock sprites down to each lower neighbour, buildings
@@ -106,7 +112,7 @@ override per run.
 
 ```bash
 python3 pipeline/sheet.py 2 /tmp/sheet.png            # every sprite over its tile diamond
-bun scripts/noon.mjs http://localhost:5180 out.png 100 [zoom] [liveMs]  # in-game shot; tick 100/220/260 = morning/dusk/night; liveMs runs the sim first (~20 ticks/s)
+bun scripts/noon.mjs http://localhost:5180 out.png 100 [zoom] [liveMs]  # in-game shot; tick 430/820/1030 = noon/dusk/night; liveMs runs the sim first (~20 ticks/s)
 ```
 
 One model unit is one tile side, so a 1×1 building's walls should stay inside

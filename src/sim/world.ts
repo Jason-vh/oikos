@@ -10,7 +10,7 @@ import { spawnCartPusher, spawnRoamer } from './walkers';
 import { updateWalkers } from './walkers';
 
 export const TICKS_PER_SECOND = 20;
-export const TICKS_PER_MONTH = 90;
+export const TICKS_PER_MONTH = 1200;
 
 const MONTH_NAMES = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
