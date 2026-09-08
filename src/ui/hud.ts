@@ -4,6 +4,7 @@ import { BUILDINGS, PLACEABLE, ROADBLOCK_COST, ROAD_COST } from '../sim/building
 import { monthlyWages, WAGE_LEVELS, type LabourReport } from '../sim/labour';
 import { TAX_RATES } from '../sim/taxation';
 import { abandonCity } from '../sim/save';
+import { money } from './money';
 import {
   describeBuildingTool,
   describeDemolishTool,
@@ -13,7 +14,12 @@ import {
   type Inspection,
 } from './inspect';
 
-const DRACHMA = '₯';
+const SPEEDS = [
+  { speed: 0, name: 'Paused' },
+  { speed: 1, name: 'Steady' },
+  { speed: 2, name: 'Brisk' },
+  { speed: 4, name: 'Headlong' },
+];
 
 interface ToolButton {
   label: string;
@@ -36,10 +42,8 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
         <span class="cartouche" data-field="date"></span>
         ${renderMenu('treasury', 'treasury', financeMenu())}
         ${renderMenu('people', '', peopleMenu())}
+        ${renderMenu('speed', '', speedMenu())}
         <span class="spacer"></span>
-        <span class="speeds">
-          ${[0, 1, 2, 4].map((speed) => `<button class="medallion" data-speed="${speed}">${speedLabel(speed)}</button>`).join('')}
-        </span>
         <button class="overlay-toggle" data-overlay="appeal">Appeal <kbd>O</kbd></button>
         <button class="overlay-toggle" data-overlay="hazard">Hazards <kbd>H</kbd></button>
       </header>
@@ -92,16 +96,19 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
     });
   });
   hud.querySelector('[data-popup-close]')?.addEventListener('click', () => game.clearSelection());
-  hud.querySelectorAll<HTMLButtonElement>('[data-speed]').forEach((element) => {
-    element.addEventListener('click', () => {
-      game.speed = Number(element.dataset.speed);
-    });
-  });
   hud.querySelectorAll<HTMLButtonElement>('[data-overlay]').forEach((element) => {
     element.addEventListener('click', () => game.toggleOverlay(element.dataset.overlay as OverlayMode));
   });
+
   const menus = Array.from(hud.querySelectorAll<HTMLElement>('[data-menu]'));
   const closeMenus = () => menus.forEach((menu) => menu.classList.remove('open'));
+
+  hud.querySelectorAll<HTMLButtonElement>('[data-speed]').forEach((element) => {
+    element.addEventListener('click', () => {
+      game.speed = Number(element.dataset.speed);
+      closeMenus();
+    });
+  });
 
   menus.forEach((menu) => {
     menu.querySelector('[data-menu-button]')?.addEventListener('click', () => {
@@ -179,13 +186,14 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
     update: () => {
       const { world } = game;
       field('date').textContent = world.dateLabel;
-      field('treasury').textContent = money(world.treasury);
+      field('treasury').innerHTML = money(world.treasury);
+      field('speed').textContent = speedLabel(game.speed);
       field('people').textContent = `${world.population} citizens`;
       field('taxRate').textContent = TAX_RATES[world.taxRate].name;
-      field('taxTake').textContent = `${money(world.taxes.collected)} a month`;
+      field('taxTake').innerHTML = `${money(world.taxes.collected)} a month`;
       field('taxCover').textContent = `${taxCoverage(world)}% of citizens`;
       field('wageLevel').textContent = WAGE_LEVELS[world.wageLevel].name;
-      field('wageBill').textContent = `${money(monthlyWages(world.labour.employed, world.wageLevel))} a month`;
+      field('wageBill').innerHTML = `${money(monthlyWages(world.labour.employed, world.wageLevel))} a month`;
       field('workers').textContent = labourLabel(world.labour);
       field('idle').textContent = `${world.labour.workforce - world.labour.employed}`;
       field('popularity').textContent = `${world.sentiment.popularity} of 100`;
@@ -200,7 +208,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
         element.classList.toggle('active', isSameTool(button.tool, game.tool));
       });
       hud.querySelectorAll<HTMLButtonElement>('[data-speed]').forEach((element) => {
-        element.classList.toggle('active', Number(element.dataset.speed) === game.speed);
+        element.classList.toggle('chosen', Number(element.dataset.speed) === game.speed);
       });
     },
   };
@@ -345,9 +353,7 @@ function renderReading(label: string, field: string): string {
   return `<div class="dropdown-row"><span>${label}</span><b data-field="${field}"></b></div>`;
 }
 
-function money(amount: number): string {
-  return `${Math.round(amount)} ${DRACHMA}`;
-}
+
 
 function clampIndex(index: number, length: number): number {
   return Math.min(length - 1, Math.max(0, index));
@@ -391,13 +397,19 @@ function migrationLabel(migrants: number): string {
   return 'Steady';
 }
 
+function speedMenu(): string {
+  return SPEEDS.map(
+    ({ speed, name }) => `<button class="choice" data-speed="${speed}"><span>${name}</span><b>${speed === 0 ? '—' : `${speed}×`}</b></button>`,
+  ).join('');
+}
+
 function speedLabel(speed: number): string {
-  if (speed === 0) return '<span class="pause-icon"><span></span><span></span></span>';
+  if (speed === 0) return 'Paused';
   return `${speed}×`;
 }
 
 function renderButton(button: ToolButton, index: number): string {
-  const cost = button.cost === null ? '' : `<small>${button.cost} ${DRACHMA}</small>`;
+  const cost = button.cost === null ? '' : `<small>${money(button.cost)}</small>`;
   return `<button class="tool" data-tool="${index}">
     <span class="tool-label">${button.label}${cost}</span>
     <kbd>${button.shortcut.toUpperCase()}</kbd>
