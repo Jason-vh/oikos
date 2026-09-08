@@ -666,37 +666,37 @@ function groundShadow(
 }
 
 function drawCypress(variant: number): { surface: DrawSurface; baseY: number } {
-  const width = 30;
-  const height = 68;
+  const width = 36;
+  const height = 112;
   const surface = createSurface(width, height);
   const { ctx } = surface;
   const random = createRandom(variant * 733 + 41);
   const light = topLight(DECOR_SUN);
   const cx = width / 2;
-  const baseY = height - 5;
-  const trunkHeight = 6 + random() * 2;
-  const canopyTop = 4 + random() * 4;
+  const baseY = height - 6;
+  const trunkHeight = 10 + random() * 3;
+  const canopyTop = 9 + random() * 5;
   const canopyBottom = baseY - trunkHeight;
-  const lean = (random() - 0.5) * 2;
+  const lean = (random() - 0.5) * 3;
 
-  groundShadow(ctx, cx, baseY, 8, 3);
+  groundShadow(ctx, cx, baseY, 12, 4);
 
   ctx.fillStyle = css(shade(0x5a4630, light));
-  ctx.fillRect(cx - 1.4, canopyBottom, 2.8, trunkHeight);
+  ctx.fillRect(cx - 2, canopyBottom, 4, trunkHeight);
 
-  const dark = shade(0x2e4630, light * 0.85);
-  const base = shade(0x37533b, light);
+  const dark = shade(0x2c4630, light * 0.85);
+  const base = shade(0x35513a, light);
   const lit = shade(0x4c6c4a, light * 1.18);
 
-  const segments = 7;
+  const segments = 10;
   for (let i = segments - 1; i >= 0; i--) {
     const t = i / (segments - 1);
     const y = canopyBottom - t * (canopyBottom - canopyTop);
-    const spread = (1 - t * 0.82) * (7.5 - random() * 1.2);
+    const spread = (1 - t * 0.85) * (14.5 - random() * 2);
     const shift = lean * t;
     ctx.fillStyle = css(i % 2 === 0 ? base : dark);
     ctx.beginPath();
-    ctx.ellipse(cx + shift, y, spread, 5.4, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + shift, y, spread, 9, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -704,9 +704,9 @@ function drawCypress(variant: number): { surface: DrawSurface; baseY: number } {
   for (let i = segments - 1; i >= 1; i -= 2) {
     const t = i / (segments - 1);
     const y = canopyBottom - t * (canopyBottom - canopyTop);
-    const spread = (1 - t * 0.82) * 7.5;
+    const spread = (1 - t * 0.85) * 14.5;
     ctx.beginPath();
-    ctx.ellipse(cx + lean * t + spread * 0.3, y, spread * 0.45, 4.2, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + lean * t + spread * 0.3, y, spread * 0.45, 7, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -714,58 +714,63 @@ function drawCypress(variant: number): { surface: DrawSurface; baseY: number } {
 }
 
 function drawOlive(variant: number): { surface: DrawSurface; baseY: number } {
-  const width = 34;
-  const height = 46;
+  const width = 88;
+  const height = 88;
   const surface = createSurface(width, height);
   const { ctx } = surface;
   const random = createRandom(variant * 919 + 7);
   const light = topLight(DECOR_SUN);
   const cx = width / 2;
-  const baseY = height - 5;
+  const baseY = height - 6;
 
-  groundShadow(ctx, cx, baseY, 9, 3.2);
+  groundShadow(ctx, cx, baseY, 20, 6);
 
-  const trunkTop = baseY - 20;
-  ctx.strokeStyle = css(shade(0x6b5636, light));
-  ctx.lineWidth = 3.4;
+  const trunkTop = baseY - 27;
+  ctx.strokeStyle = css(shade(0x584730, light * 0.9));
+  ctx.lineWidth = 6.2;
   ctx.beginPath();
-  ctx.moveTo(cx - 2, baseY);
-  ctx.quadraticCurveTo(cx + 3, baseY - 12, cx - 1, trunkTop);
+  ctx.moveTo(cx - 3, baseY);
+  ctx.quadraticCurveTo(cx + 8, baseY - 18, cx - 2, trunkTop);
   ctx.stroke();
-  ctx.lineWidth = 2.2;
+  ctx.lineWidth = 4.2;
+  ctx.beginPath();
+  ctx.moveTo(cx - 2, trunkTop + 9);
+  ctx.quadraticCurveTo(cx - 13, trunkTop - 2, cx - 17, trunkTop - 15);
+  ctx.stroke();
+  ctx.lineWidth = 3.6;
   ctx.beginPath();
   ctx.moveTo(cx - 1, trunkTop + 6);
-  ctx.quadraticCurveTo(cx - 6, trunkTop - 2, cx - 8, trunkTop - 8);
+  ctx.quadraticCurveTo(cx + 11, trunkTop - 4, cx + 16, trunkTop - 16);
   ctx.stroke();
 
-  const dark = shade(0x5e6b52, light * 0.9);
-  const mid = shade(0x7c8a6c, light);
-  const lit = shade(0x9aa78c, light * 1.05);
-  const canopyCx = cx - 2;
-  const canopyCy = trunkTop - 10;
+  const dark = shade(0x6b7a4e, light * 0.9);
+  const mid = shade(0x8fa06a, light);
+  const lit = shade(0xb3bf8c, light * 1.05);
+  const canopyCx = cx;
+  const canopyCy = trunkTop - 13;
 
   ctx.fillStyle = css(mid);
   ctx.beginPath();
-  ctx.ellipse(canopyCx, canopyCy, 11, 8.5, 0, 0, Math.PI * 2);
+  ctx.ellipse(canopyCx, canopyCy, 24, 17, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  for (let i = 0; i < 13; i++) {
-    const angle = (i / 13) * Math.PI * 2 + random();
-    const radius = 6 + random() * 3;
-    const px = canopyCx + Math.cos(angle) * radius * 1.1;
+  for (let i = 0; i < 16; i++) {
+    const angle = (i / 16) * Math.PI * 2 + random();
+    const radius = 13 + random() * 7;
+    const px = canopyCx + Math.cos(angle) * radius * 1.15;
     const py = canopyCy + Math.sin(angle) * radius * 0.7;
     ctx.fillStyle = css(i % 3 === 0 ? dark : mid);
     ctx.beginPath();
-    ctx.ellipse(px, py, 3.6 + random() * 1.6, 3 + random() * 1.2, 0, 0, Math.PI * 2);
+    ctx.ellipse(px, py, 7 + random() * 3, 5.6 + random() * 2, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  ctx.fillStyle = css(lit, 0.45);
-  for (let i = 0; i < 3; i++) {
-    const px = canopyCx - 4 + random() * 4;
-    const py = canopyCy - 6 + random() * 4;
+  ctx.fillStyle = css(lit, 0.55);
+  for (let i = 0; i < 6; i++) {
+    const px = canopyCx - 12 + random() * 20;
+    const py = canopyCy - 14 + random() * 10;
     ctx.beginPath();
-    ctx.ellipse(px, py, 3.4, 2.6, 0, 0, Math.PI * 2);
+    ctx.ellipse(px, py, 6.5, 4.8, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -773,55 +778,59 @@ function drawOlive(variant: number): { surface: DrawSurface; baseY: number } {
 }
 
 function drawScrub(variant: number): { surface: DrawSurface; baseY: number } {
-  const width = 26;
-  const height = 20;
+  const width = 46;
+  const height = 34;
   const surface = createSurface(width, height);
   const { ctx } = surface;
   const random = createRandom(variant * 331 + 3);
   const light = topLight(DECOR_SUN);
   const cx = width / 2;
-  const baseY = height - 4;
+  const baseY = height - 6;
 
-  groundShadow(ctx, cx, baseY, 7, 2.4);
+  groundShadow(ctx, cx, baseY, 13, 4);
 
-  const dark = shade(0x6d6640, light * 0.85);
-  const mid = shade(0x8a7f4f, light);
-  const lit = shade(0xa89c68, light * 1.05);
+  const dark = shade(0x6f7d3f, light * 0.85);
+  const mid = shade(0x7f8d4a, light);
+  const lit = shade(0x93a05a, light * 1.08);
 
-  const tufts = 5;
+  const tufts = 8;
   for (let i = 0; i < tufts; i++) {
-    const angle = (i / tufts) * Math.PI * 2;
-    const px = cx + Math.cos(angle) * 5;
-    const py = baseY - 4 + Math.sin(angle) * 2.2;
-    const radius = 4.4 + random() * 2;
+    const angle = (i / tufts) * Math.PI * 2 + random() * 0.4;
+    const px = cx + Math.cos(angle) * 9;
+    const py = baseY - 7 + Math.sin(angle) * 4;
+    const radius = 7 + random() * 3.4;
     ctx.fillStyle = css(i % 2 === 0 ? mid : dark);
     ctx.beginPath();
-    ctx.ellipse(px, py, radius, radius * 0.7, 0, 0, Math.PI * 2);
+    ctx.ellipse(px, py, radius, radius * 0.72, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
   ctx.fillStyle = css(lit, 0.7);
-  ctx.beginPath();
-  ctx.ellipse(cx - 2, baseY - 7, 4, 2.6, 0, 0, Math.PI * 2);
-  ctx.fill();
+  for (let i = 0; i < 3; i++) {
+    const px = cx - 6 + random() * 12;
+    const py = baseY - 13 + random() * 6;
+    ctx.beginPath();
+    ctx.ellipse(px, py, 5.6, 3.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   return { surface, baseY };
 }
 
 function drawBoulder(variant: number): { surface: DrawSurface; baseY: number } {
-  const width = 30;
-  const height = 20;
+  const width = 54;
+  const height = 36;
   const surface = createSurface(width, height);
   const { ctx } = surface;
   const random = createRandom(variant * 511 + 19);
   const light = topLight(DECOR_SUN);
   const cx = width / 2;
-  const baseY = height - 4;
-  const domeWidth = 9.5 + random() * 1.5;
-  const domeHeight = 6.5 + random();
+  const baseY = height - 6;
+  const domeWidth = 17 + random() * 3;
+  const domeHeight = 11.5 + random() * 1.8;
   const domeCy = baseY - domeHeight * 0.72;
 
-  groundShadow(ctx, cx, baseY, domeWidth, 2.6);
+  groundShadow(ctx, cx, baseY, domeWidth, 4);
 
   const highlight = shade(0xece4cc, light);
   const base = shade(0xc7bfa6, light);
@@ -843,13 +852,13 @@ function drawBoulder(variant: number): { surface: DrawSurface; baseY: number } {
   ctx.ellipse(cx, domeCy, domeWidth, domeHeight, 0, 0, Math.PI * 2);
   ctx.stroke();
 
-  ctx.strokeStyle = 'rgba(70, 62, 46, 0.3)';
-  ctx.lineWidth = 0.9;
-  for (let i = 0; i < 2; i++) {
+  ctx.strokeStyle = 'rgba(70, 62, 46, 0.32)';
+  ctx.lineWidth = 1.4;
+  for (let i = 0; i < 3; i++) {
     const ox = (random() - 0.5) * domeWidth;
     ctx.beginPath();
     ctx.moveTo(cx + ox, domeCy - domeHeight * 0.4);
-    ctx.quadraticCurveTo(cx + ox + 1.5, domeCy, cx + ox - 1, domeCy + domeHeight * 0.5);
+    ctx.quadraticCurveTo(cx + ox + 2.4, domeCy, cx + ox - 1.6, domeCy + domeHeight * 0.5);
     ctx.stroke();
   }
 
