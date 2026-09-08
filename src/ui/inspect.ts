@@ -5,6 +5,7 @@ import { TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_SAND, TERRAIN_WATER } from '../si
 import { GODS, GOD_KINDS, moodName } from '../sim/gods';
 import { describeRisk } from '../sim/hazards';
 import { TRADE_ROUTES } from '../sim/trade';
+import { describeAffliction } from '../sim/unrest';
 import { ROAM_RANGE } from '../sim/walkers';
 import type { Building, BuildingKind, Good, WalkerKind } from '../sim/types';
 import type { World } from '../sim/world';
@@ -148,12 +149,15 @@ function inspectHouse(world: World, house: Building, index: number): Inspection 
   const facts: [string, string][] = [
     ['Citizens', `${house.population} of ${tier.capacity}`],
     ['Water', house.supply.water > 0 ? 'supplied' : 'none'],
+    ['Doctor', house.supply.health > 0 ? 'visiting' : 'none'],
+    ['Watchman', house.supply.safety > 0 ? 'on his rounds' : 'none'],
     ['Food', house.supply.food > 0 ? 'supplied' : 'none'],
     ['Oil', house.supply.oil > 0 ? 'supplied' : 'none'],
     ['Culture', house.supply.culture > 0 ? 'taught' : 'none'],
     ['Tax', house.supply.tax > 0 ? `paying, ×${tier.taxMultiplier}` : 'no clerk has called'],
     ['Appeal here', `${appeal}`],
-    ['Risk', describeRisk(house)],
+    ['Fire and collapse', describeRisk(house)],
+    ['Plague and crime', describeAffliction(house)],
   ];
 
   if (next) {

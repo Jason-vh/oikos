@@ -46,6 +46,8 @@ const WALKER_PALETTES: Record<WalkerKind, { tunic: number; trim: number }> = {
   clerk: { tunic: 0xd8d2c2, trim: 0x4f6f7a },
   deliveryman: { tunic: 0xc7b48b, trim: 0x6d5230 },
   philosopher: { tunic: 0xf0ece0, trim: 0x8a7a52 },
+  doctor: { tunic: 0xf2efe4, trim: 0x9c5a4a },
+  watchman: { tunic: 0x8d6b3f, trim: 0x4a3a24 },
   superintendent: { tunic: 0xb9c7a6, trim: 0x4d5c3a },
 };
 
@@ -68,6 +70,8 @@ const FOOTPRINT_INSET: Record<BuildingKind, number> = {
   statue: 1,
   taxOffice: 0.88,
   palace: 0.86,
+  infirmary: 0.86,
+  watchpost: 0.84,
   tradingPost: 0.82,
   sanctuaryDemeter: 0.88,
   sanctuaryHephaestus: 0.88,

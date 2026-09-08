@@ -1,6 +1,6 @@
-export type ServiceKind = 'food' | 'water' | 'oil' | 'culture' | 'tax';
+export type ServiceKind = 'food' | 'water' | 'oil' | 'culture' | 'tax' | 'health' | 'safety';
 
-export const SERVICE_KINDS: ServiceKind[] = ['food', 'water', 'oil', 'culture', 'tax'];
+export const SERVICE_KINDS: ServiceKind[] = ['food', 'water', 'oil', 'culture', 'tax', 'health', 'safety'];
 
 export type Good = 'food' | 'olives' | 'oil';
 
@@ -24,6 +24,8 @@ export type BuildingKind =
   | 'taxOffice'
   | 'palace'
   | 'tradingPost'
+  | 'infirmary'
+  | 'watchpost'
   | 'sanctuaryDemeter'
   | 'sanctuaryHephaestus'
   | 'sanctuaryHermes'
@@ -44,6 +46,8 @@ export interface Building {
   stock: GoodStock;
   fireRisk: number;
   damageRisk: number;
+  disease: number;
+  crime: number;
   productionProgress: number;
   spawnTimer: number;
   walkersOut: number;
@@ -56,7 +60,9 @@ export type WalkerKind =
   | 'waterCarrier'
   | 'philosopher'
   | 'superintendent'
-  | 'clerk';
+  | 'clerk'
+  | 'doctor'
+  | 'watchman';
 
 export type WalkerState = 'roaming' | 'delivering' | 'returning';
 
@@ -77,7 +83,7 @@ export interface Walker {
   good: Good;
 }
 
-export const emptySupply = (): ServiceSupply => ({ food: 0, water: 0, oil: 0, culture: 0, tax: 0 });
+export const emptySupply = (): ServiceSupply => ({ food: 0, water: 0, oil: 0, culture: 0, tax: 0, health: 0, safety: 0 });
 
 export const emptyStock = (): GoodStock => ({ food: 0, olives: 0, oil: 0 });
 
@@ -95,6 +101,8 @@ export function createBuilding(id: number, kind: BuildingKind, x: number, y: num
     stock: emptyStock(),
     fireRisk: 0,
     damageRisk: 0,
+    disease: 0,
+    crime: 0,
     productionProgress: 0,
     spawnTimer: 0,
     walkersOut: 0,

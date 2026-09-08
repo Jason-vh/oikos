@@ -3,7 +3,7 @@ import type { Building } from './types';
 import { World } from './world';
 
 const STORAGE_KEY = 'zeus.city';
-const SAVE_VERSION = 7;
+const SAVE_VERSION = 8;
 
 export interface View {
   x: number;

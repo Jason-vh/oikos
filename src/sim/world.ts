@@ -13,6 +13,7 @@ import {
 import { generateMap } from './mapgen';
 import { hasRoadAccess, roadAccessTiles } from './pathing';
 import { RISK_LIMIT, accrueRisk, nameOf } from './hazards';
+import { accrueAfflictions, plagueToll, tendHouse, theftLoss } from './unrest';
 import {
   GODS,
   GOD_KINDS,
@@ -35,7 +36,7 @@ import { DEFAULT_TAX_RATE, collectTax, type TaxReport } from './taxation';
 import { NO_TRADE, newTradeOrders, trade, type TradeReport } from './trade';
 import { TICKS_PER_MONTH } from './time';
 import { createBuilding } from './types';
-import type { Building, BuildingKind, Good, Walker } from './types';
+import type { Building, BuildingKind, Good, Walker, WalkerKind } from './types';
 import { PEDDLER_LOAD, spawnCartPusher, spawnDeliveryman, spawnPhilosopher, spawnRoamer } from './walkers';
 import { updateWalkers } from './walkers';
 
@@ -57,6 +58,8 @@ const MONTHS_PER_YEAR = 12;
 const sum = (values: number[]): number => values.reduce((total, value) => total + value, 0);
 const FOUNTAIN_SPAWN_INTERVAL = 70;
 const TAX_OFFICE_SPAWN_INTERVAL = 70;
+const INFIRMARY_SPAWN_INTERVAL = 80;
+const WATCHPOST_SPAWN_INTERVAL = 70;
 
 function roomIn(house: Building): number {
   return Math.max(0, tierOf(house).capacity - house.population);
@@ -315,6 +318,7 @@ export class World {
       inDebt: this.treasury < 0,
     });
     this.migrate();
+    this.sufferAfflictions();
     this.attendGods();
     this.sufferMishaps();
     this.reviewGoals();
@@ -374,6 +378,24 @@ export class World {
 
     this.trade = posts.length === 0 ? NO_TRADE : trade(posts, this.tradeOrders, this.treasury);
     this.treasury += this.trade.earned - this.trade.spent;
+  }
+
+  private sufferAfflictions(): void {
+    const dwellings = [...this.buildings.values()].filter((building) => isDwelling(building.kind));
+    for (const house of dwellings) tendHouse(house);
+
+    for (const { house, affliction } of accrueAfflictions(dwellings)) {
+      if (affliction === 'plague') {
+        house.population = Math.max(0, house.population - plagueToll(house));
+        house.disease = 0;
+        this.log('Plague empties houses that no doctor visits.');
+        continue;
+      }
+
+      this.treasury -= Math.min(this.treasury, theftLoss(house));
+      house.crime = 0;
+      this.log('Thieves rob the treasury where no watchman walks.');
+    }
   }
 
   private attendGods(): void {
@@ -491,6 +513,12 @@ export class World {
         case 'taxOffice':
           this.updateTaxOffice(building);
           break;
+        case 'infirmary':
+          this.updateRoamingService(building, 'doctor', INFIRMARY_SPAWN_INTERVAL);
+          break;
+        case 'watchpost':
+          this.updateRoamingService(building, 'watchman', WATCHPOST_SPAWN_INTERVAL);
+          break;
         default:
           break;
       }
@@ -603,6 +631,14 @@ export class World {
     if (atWalkerLimit(office) || !hasRoadAccess(this.grid, office)) return;
 
     if (spawnRoamer(this, office, 'superintendent')) office.spawnTimer = 0;
+  }
+
+  private updateRoamingService(building: Building, walker: WalkerKind, interval: number): void {
+    building.spawnTimer += staffing(building);
+    if (building.spawnTimer < interval) return;
+    if (atWalkerLimit(building) || !hasRoadAccess(this.grid, building)) return;
+
+    if (spawnRoamer(this, building, walker)) building.spawnTimer = 0;
   }
 
   private updateTaxOffice(office: Building): void {

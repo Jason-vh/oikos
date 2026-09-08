@@ -1175,6 +1175,74 @@ def build_estate(tier):
     return {"kind": "estate", "variant": tier, "footprint": 4, "height": roof_z + roof_h + 0.3}
 
 
+def build_infirmary():
+    """Infirmary: a colonnaded ward round a herb court, with beds under an awning."""
+    paving = plaster_material("paving", STONE, roughness=0.88, variation=0.05, scale=14.0)
+    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.84, variation=0.04, scale=7.0)
+    marble = material("marble", MARBLE, roughness=0.3)
+    tiles = roof_material("tiles", TERRACOTTA, rows_per_unit=20.0)
+    canvas = plaster_material("canvas", hex_rgb("efe7d2"), roughness=0.95, variation=0.06, scale=9.0)
+    herb = material("herb", hex_rgb("6f8a4a"), roughness=0.9)
+    wood = material("wood", WOOD, roughness=0.86)
+    clay = material("clay", CLAY, roughness=0.8)
+
+    half = 1.44
+    yard = add_box("yard", (0, 0, 0.03), (half * 2, half * 2, 0.06), paving)
+    yard.visible_shadow = False
+
+    ward_half = 0.68
+    wall_h = 0.7
+    wx, wy = -0.6, -0.6
+    add_box("ward", (wx, wy, 0.06 + wall_h / 2), (ward_half * 2, ward_half * 2, wall_h), whitewash)
+    add_box("cornice", (wx, wy, 0.06 + wall_h + 0.03), (ward_half * 2 + 0.12, ward_half * 2 + 0.12, 0.06), marble)
+    add_hip_roof("roof", (wx, wy, 0.06 + wall_h + 0.2), ward_half + 0.14, 0.3, tiles, ridge_half=0.18)
+    add_doorway(ward_half, 0.42, (wx, wy))
+    add_window_row(ward_half, 0.52, (0.14, 0.2), (wx, wy), on_door_face=True)
+
+    add_box("awning", (0.68, 0.3, 0.06 + 0.5), (0.9, 1.2, 0.04), canvas)
+    for cx, cy in ((0.28, -0.24), (1.08, -0.24), (0.28, 0.84), (1.08, 0.84)):
+        add_cylinder("awning_post", (cx, cy, 0.06 + 0.25), 0.022, 0.5, wood, vertices=6)
+    for by in (-0.02, 0.5):
+        add_box("bed", (0.68, by, 0.06 + 0.09), (0.62, 0.28, 0.18), whitewash)
+
+    add_box("herb_bed", (-1.0, 1.0, 0.07), (0.72, 0.72, 0.04), herb)
+    add_amphora("jar", (0.9, -1.0, 0.06), 0.32, clay)
+    add_box("basin", (-1.06, -0.2, 0.06 + 0.14), (0.36, 0.36, 0.28), marble)
+
+    return {"kind": "infirmary", "variant": 0, "footprint": 3, "height": 1.1}
+
+
+def build_watchpost():
+    """Watchpost: a squat tower with a brazier and a rack of spears."""
+    earth = plaster_material("earth", EARTH, roughness=0.96, variation=0.08, scale=15.0)
+    plaster = plaster_material("plaster", hex_rgb("d8cdb4"), roughness=0.86, variation=0.05, scale=8.0)
+    stone = plaster_material("stone", STONE, roughness=0.88, variation=0.06, scale=11.0)
+    tiles = roof_material("tiles", hex_rgb("8f4526"), rows_per_unit=18.0)
+    wood = material("wood", WOOD, roughness=0.86)
+    bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
+
+    half = 0.94
+    yard = add_box("yard", (0, 0, 0.03), (half * 2, half * 2, 0.06), earth)
+    yard.visible_shadow = False
+
+    tower_half = 0.4
+    tower_h = 1.0
+    tx, ty = -0.32, -0.32
+    add_box("base", (tx, ty, 0.11), (tower_half * 2 + 0.16, tower_half * 2 + 0.16, 0.1), stone)
+    add_box("tower", (tx, ty, 0.16 + tower_h / 2), (tower_half * 2, tower_half * 2, tower_h), plaster)
+    add_doorway(tower_half, 0.4, (tx, ty))
+    add_box("gallery", (tx, ty, 0.16 + tower_h + 0.05), (tower_half * 2 + 0.24, tower_half * 2 + 0.24, 0.1), wood)
+    add_hip_roof("roof", (tx, ty, 0.16 + tower_h + 0.24), tower_half + 0.18, 0.28, tiles, ridge_half=0.1)
+
+    add_cylinder("brazier", (0.62, 0.5, 0.06 + 0.18), 0.08, 0.36, bronze, vertices=10)
+    add_cylinder("brazier_bowl", (0.62, 0.5, 0.06 + 0.38), 0.16, 0.1, bronze, vertices=14)
+    for offset in (-0.1, 0.0, 0.1):
+        add_cylinder("spear", (0.66 + offset, -0.5, 0.06 + 0.34), 0.018, 0.68, wood, vertices=6)
+    add_box("rack", (0.66, -0.5, 0.06 + 0.2), (0.34, 0.08, 0.06), wood)
+
+    return {"kind": "watchpost", "variant": 0, "footprint": 2, "height": 1.5}
+
+
 def build_fountain():
     """Marble basin with a raised centre and a small bronze statue; light blue water."""
     marble = material("marble", MARBLE, roughness=0.3)
@@ -1275,6 +1343,8 @@ MODELS = {
     "college": build_college,
     "podium": build_podium,
     "maintenance-office": build_maintenance_office,
+    "infirmary": build_infirmary,
+    "watchpost": build_watchpost,
     "olive-press": build_olive_press,
     "wheat-farm": build_wheat_farm,
     "fountain": build_fountain,

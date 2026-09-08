@@ -15,6 +15,8 @@ export const ROAM_RANGE: Record<WalkerKind, number> = {
   philosopher: 35,
   superintendent: 44,
   clerk: 35,
+  doctor: 35,
+  watchman: 30,
 };
 
 export const WALKER_SPEED: Record<WalkerKind, number> = {
@@ -25,6 +27,8 @@ export const WALKER_SPEED: Record<WalkerKind, number> = {
   philosopher: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
   superintendent: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
   clerk: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
+  doctor: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
+  watchman: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
 };
 
 export const PEDDLER_LOAD = UNITS_PER_CARTLOAD;
@@ -34,6 +38,8 @@ export const WALKER_SERVICE: Partial<Record<WalkerKind, ServiceKind>> = {
   waterCarrier: 'water',
   philosopher: 'culture',
   clerk: 'tax',
+  doctor: 'health',
+  watchman: 'safety',
 };
 
 const SOLD_AS: Record<Good, ServiceKind | null> = {

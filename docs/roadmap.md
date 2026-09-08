@@ -272,7 +272,12 @@ with the seven rates and multiplier 1 below homestead, 2 above. Fire and damage 
 per building, and the maintenance office whose superintendent clears both, are in
 `src/sim/hazards.ts`. The palace stands, 4×4 rather than 9×6 because the grid holds
 square footprints, and `BuildingDef.requires` gates the tax office behind it. Elite
-multipliers, infirmary, watchpost, crime, unrest and plague are not started.
+multipliers are in the elite ladder. The infirmary sends a doctor and the watchpost a
+watchman; a house gathers disease each month at its tier's rate (20 for a hut down to
+4 for a townhouse, none for elite) and crime (3 below hovel, 2 above, −20 for elite,
+so nobles suppress it), a visit wipes the slate, and an untended house loses a third
+of its people to plague or the treasury to thieves. Unrest, disgruntled citizens and
+outlaws are not started.
 
 ---
 
