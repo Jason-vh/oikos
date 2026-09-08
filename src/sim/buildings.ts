@@ -15,6 +15,7 @@ export interface BuildingDef {
   requiresMeadow: boolean;
   needsRoad: boolean;
   requires: BuildingKind | null;
+  minAppeal: number;
   produces: Good | null;
   consumes: Good | null;
   accepts: Good | null;
@@ -127,6 +128,72 @@ export const HOUSE_TIERS: HouseTier[] = [
   },
 ];
 
+
+export const ELITE_TIERS: HouseTier[] = [
+  {
+    name: 'Residence',
+    capacity: 6,
+    taxMultiplier: 18,
+    evolveAppeal: NO_APPEAL_GATE,
+    devolveAppeal: NO_APPEAL_GATE,
+    needs: ['food', 'water', 'oil', 'culture'],
+    appeal: { initial: 10, bandSize: 2, step: -2, range: 6 },
+    colour: 0xf0ead8,
+    roofColour: 0xb8502c,
+    height: 26,
+  },
+  {
+    name: 'Mansion',
+    capacity: 10,
+    taxMultiplier: 18,
+    evolveAppeal: 36,
+    devolveAppeal: 25,
+    needs: ['food', 'water', 'oil', 'culture'],
+    appeal: { initial: 14, bandSize: 2, step: -2, range: 7 },
+    colour: 0xf2ecdc,
+    roofColour: 0xb8502c,
+    height: 30,
+  },
+  {
+    name: 'Manor',
+    capacity: 16,
+    taxMultiplier: 18,
+    evolveAppeal: 50,
+    devolveAppeal: 36,
+    needs: ['food', 'water', 'oil', 'culture'],
+    appeal: { initial: 18, bandSize: 2, step: -2, range: 8 },
+    colour: 0xf6f1e2,
+    roofColour: 0xc0603a,
+    height: 34,
+  },
+  {
+    name: 'Estate',
+    capacity: 20,
+    taxMultiplier: 18,
+    evolveAppeal: 66,
+    devolveAppeal: 50,
+    needs: ['food', 'water', 'oil', 'culture'],
+    appeal: { initial: 22, bandSize: 2, step: -2, range: 9 },
+    colour: 0xfaf6ea,
+    roofColour: 0xc0603a,
+    height: 38,
+  },
+];
+
+export const DWELLINGS: BuildingKind[] = ['house', 'estate'];
+
+export function isDwelling(kind: BuildingKind): boolean {
+  return DWELLINGS.includes(kind);
+}
+
+export function tiersOf(kind: BuildingKind): HouseTier[] {
+  return kind === 'estate' ? ELITE_TIERS : HOUSE_TIERS;
+}
+
+export function tierOf(building: { kind: BuildingKind; tier: number }): HouseTier {
+  return tiersOf(building.kind)[building.tier];
+}
+
 export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
   house: {
     kind: 'house',
@@ -142,6 +209,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     requiresMeadow: false,
     needsRoad: true,
     requires: null,
+    minAppeal: 0,
     produces: null,
     consumes: null,
     accepts: null,
@@ -150,6 +218,30 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     fireRisk: 8,
     damageRisk: 5,
     description: 'Citizens settle here and evolve as their needs are met.',
+  },
+  estate: {
+    kind: 'estate',
+    name: 'Residence',
+    size: 4,
+    cost: 200,
+    colour: 0xf0ead8,
+    roofColour: 0xb8502c,
+    height: 26,
+    workers: 0,
+    maxWalkers: 0,
+    appeal: ELITE_TIERS[0].appeal,
+    requiresMeadow: false,
+    needsRoad: true,
+    requires: null,
+    minAppeal: 20,
+    produces: null,
+    consumes: null,
+    accepts: null,
+    supplies: null,
+    capacity: 0,
+    fireRisk: 5,
+    damageRisk: 4,
+    description: 'A house for the wealthy, placed rather than grown. Nobles pay tax like no one else.',
   },
   wheatFarm: {
     kind: 'wheatFarm',
@@ -165,6 +257,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     requiresMeadow: true,
     needsRoad: true,
     requires: null,
+    minAppeal: 0,
     produces: 'food',
     consumes: null,
     accepts: null,
@@ -188,6 +281,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     requiresMeadow: true,
     needsRoad: true,
     requires: null,
+    minAppeal: 0,
     produces: 'olives',
     consumes: null,
     accepts: null,
@@ -211,6 +305,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     requiresMeadow: false,
     needsRoad: true,
     requires: null,
+    minAppeal: 0,
     produces: 'oil',
     consumes: 'olives',
     accepts: 'olives',
@@ -234,6 +329,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     requiresMeadow: false,
     needsRoad: true,
     requires: null,
+    minAppeal: 0,
     produces: null,
     consumes: null,
     accepts: 'food',
@@ -257,6 +353,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     requiresMeadow: false,
     needsRoad: true,
     requires: null,
+    minAppeal: 0,
     produces: null,
     consumes: null,
     accepts: null,
@@ -280,6 +377,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     requiresMeadow: false,
     needsRoad: true,
     requires: null,
+    minAppeal: 0,
     produces: null,
     consumes: null,
     accepts: null,
@@ -303,6 +401,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     requiresMeadow: false,
     needsRoad: true,
     requires: null,
+    minAppeal: 0,
     produces: null,
     consumes: null,
     accepts: null,
@@ -326,6 +425,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     requiresMeadow: false,
     needsRoad: true,
     requires: null,
+    minAppeal: 0,
     produces: null,
     consumes: null,
     accepts: null,
@@ -349,6 +449,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     requiresMeadow: false,
     needsRoad: true,
     requires: null,
+    minAppeal: 0,
     produces: null,
     consumes: null,
     accepts: null,
@@ -372,6 +473,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     requiresMeadow: false,
     needsRoad: false,
     requires: null,
+    minAppeal: 0,
     produces: null,
     consumes: null,
     accepts: null,
@@ -395,6 +497,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     requiresMeadow: false,
     needsRoad: true,
     requires: 'palace',
+    minAppeal: 0,
     produces: null,
     consumes: null,
     accepts: null,
@@ -418,6 +521,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     requiresMeadow: false,
     needsRoad: true,
     requires: null,
+    minAppeal: 0,
     produces: null,
     consumes: null,
     accepts: null,
@@ -441,6 +545,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     requiresMeadow: false,
     needsRoad: true,
     requires: null,
+    minAppeal: 0,
     produces: null,
     consumes: null,
     accepts: 'oil',
@@ -464,6 +569,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     requiresMeadow: false,
     needsRoad: true,
     requires: null,
+    minAppeal: 0,
     produces: null,
     consumes: null,
     accepts: null,
@@ -487,6 +593,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     requiresMeadow: false,
     needsRoad: true,
     requires: null,
+    minAppeal: 0,
     produces: null,
     consumes: null,
     accepts: null,
@@ -510,6 +617,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     requiresMeadow: false,
     needsRoad: true,
     requires: null,
+    minAppeal: 0,
     produces: null,
     consumes: null,
     accepts: null,
@@ -533,6 +641,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     requiresMeadow: false,
     needsRoad: true,
     requires: null,
+    minAppeal: 0,
     produces: null,
     consumes: null,
     accepts: null,
@@ -546,6 +655,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
 
 export const PLACEABLE: BuildingKind[] = [
   'house',
+  'estate',
   'wheatFarm',
   'granary',
   'growersLodge',
@@ -583,6 +693,7 @@ export const LABOUR_PRIORITY: BuildingKind[] = [
   'sanctuaryHermes',
   'sanctuaryHades',
   'house',
+  'estate',
 ];
 
 export const UNITS_PER_CARTLOAD = 100;

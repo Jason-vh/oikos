@@ -1,4 +1,4 @@
-import { HOUSE_TIERS } from './buildings';
+import { isDwelling, tiersOf } from './buildings';
 import type { HouseTier } from './buildings';
 import { SERVICE_KINDS } from './types';
 import type { Building, ServiceKind } from './types';
@@ -17,7 +17,7 @@ export function updateHouses(world: World): void {
   const evaluating = world.tick % EVOLUTION_INTERVAL === 0;
 
   for (const building of world.buildings.values()) {
-    if (building.kind !== 'house') continue;
+    if (!isDwelling(building.kind)) continue;
 
     for (const service of SERVICE_KINDS) {
       building.supply[service] = Math.max(0, building.supply[service] - SUPPLY_DECAY_PER_TICK[service]);
@@ -29,8 +29,9 @@ export function updateHouses(world: World): void {
 
 function evaluate(world: World, house: Building): void {
   const appeal = world.grid.appeal[world.grid.index(house.x, house.y)];
-  const next = HOUSE_TIERS[house.tier + 1];
-  const current = HOUSE_TIERS[house.tier];
+  const tiers = tiersOf(house.kind);
+  const next = tiers[house.tier + 1];
+  const current = tiers[house.tier];
 
   if (next && meetsNeeds(house, next) && appeal >= next.evolveAppeal) {
     setTier(world, house, house.tier + 1);
@@ -38,7 +39,7 @@ function evaluate(world: World, house: Building): void {
     setTier(world, house, house.tier - 1);
   }
 
-  house.population = Math.min(house.population, HOUSE_TIERS[house.tier].capacity);
+  house.population = Math.min(house.population, tiers[house.tier].capacity);
 }
 
 function setTier(world: World, house: Building, tier: number): void {

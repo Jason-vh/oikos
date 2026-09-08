@@ -61,6 +61,7 @@ export const GULL_FRAMES = 3;
 
 const FOOTPRINT_INSET: Record<BuildingKind, number> = {
   house: 0.72,
+  estate: 0.8,
   granary: 0.9,
   wheatFarm: 1,
   fountain: 1,

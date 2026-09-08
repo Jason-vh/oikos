@@ -10,6 +10,7 @@ export type GoodStock = Record<Good, number>;
 
 export type BuildingKind =
   | 'house'
+  | 'estate'
   | 'wheatFarm'
   | 'granary'
   | 'growersLodge'
@@ -88,7 +89,7 @@ export function createBuilding(id: number, kind: BuildingKind, x: number, y: num
     y,
     size,
     tier: 0,
-    population: kind === 'house' ? 4 : 0,
+    population: kind === 'house' ? 4 : kind === 'estate' ? 2 : 0,
     staff: 0,
     supply: emptySupply(),
     stock: emptyStock(),

@@ -1,5 +1,5 @@
 import { recomputeAppeal } from './appeal';
-import { BUILDINGS, HOUSE_TIERS, ROADBLOCK_COST, ROAD_COST, UNITS_PER_CARTLOAD } from './buildings';
+import { BUILDINGS, HOUSE_TIERS, ROADBLOCK_COST, ROAD_COST, UNITS_PER_CARTLOAD, isDwelling, tierOf } from './buildings';
 import { Grid, NO_BUILDING, TERRAIN_MEADOW } from './grid';
 import { updateHouses } from './housing';
 import {
@@ -59,7 +59,7 @@ const FOUNTAIN_SPAWN_INTERVAL = 70;
 const TAX_OFFICE_SPAWN_INTERVAL = 70;
 
 function roomIn(house: Building): number {
-  return Math.max(0, HOUSE_TIERS[house.tier].capacity - house.population);
+  return Math.max(0, tierOf(house).capacity - house.population);
 }
 
 function atWalkerLimit(building: Building): boolean {
@@ -152,6 +152,9 @@ export class World {
       }
     }
     if (!this.grid.isFlat(x, y, def.size)) return { ok: false, reason: 'Ground must be level' };
+    if (this.grid.appeal[this.grid.index(x, y)] < def.minAppeal) {
+      return { ok: false, reason: `Needs appeal of ${def.minAppeal} here` };
+    }
     return { ok: true, reason: def.description };
   }
 
@@ -325,7 +328,7 @@ export class World {
     let fed = 0;
     let hungry = 0;
     for (const building of this.buildings.values()) {
-      if (building.kind !== 'house' || !HOUSE_TIERS[building.tier].needs.includes('food')) continue;
+      if (!isDwelling(building.kind) || !tierOf(building).needs.includes('food')) continue;
       hungry += building.population;
       if (building.supply.food > 0) fed += building.population;
     }
@@ -453,7 +456,7 @@ export class World {
   }
 
   private migrate(): void {
-    const houses = [...this.buildings.values()].filter((building) => building.kind === 'house');
+    const houses = [...this.buildings.values()].filter((building) => isDwelling(building.kind));
     const freeCapacity = houses.reduce((free, house) => free + roomIn(house), 0);
 
     this.migrants = migrantsFor(this.sentiment.popularity, freeCapacity, this.population);

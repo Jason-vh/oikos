@@ -1,4 +1,4 @@
-import { HOUSE_TIERS } from './buildings';
+import { isDwelling, tierOf } from './buildings';
 import type { Building } from './types';
 
 export interface TaxRate {
@@ -31,7 +31,7 @@ export function collectTax(buildings: Iterable<Building>, rate: number): TaxRepo
   let untaxedPeople = 0;
 
   for (const building of buildings) {
-    if (building.kind !== 'house') continue;
+    if (!isDwelling(building.kind)) continue;
 
     if (building.supply.tax <= 0) {
       untaxedPeople += building.population;
@@ -39,7 +39,7 @@ export function collectTax(buildings: Iterable<Building>, rate: number): TaxRepo
     }
 
     taxedPeople += building.population;
-    collected += HOUSE_TIERS[building.tier].taxMultiplier * building.population * drachmasPerPerson;
+    collected += tierOf(building).taxMultiplier * building.population * drachmasPerPerson;
   }
 
   return { collected, taxedPeople, untaxedPeople };

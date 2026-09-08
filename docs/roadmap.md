@@ -119,6 +119,13 @@ at reduced output when understaffed; the workforce is allocated by priority tab.
 **Immigration** is driven by popularity: high wages, low taxes, stocked food, low
 unemployment, low debt, few false calls to arms. Settlers and emigrants walk off-road.
 
+🟡 Both housing ladders are in `src/sim/buildings.ts`: seven common tiers on a 2×2
+plot that grow on food, water, culture, oil and appeal, and four elite tiers on a
+placed 4×4 plot that costs 200 dr and refuses ground below appeal 20 — Residence 6,
+Mansion 10, Manor 16, Estate 20, each paying tax at the Mortal noble multiplier of 18
+and evolving at appeal 36, 50 and 66. Fleece, armour, wine and horses, the culture
+type counts and the difficulty-scaled thresholds are not started.
+
 🟡 Popularity and migration shipped in `src/sim/popularity.ts`: monthly sentiment from
 wages, taxes, food, unemployment and debt, with settlers filling empty rooms and
 emigrants leaving an unhappy city. Labour shipped in `src/sim/labour.ts`: the Mortal worker-share table, the six wage

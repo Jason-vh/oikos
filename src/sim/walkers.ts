@@ -1,4 +1,4 @@
-import { BUILDINGS, UNITS_PER_CARTLOAD } from './buildings';
+import { BUILDINGS, UNITS_PER_CARTLOAD, isDwelling } from './buildings';
 import { reassure } from './hazards';
 import { bfsRoute, exitTile, nextRoamTile, northOf, roadAccessTiles } from './pathing';
 import { TICKS_PER_MONTH } from './time';
@@ -196,7 +196,7 @@ function serveAdjacentHouses(world: World, tile: number, service: ServiceKind): 
   let served = 0;
   for (const neighbour of world.grid.neighbours(tile)) {
     const building = world.buildingAt(neighbour);
-    if (building?.kind !== 'house') continue;
+    if (!building || !isDwelling(building.kind)) continue;
     building.supply[service] = SUPPLY_FULL;
     served += 1;
   }

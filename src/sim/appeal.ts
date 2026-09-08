@@ -1,4 +1,4 @@
-import { BUILDINGS, HOUSE_TIERS } from './buildings';
+import { BUILDINGS, isDwelling, tierOf } from './buildings';
 import type { Grid } from './grid';
 import type { Building } from './types';
 
@@ -21,7 +21,7 @@ export function bandValues(bands: AppealBands): number[] {
 }
 
 export function appealOf(building: Building): AppealBands {
-  if (building.kind === 'house') return HOUSE_TIERS[building.tier].appeal;
+  if (isDwelling(building.kind)) return tierOf(building).appeal;
   return BUILDINGS[building.kind].appeal;
 }
 

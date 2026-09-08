@@ -1112,6 +1112,69 @@ def build_trading_post():
     return {"kind": "tradingPost", "variant": 0, "footprint": 2, "height": 0.95}
 
 
+def build_estate(tier):
+    """Elite housing on a 4-tile plot: a colonnaded villa around a court, growing
+    from a walled residence to an estate with gardens, stoa and stables."""
+    paving = plaster_material("paving", STONE, roughness=0.86, variation=0.05, scale=15.0)
+    garden = plaster_material("garden", hex_rgb("9aa861"), roughness=0.96, variation=0.1, scale=13.0)
+    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.84, variation=0.04, scale=7.0)
+    marble = material("marble", MARBLE, roughness=0.3)
+    tiles = roof_material("tiles", TERRACOTTA, rows_per_unit=20.0)
+    tiles_light = roof_material("tiles_light", TERRACOTTA_LIGHT, rows_per_unit=20.0)
+    wood = material("wood", WOOD, roughness=0.86)
+    clay = material("clay", CLAY, roughness=0.8)
+    cypress = material("cypress", CYPRESS, roughness=0.9)
+    water = material("water", hex_rgb("6fa8bd"), roughness=0.1)
+
+    half = 1.92
+    yard = add_box("plot", (0, 0, 0.03), (half * 2, half * 2, 0.06), paving)
+    yard.visible_shadow = False
+    for side in (-1, 1):
+        add_box("plot_wall", (side * half, 0, 0.16), (0.1, half * 2, 0.2), whitewash)
+        add_box("plot_wall", (0, side * half, 0.16), (half * 2, 0.1, 0.2), whitewash)
+
+    villa_half = 0.8 + tier * 0.1
+    wall_h = 0.86 + tier * 0.08
+    vx, vy = -0.7, -0.7
+    add_box("stylobate", (vx, vy, 0.09), (villa_half * 2 + 0.3, villa_half * 2 + 0.3, 0.12), marble)
+    add_box("villa", (vx, vy, 0.15 + wall_h / 2), (villa_half * 2, villa_half * 2, wall_h), whitewash)
+    add_box("cornice", (vx, vy, 0.15 + wall_h + 0.03), (villa_half * 2 + 0.16, villa_half * 2 + 0.16, 0.07), marble)
+    add_doorway(villa_half, 0.54, (vx, vy), width=0.4)
+    add_window_row(villa_half, 0.15 + wall_h * 0.6, (0.16, 0.22), (vx, vy), on_door_face=True)
+
+    roof_z = 0.15 + wall_h + 0.07
+    roof_h = 0.34 + tier * 0.04
+    add_hip_roof("roof", (vx, vy, roof_z + roof_h / 2), villa_half + 0.16, roof_h, tiles, ridge_half=0.24)
+
+    if tier >= 1:
+        for offset in (-0.5, 0.1, 0.7):
+            add_cylinder("column", (vx + villa_half + 0.26, vy + offset, 0.15 + wall_h / 2), 0.06, wall_h, marble, vertices=14)
+        add_box("porch", (vx + villa_half + 0.26, vy + 0.1, 0.15 + wall_h + 0.04), (0.5, 1.5, 0.08), marble)
+        add_cypress_pot("cypress1", (1.5, -1.5, 0.06), 0.5, clay, cypress)
+
+    if tier >= 2:
+        wing_half = 0.5
+        add_box("wing", (1.1, 0.9, 0.06 + 0.36), (wing_half * 2, wing_half * 2, 0.72), whitewash)
+        add_hip_roof("wing_roof", (1.1, 0.9, 0.06 + 0.86), wing_half + 0.12, 0.26, tiles_light, ridge_half=0.14)
+        add_box("pool_kerb", (-1.2, 1.1, 0.06 + 0.05), (1.1, 0.8, 0.1), marble)
+        add_box("pool", (-1.2, 1.1, 0.06 + 0.09), (0.9, 0.6, 0.06), water)
+        add_pergola("pergola", 1.5, -0.4, 0.06, 0.22, 0.9, 0.5, wood)
+
+    if tier >= 3:
+        add_box("garden", (-1.3, -1.3, 0.07), (1.1, 1.1, 0.03), garden)
+        for gx, gy in ((-1.6, -1.6), (-1.0, -1.6), (-1.6, -1.0)):
+            add_cypress_pot("garden_tree", (gx, gy, 0.09), 0.42, clay, cypress)
+        for offset in (-0.6, 0.0, 0.6):
+            add_cylinder("stoa_column", (offset, 1.6, 0.06 + 0.36), 0.055, 0.72, marble, vertices=14)
+        add_box("stoa_roof", (0, 1.6, 0.06 + 0.76), (1.6, 0.42, 0.08), marble)
+        add_box("stable", (1.55, 0.0, 0.06 + 0.3), (0.5, 0.9, 0.6), whitewash)
+        add_shed_roof("stable_roof", (1.55, 0.0, 0.06 + 0.66), 0.32, 0.5, 0.06, tiles_light)
+
+    add_amphora("jar", (0.4, -1.6, 0.06), 0.36, clay)
+
+    return {"kind": "estate", "variant": tier, "footprint": 4, "height": roof_z + roof_h + 0.3}
+
+
 def build_fountain():
     """Marble basin with a raised centre and a small bronze statue; light blue water."""
     marble = material("marble", MARBLE, roughness=0.3)
@@ -1217,6 +1280,9 @@ MODELS = {
     "fountain": build_fountain,
     "statue": build_statue,
 }
+for estate_tier in range(4):
+    MODELS[f"estate-{estate_tier}"] = (lambda tier: lambda: build_estate(tier))(estate_tier)
+
 for sanctuary_name, sanctuary_god in SANCTUARIES.items():
     MODELS[sanctuary_name] = sanctuary_builder(sanctuary_name, sanctuary_god)
 

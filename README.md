@@ -185,7 +185,7 @@ footprint's south vertex through the camera's own basis, whose up vector is
 to the view direction lifts every sprite off its plot. A Cycles shadow-catcher plane
 becomes the shadow sprite, framed wide enough for the shadow the sun actually casts.
 
-Models live in `pipeline/iso_render.py`: the seven housing tiers, wheat farm, growers'
+Models live in `pipeline/iso_render.py`: the seven common housing tiers and four elite ones, wheat farm, growers'
 lodge, olive press, granary, agora, college, podium, maintenance office, palace, tax
 office, trading post, four sanctuaries, fountain and statue, each rendered as a body and a shadow. Sprites are keyed by
 `kind:variant:layer` — housing uses `tier * 2`, plus one for the mirrored copy.

@@ -1,5 +1,5 @@
 import { bandValues } from '../sim/appeal';
-import { BUILDINGS, HOUSE_TIERS, ROADBLOCK_COST, ROAD_COST } from '../sim/buildings';
+import { BUILDINGS, ROADBLOCK_COST, ROAD_COST, isDwelling, tiersOf } from '../sim/buildings';
 import type { BuildingDef } from '../sim/buildings';
 import { TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_SAND, TERRAIN_WATER } from '../sim/grid';
 import { GODS, GOD_KINDS, moodName } from '../sim/gods';
@@ -52,6 +52,7 @@ export function describeBuildingTool(kind: BuildingKind): Inspection {
   if (def.requiresMeadow) facts.push(['Ground', 'Meadow only']);
   if (def.needsRoad) facts.push(['Road', 'Must touch one']);
   if (def.requires) facts.push(['Requires', BUILDINGS[def.requires].name]);
+  if (def.minAppeal > 0) facts.push(['Ground', `Appeal ${def.minAppeal} or better`]);
   facts.push(['Appeal', appealSummary(def)]);
 
   return { title: def.name, subtitle: 'Building', description: def.description, facts };
@@ -98,7 +99,7 @@ function inspectBuilding(world: World, building: Building, index: number): Inspe
   const def = BUILDINGS[building.kind];
   const facts: [string, string][] = [];
 
-  if (building.kind === 'house') return inspectHouse(world, building, index);
+  if (isDwelling(building.kind)) return inspectHouse(world, building, index);
 
   if (def.workers > 0) {
     const short = def.workers - building.staff;
@@ -139,8 +140,9 @@ function inspectBuilding(world: World, building: Building, index: number): Inspe
 }
 
 function inspectHouse(world: World, house: Building, index: number): Inspection {
-  const tier = HOUSE_TIERS[house.tier];
-  const next = HOUSE_TIERS[house.tier + 1];
+  const tiers = tiersOf(house.kind);
+  const tier = tiers[house.tier];
+  const next = tiers[house.tier + 1];
   const appeal = world.grid.appeal[index];
 
   const facts: [string, string][] = [

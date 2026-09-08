@@ -1,5 +1,5 @@
 import { Container, Sprite } from 'pixi.js';
-import { BUILDINGS, HOUSE_TIERS } from '../sim/buildings';
+import { BUILDINGS, isDwelling, tierOf } from '../sim/buildings';
 import { TERRAIN_WATER } from '../sim/grid';
 import { RISK_LIMIT, riskOf } from '../sim/hazards';
 import type { Building, BuildingKind } from '../sim/types';
@@ -329,19 +329,21 @@ function destroyBuilding(entry: BuildingEntry): void {
 }
 
 function bakedVariantOf(building: Building): number {
+  if (building.kind === 'estate') return building.tier;
   if (building.kind !== 'house') return 0;
   return building.tier * 2 + (variantOf(building.id) % 2);
 }
 
 function lookKey(building: Building): string {
-  if (building.kind === 'house') return `house:${building.tier}`;
+  if (isDwelling(building.kind)) return `${building.kind}:${building.tier}`;
   return building.kind;
 }
 
 function lookOf(building: Building): StructureLook {
-  if (building.kind === 'house') {
-    const tier = HOUSE_TIERS[building.tier];
-    return { size: 1, height: tier.height, colour: tier.colour, roofColour: tier.roofColour };
+  if (isDwelling(building.kind)) {
+    const tier = tierOf(building);
+    const def = BUILDINGS[building.kind];
+    return { size: def.size, height: tier.height, colour: tier.colour, roofColour: tier.roofColour };
   }
   return structureLook(building.kind);
 }
