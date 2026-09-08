@@ -3,20 +3,56 @@ name: Deploy
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 concurrency:
-  group: zeus-production
+  group: zeus-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  DEPLOY_DIR: /home/exedev/apps/zeus
-
 jobs:
+  check:
+    name: Typecheck, build, smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck and build
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Smoke test the production bundle
+        run: |
+          npx vite preview --port 4173 &
+          npx wait-on http://localhost:4173
+          node scripts/smoke.mjs "http://localhost:4173/?debug"
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-screenshots
+          path: scripts/shot-*.png
+          if-no-files-found: ignore
+
   deploy:
     name: Deploy to exe.dev VM
+    needs: check
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: [self-hosted, linux, zeus-prod]
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      DEPLOY_DIR: /home/exedev/apps/zeus
     steps:
       - name: Check out repository
         uses: actions/checkout@v4

@@ -17,7 +17,9 @@
     "pixi.js": "^8.6.6"
   },
   "devDependencies": {
+    "playwright": "^1.62.0",
     "typescript": "^5.7.2",
-    "vite": "^6.0.7"
+    "vite": "^6.0.7",
+    "wait-on": "^9.1.0"
   }
 }
