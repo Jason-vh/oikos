@@ -100,11 +100,11 @@ export function speckle(
 
 export function faceLight(sun: Sun, faceAzimuth: number): number {
   const lambert = Math.max(0, Math.cos(sun.azimuth - faceAzimuth)) * Math.cos(sun.elevation);
-  return 0.52 + 0.62 * lambert;
+  return 0.72 + 0.34 * lambert;
 }
 
 export function topLight(sun: Sun): number {
-  return 0.62 + 0.55 * Math.sin(sun.elevation);
+  return 0.82 + 0.28 * Math.sin(sun.elevation);
 }
 
 export function shadowVector(sun: Sun): { x: number; y: number; alpha: number } {
@@ -112,11 +112,11 @@ export function shadowVector(sun: Sun): { x: number; y: number; alpha: number } 
   return {
     x: -Math.cos(sun.azimuth) * length,
     y: -Math.sin(Math.PI / 2 - sun.elevation) * 6 + length * 0.28,
-    alpha: 0.16 + 0.18 * Math.sin(sun.elevation),
+    alpha: 0.1 + 0.1 * Math.sin(sun.elevation),
   };
 }
 
-export const SUN: Sun = { azimuth: Math.PI * 0.31, elevation: 0.73 };
+export const SUN: Sun = { azimuth: Math.PI * 0.31, elevation: 1.01 };
 
 function clampByte(value: number): number {
   return Math.max(0, Math.min(255, Math.round(value)));

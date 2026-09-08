@@ -98,7 +98,6 @@ src/render/
   baked.ts        loads Blender-rendered sprites when present, else falls back
   terrain.ts      tile sprites, edge blending, cliff faces, water animation
   scene.ts        buildings, walkers, particles, overlays
-  atmosphere.ts   colour grade, bloom, vignette
   particles.ts    chimney smoke and cart dust
 src/ui/         DOM overlay
   hud.ts          top bar, tool panel, message scroll
@@ -120,11 +119,16 @@ Nothing is hand-drawn. Two sources feed the same sprite interface:
 2. **Baked** — `pipeline/` renders 3D models in Blender and packs them into
    `public/assets/structures.png`. If that file exists the game prefers it.
 
-**Lighting is baked, not shaded at runtime.** One fixed sun — 42° up, 125° round —
+**Lighting is baked, not shaded at runtime.** One fixed sun — 58° up, 125° round —
 lights every model in Blender, which buys directional light and real contact
 shadows without a normal-mapped shader, and works identically for procedural and
-Blender-rendered art. A `ColorMatrixFilter` warms the whole world, with bloom and
-a vignette on top.
+Blender-rendered art.
+
+**There is no post-processing.** The original is flat, bright and high-key: no colour
+grade, no bloom, no vignette. The sun sits high and near-white against a bright sky,
+so shadows stay short and pale, terrain is a light straw-and-olive palette, and tiles
+vary by a couple of percent rather than a fifth. Anything that reads as "cinematic"
+reads as wrong.
 
 Body and shadow are baked as **separate sprites** so a shadow can be drawn in its
 own layer beneath every building. In one sprite a long shadow paints over the

@@ -19,7 +19,7 @@ from mathutils import Matrix, Vector
 
 TILE_WIDTH = 120
 TILE_HEIGHT = 60
-SUN_ALTITUDE = math.radians(42)
+SUN_ALTITUDE = math.radians(58)
 SUN_AZIMUTH = math.radians(125)
 SUPERSAMPLE = 2
 SAMPLES = 16
@@ -883,11 +883,11 @@ def add_camera(footprint, height, resolution):
 
 
 def add_sun():
-    """Mid-afternoon, and low enough that shadows clear the footprint."""
+    """High and near-white, with a bright sky: Zeus lights its city flat, not cinematically."""
     bpy.ops.object.light_add(type="SUN", location=(0, 0, 12))
     sun = bpy.context.active_object
-    sun.data.energy = 3.1
-    sun.data.color = (1.0, 0.9, 0.75)
+    sun.data.energy = 2.6
+    sun.data.color = (1.0, 0.96, 0.9)
     sun.data.angle = math.radians(2.0)
     sun.rotation_euler = (math.pi / 2 - SUN_ALTITUDE, 0, SUN_AZIMUTH)
 
@@ -895,8 +895,8 @@ def add_sun():
     bpy.context.scene.world = world
     world.use_nodes = True
     background = world.node_tree.nodes["Background"]
-    background.inputs[0].default_value = (0.55, 0.62, 0.72, 1)
-    background.inputs[1].default_value = 0.62
+    background.inputs[0].default_value = (0.78, 0.8, 0.84, 1)
+    background.inputs[1].default_value = 1.05
     return sun
 
 

@@ -1,5 +1,4 @@
 import { Application, Container, Sprite } from 'pixi.js';
-import { Atmosphere } from './render/atmosphere';
 import { TileAtlas } from './render/atlas';
 import { Camera } from './render/camera';
 import { attachKeyboardPan, attachPointerInput } from './render/input';
@@ -23,6 +22,7 @@ export type Tool =
   | { kind: 'build'; building: BuildingKind };
 
 const MAP_SIZE = 48;
+const SEA_COLOUR = 0x2f8fa8;
 const MS_PER_TICK = 1000 / TICKS_PER_SECOND;
 const MAX_TICKS_PER_FRAME = 40;
 
@@ -30,7 +30,6 @@ export class Game {
   readonly world: World;
   readonly scene: Scene;
   readonly camera = new Camera();
-  readonly atmosphere: Atmosphere;
 
   tool: Tool = { kind: 'inspect' };
   speed = 1;
@@ -49,13 +48,12 @@ export class Game {
     this.atlas = new TileAtlas();
     this.textures = new TextureCache();
     this.scene = new Scene(this.world, this.atlas, this.textures);
-    this.atmosphere = new Atmosphere(app, this.textures);
+    app.renderer.background.color = SEA_COLOUR;
     this.panKeyboard = attachKeyboardPan(this.camera);
 
     const worldLayer = new Container();
     worldLayer.addChild(this.scene.root);
-    app.stage.addChild(worldLayer, this.atmosphere.overlay);
-    this.atmosphere.attach(worldLayer);
+    app.stage.addChild(worldLayer);
 
     this.camera.scale = 0.7;
     this.camera.centreOnTile(MAP_SIZE / 2, MAP_SIZE / 2, app.screen.width, app.screen.height);
@@ -94,10 +92,6 @@ export class Game {
     this.camera.x = view.x;
     this.camera.y = view.y;
     this.camera.scale = view.scale;
-  }
-
-  resize(): void {
-    this.atmosphere.resize();
   }
 
   toggleOverlay(mode: OverlayMode): void {

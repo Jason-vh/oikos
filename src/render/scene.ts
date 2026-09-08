@@ -34,6 +34,7 @@ const CHIMNEYS: Record<number, { x: number; y: number; z: number }> = {
 };
 const DUST_INTERVAL_MS = 320;
 const APPEAL_COLOUR_SCALE = 20;
+const SHADOW_ALPHA = 0.45;
 
 interface BuildingEntry {
   key: string;
@@ -204,9 +205,12 @@ export class Scene {
     };
 
     const cast = this.shadowFor(building);
+    const shadow = cast ? place(cast, this.shadows) : null;
+    if (shadow) shadow.alpha = SHADOW_ALPHA;
+
     return {
       key,
-      shadow: cast ? place(cast, this.shadows) : null,
+      shadow,
       body: place(this.bodyFor(building), this.structures),
     };
   }

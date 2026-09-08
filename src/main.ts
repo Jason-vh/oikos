@@ -27,7 +27,6 @@ async function boot(): Promise<void> {
 
   if (import.meta.env.DEV || location.search.includes('debug')) Reflect.set(window, 'game', game);
 
-  window.addEventListener('resize', () => game.resize());
   window.addEventListener('pagehide', () => saveCity(game.world, game.camera));
   setInterval(() => saveCity(game.world, game.camera), AUTOSAVE_INTERVAL_MS);
 

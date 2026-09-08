@@ -39,29 +39,29 @@ interface TerrainPalette {
 
 const TERRAIN_PALETTES: Record<number, TerrainPalette> = {
   [TERRAIN_GRASS]: {
-    base: 0x8f8a4e,
-    highlight: 0xa89e5f,
-    speckles: [0x776f38, 0xb0a566, 0xc4a94f, 0x6b6431],
+    base: 0xadb768,
+    highlight: 0xc2c988,
+    speckles: [0x93a557, 0xc6d189, 0xb2bd6b, 0x9fae5e],
   },
   [TERRAIN_MEADOW]: {
-    base: 0xc3b96a,
-    highlight: 0xd8cd82,
-    speckles: [0xaea053, 0xe2d68e, 0x9c9048, 0xd0c26a],
+    base: 0xdcd28c,
+    highlight: 0xeae09f,
+    speckles: [0xcdc27c, 0xf0e8b0, 0xd5cb84, 0xe3d996],
   },
   [TERRAIN_ROCK]: {
-    base: 0xb8ae98,
-    highlight: 0xcfc6b0,
-    speckles: [0xa89c82, 0xdcd3ba, 0x9c8f74, 0xc4bba1],
+    base: 0xd2ccbc,
+    highlight: 0xe6e1d3,
+    speckles: [0xc3bbaa, 0xefebe0, 0xb9b0a0, 0xdcd6c8],
   },
   [TERRAIN_SAND]: {
-    base: 0xe3d8ad,
-    highlight: 0xefe6c4,
-    speckles: [0xd4c795, 0xf5eeda, 0xc7b986],
+    base: 0xefe5bd,
+    highlight: 0xf8f1d6,
+    speckles: [0xe4d8ac, 0xfbf6e4, 0xdccfa0],
   },
 };
 
-const WILDFLOWER_COLOURS = [0xc94a3a, 0xe4c25a, 0xf5f2e8, 0xb79bd1];
-const PEBBLE_COLOUR = 0xa89c82;
+const WILDFLOWER_COLOURS = [0xd9584a, 0xf0d472, 0xfbf9f0, 0xc4a9dc];
+const PEBBLE_COLOUR = 0xc0b6a2;
 
 interface Cell {
   key: string;
@@ -343,7 +343,7 @@ function drawStones(
       sx - size * 0.7, sy + size * 0.4,
       sx - size, sy - size * 0.4,
     ]);
-    ctx.fillStyle = css(0xcfc6b0, 0.75);
+    ctx.fillStyle = css(0xe0d9c6, 0.7);
     ctx.fill();
     ctx.strokeStyle = 'rgba(110,100,80,0.45)';
     ctx.lineWidth = 1;
@@ -367,9 +367,9 @@ function drawRoad(
   diamondPath(ctx, cx, cy, HALF_W, HALF_H);
   ctx.clip();
 
-  ctx.fillStyle = css(0xc9b389);
+  ctx.fillStyle = css(0xdccba6);
   ctx.fillRect(x, y, width, height);
-  speckle(ctx, random, { x, y, width, height }, 140, [0xb8a077, 0xd8c69c, 0xa6926a], 2, 0.4);
+  speckle(ctx, random, { x, y, width, height }, 140, [0xcfbc98, 0xe8dcc0, 0xc2ae8a], 2, 0.32);
 
   drawFlagstones(ctx, random, x, y, width, height);
 
@@ -421,7 +421,7 @@ function drawFlagstones(
         sw / 2 - sw * 0.06, sh / 2,
         -sw / 2 + sw * 0.05, sh / 2 - sh * 0.05,
       ]);
-      ctx.fillStyle = css(shade(0xc9b389, tone), 0.55);
+      ctx.fillStyle = css(shade(0xdccba6, tone), 0.45);
       ctx.fill();
       ctx.strokeStyle = 'rgba(94, 78, 54, 0.4)';
       ctx.lineWidth = 1;
@@ -450,7 +450,7 @@ function drawEdgingStones(
     const px = from.x + dx * t + nx * inward;
     const py = from.y + dy * t + ny * inward;
     const size = 1.6 + random() * 1.4;
-    ctx.fillStyle = css(0x8d7f63, 0.7);
+    ctx.fillStyle = css(0xa89876, 0.55);
     ctx.beginPath();
     ctx.ellipse(px, py, size, size * 0.7, 0, 0, Math.PI * 2);
     ctx.fill();
@@ -510,7 +510,7 @@ function drawWater(
   ctx.globalCompositeOperation = 'destination-over';
   diamondPath(ctx, cx, cy, HALF_W, HALF_H);
   ctx.clip();
-  ctx.fillStyle = css(0x1f7f8a);
+  ctx.fillStyle = css(0x2f8fa8);
   ctx.fillRect(x, y, width, height);
   ctx.restore();
 }
@@ -602,7 +602,7 @@ function drawCliff(
 ): void {
   const random = createRandom(Math.round(light * 1000) + 31);
   const shadowed = light < 1;
-  const base = shade(shadowed ? 0xc4b89c : 0xd4c9ab, light);
+  const base = shade(shadowed ? 0xdcd2b6 : 0xe8dfc6, light);
 
   ctx.fillStyle = css(base);
   ctx.fillRect(x, y, width, height);
@@ -616,7 +616,7 @@ function drawCliff(
 
   for (let i = 0; i < 5; i++) {
     const crackY = y + random() * height;
-    ctx.strokeStyle = shadowed ? 'rgba(80, 66, 44, 0.6)' : 'rgba(110, 92, 62, 0.5)';
+    ctx.strokeStyle = shadowed ? 'rgba(120, 104, 76, 0.35)' : 'rgba(140, 122, 90, 0.28)';
     ctx.lineWidth = 0.8 + random() * 0.6;
     ctx.beginPath();
     ctx.moveTo(x, crackY);
@@ -628,14 +628,14 @@ function drawCliff(
 
   speckle(ctx, random, { x, y, width, height }, 70, [shade(base, 0.82), shade(base, 1.12)], 1.5, 0.4);
 
-  const warmth = shadowed ? 'rgba(70, 52, 34, 0.22)' : 'rgba(255, 224, 170, 0.08)';
+  const warmth = shadowed ? 'rgba(110, 92, 64, 0.1)' : 'rgba(255, 240, 205, 0.06)';
   ctx.fillStyle = warmth;
   ctx.fillRect(x, y, width, height);
 
   const occlusion = ctx.createLinearGradient(0, y, 0, y + height);
-  occlusion.addColorStop(0, 'rgba(0,0,0,0.03)');
-  occlusion.addColorStop(0.6, shadowed ? 'rgba(50,38,24,0.28)' : 'rgba(0,0,0,0.16)');
-  occlusion.addColorStop(1, shadowed ? 'rgba(40,30,20,0.5)' : 'rgba(0,0,0,0.38)');
+  occlusion.addColorStop(0, 'rgba(0,0,0,0.01)');
+  occlusion.addColorStop(0.6, shadowed ? 'rgba(80,66,44,0.12)' : 'rgba(0,0,0,0.07)');
+  occlusion.addColorStop(1, shadowed ? 'rgba(70,58,38,0.22)' : 'rgba(0,0,0,0.16)');
   ctx.fillStyle = occlusion;
   ctx.fillRect(x, y, width, height);
 

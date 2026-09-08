@@ -109,27 +109,6 @@ export class TextureCache {
     });
   }
 
-  vignette(width: number, height: number): Texture {
-    return this.cache(`vignette:${width}x${height}`, () => {
-      const surface = createSurface(width, height);
-      const { ctx } = surface;
-      const gradient = ctx.createRadialGradient(
-        width / 2,
-        height / 2,
-        Math.min(width, height) * 0.28,
-        width / 2,
-        height / 2,
-        Math.max(width, height) * 0.72,
-      );
-      gradient.addColorStop(0, 'rgba(0,0,0,0)');
-      gradient.addColorStop(0.6, 'rgba(0,0,0,0.1)');
-      gradient.addColorStop(1, 'rgba(10,7,16,0.5)');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, width, height);
-      return surface;
-    });
-  }
-
   roadblock(): DecorSprite {
     return this.decorSprite('roadblock', drawRoadblock);
   }
@@ -845,9 +824,9 @@ function drawCypress(variant: number): { surface: DrawSurface; baseY: number } {
   ctx.fillStyle = css(shade(0x5a4630, light));
   ctx.fillRect(cx - 2, canopyBottom, 4, trunkHeight);
 
-  const dark = shade(0x2c4630, light * 0.85);
-  const base = shade(0x35513a, light);
-  const lit = shade(0x4c6c4a, light * 1.18);
+  const dark = shade(0x3d6144, light * 0.9);
+  const base = shade(0x4a6d4b, light);
+  const lit = shade(0x648360, light * 1.14);
 
   const segments = 10;
   for (let i = segments - 1; i >= 0; i--) {
@@ -905,9 +884,9 @@ function drawOlive(variant: number): { surface: DrawSurface; baseY: number } {
   ctx.quadraticCurveTo(cx + 11, trunkTop - 4, cx + 16, trunkTop - 16);
   ctx.stroke();
 
-  const dark = shade(0x6b7a4e, light * 0.9);
-  const mid = shade(0x8fa06a, light);
-  const lit = shade(0xb3bf8c, light * 1.05);
+  const dark = shade(0x7d8b5c, light * 0.92);
+  const mid = shade(0x9fae78, light);
+  const lit = shade(0xc2cc9c, light * 1.05);
   const canopyCx = cx;
   const canopyCy = trunkTop - 13;
 
@@ -951,9 +930,9 @@ function drawScrub(variant: number): { surface: DrawSurface; baseY: number } {
 
   groundShadow(ctx, cx, baseY, 13, 4);
 
-  const dark = shade(0x6f7d3f, light * 0.85);
-  const mid = shade(0x7f8d4a, light);
-  const lit = shade(0x93a05a, light * 1.08);
+  const dark = shade(0x869149, light * 0.9);
+  const mid = shade(0x97a259, light);
+  const lit = shade(0xaab568, light * 1.08);
 
   const tufts = 8;
   for (let i = 0; i < tufts; i++) {
