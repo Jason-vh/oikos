@@ -8,9 +8,9 @@
       "x": 2,
       "y": 2,
       "width": 240,
-      "height": 235,
+      "height": 261,
       "anchorX": 0.5,
-      "anchorY": 0.77708
+      "anchorY": 0.77224
     },
     {
       "kind": "fountain",
@@ -19,9 +19,9 @@
       "x": 366,
       "y": 2,
       "width": 240,
-      "height": 235,
+      "height": 261,
       "anchorX": 0.5,
-      "anchorY": 0.77708
+      "anchorY": 0.77224
     },
     {
       "kind": "fountain",
@@ -30,9 +30,9 @@
       "x": 730,
       "y": 2,
       "width": 240,
-      "height": 235,
+      "height": 261,
       "anchorX": 0.5,
-      "anchorY": 0.77708
+      "anchorY": 0.77224
     },
     {
       "kind": "fountain",
@@ -41,9 +41,9 @@
       "x": 1094,
       "y": 2,
       "width": 240,
-      "height": 235,
+      "height": 261,
       "anchorX": 0.5,
-      "anchorY": 0.77708
+      "anchorY": 0.77224
     },
     {
       "kind": "fountain",
@@ -52,9 +52,9 @@
       "x": 1458,
       "y": 2,
       "width": 240,
-      "height": 235,
+      "height": 261,
       "anchorX": 0.5,
-      "anchorY": 0.77708
+      "anchorY": 0.77224
     },
     {
       "kind": "fountain",
@@ -63,9 +63,9 @@
       "x": 1822,
       "y": 2,
       "width": 240,
-      "height": 235,
+      "height": 261,
       "anchorX": 0.5,
-      "anchorY": 0.77708
+      "anchorY": 0.77224
     },
     {
       "kind": "fountain",
@@ -74,9 +74,9 @@
       "x": 2186,
       "y": 2,
       "width": 240,
-      "height": 235,
+      "height": 261,
       "anchorX": 0.5,
-      "anchorY": 0.77708
+      "anchorY": 0.77224
     },
     {
       "kind": "granary",
@@ -85,159 +85,159 @@
       "x": 2550,
       "y": 2,
       "width": 360,
-      "height": 366,
+      "height": 352,
       "anchorX": 0.5,
-      "anchorY": 0.86509
+      "anchorY": 0.87057
     },
     {
       "kind": "granary",
       "variant": 0,
       "phase": 1,
       "x": 2,
-      "y": 372,
+      "y": 358,
       "width": 360,
-      "height": 366,
+      "height": 352,
       "anchorX": 0.5,
-      "anchorY": 0.86509
+      "anchorY": 0.87057
     },
     {
       "kind": "granary",
       "variant": 0,
       "phase": 2,
       "x": 366,
-      "y": 372,
+      "y": 358,
       "width": 360,
-      "height": 366,
+      "height": 352,
       "anchorX": 0.5,
-      "anchorY": 0.86509
+      "anchorY": 0.87057
     },
     {
       "kind": "granary",
       "variant": 0,
       "phase": 3,
       "x": 730,
-      "y": 372,
+      "y": 358,
       "width": 360,
-      "height": 366,
+      "height": 352,
       "anchorX": 0.5,
-      "anchorY": 0.86509
+      "anchorY": 0.87057
     },
     {
       "kind": "granary",
       "variant": 0,
       "phase": 4,
       "x": 1094,
-      "y": 372,
+      "y": 358,
       "width": 360,
-      "height": 366,
+      "height": 352,
       "anchorX": 0.5,
-      "anchorY": 0.86509
+      "anchorY": 0.87057
     },
     {
       "kind": "granary",
       "variant": 0,
       "phase": 5,
       "x": 1458,
-      "y": 372,
+      "y": 358,
       "width": 360,
-      "height": 366,
+      "height": 352,
       "anchorX": 0.5,
-      "anchorY": 0.86509
+      "anchorY": 0.87057
     },
     {
       "kind": "granary",
       "variant": 0,
       "phase": 6,
       "x": 1822,
-      "y": 372,
+      "y": 358,
       "width": 360,
-      "height": 366,
+      "height": 352,
       "anchorX": 0.5,
-      "anchorY": 0.86509
+      "anchorY": 0.87057
     },
     {
       "kind": "house",
       "variant": 0,
       "phase": 0,
       "x": 2186,
-      "y": 372,
+      "y": 358,
       "width": 240,
-      "height": 243,
+      "height": 244,
       "anchorX": 0.5,
-      "anchorY": 0.77494
+      "anchorY": 0.77555
     },
     {
       "kind": "house",
       "variant": 0,
       "phase": 1,
       "x": 2550,
-      "y": 372,
+      "y": 358,
       "width": 240,
-      "height": 243,
+      "height": 244,
       "anchorX": 0.5,
-      "anchorY": 0.77494
+      "anchorY": 0.77555
     },
     {
       "kind": "house",
       "variant": 0,
       "phase": 2,
       "x": 2,
-      "y": 742,
+      "y": 714,
       "width": 240,
-      "height": 243,
+      "height": 244,
       "anchorX": 0.5,
-      "anchorY": 0.77494
+      "anchorY": 0.77555
     },
     {
       "kind": "house",
       "variant": 0,
       "phase": 3,
       "x": 366,
-      "y": 742,
+      "y": 714,
       "width": 240,
-      "height": 243,
+      "height": 244,
       "anchorX": 0.5,
-      "anchorY": 0.77494
+      "anchorY": 0.77555
     },
     {
       "kind": "house",
       "variant": 0,
       "phase": 4,
       "x": 730,
-      "y": 742,
+      "y": 714,
       "width": 240,
-      "height": 243,
+      "height": 244,
       "anchorX": 0.5,
-      "anchorY": 0.77494
+      "anchorY": 0.77555
     },
     {
       "kind": "house",
       "variant": 0,
       "phase": 5,
       "x": 1094,
-      "y": 742,
+      "y": 714,
       "width": 240,
-      "height": 243,
+      "height": 244,
       "anchorX": 0.5,
-      "anchorY": 0.77494
+      "anchorY": 0.77555
     },
     {
       "kind": "house",
       "variant": 0,
       "phase": 6,
       "x": 1458,
-      "y": 742,
+      "y": 714,
       "width": 240,
-      "height": 243,
+      "height": 244,
       "anchorX": 0.5,
-      "anchorY": 0.77494
+      "anchorY": 0.77555
     },
     {
       "kind": "house",
       "variant": 1,
       "phase": 0,
       "x": 1822,
-      "y": 742,
+      "y": 714,
       "width": 240,
       "height": 255,
       "anchorX": 0.5,
@@ -248,7 +248,7 @@
       "variant": 1,
       "phase": 1,
       "x": 2186,
-      "y": 742,
+      "y": 714,
       "width": 240,
       "height": 255,
       "anchorX": 0.5,
@@ -259,7 +259,7 @@
       "variant": 1,
       "phase": 2,
       "x": 2550,
-      "y": 742,
+      "y": 714,
       "width": 240,
       "height": 255,
       "anchorX": 0.5,
@@ -270,7 +270,7 @@
       "variant": 1,
       "phase": 3,
       "x": 2,
-      "y": 1112,
+      "y": 1070,
       "width": 240,
       "height": 255,
       "anchorX": 0.5,
@@ -281,7 +281,7 @@
       "variant": 1,
       "phase": 4,
       "x": 366,
-      "y": 1112,
+      "y": 1070,
       "width": 240,
       "height": 255,
       "anchorX": 0.5,
@@ -292,7 +292,7 @@
       "variant": 1,
       "phase": 5,
       "x": 730,
-      "y": 1112,
+      "y": 1070,
       "width": 240,
       "height": 255,
       "anchorX": 0.5,
@@ -303,7 +303,7 @@
       "variant": 1,
       "phase": 6,
       "x": 1094,
-      "y": 1112,
+      "y": 1070,
       "width": 240,
       "height": 255,
       "anchorX": 0.5,
@@ -314,308 +314,308 @@
       "variant": 2,
       "phase": 0,
       "x": 1458,
-      "y": 1112,
+      "y": 1070,
       "width": 240,
-      "height": 274,
+      "height": 279,
       "anchorX": 0.5,
-      "anchorY": 0.77093
+      "anchorY": 0.76988
     },
     {
       "kind": "house",
       "variant": 2,
       "phase": 1,
       "x": 1822,
-      "y": 1112,
+      "y": 1070,
       "width": 240,
-      "height": 274,
+      "height": 279,
       "anchorX": 0.5,
-      "anchorY": 0.77093
+      "anchorY": 0.76988
     },
     {
       "kind": "house",
       "variant": 2,
       "phase": 2,
       "x": 2186,
-      "y": 1112,
+      "y": 1070,
       "width": 240,
-      "height": 274,
+      "height": 279,
       "anchorX": 0.5,
-      "anchorY": 0.77093
+      "anchorY": 0.76988
     },
     {
       "kind": "house",
       "variant": 2,
       "phase": 3,
       "x": 2550,
-      "y": 1112,
+      "y": 1070,
       "width": 240,
-      "height": 274,
+      "height": 279,
       "anchorX": 0.5,
-      "anchorY": 0.77093
+      "anchorY": 0.76988
     },
     {
       "kind": "house",
       "variant": 2,
       "phase": 4,
       "x": 2,
-      "y": 1482,
+      "y": 1426,
       "width": 240,
-      "height": 274,
+      "height": 279,
       "anchorX": 0.5,
-      "anchorY": 0.77093
+      "anchorY": 0.76988
     },
     {
       "kind": "house",
       "variant": 2,
       "phase": 5,
       "x": 366,
-      "y": 1482,
+      "y": 1426,
       "width": 240,
-      "height": 274,
+      "height": 279,
       "anchorX": 0.5,
-      "anchorY": 0.77093
+      "anchorY": 0.76988
     },
     {
       "kind": "house",
       "variant": 2,
       "phase": 6,
       "x": 730,
-      "y": 1482,
+      "y": 1426,
       "width": 240,
-      "height": 274,
+      "height": 279,
       "anchorX": 0.5,
-      "anchorY": 0.77093
+      "anchorY": 0.76988
     },
     {
       "kind": "house",
       "variant": 3,
       "phase": 0,
       "x": 1094,
-      "y": 1482,
+      "y": 1426,
       "width": 240,
-      "height": 291,
+      "height": 306,
       "anchorX": 0.5,
-      "anchorY": 0.76895
+      "anchorY": 0.76686
     },
     {
       "kind": "house",
       "variant": 3,
       "phase": 1,
       "x": 1458,
-      "y": 1482,
+      "y": 1426,
       "width": 240,
-      "height": 291,
+      "height": 306,
       "anchorX": 0.5,
-      "anchorY": 0.76895
+      "anchorY": 0.76686
     },
     {
       "kind": "house",
       "variant": 3,
       "phase": 2,
       "x": 1822,
-      "y": 1482,
+      "y": 1426,
       "width": 240,
-      "height": 291,
+      "height": 306,
       "anchorX": 0.5,
-      "anchorY": 0.76895
+      "anchorY": 0.76686
     },
     {
       "kind": "house",
       "variant": 3,
       "phase": 3,
       "x": 2186,
-      "y": 1482,
+      "y": 1426,
       "width": 240,
-      "height": 291,
+      "height": 306,
       "anchorX": 0.5,
-      "anchorY": 0.76895
+      "anchorY": 0.76686
     },
     {
       "kind": "house",
       "variant": 3,
       "phase": 4,
       "x": 2550,
-      "y": 1482,
+      "y": 1426,
       "width": 240,
-      "height": 291,
+      "height": 306,
       "anchorX": 0.5,
-      "anchorY": 0.76895
+      "anchorY": 0.76686
     },
     {
       "kind": "house",
       "variant": 3,
       "phase": 5,
       "x": 2,
-      "y": 1852,
+      "y": 1782,
       "width": 240,
-      "height": 291,
+      "height": 306,
       "anchorX": 0.5,
-      "anchorY": 0.76895
+      "anchorY": 0.76686
     },
     {
       "kind": "house",
       "variant": 3,
       "phase": 6,
       "x": 366,
-      "y": 1852,
+      "y": 1782,
       "width": 240,
-      "height": 291,
+      "height": 306,
       "anchorX": 0.5,
-      "anchorY": 0.76895
+      "anchorY": 0.76686
     },
     {
       "kind": "statue",
       "variant": 0,
       "phase": 0,
       "x": 730,
-      "y": 1852,
+      "y": 1782,
       "width": 240,
-      "height": 297,
+      "height": 301,
       "anchorX": 0.5,
-      "anchorY": 0.76781
+      "anchorY": 0.76777
     },
     {
       "kind": "statue",
       "variant": 0,
       "phase": 1,
       "x": 1094,
-      "y": 1852,
+      "y": 1782,
       "width": 240,
-      "height": 297,
+      "height": 301,
       "anchorX": 0.5,
-      "anchorY": 0.76781
+      "anchorY": 0.76777
     },
     {
       "kind": "statue",
       "variant": 0,
       "phase": 2,
       "x": 1458,
-      "y": 1852,
+      "y": 1782,
       "width": 240,
-      "height": 297,
+      "height": 301,
       "anchorX": 0.5,
-      "anchorY": 0.76781
+      "anchorY": 0.76777
     },
     {
       "kind": "statue",
       "variant": 0,
       "phase": 3,
       "x": 1822,
-      "y": 1852,
+      "y": 1782,
       "width": 240,
-      "height": 297,
+      "height": 301,
       "anchorX": 0.5,
-      "anchorY": 0.76781
+      "anchorY": 0.76777
     },
     {
       "kind": "statue",
       "variant": 0,
       "phase": 4,
       "x": 2186,
-      "y": 1852,
+      "y": 1782,
       "width": 240,
-      "height": 297,
+      "height": 301,
       "anchorX": 0.5,
-      "anchorY": 0.76781
+      "anchorY": 0.76777
     },
     {
       "kind": "statue",
       "variant": 0,
       "phase": 5,
       "x": 2550,
-      "y": 1852,
+      "y": 1782,
       "width": 240,
-      "height": 297,
+      "height": 301,
       "anchorX": 0.5,
-      "anchorY": 0.76781
+      "anchorY": 0.76777
     },
     {
       "kind": "statue",
       "variant": 0,
       "phase": 6,
       "x": 2,
-      "y": 2222,
+      "y": 2138,
       "width": 240,
-      "height": 297,
+      "height": 301,
       "anchorX": 0.5,
-      "anchorY": 0.76781
+      "anchorY": 0.76777
     },
     {
       "kind": "wheatFarm",
       "variant": 0,
       "phase": 0,
       "x": 366,
-      "y": 2222,
+      "y": 2138,
       "width": 360,
-      "height": 312,
+      "height": 298,
       "anchorX": 0.5,
-      "anchorY": 0.88748
+      "anchorY": 0.89501
     },
     {
       "kind": "wheatFarm",
       "variant": 0,
       "phase": 1,
       "x": 730,
-      "y": 2222,
+      "y": 2138,
       "width": 360,
-      "height": 312,
+      "height": 298,
       "anchorX": 0.5,
-      "anchorY": 0.88748
+      "anchorY": 0.89501
     },
     {
       "kind": "wheatFarm",
       "variant": 0,
       "phase": 2,
       "x": 1094,
-      "y": 2222,
+      "y": 2138,
       "width": 360,
-      "height": 312,
+      "height": 298,
       "anchorX": 0.5,
-      "anchorY": 0.88748
+      "anchorY": 0.89501
     },
     {
       "kind": "wheatFarm",
       "variant": 0,
       "phase": 3,
       "x": 1458,
-      "y": 2222,
+      "y": 2138,
       "width": 360,
-      "height": 312,
+      "height": 298,
       "anchorX": 0.5,
-      "anchorY": 0.88748
+      "anchorY": 0.89501
     },
     {
       "kind": "wheatFarm",
       "variant": 0,
       "phase": 4,
       "x": 1822,
-      "y": 2222,
+      "y": 2138,
       "width": 360,
-      "height": 312,
+      "height": 298,
       "anchorX": 0.5,
-      "anchorY": 0.88748
+      "anchorY": 0.89501
     },
     {
       "kind": "wheatFarm",
       "variant": 0,
       "phase": 5,
       "x": 2186,
-      "y": 2222,
+      "y": 2138,
       "width": 360,
-      "height": 312,
+      "height": 298,
       "anchorX": 0.5,
-      "anchorY": 0.88748
+      "anchorY": 0.89501
     },
     {
       "kind": "wheatFarm",
       "variant": 0,
       "phase": 6,
       "x": 2550,
-      "y": 2222,
+      "y": 2138,
       "width": 360,
-      "height": 312,
+      "height": 298,
       "anchorX": 0.5,
-      "anchorY": 0.88748
+      "anchorY": 0.89501
     }
   ]
 }
