@@ -9,6 +9,7 @@ export interface BuildingDef {
   colour: number;
   roofColour: number;
   height: number;
+  workers: number;
   appeal: AppealBands;
   requiresMeadow: boolean;
   needsRoad: boolean;
@@ -85,6 +86,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     colour: 0xc8a878,
     roofColour: 0x9c4b2f,
     height: 14,
+    workers: 0,
     appeal: HOUSE_TIERS[0].appeal,
     requiresMeadow: false,
     needsRoad: true,
@@ -98,6 +100,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     colour: 0xd8c56a,
     roofColour: 0x8a6b3a,
     height: 12,
+    workers: 10,
     appeal: { initial: -3, bandSize: 1, step: 1, range: 3 },
     requiresMeadow: true,
     needsRoad: true,
@@ -111,6 +114,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     colour: 0xb8b0a0,
     roofColour: 0x6f6a5c,
     height: 20,
+    workers: 18,
     appeal: { initial: -12, bandSize: 1, step: 2, range: 4 },
     requiresMeadow: false,
     needsRoad: true,
@@ -124,6 +128,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     colour: 0x8fbcd4,
     roofColour: 0xdfe9ef,
     height: 8,
+    workers: 4,
     appeal: { initial: 4, bandSize: 2, step: -2, range: 4 },
     requiresMeadow: false,
     needsRoad: true,
@@ -137,6 +142,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     colour: 0xe8e2d4,
     roofColour: 0xf6f2e8,
     height: 22,
+    workers: 0,
     appeal: { initial: 8, bandSize: 1, step: -1, range: 3 },
     requiresMeadow: false,
     needsRoad: false,
@@ -145,5 +151,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
 };
 
 export const PLACEABLE: BuildingKind[] = ['house', 'wheatFarm', 'granary', 'fountain', 'statue'];
+
+export const LABOUR_PRIORITY: BuildingKind[] = ['wheatFarm', 'granary', 'fountain', 'statue', 'house'];
 
 export const ROAD_COST = 4;

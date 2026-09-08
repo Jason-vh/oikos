@@ -2,9 +2,17 @@ import { recomputeAppeal } from './appeal';
 import { BUILDINGS, ROAD_COST } from './buildings';
 import { Grid, NO_BUILDING, TERRAIN_MEADOW } from './grid';
 import { updateHouses } from './housing';
+import {
+  DEFAULT_WAGE_LEVEL,
+  allocateLabour,
+  monthlyWages,
+  staffing,
+  workforceOf,
+  type LabourReport,
+} from './labour';
 import { generateMap } from './mapgen';
 import { hasRoadAccess, roadAccessTiles } from './pathing';
-import { emptySupply } from './types';
+import { createBuilding } from './types';
 import type { Building, BuildingKind, Walker } from './types';
 import { spawnCartPusher, spawnRoamer } from './walkers';
 import { updateWalkers } from './walkers';
@@ -37,6 +45,8 @@ export class World {
   readonly granaryCapacity = GRANARY_CAPACITY;
 
   treasury = 2000;
+  wageLevel = DEFAULT_WAGE_LEVEL;
+  labour: LabourReport = { workforce: 0, employed: 0, required: 0 };
   tick = 0;
   month = 0;
   year = -500;
@@ -97,20 +107,7 @@ export class World {
     if (!this.canPlace(kind, x, y).ok) return false;
 
     const def = BUILDINGS[kind];
-    const building: Building = {
-      id: this.nextId++,
-      kind,
-      x,
-      y,
-      size: def.size,
-      tier: 0,
-      population: kind === 'house' ? 4 : 0,
-      supply: emptySupply(),
-      stock: 0,
-      productionProgress: 0,
-      spawnTimer: 0,
-      walkerOut: false,
-    };
+    const building = createBuilding(this.nextId++, kind, x, y, def.size);
 
     this.buildings.set(building.id, building);
     for (const tile of this.grid.footprint(x, y, def.size)) this.grid.occupant[tile] = building.id;
@@ -130,7 +127,12 @@ export class World {
 
   settle(): void {
     recomputeAppeal(this.grid, this.buildings.values());
+    this.hireWorkers();
     this.structureVersion += 1;
+  }
+
+  hireWorkers(): void {
+    this.labour = allocateLabour(this.buildings.values(), workforceOf(this.population, this.wageLevel));
   }
 
   invalidateAppeal(): void {
@@ -207,8 +209,12 @@ export class World {
       this.month = 0;
       this.year += 1;
     }
-    const taxes = Math.round(this.population * TAX_PER_CITIZEN);
-    this.treasury += taxes;
+    this.hireWorkers();
+    this.treasury += this.population * TAX_PER_CITIZEN;
+    this.treasury -= monthlyWages(this.labour.employed, this.wageLevel);
+
+    if (this.treasury < 0) this.log('The treasury is in debt, Archon.');
+    else if (this.labour.employed < this.labour.required) this.log('Buildings stand short of workers.');
   }
 
   private updateProduction(): void {
@@ -231,7 +237,7 @@ export class World {
 
   private updateFarm(farm: Building): void {
     if (farm.stock < FARM_CAPACITY) {
-      farm.productionProgress += 1;
+      farm.productionProgress += staffing(farm);
       if (farm.productionProgress >= FARM_TICKS_PER_LOAD) {
         farm.productionProgress = 0;
         farm.stock += 1;
@@ -255,7 +261,7 @@ export class World {
   }
 
   private updateGranary(granary: Building): void {
-    granary.spawnTimer += 1;
+    granary.spawnTimer += staffing(granary);
     if (granary.spawnTimer < GRANARY_SPAWN_INTERVAL) return;
     if (granary.stock <= 0 || granary.walkerOut || !hasRoadAccess(this.grid, granary)) return;
 
@@ -266,7 +272,7 @@ export class World {
   }
 
   private updateFountain(fountain: Building): void {
-    fountain.spawnTimer += 1;
+    fountain.spawnTimer += staffing(fountain);
     if (fountain.spawnTimer < FOUNTAIN_SPAWN_INTERVAL) return;
     if (fountain.walkerOut || !hasRoadAccess(this.grid, fountain)) return;
 

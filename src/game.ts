@@ -9,7 +9,7 @@ import { TextureCache } from './render/textures';
 import { BUILDINGS, HOUSE_TIERS, ROAD_COST } from './sim/buildings';
 import { MAX_HEIGHT, TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_SAND, TERRAIN_WATER } from './sim/grid';
 import type { View } from './sim/save';
-import type { BuildingKind } from './sim/types';
+import type { Building, BuildingKind } from './sim/types';
 import { TICKS_PER_SECOND, World } from './sim/world';
 
 export type Tool =
@@ -114,7 +114,7 @@ export class Game {
         building.kind === 'house'
           ? `${HOUSE_TIERS[building.tier].name} (${building.population})`
           : BUILDINGS[building.kind].name;
-      return `${name}${describeBuildingState(building.kind, building.stock, building.supply)} · ${suffix}`;
+      return `${name}${describeStaff(building)}${describeBuildingState(building.kind, building.stock, building.supply)} · ${suffix}`;
     }
 
     if (grid.isRoad(index)) return `Road · ${suffix}`;
@@ -264,6 +264,12 @@ function terrainName(terrain: number): string {
   if (terrain === TERRAIN_ROCK) return 'Rocks';
   if (terrain === TERRAIN_SAND) return 'Sand';
   return 'Grass';
+}
+
+function describeStaff(building: Building): string {
+  const needed = BUILDINGS[building.kind].workers;
+  if (needed === 0) return '';
+  return ` · ${building.staff}/${needed} workers`;
 }
 
 function describeBuildingState(

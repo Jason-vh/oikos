@@ -119,7 +119,9 @@ at reduced output when understaffed; the workforce is allocated by priority tab.
 **Immigration** is driven by popularity: high wages, low taxes, stocked food, low
 unemployment, low debt, few false calls to arms. Settlers and emigrants walk off-road.
 
-⬜ Everything in this phase.
+🟡 Labour shipped in `src/sim/labour.ts`: the Mortal worker-share table, the six wage
+levels and their yearly cost, priority-ordered staffing, and output scaled by how
+staffed a building is. Housing ladder, consumption and immigration are not started.
 
 ---
 

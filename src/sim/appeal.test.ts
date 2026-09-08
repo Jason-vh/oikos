@@ -3,7 +3,7 @@ import { appealAt, bandValues, recomputeAppeal } from './appeal';
 import type { AppealBands } from './appeal';
 import { BUILDINGS, HOUSE_TIERS } from './buildings';
 import { Grid } from './grid';
-import { emptySupply } from './types';
+import { createBuilding } from './types';
 import type { Building, BuildingKind } from './types';
 
 const bands = (initial: number, bandSize: number, step: number, range: number): AppealBands => ({
@@ -14,20 +14,7 @@ const bands = (initial: number, bandSize: number, step: number, range: number): 
 });
 
 function building(kind: BuildingKind, x: number, y: number, tier = 0): Building {
-  return {
-    id: 1,
-    kind,
-    x,
-    y,
-    size: BUILDINGS[kind].size,
-    tier,
-    population: 0,
-    supply: emptySupply(),
-    stock: 0,
-    productionProgress: 0,
-    spawnTimer: 0,
-    walkerOut: false,
-  };
+  return { ...createBuilding(1, kind, x, y, BUILDINGS[kind].size), tier };
 }
 
 describe('band model', () => {

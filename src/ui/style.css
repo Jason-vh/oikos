@@ -118,6 +118,15 @@ kbd {
   font-weight: 700;
 }
 
+button.cartouche {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+button.cartouche:hover {
+  filter: brightness(1.12);
+}
+
 .spacer {
   flex: 1;
 }

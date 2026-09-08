@@ -14,6 +14,7 @@ export interface Building {
   size: number;
   tier: number;
   population: number;
+  staff: number;
   supply: ServiceSupply;
   stock: number;
   productionProgress: number;
@@ -42,3 +43,21 @@ export interface Walker {
 }
 
 export const emptySupply = (): ServiceSupply => ({ food: 0, water: 0 });
+
+export function createBuilding(id: number, kind: BuildingKind, x: number, y: number, size: number): Building {
+  return {
+    id,
+    kind,
+    x,
+    y,
+    size,
+    tier: 0,
+    population: kind === 'house' ? 4 : 0,
+    staff: 0,
+    supply: emptySupply(),
+    stock: 0,
+    productionProgress: 0,
+    spawnTimer: 0,
+    walkerOut: false,
+  };
+}

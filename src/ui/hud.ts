@@ -1,5 +1,6 @@
 import type { Game, Tool } from '../game';
 import { BUILDINGS, PLACEABLE, ROAD_COST } from '../sim/buildings';
+import { WAGE_LEVELS, type LabourReport } from '../sim/labour';
 import { abandonCity } from '../sim/save';
 
 interface ToolButton {
@@ -23,6 +24,8 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
         <span class="cartouche" data-field="date"></span>
         <span class="cartouche treasury" data-field="treasury"></span>
         <span class="cartouche" data-field="population"></span>
+        <span class="cartouche" data-field="labour"></span>
+        <button class="cartouche" data-wages data-field="wages"></button>
         <span class="spacer"></span>
         <span class="speeds">
           ${[0, 1, 2, 4].map((speed) => `<button class="medallion" data-speed="${speed}">${speedLabel(speed)}</button>`).join('')}
@@ -55,6 +58,10 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
     });
   });
   hud.querySelector('[data-overlay]')?.addEventListener('click', () => game.toggleAppealOverlay());
+  hud.querySelector('[data-wages]')?.addEventListener('click', () => {
+    game.world.wageLevel = (game.world.wageLevel + 1) % WAGE_LEVELS.length;
+    game.world.hireWorkers();
+  });
   hud.querySelector('[data-new-city]')?.addEventListener('click', () => {
     if (!confirm('Abandon this city and found a new one?')) return;
     abandonCity();
@@ -83,6 +90,8 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       field('date').textContent = game.world.dateLabel;
       field('treasury').textContent = `${Math.floor(game.world.treasury)} dr`;
       field('population').textContent = `${game.world.population} citizens`;
+      field('labour').textContent = labourLabel(game.world.labour);
+      field('wages').textContent = `Wages: ${WAGE_LEVELS[game.world.wageLevel].name}`;
       field('hover').textContent = game.describeHover();
       field('messages').textContent = game.world.messages[0] ?? '';
 
@@ -148,6 +157,12 @@ function renderPanel(buttons: ToolButton[]): string {
     <div class="divider"></div>
     ${renderButton(buttons[demolish], demolish)}
   `;
+}
+
+function labourLabel({ employed, required, workforce }: LabourReport): string {
+  const idle = workforce - employed;
+  if (employed < required) return `${employed}/${required} workers · ${required - employed} short`;
+  return `${employed}/${required} workers · ${idle} idle`;
 }
 
 function speedLabel(speed: number): string {

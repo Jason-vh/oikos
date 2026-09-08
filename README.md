@@ -37,7 +37,10 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
   its footprint — a fountain gives 4,4,2,2, a granary −12,−10,−8,−6. Housing itself
   is a source: shacks push their neighbours down and stop doing so as they evolve,
   so a block that improves keeps improving.
-- **Economy**: build costs and a monthly head tax.
+- **Labour**: a share of the population works — 37% at no wages up to 52% at very
+  high, as on Mortal difficulty. Buildings are staffed in priority order, and an
+  understaffed one runs at the fraction it is staffed to; an empty one stands idle.
+- **Economy**: build costs, a monthly head tax and a monthly wage bill.
 
 ## Architecture
 
@@ -49,6 +52,7 @@ src/sim/      headless simulation — no Pixi imports
   pathing.ts      road BFS and roaming
   housing.ts      evolution rules
   appeal.ts       band model field
+  labour.ts       wage levels, workforce, staffing
   mapgen.ts       seeded terraced terrain
 src/render/
   iso.ts          tile metric (120x60, 22px per elevation step) and height-aware picking
@@ -139,7 +143,9 @@ The game picks it up with no client changes.
 
 ## Roadmap
 
-1. **Labour and employment** — buildings need workers drawn from housing.
+The full inventory lives in [docs/roadmap.md](docs/roadmap.md). Next up:
+
+1. **Taxation** — palace, tax office, clerks, and Zeus's TRM per housing tier.
 2. **Second production chain** — olives → olive press → agora stalls.
 3. **Agora** — vendors spawning from a market rather than the granary itself.
 4. **Culture and gods** — sanctuaries, gods that visit and bless or curse.
