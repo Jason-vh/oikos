@@ -20,10 +20,10 @@ export class Atmosphere {
   private readonly textures: TextureCache;
   private readonly colour = new ColorMatrixFilter();
   private readonly bloom = new AdvancedBloomFilter({
-    threshold: 0.72,
-    bloomScale: 0.55,
+    threshold: 0.85,
+    bloomScale: 0.3,
     brightness: 1,
-    blur: 5,
+    blur: 4,
     quality: 4,
   });
   private readonly vignette = new Sprite();
@@ -71,7 +71,7 @@ export class Atmosphere {
       0, 0, ambient.blue * ambient.brightness, 0, 0,
       0, 0, 0, 1, 0,
     ];
-    this.bloom.bloomScale = 0.35 + 0.5 * Math.max(0, this.daylight);
+    this.bloom.bloomScale = this.daylight < 0 ? 0.45 : 0.2 + 0.25 * this.daylight;
   }
 
   resize(): void {

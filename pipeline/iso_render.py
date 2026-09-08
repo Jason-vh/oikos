@@ -88,29 +88,33 @@ def build_granary():
     roof = material("roof", (0.42, 0.17, 0.10), roughness=0.6)
     marble = material("marble", (0.92, 0.90, 0.83), roughness=0.35)
 
-    add_box("plinth", (0, 0, 0.12), (1.9, 1.9, 0.24), stone)
-    add_box("walls", (0, 0, 0.62), (1.5, 1.5, 0.76), plaster)
+    add_box("step", (0, 0, 0.05), (1.9, 1.9, 0.1), stone)
+    add_box("plinth", (0, 0, 0.14), (1.7, 1.7, 0.1), stone)
+    add_box("walls", (0, 0, 0.47), (1.18, 1.18, 0.58), plaster)
+    add_box("cornice", (0, 0, 0.79), (1.6, 1.6, 0.08), stone)
 
-    for x in (-0.82, 0.82):
-        for y in (-0.82, 0.82):
-            add_cylinder("column", (x, y, 0.62), 0.1, 0.76, marble)
+    for x in (-0.7, 0.7):
+        for y in (-0.7, 0.7):
+            add_cylinder("column", (x, y, 0.47), 0.1, 0.58, marble)
+            add_box("capital", (x, y, 0.78), (0.28, 0.28, 0.07), marble)
 
     bpy.ops.mesh.primitive_cone_add(
-        radius1=1.45, radius2=0.0, depth=0.55, location=(0, 0, 1.28), vertices=4
+        radius1=0.99, radius2=0.0, depth=0.44, location=(0, 0, 1.03), vertices=4
     )
     roof_obj = bpy.context.active_object
     roof_obj.name = "roof"
     roof_obj.rotation_euler[2] = math.radians(45)
     roof_obj.data.materials.append(roof)
 
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.42, location=(0, 0, 1.5), segments=24, ring_count=12)
+    add_cylinder("silo", (0, 0, 1.06), 0.26, 0.34, plaster, vertices=20)
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.26, location=(0, 0, 1.23), segments=24, ring_count=12)
     dome = bpy.context.active_object
     dome.name = "dome"
-    dome.scale[2] = 0.7
+    dome.scale[2] = 0.6
     dome.data.materials.append(marble)
     bpy.ops.object.shade_smooth()
 
-    return {"footprint": 2, "height": 2.1}
+    return {"footprint": 2, "height": 1.4}
 
 
 MODELS = {"granary": build_granary}
@@ -167,9 +171,9 @@ def add_sun(phase):
         altitude = math.radians(12 + 62 * math.sin(progress * math.pi))
         azimuth = math.radians(20 + 140 * progress)
         warmth = 1 - math.sin(progress * math.pi)
-        sun.data.energy = 3.2
+        sun.data.energy = 2.4
         sun.data.color = (1.0, 0.94 - 0.16 * warmth, 0.84 - 0.34 * warmth)
-        sun.data.angle = math.radians(2 + 6 * warmth)
+        sun.data.angle = math.radians(5 + 8 * warmth)
 
     sun.rotation_euler = (math.pi / 2 - altitude, 0, azimuth)
 

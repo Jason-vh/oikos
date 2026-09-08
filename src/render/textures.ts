@@ -378,8 +378,12 @@ function drawHouseDetails(
   ctx.restore();
 
   if (request.variant % 2 === 1) {
-    ctx.fillStyle = css(shade(0x8f8878, topLight(sun)), 0.95);
-    ctx.fillRect(cx - 5, cy - request.height - halfHeight * 0.25 - 13, 8, 15);
+    const light = topLight(sun);
+    const top = cy - request.height - halfHeight * 0.3;
+    ctx.fillStyle = css(shade(0x7a6f60, light));
+    ctx.fillRect(cx - 8, top - 11, 5, 12);
+    ctx.fillStyle = css(shade(0x5d5348, light));
+    ctx.fillRect(cx - 8.5, top - 12.5, 6, 2);
   }
 }
 

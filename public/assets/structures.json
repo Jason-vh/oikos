@@ -1,0 +1,75 @@
+{
+  "image": "structures.png",
+  "frames": [
+    {
+      "kind": "granary",
+      "phase": 0,
+      "x": 2,
+      "y": 2,
+      "width": 360,
+      "height": 366,
+      "anchorX": 0.5,
+      "anchorY": 0.86509
+    },
+    {
+      "kind": "granary",
+      "phase": 1,
+      "x": 366,
+      "y": 2,
+      "width": 360,
+      "height": 366,
+      "anchorX": 0.5,
+      "anchorY": 0.86509
+    },
+    {
+      "kind": "granary",
+      "phase": 2,
+      "x": 730,
+      "y": 2,
+      "width": 360,
+      "height": 366,
+      "anchorX": 0.5,
+      "anchorY": 0.86509
+    },
+    {
+      "kind": "granary",
+      "phase": 3,
+      "x": 2,
+      "y": 372,
+      "width": 360,
+      "height": 366,
+      "anchorX": 0.5,
+      "anchorY": 0.86509
+    },
+    {
+      "kind": "granary",
+      "phase": 4,
+      "x": 366,
+      "y": 372,
+      "width": 360,
+      "height": 366,
+      "anchorX": 0.5,
+      "anchorY": 0.86509
+    },
+    {
+      "kind": "granary",
+      "phase": 5,
+      "x": 730,
+      "y": 372,
+      "width": 360,
+      "height": 366,
+      "anchorX": 0.5,
+      "anchorY": 0.86509
+    },
+    {
+      "kind": "granary",
+      "phase": 6,
+      "x": 2,
+      "y": 742,
+      "width": 360,
+      "height": 366,
+      "anchorX": 0.5,
+      "anchorY": 0.86509
+    }
+  ]
+}
