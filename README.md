@@ -89,7 +89,17 @@ cursor lands on the surface you can actually see.
 ```bash
 npm run render   # Blender: renders each model at 4x across 7 sun phases
 npm run pack     # Pillow: downsamples, trims, packs, computes anchors
+
+# iterate on one thing without re-rendering the rest
+blender --background --python pipeline/iso_render.py -- --out pipeline/out \
+  --only house-2,granary --phases 6
 ```
+
+`--only` and `--phases` merge into the existing manifest, so a night-lighting tweak
+is seconds rather than minutes.
+
+Material colours are written in sRGB and converted to linear at the material
+boundary — passing sRGB straight to Blender is what makes renders look washed out.
 
 The camera is orthographic at yaw 45° and **elevation 30°** — the angle at which one
 tile step projects to exactly `TILE_WIDTH/2` across and `TILE_HEIGHT/2` down, so

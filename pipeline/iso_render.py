@@ -31,6 +31,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", default="pipeline/out")
     parser.add_argument("--only", default="", help="comma-separated model names")
+    parser.add_argument("--phases", default="", help="comma-separated phase indices")
     return parser.parse_args(argv)
 
 
@@ -53,11 +54,18 @@ def clear_scene():
         scene.cycles.device = "CPU"
 
 
+def to_linear(channel):
+    if channel <= 0.04045:
+        return channel / 12.92
+    return ((channel + 0.055) / 1.055) ** 2.4
+
+
 def material(name, colour, roughness=0.8, metallic=0.0):
+    """Colours are given in sRGB, as picked; Blender wants linear."""
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
     bsdf = mat.node_tree.nodes["Principled BSDF"]
-    bsdf.inputs["Base Color"].default_value = (*colour, 1)
+    bsdf.inputs["Base Color"].default_value = (*[to_linear(c) for c in colour], 1)
     bsdf.inputs["Roughness"].default_value = roughness
     bsdf.inputs["Metallic"].default_value = metallic
     return mat
@@ -98,9 +106,9 @@ def window_material(night):
     mat.use_nodes = True
     bsdf = mat.node_tree.nodes["Principled BSDF"]
     if night:
-        bsdf.inputs["Base Color"].default_value = (1.0, 0.82, 0.52, 1)
-        bsdf.inputs["Emission Color"].default_value = (1.0, 0.78, 0.42, 1)
-        bsdf.inputs["Emission Strength"].default_value = 7.0
+        bsdf.inputs["Base Color"].default_value = (1.0, 0.42, 0.08, 1)
+        bsdf.inputs["Emission Color"].default_value = (1.0, 0.42, 0.08, 1)
+        bsdf.inputs["Emission Strength"].default_value = 2.0
     else:
         bsdf.inputs["Base Color"].default_value = (0.09, 0.07, 0.05, 1)
         bsdf.inputs["Roughness"].default_value = 0.4
@@ -363,17 +371,17 @@ def main():
     manifest_path = os.path.join(out_dir, "manifest.json")
     manifest = {"tileWidth": TILE_WIDTH, "tileHeight": TILE_HEIGHT, "supersample": SUPERSAMPLE, "sprites": []}
 
-    if args.only and os.path.exists(manifest_path):
+    names = args.only.split(",") if args.only else list(MODELS)
+    phases = [int(phase) for phase in args.phases.split(",")] if args.phases else list(range(SUN_PHASES + 1))
+    rebuilt = {f"{name}-{phase}.png" for name in names for phase in phases}
+
+    if len(rebuilt) < len(MODELS) * (SUN_PHASES + 1) and os.path.exists(manifest_path):
         with open(manifest_path) as handle:
             existing = json.load(handle)
-        rebuilt = set(args.only.split(","))
-        manifest["sprites"] = [
-            sprite for sprite in existing["sprites"] if sprite["file"].rsplit("-", 1)[0] not in rebuilt
-        ]
-    names = args.only.split(",") if args.only else list(MODELS)
+        manifest["sprites"] = [s for s in existing["sprites"] if s["file"] not in rebuilt]
 
     for name in names:
-        for phase in range(SUN_PHASES + 1):
+        for phase in phases:
             clear_scene()
             spec = MODELS[name](phase)
             add_ground()

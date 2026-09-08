@@ -88,10 +88,10 @@ function ambientFor(progress: number): Ambient {
     const nightProgress = (progress - DAYLIGHT_FRACTION) / (1 - DAYLIGHT_FRACTION);
     const depth = Math.sin(nightProgress * Math.PI);
     return {
-      red: 0.58 - 0.1 * depth,
-      green: 0.66 - 0.08 * depth,
-      blue: 0.92 - 0.04 * depth,
-      brightness: 0.66 - 0.12 * depth,
+      red: 0.72 - 0.08 * depth,
+      green: 0.74 - 0.06 * depth,
+      blue: 0.9 - 0.03 * depth,
+      brightness: 0.6 - 0.1 * depth,
     };
   }
 
