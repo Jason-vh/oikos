@@ -5,8 +5,10 @@ interface Particle {
   sprite: Sprite;
   velocityX: number;
   velocityY: number;
+  gravity: number;
   life: number;
   maxLife: number;
+  peakAlpha: number;
   growth: number;
   fade: number;
 }
@@ -25,18 +27,34 @@ export class Particles {
     this.container.eventMode = 'none';
   }
 
-  smoke(x: number, y: number, tint = 0xd8d2c6): void {
+  smoke(x: number, y: number, tint = 0xd6d1c8): void {
     this.spawn({
       x,
       y,
       tint,
-      scale: 0.24 + Math.random() * 0.12,
-      alpha: 0.42,
-      velocityX: -6 - Math.random() * 8,
-      velocityY: -26 - Math.random() * 14,
-      life: 2400 + Math.random() * 900,
-      growth: 0.4,
-      fade: 1,
+      scale: 0.14 + Math.random() * 0.05,
+      alpha: 0.7,
+      velocityX: -4 - Math.random() * 5,
+      velocityY: -16 - Math.random() * 8,
+      life: 2600 + Math.random() * 1000,
+      growth: 0.2,
+      fade: 1.2,
+    });
+  }
+
+  spray(x: number, y: number): void {
+    this.spawn({
+      x,
+      y,
+      tint: 0xd8f6ff,
+      scale: 0.12 + Math.random() * 0.05,
+      alpha: 0.95,
+      velocityX: (Math.random() - 0.5) * 56,
+      velocityY: -36 - Math.random() * 12,
+      gravity: 200,
+      life: 850 + Math.random() * 150,
+      growth: 0,
+      fade: 0.5,
     });
   }
 
@@ -68,10 +86,11 @@ export class Particles {
       }
 
       const progress = 1 - particle.life / particle.maxLife;
+      particle.velocityY += particle.gravity * seconds;
       particle.sprite.x += particle.velocityX * seconds;
       particle.sprite.y += particle.velocityY * seconds;
       particle.sprite.scale.set(particle.sprite.scale.x + particle.growth * seconds);
-      particle.sprite.alpha = Math.max(0, (1 - progress) ** particle.fade) * 0.6;
+      particle.sprite.alpha = particle.peakAlpha * Math.max(0, (1 - progress) ** particle.fade);
     }
   }
 
@@ -83,6 +102,7 @@ export class Particles {
     alpha: number;
     velocityX: number;
     velocityY: number;
+    gravity?: number;
     life: number;
     growth: number;
     fade: number;
@@ -102,8 +122,10 @@ export class Particles {
       sprite,
       velocityX: options.velocityX,
       velocityY: options.velocityY,
+      gravity: options.gravity ?? 0,
       life: options.life,
       maxLife: options.life,
+      peakAlpha: options.alpha,
       growth: options.growth,
       fade: options.fade,
     });

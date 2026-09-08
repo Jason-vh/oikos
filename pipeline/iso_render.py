@@ -15,7 +15,7 @@ import os
 import sys
 
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 TILE_WIDTH = 120
 TILE_HEIGHT = 60
@@ -356,7 +356,7 @@ def build_house_1(phase):
     for y in (-0.13, 0.13):
         add_cylinder("awning_post", (half + 0.09, y, 0.15), 0.014, 0.29, wood, vertices=8)
 
-    return {"kind": "house", "variant": 1, "footprint": 1, "height": roof_z + roof_h + 0.1}
+    return {"kind": "house", "variant": 2, "footprint": 1, "height": roof_z + roof_h + 0.1}
 
 
 def build_house_2(phase):
@@ -387,7 +387,7 @@ def build_house_2(phase):
     add_amphora("jar1", (half + 0.07, -0.2, 0.0), 0.14, clay)
     add_amphora("jar2", (half + 0.07, 0.24, 0.0), 0.12, clay)
 
-    return {"kind": "house", "variant": 2, "footprint": 1, "height": roof_z + roof_h + 0.1}
+    return {"kind": "house", "variant": 4, "footprint": 1, "height": roof_z + roof_h + 0.1}
 
 
 def build_house_3(phase):
@@ -400,6 +400,7 @@ def build_house_3(phase):
     wood = material("wood", WOOD, roughness=0.8)
     clay = material("clay", CLAY, roughness=0.8)
     cypress = material("cypress", CYPRESS, roughness=0.9)
+    brick = material("brick", (0.5, 0.3, 0.22), roughness=0.85)
 
     half = 0.36
     wall_h = 0.72
@@ -415,6 +416,7 @@ def build_house_3(phase):
     roof_h = 0.18
     add_hip_roof("roof", (0, 0, roof_z + roof_h / 2), half + 0.04, roof_h, terracotta, ridge_half=0.14)
     add_box("clerestory", (0, 0, roof_z + roof_h + 0.06), (0.22, 0.22, 0.12), whitewash)
+    add_box("chimney", (-0.2, 0.2, roof_z + roof_h * 0.45 + 0.1), (0.07, 0.07, 0.24), brick)
     add_hip_roof("clerestory_roof", (0, 0, roof_z + roof_h + 0.12 + 0.04), 0.15, 0.08, terracotta, ridge_half=0.03)
     top = roof_z + roof_h + 0.2
 
@@ -427,7 +429,7 @@ def build_house_3(phase):
     add_wall("courtyard_wall", (0.05, -half - 0.08, 0.08), 0.5, 0.16, 0.035, stone, along_x=True)
     add_cypress_pot("cypress", (-half - 0.09, half + 0.05, 0.0), 0.32, clay, cypress)
 
-    return {"kind": "house", "variant": 3, "footprint": 1, "height": top + 0.1}
+    return {"kind": "house", "variant": 6, "footprint": 1, "height": top + 0.1}
 
 
 def build_wheat_farm(phase):
@@ -546,16 +548,33 @@ def build_statue(phase):
     return {"kind": "statue", "variant": 0, "footprint": 1, "height": 1.35}
 
 
+MIRROR_DIAGONAL = Matrix(((0, -1, 0, 0), (-1, 0, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1)))
+
+
+def mirrored(builder):
+    """Reflect across the x = -y plane so the door and windows swap camera-facing sides."""
+
+    def build(phase):
+        spec = builder(phase)
+        for obj in bpy.data.objects:
+            if obj.type == "MESH":
+                obj.matrix_world = MIRROR_DIAGONAL @ obj.matrix_world
+        return {**spec, "variant": spec["variant"] + 1}
+
+    return build
+
+
+HOUSES = [build_house_0, build_house_1, build_house_2, build_house_3]
+
 MODELS = {
     "granary": build_granary,
     "wheat-farm": build_wheat_farm,
     "fountain": build_fountain,
     "statue": build_statue,
-    "house-0": build_house_0,
-    "house-1": build_house_1,
-    "house-2": build_house_2,
-    "house-3": build_house_3,
 }
+for tier, builder in enumerate(HOUSES):
+    MODELS[f"house-{tier}"] = builder
+    MODELS[f"house-{tier}m"] = mirrored(builder)
 
 
 def add_ground():

@@ -47,6 +47,13 @@ const WALKER_PALETTES: Record<WalkerKind, { tunic: number; trim: number }> = {
   waterCarrier: { tunic: 0x6fb6de, trim: 0x2f6a8c },
 };
 
+const CITIZEN_LOOKS = [
+  { skin: 0xd9ac82, hair: 0x3a2a1c, tunicShade: 1 },
+  { skin: 0xc48f63, hair: 0x1f1610, tunicShade: 0.9 },
+  { skin: 0xe8c39c, hair: 0x7a4a26, tunicShade: 1.08 },
+];
+export const WALKER_LOOKS = CITIZEN_LOOKS.length;
+
 export const WALKER_FRAMES = 4;
 
 const FOOTPRINT_INSET: Record<BuildingKind, number> = {
@@ -62,10 +69,10 @@ export class TextureCache {
   private readonly structures = new Map<string, StructureSprite>();
   private readonly decorSprites = new Map<string, DecorSprite>();
 
-  walker(kind: WalkerKind, direction: number, frame: number): Texture {
-    return this.cache(`walker:${kind}:${direction}:${frame}`, () => {
-      const surface = createSurface(34, 50);
-      drawWalker(surface, kind, direction, frame);
+  walker(kind: WalkerKind, look: number, direction: number, frame: number): Texture {
+    return this.cache(`walker:${kind}:${look}:${direction}:${frame}`, () => {
+      const surface = createSurface(40, 56);
+      drawWalker(surface, kind, look, direction, frame);
       return surface;
     });
   }
@@ -75,8 +82,8 @@ export class TextureCache {
       const size = 48;
       const surface = createSurface(size, size);
       const gradient = surface.ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-      gradient.addColorStop(0, 'rgba(255,255,255,0.85)');
-      gradient.addColorStop(0.45, 'rgba(255,255,255,0.32)');
+      gradient.addColorStop(0, 'rgba(255,255,255,1)');
+      gradient.addColorStop(0.55, 'rgba(255,255,255,0.7)');
       gradient.addColorStop(1, 'rgba(255,255,255,0)');
       surface.ctx.fillStyle = gradient;
       surface.ctx.fillRect(0, 0, size, size);
@@ -558,12 +565,15 @@ function drawStatue(
   ctx.stroke();
 }
 
-function drawWalker(surface: DrawSurface, kind: WalkerKind, direction: number, frame: number): void {
+function drawWalker(surface: DrawSurface, kind: WalkerKind, look: number, direction: number, frame: number): void {
   const { ctx, height } = surface;
   const palette = WALKER_PALETTES[kind];
+  const citizen = CITIZEN_LOOKS[look % CITIZEN_LOOKS.length];
+  const tunic = shade(palette.tunic, citizen.tunicShade);
   const cx = surface.width / 2;
   const feet = height - 8;
   const facingAway = direction === 2 || direction === 3;
+  const facingLeft = direction === 1 || direction === 2;
   const swing = Math.sin((frame / WALKER_FRAMES) * Math.PI * 2);
   const bob = Math.abs(Math.cos((frame / WALKER_FRAMES) * Math.PI * 2)) * 1.5;
 
@@ -576,47 +586,118 @@ function drawWalker(surface: DrawSurface, kind: WalkerKind, direction: number, f
 
   ctx.translate(0, -bob);
 
-  ctx.strokeStyle = css(0x51402c);
+  if (kind === 'cartPusher' && facingAway) drawCart(ctx, cx, feet, direction);
+
+  ctx.strokeStyle = css(shade(citizen.skin, 0.8));
   ctx.lineWidth = 3.2;
+  ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(cx, feet - 11);
-  ctx.lineTo(cx - 4 * swing, feet);
-  ctx.moveTo(cx, feet - 11);
-  ctx.lineTo(cx + 4 * swing, feet);
+  ctx.moveTo(cx - 2, feet - 11);
+  ctx.lineTo(cx - 2 - 4 * swing, feet - 1);
+  ctx.moveTo(cx + 2, feet - 11);
+  ctx.lineTo(cx + 2 + 4 * swing, feet - 1);
+  ctx.stroke();
+
+  ctx.fillStyle = css(0x5a3d22);
+  ctx.fillRect(cx - 4 - 4 * swing, feet - 2, 4.5, 2);
+  ctx.fillRect(cx + 4 * swing, feet - 2, 4.5, 2);
+
+  const backArmX = facingLeft ? cx + 6 : cx - 6;
+  ctx.strokeStyle = css(shade(citizen.skin, 0.85));
+  ctx.lineWidth = 2.6;
+  ctx.beginPath();
+  ctx.moveTo(backArmX, feet - 25);
+  ctx.lineTo(backArmX + 1.5 * swing, feet - 15);
   ctx.stroke();
 
   const body = ctx.createLinearGradient(cx - 8, 0, cx + 8, 0);
-  body.addColorStop(0, css(shade(palette.tunic, 0.76)));
-  body.addColorStop(0.55, css(palette.tunic));
-  body.addColorStop(1, css(shade(palette.tunic, 0.9)));
+  body.addColorStop(0, css(shade(tunic, 0.74)));
+  body.addColorStop(0.5, css(tunic));
+  body.addColorStop(1, css(shade(tunic, 0.88)));
   ctx.fillStyle = body;
-  polygonPath(ctx, [cx - 7, feet - 9, cx - 5, feet - 27, cx + 5, feet - 27, cx + 7, feet - 9]);
+  polygonPath(ctx, [cx - 8, feet - 9, cx - 5.5, feet - 27, cx + 5.5, feet - 27, cx + 8, feet - 9]);
   ctx.fill();
 
-  ctx.fillStyle = css(palette.trim);
-  ctx.fillRect(cx - 7, feet - 14, 14, 3.2);
-
-  ctx.fillStyle = css(0xd9ac82);
-  ctx.beginPath();
-  ctx.arc(cx, feet - 32, 6, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = css(0x3a2a1c);
-  ctx.beginPath();
-  ctx.arc(cx, feet - 34, 6, Math.PI, Math.PI * 2);
-  ctx.fill();
-
-  if (!facingAway) {
-    ctx.fillStyle = 'rgba(30,22,14,0.8)';
-    ctx.fillRect(cx - 3.2, feet - 33, 1.8, 1.8);
-    ctx.fillRect(cx + 1.4, feet - 33, 1.8, 1.8);
+  ctx.strokeStyle = css(shade(tunic, 0.8), 0.7);
+  ctx.lineWidth = 1;
+  for (const fold of [-3, 0, 3]) {
+    ctx.beginPath();
+    ctx.moveTo(cx + fold, feet - 14);
+    ctx.lineTo(cx + fold * 1.4, feet - 9);
+    ctx.stroke();
   }
 
-  if (kind === 'cartPusher') drawCart(ctx, cx, feet, direction);
-  if (kind === 'waterCarrier') {
-    ctx.fillStyle = css(0x6c757d);
+  ctx.fillStyle = css(palette.trim);
+  ctx.fillRect(cx - 6.5, feet - 17, 13, 2.4);
+  if (!facingAway) {
+    ctx.fillStyle = css(palette.trim, 0.85);
+    ctx.fillRect(cx - 1, feet - 27, 2, 10);
+  }
+
+  const frontArmX = facingLeft ? cx - 6 : cx + 6;
+  ctx.strokeStyle = css(citizen.skin);
+  ctx.lineWidth = 2.6;
+  ctx.beginPath();
+  ctx.moveTo(frontArmX, feet - 25);
+  ctx.lineTo(frontArmX - 1.5 * swing, feet - 15);
+  ctx.stroke();
+
+  ctx.fillStyle = css(shade(citizen.skin, 0.9));
+  ctx.fillRect(cx - 1.5, feet - 31, 3, 5);
+
+  ctx.fillStyle = css(citizen.skin);
+  ctx.beginPath();
+  ctx.arc(cx, feet - 34, 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = css(citizen.hair);
+  ctx.beginPath();
+  ctx.arc(cx, feet - 35.5, 6.2, Math.PI, Math.PI * 2);
+  ctx.fill();
+  if (facingAway) {
+    ctx.fillRect(cx - 6.2, feet - 35.5, 12.4, 4);
+  } else {
+    ctx.fillRect(cx - 6.2, feet - 35.5, 2.2, 4);
+    ctx.fillRect(cx + 4, feet - 35.5, 2.2, 4);
+  }
+
+  if (!facingAway) {
+    ctx.fillStyle = 'rgba(30,22,14,0.85)';
+    ctx.fillRect(cx - 3.2, feet - 34, 1.8, 1.8);
+    ctx.fillRect(cx + 1.4, feet - 34, 1.8, 1.8);
+  }
+
+  if (kind === 'cartPusher' && !facingAway) drawCart(ctx, cx, feet, direction);
+  if (kind === 'waterCarrier') drawShoulderedAmphora(ctx, facingLeft ? cx - 7 : cx + 7, feet - 30);
+  if (kind === 'foodVendor') drawHeadBasket(ctx, cx, feet - 41);
+}
+
+function drawShoulderedAmphora(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  ctx.fillStyle = css(0xb4562c);
+  ctx.beginPath();
+  ctx.ellipse(x, y + 3, 4, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillRect(x - 1.8, y - 5, 3.6, 4);
+  ctx.fillStyle = css(0xd97a3c, 0.6);
+  ctx.beginPath();
+  ctx.ellipse(x - 1.2, y + 2, 1.4, 3.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawHeadBasket(ctx: CanvasRenderingContext2D, cx: number, y: number): void {
+  ctx.fillStyle = css(0xc9a55c);
+  polygonPath(ctx, [cx - 7, y, cx + 7, y, cx + 5.5, y - 5, cx - 5.5, y - 5]);
+  ctx.fill();
+  ctx.strokeStyle = css(0x8f6f32, 0.7);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(cx - 6.5, y - 2.5);
+  ctx.lineTo(cx + 6.5, y - 2.5);
+  ctx.stroke();
+  ctx.fillStyle = css(0xe0b040);
+  for (const dx of [-3, 0, 3]) {
     ctx.beginPath();
-    ctx.ellipse(cx + 9, feet - 18, 4.2, 6.4, 0, 0, Math.PI * 2);
+    ctx.arc(cx + dx, y - 6, 2, 0, Math.PI * 2);
     ctx.fill();
   }
 }

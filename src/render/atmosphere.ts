@@ -72,6 +72,7 @@ export class Atmosphere {
       0, 0, 0, 1, 0,
     ];
     this.bloom.bloomScale = this.daylight < 0 ? 0.45 : 0.2 + 0.25 * this.daylight;
+    this.app.renderer.background.color = seaColour(ambient);
   }
 
   resize(): void {
@@ -106,4 +107,12 @@ function ambientFor(progress: number): Ambient {
     blue: 0.68 + 0.24 * altitude - 0.02 * warmth,
     brightness: 0.84 + 0.24 * altitude,
   };
+}
+
+function seaColour(ambient: Ambient): number {
+  const channel = (base: number, tint: number) => Math.round(Math.min(255, base * tint * ambient.brightness));
+  const red = channel(0x1e, ambient.red);
+  const green = channel(0x52, ambient.green);
+  const blue = channel(0x5c, ambient.blue);
+  return (red << 16) | (green << 8) | blue;
 }

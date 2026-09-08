@@ -6,11 +6,12 @@ import type { World } from '../sim/world';
 import type { TileAtlas } from './atlas';
 import type { BakedStructures } from './baked';
 import { DecorLayer } from './decor';
-import { depthOf, footprintAnchor, tileToScreen } from './iso';
+import { TILE_WIDTH, depthOf, footprintAnchor, tileToScreen } from './iso';
 import { Particles } from './particles';
 import { TerrainLayer } from './terrain';
 import {
   WALKER_FRAMES,
+  WALKER_LOOKS,
   type StructureLook,
   type StructureRequest,
   type StructureSprite,
@@ -20,7 +21,14 @@ import {
 export type OverlayMode = 'none' | 'desirability';
 
 const WALKER_FRAME_MS = 130;
-const SMOKE_INTERVAL_MS = 1500;
+const SMOKE_INTERVAL_MS = 700;
+const SPRAY_INTERVAL_MS = 60;
+const FOUNTAIN_SPOUT_Z = 0.92;
+const PIXELS_PER_MODEL_UNIT_UP = (TILE_WIDTH / Math.SQRT2) * Math.cos(Math.PI / 6);
+const CHIMNEYS: Record<number, { x: number; y: number; z: number }> = {
+  2: { x: -0.16, y: 0.16, z: 1.0 },
+  3: { x: -0.2, y: 0.2, z: 1.2 },
+};
 const DUST_INTERVAL_MS = 320;
 
 interface BuildingEntry {
@@ -152,7 +160,7 @@ export class Scene {
           variant: variantOf(building.id),
           phase: sunPhase,
         },
-        building.kind === 'house' ? building.tier : 0,
+        bakedVariantOf(building),
       );
 
       const sprite = new Sprite(structure.texture);
@@ -197,6 +205,7 @@ export class Scene {
 
       sprite.texture = this.textures.walker(
         walker.kind,
+        walker.id % WALKER_LOOKS,
         directionOf(toX - fromX, toY - fromY),
         (baseFrame + walker.id) % WALKER_FRAMES,
       );
@@ -209,12 +218,22 @@ export class Scene {
 
   private emitParticles(): void {
     for (const building of this.world.buildings.values()) {
-      if (building.kind !== 'house' || building.tier < 1) continue;
+      if (building.kind !== 'house' || building.tier < 2) continue;
       if (!this.isDue(building.id, SMOKE_INTERVAL_MS)) continue;
 
       const height = this.world.grid.heightAt(building.x, building.y);
-      const position = tileToScreen(building.x + 0.1, building.y + 0.1, height);
-      this.particles.smoke(position.x - 4, position.y - HOUSE_TIERS[building.tier].height - 16);
+      const chimney = CHIMNEYS[building.tier];
+      const position = tileToScreen(building.x + chimney.x, building.y + chimney.y, height);
+      this.particles.smoke(position.x, position.y - chimney.z * PIXELS_PER_MODEL_UNIT_UP);
+    }
+
+    for (const building of this.world.buildings.values()) {
+      if (building.kind !== 'fountain') continue;
+      if (!this.isDue(building.id, SPRAY_INTERVAL_MS)) continue;
+
+      const height = this.world.grid.heightAt(building.x, building.y);
+      const position = tileToScreen(building.x, building.y, height);
+      this.particles.spray(position.x, position.y - FOUNTAIN_SPOUT_Z * PIXELS_PER_MODEL_UNIT_UP);
     }
 
     const { grid } = this.world;
@@ -249,6 +268,11 @@ function directionOf(dx: number, dy: number): number {
 
 function variantOf(id: number): number {
   return Math.abs((id * 2654435761) % 4);
+}
+
+function bakedVariantOf(building: Building): number {
+  if (building.kind !== 'house') return 0;
+  return building.tier * 2 + (variantOf(building.id) % 2);
 }
 
 function lookKey(building: Building): string {

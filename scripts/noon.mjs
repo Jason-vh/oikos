@@ -1,5 +1,5 @@
 import { chromium } from 'playwright';
-const [url, out, tick, zoom = '1'] = process.argv.slice(2);
+const [url, out, tick, zoom = '1', liveMs = '0'] = process.argv.slice(2);
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 await page.goto(url, { waitUntil: 'networkidle' });
@@ -24,6 +24,24 @@ await page.evaluate(({ tick: t, zoom: z }) => {
   for (let i = 0; i < 4000; i++) world.update();
   world.tick = Number(t);
 }, { tick, zoom });
-await page.waitForTimeout(1200);
+if (Number(liveMs) > 0) {
+  await page.evaluate(() => {
+    Reflect.get(window, 'game').speed = 1;
+  });
+  await page.waitForTimeout(Number(liveMs));
+  await page.evaluate(() => {
+    Reflect.get(window, 'game').speed = 0;
+  });
+}
+await page.evaluate(() => {
+  const { world } = Reflect.get(window, 'game');
+  let tier = 0;
+  for (const building of world.buildings.values()) {
+    if (building.kind !== 'house') continue;
+    building.tier = tier;
+    tier = (tier + 1) % 4;
+  }
+});
+await page.waitForTimeout(2500);
 await page.screenshot({ path: out });
 await browser.close();
