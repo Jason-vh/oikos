@@ -1,0 +1,46 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: zeus-production
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  DEPLOY_DIR: /home/exedev/apps/zeus
+
+jobs:
+  deploy:
+    name: Deploy to exe.dev VM
+    runs-on: [self-hosted, linux, zeus-prod]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Copy checkout to stable deploy directory
+        run: |
+          rm -rf "$DEPLOY_DIR.tmp"
+          mkdir -p "$DEPLOY_DIR.tmp"
+          cp -a . "$DEPLOY_DIR.tmp/"
+          rm -rf "$DEPLOY_DIR"
+          mv "$DEPLOY_DIR.tmp" "$DEPLOY_DIR"
+
+      - name: Build image
+        run: |
+          cd "$DEPLOY_DIR"
+          docker compose build
+
+      - name: Start app
+        run: |
+          cd "$DEPLOY_DIR"
+          docker compose up -d --remove-orphans
+          docker compose ps
+
+      - name: Reload Caddy
+        run: |
+          sudo /usr/bin/caddy validate --config /etc/caddy/Caddyfile
+          sudo /usr/bin/systemctl reload caddy

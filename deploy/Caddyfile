@@ -1,0 +1,12 @@
+{
+	auto_https off
+}
+
+:3000 {
+	root * /srv
+	encode gzip
+	file_server
+
+	@hashed path_regexp -[A-Za-z0-9_-]{8}\.(js|css)$
+	header @hashed Cache-Control "public, max-age=31536000, immutable"
+}
