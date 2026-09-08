@@ -7,6 +7,7 @@ import { GODS, GOD_KINDS, moodName } from '../sim/gods';
 import { UNITS, companiesIn, type UnitKind } from '../sim/military';
 import { DIFFICULTIES } from '../sim/difficulty';
 import { describeRequest } from '../sim/events';
+import { HEROES, HERO_KINDS, summonable, type HeroKind } from '../sim/heroes';
 import { CAMPAIGN } from '../sim/scenario';
 import type { BuildingKind } from '../sim/types';
 import { abandonCity } from '../sim/save';
@@ -50,6 +51,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
         <span class="cartouche" data-field="date"></span>
         ${renderMenu('treasury', 'treasury', financeMenu())}
         ${renderMenu('people', '', peopleMenu())}
+        ${renderMenu('heroes', '', '<div data-heroes></div>')}
         ${renderMenu('requests', '', '<div data-requests></div>')}
         ${renderMenu('army', '', armyMenu())}
         ${renderMenu('trade', '', tradeMenu())}
@@ -221,6 +223,8 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       field('date').textContent = world.dateLabel;
       field('treasury').innerHTML = money(world.treasury);
       field('speed').textContent = speedLabel(game.speed);
+      field('heroes').textContent = heroesLabel(world);
+      renderHeroes(hud, game);
       field('requests').textContent = requestsLabel(world);
       renderRequests(hud, world, game);
       field('army').textContent = armyLabel(world);
@@ -358,8 +362,42 @@ function groupFor(kind: string): string {
   if (kind === 'college' || kind === 'podium') return 'Culture';
   if (kind === 'infirmary' || kind === 'watchpost') return 'Services';
   if (kind === 'palace' || kind === 'taxOffice' || kind === 'tradingPost') return 'Government';
-  if (kind.startsWith('sanctuary')) return 'Mythology';
+  if (kind.startsWith('sanctuary') || kind === 'heroHall') return 'Mythology';
   return 'Services';
+}
+
+function heroesLabel(world: Game['world']): string {
+  if (world.hero) return HEROES[world.hero.kind].name;
+  if (world.monster) return world.monster.name;
+  return 'No hero';
+}
+
+function renderHeroes(hud: HTMLElement, game: Game): void {
+  const host = hud.querySelector('[data-heroes]') as HTMLElement;
+  const { world } = game;
+  const ready = summonable(world.heroCall());
+
+  const rows = HERO_KINDS.map((kind) => {
+    const hero = HEROES[kind];
+    const here = world.hero?.kind === kind;
+    const state = here ? `${world.hero?.monthsLeft} months` : ready.includes(kind) ? 'Ready' : hero.demands;
+    return `<button class="choice${here ? ' chosen' : ''}" data-hero="${kind}"><span>${hero.name}</span><b>${state}</b></button>`;
+  }).join('');
+
+  const note = world.monster
+    ? `<p class="dropdown-note">${world.monster.name} is loose. Only ${HEROES[world.monster.slayer].name} can kill it.</p>`
+    : '<p class="dropdown-note">A hero hall and what he asks of the city bring him in.</p>';
+  const markup = rows + note;
+
+  if (host.innerHTML === markup) return;
+  host.innerHTML = markup;
+  host.querySelectorAll<HTMLButtonElement>('[data-hero]').forEach((element) => {
+    element.addEventListener('click', () => {
+      if (!game.world.summon(element.dataset.hero as HeroKind)) {
+        game.world.log('No hero answers that call.');
+      }
+    });
+  });
 }
 
 function requestsLabel(world: Game['world']): string {

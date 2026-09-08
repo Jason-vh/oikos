@@ -22,10 +22,11 @@ describe('prerequisites', () => {
     expect(world.canPlace('taxOffice', 4, 7).ok).toBe(true);
   });
 
-  test('nothing else waits for anything', () => {
+  test('only the works of rule wait on the palace', () => {
     const gated = Object.values(BUILDINGS).filter((def) => def.requires !== null);
 
-    expect(gated.map((def) => def.kind)).toEqual(['taxOffice']);
+    expect(gated.map((def) => def.kind)).toEqual(['taxOffice', 'heroHall']);
+    expect(gated.every((def) => def.requires === 'palace')).toBe(true);
   });
 
   test('the palace lifts appeal across six rings', () => {

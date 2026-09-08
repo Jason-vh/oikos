@@ -10,12 +10,13 @@ export interface Request {
 
 export interface CityEvent {
   year: number;
-  kind: 'request' | 'gift' | 'earthquake';
+  kind: 'request' | 'gift' | 'earthquake' | 'monster';
   city: string;
   good?: Good;
   cartloads?: number;
   reward?: number;
   months?: number;
+  monster?: string;
 }
 
 export const REQUEST_STANDING = 6;

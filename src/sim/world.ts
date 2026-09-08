@@ -45,6 +45,18 @@ import {
 } from './events';
 import { NO_TRADE, TRADE_ROUTES, newTradeOrders, trade, type TradeReport } from './trade';
 import { NO_ARMY, companiesIn, fightInvasion, musterArmy, type Army, type Battle } from './military';
+import {
+  HEROES,
+  HERO_STAY_MONTHS,
+  HERO_COMPANIES,
+  MONSTERS,
+  callFor,
+  slays,
+  summonable,
+  type HeroCall,
+  type HeroKind,
+  type Monster,
+} from './heroes';
 import { TICKS_PER_MONTH } from './time';
 import { createBuilding } from './types';
 import type { Building, BuildingKind, Good, Walker, WalkerKind } from './types';
@@ -110,6 +122,8 @@ export class World {
   army: Army = { ...NO_ARMY };
   requests: Request[] = [];
   standing = 50;
+  hero: { kind: HeroKind; monthsLeft: number } | null = null;
+  monster: Monster | null = null;
   lastBattle: Battle | null = null;
   scenario: Scenario = DEFAULT_SCENARIO;
   episode = 0;
@@ -347,7 +361,9 @@ export class World {
     });
     this.migrate();
     this.army = musterArmy(this.buildings.values(), this.has('palace'));
+    if (this.hero) this.army.hoplite += HERO_COMPANIES;
     this.answerTheWorld();
+    this.keepTheHero();
     this.defendCity();
     this.sufferAfflictions();
     this.attendGods();
@@ -456,7 +472,48 @@ export class World {
         this.log(`${event.city} sends a gift of ${event.reward} drachmas.`);
       }
       if (event.kind === 'earthquake') this.shakeTheGround();
+      if (event.kind === 'monster' && !this.monster) {
+        const name = event.monster ?? 'Medusa';
+        this.monster = { name, slayer: MONSTERS[name], monthsHere: 0 };
+        this.log(`${name} has come to the city, Archon.`);
+      }
     }
+  }
+
+  private keepTheHero(): void {
+    if (this.hero) {
+      this.hero.monthsLeft -= 1;
+      if (this.hero.monthsLeft <= 0) {
+        this.log(`${HEROES[this.hero.kind].name} leaves the city.`);
+        this.hero = null;
+      }
+    }
+
+    if (!this.monster) return;
+    if (this.hero && slays(this.hero.kind, this.monster)) {
+      this.log(`${HEROES[this.hero.kind].name} has slain ${this.monster.name}.`);
+      this.monster = null;
+      return;
+    }
+
+    this.monster.monthsHere += 1;
+    const victim = this.randomBuilding();
+    if (victim) this.demolish(victim.x, victim.y);
+    this.log(`${this.monster.name} tears through the city.`);
+  }
+
+  summon(kind: HeroKind): boolean {
+    if (this.hero || !this.has('heroHall')) return false;
+    if (!summonable(this.heroCall()).includes(kind)) return false;
+
+    this.hero = { kind, monthsLeft: HERO_STAY_MONTHS };
+    this.log(`${HEROES[kind].name} answers the city's call.`);
+    return true;
+  }
+
+  heroCall(): HeroCall {
+    const eliteHouses = [...this.buildings.values()].filter((building) => building.kind === 'estate').length;
+    return callFor(this.citySnapshot(), this.standing, eliteHouses);
   }
 
   private shakeTheGround(): void {

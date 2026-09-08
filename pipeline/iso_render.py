@@ -1243,6 +1243,58 @@ def build_watchpost():
     return {"kind": "watchpost", "variant": 0, "footprint": 2, "height": 1.5}
 
 
+def build_hero_hall():
+    """Hero hall: a peripteral hall on a stepped terrace, with a trophy of arms and a
+    victor's tripod in the court."""
+    paving = plaster_material("paving", STONE, roughness=0.86, variation=0.05, scale=15.0)
+    marble = material("marble", MARBLE, roughness=0.3)
+    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.84, variation=0.04, scale=7.0)
+    tiles = roof_material("tiles", TERRACOTTA, rows_per_unit=20.0)
+    bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
+    wood = material("wood", WOOD, roughness=0.86)
+    clay = material("clay", CLAY, roughness=0.8)
+    cypress = material("cypress", CYPRESS, roughness=0.9)
+
+    half = 1.92
+    yard = add_box("court", (0, 0, 0.03), (half * 2, half * 2, 0.06), paving)
+    yard.visible_shadow = False
+    for side in (-1, 1):
+        add_box("court_wall", (side * half, 0, 0.16), (0.1, half * 2, 0.2), whitewash)
+        add_box("court_wall", (0, side * half, 0.16), (half * 2, 0.1, 0.2), whitewash)
+
+    hall_half = 0.86
+    wall_h = 1.14
+    hx, hy = -0.55, -0.55
+    for step, (size, z) in enumerate(((hall_half * 2 + 0.62, 0.1), (hall_half * 2 + 0.44, 0.18))):
+        add_box(f"step_{step}", (hx, hy, z), (size, size, 0.08), marble)
+    add_box("cella", (hx, hy, 0.22 + wall_h / 2), (hall_half * 2, hall_half * 2, wall_h), whitewash)
+    add_box("architrave", (hx, hy, 0.22 + wall_h + 0.05), (hall_half * 2 + 0.5, hall_half * 2 + 0.5, 0.1), marble)
+    add_doorway(hall_half, 0.62, (hx, hy), width=0.42)
+
+    for offset in (-0.62, -0.2, 0.22, 0.64):
+        add_cylinder("column_east", (hx + hall_half + 0.24, hy + offset, 0.22 + wall_h / 2), 0.075, wall_h, marble, vertices=16)
+        add_cylinder("column_south", (hx + offset, hy - hall_half - 0.24, 0.22 + wall_h / 2), 0.075, wall_h, marble, vertices=16)
+
+    roof_z = 0.22 + wall_h + 0.1
+    roof_h = 0.44
+    add_hip_roof("roof", (hx, hy, roof_z + roof_h / 2), hall_half + 0.34, roof_h, tiles, ridge_half=0.26)
+    add_cylinder("finial", (hx, hy, roof_z + roof_h + 0.1), 0.05, 0.2, bronze, vertices=10)
+
+    add_box("trophy_post", (1.3, -1.2, 0.06 + 0.42), (0.1, 0.1, 0.84), wood)
+    add_box("trophy_arms", (1.3, -1.2, 0.06 + 0.72), (0.6, 0.12, 0.12), bronze)
+    add_cylinder("trophy_shield", (1.3, -1.2, 0.06 + 0.52), 0.24, 0.06, bronze, vertices=16)
+
+    for leg in ((-0.1, -0.1), (0.1, -0.1), (0.0, 0.12)):
+        add_cylinder("tripod_leg", (1.34 + leg[0], 0.9 + leg[1], 0.06 + 0.22), 0.025, 0.44, bronze, vertices=8)
+    add_cylinder("tripod_bowl", (1.34, 0.9, 0.06 + 0.5), 0.22, 0.16, bronze, vertices=18)
+
+    add_cypress_pot("cypress1", (-1.6, 1.6, 0.06), 0.52, clay, cypress)
+    add_cypress_pot("cypress2", (0.3, 1.66, 0.06), 0.48, clay, cypress)
+    add_amphora("jar", (-1.66, -0.2, 0.06), 0.36, clay)
+
+    return {"kind": "heroHall", "variant": 0, "footprint": 4, "height": roof_z + roof_h + 0.36}
+
+
 def build_fountain():
     """Marble basin with a raised centre and a small bronze statue; light blue water."""
     marble = material("marble", MARBLE, roughness=0.3)
@@ -1344,6 +1396,7 @@ MODELS = {
     "podium": build_podium,
     "maintenance-office": build_maintenance_office,
     "infirmary": build_infirmary,
+    "hero-hall": build_hero_hall,
     "watchpost": build_watchpost,
     "olive-press": build_olive_press,
     "wheat-farm": build_wheat_farm,

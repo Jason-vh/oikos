@@ -72,6 +72,7 @@ const FOOTPRINT_INSET: Record<BuildingKind, number> = {
   palace: 0.86,
   infirmary: 0.86,
   watchpost: 0.84,
+  heroHall: 0.84,
   tradingPost: 0.82,
   sanctuaryDemeter: 0.88,
   sanctuaryHephaestus: 0.88,

@@ -603,6 +603,30 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     damageRisk: 3,
     description: 'Sends a watchman on his rounds. Where he walks, no one turns to crime.',
   },
+  heroHall: {
+    kind: 'heroHall',
+    name: 'Hero Hall',
+    size: 4,
+    cost: 240,
+    colour: 0xf2ecdc,
+    roofColour: 0xb8502c,
+    height: 32,
+    workers: 10,
+    maxWalkers: 0,
+    appeal: { initial: 15, bandSize: 2, step: -2, range: 7 },
+    requiresMeadow: false,
+    needsRoad: true,
+    requires: 'palace',
+    minAppeal: 0,
+    produces: null,
+    consumes: null,
+    accepts: null,
+    supplies: null,
+    capacity: 0,
+    fireRisk: 0,
+    damageRisk: 2,
+    description: 'A hall kept ready for a hero. Meet what he asks of the city and he will come.',
+  },
   sanctuaryDemeter: {
     kind: 'sanctuaryDemeter',
     name: 'Garden of Demeter',
@@ -723,6 +747,7 @@ export const PLACEABLE: BuildingKind[] = [
   'sanctuaryHephaestus',
   'sanctuaryHermes',
   'sanctuaryHades',
+  'heroHall',
 ];
 
 export const LABOUR_PRIORITY: BuildingKind[] = [
@@ -744,6 +769,7 @@ export const LABOUR_PRIORITY: BuildingKind[] = [
   'sanctuaryHephaestus',
   'sanctuaryHermes',
   'sanctuaryHades',
+  'heroHall',
   'house',
   'estate',
 ];

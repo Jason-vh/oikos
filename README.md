@@ -187,7 +187,8 @@ becomes the shadow sprite, framed wide enough for the shadow the sun actually ca
 
 Models live in `pipeline/iso_render.py`: the seven common housing tiers and four elite ones, wheat farm, growers'
 lodge, olive press, granary, agora, college, podium, maintenance office, palace, tax
-office, trading post, infirmary, watchpost, four sanctuaries, fountain and statue, each rendered as a body and a shadow. Sprites are keyed by
+office, trading post, infirmary, watchpost, four sanctuaries, hero hall, fountain and
+statue, each rendered as a body and a shadow. Sprites are keyed by
 `kind:variant:layer` — housing uses `tier * 2`, plus one for the mirrored copy.
 
 Mirrored variants reflect across `x = -y`, and the reflection is **baked into the mesh
@@ -202,9 +203,9 @@ The game picks it up with no client changes.
 
 The full inventory lives in [docs/roadmap.md](docs/roadmap.md). Next up:
 
-1. **Heroes and monsters** — halls, summoning conditions, a monster each hero can kill.
-2. **Walls and towers** — a defence to place, rather than a battle decided on paper.
-3. **Events** — requests, gifts, quests and disasters on a schedule.
+1. **Walls and towers** — a defence to place, rather than a battle decided on paper.
+2. **More gods** — ten of the fourteen are still missing, with their quests.
+3. **Advisors** — an overview panel for popularity, food, unrest and threats.
 
 ## Art licence
 

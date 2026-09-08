@@ -406,8 +406,13 @@ in place of the original's marble-and-sculpture construction). From then the moo
 climbs while the sanctuary is staffed and falls when it is neglected, and at the ends
 of the scale the god acts: Demeter fills or empties the granaries, Hephaestus damps
 every hearth or lights one, Hermes tops up or spills the stores, Hades pays or takes.
-Sanctuary sizes, artisans, the other ten gods, heroes, monsters and quests are not
-started.
+Four heroes are in `src/sim/heroes.ts`: a hero hall (4×4, behind the palace) and the
+conditions each asks of the city — Achilles three companies and a sanctuary, Hercules
+1500 citizens and two, Perseus two and 3000 dr, Odysseus standing of 70 and eight
+elite houses. A summoned hero stays two years and fights as four hoplite companies,
+and a monster loose in the city razes a building a month until the one hero who can
+kill it arrives. Sanctuary sizes, artisans, the other ten gods, the other four heroes,
+the remaining monsters and the quests are not started.
 
 ---
 
