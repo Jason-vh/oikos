@@ -20,7 +20,8 @@ from mathutils import Matrix, Vector
 TILE_WIDTH = 120
 TILE_HEIGHT = 60
 SUN_PHASES = 6
-SUPERSAMPLE = 4
+SUPERSAMPLE = 2
+SAMPLES = 16
 PIXELS_PER_UNIT = TILE_WIDTH / math.sqrt(2)
 CAMERA_ELEVATION = math.radians(30)
 CAMERA_YAW = math.radians(45)
@@ -56,17 +57,22 @@ def parse_args():
     parser.add_argument("--out", default="pipeline/out")
     parser.add_argument("--only", default="", help="comma-separated model names")
     parser.add_argument("--phases", default="", help="comma-separated phase indices")
+    parser.add_argument("--samples", type=int, default=SAMPLES)
+    parser.add_argument("--device", default="GPU", choices=("GPU", "CPU"))
     return parser.parse_args(argv)
 
 
-def clear_scene():
+def clear_scene(samples=SAMPLES, device="GPU"):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     scene.render.engine = "CYCLES"
-    scene.cycles.samples = 48
+    scene.cycles.samples = samples
     scene.cycles.use_denoising = True
     scene.render.film_transparent = True
     scene.view_settings.view_transform = "Standard"
+    if device == "CPU":
+        scene.cycles.device = "CPU"
+        return
     try:
         scene.cycles.device = "GPU"
         prefs = bpy.context.preferences.addons["cycles"].preferences
@@ -687,7 +693,7 @@ def main():
 
     for name in names:
         for phase in phases:
-            clear_scene()
+            clear_scene(args.samples, args.device)
             spec = MODELS[name](phase)
             add_ground()
             path, resolution = render_phase(name, spec, phase, out_dir)

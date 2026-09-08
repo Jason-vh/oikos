@@ -87,16 +87,22 @@ cursor lands on the surface you can actually see.
 ## Asset pipeline
 
 ```bash
-npm run render   # Blender: renders each model at 4x across 7 sun phases
+npm run render   # Blender: renders each model at 2x across 7 sun phases (~1.5 min)
 npm run pack     # Pillow: downsamples, trims, packs, computes anchors
 
 # iterate on one thing without re-rendering the rest
 blender --background --python pipeline/iso_render.py -- --out pipeline/out \
-  --only house-2,granary --phases 6
+  --only house-2,granary --phases 6 --samples 8
 ```
 
 `--only` and `--phases` merge into the existing manifest, so a night-lighting tweak
 is seconds rather than minutes.
+
+Renders are Cycles on the GPU at `SUPERSAMPLE = 2`, `SAMPLES = 16`. Both were 4x/48:
+at final sprite size the difference is a mean of 0.3/255, and the full run went from
+22 minutes to 1m40s. Rendering several models in parallel processes is *slower* than
+one sequential process — they contend for the same GPU. `--samples` and `--device`
+override per run.
 
 ```bash
 python3 pipeline/sheet.py 2 /tmp/sheet.png            # every sprite over its tile diamond
