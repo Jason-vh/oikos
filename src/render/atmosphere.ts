@@ -87,11 +87,12 @@ function ambientFor(progress: number): Ambient {
   if (progress >= DAYLIGHT_FRACTION) {
     const nightProgress = (progress - DAYLIGHT_FRACTION) / (1 - DAYLIGHT_FRACTION);
     const depth = Math.sin(nightProgress * Math.PI);
+    const dusk = Math.max(0, 1 - nightProgress * 3);
     return {
-      red: 0.72 - 0.08 * depth,
-      green: 0.74 - 0.06 * depth,
-      blue: 0.9 - 0.03 * depth,
-      brightness: 0.6 - 0.1 * depth,
+      red: 0.5 - 0.14 * depth + 0.34 * dusk,
+      green: 0.56 - 0.14 * depth + 0.14 * dusk,
+      blue: 0.98 - 0.02 * depth - 0.1 * dusk,
+      brightness: 0.58 - 0.1 * depth + 0.14 * dusk,
     };
   }
 
@@ -100,9 +101,9 @@ function ambientFor(progress: number): Ambient {
   const warmth = 1 - altitude;
 
   return {
-    red: 0.82 + 0.2 * altitude + 0.16 * warmth,
-    green: 0.78 + 0.24 * altitude + 0.02 * warmth,
-    blue: 0.74 + 0.28 * altitude - 0.14 * warmth,
-    brightness: 0.82 + 0.24 * altitude,
+    red: 0.9 + 0.18 * altitude + 0.14 * warmth,
+    green: 0.82 + 0.22 * altitude - 0.06 * warmth,
+    blue: 0.68 + 0.24 * altitude - 0.02 * warmth,
+    brightness: 0.84 + 0.24 * altitude,
   };
 }
