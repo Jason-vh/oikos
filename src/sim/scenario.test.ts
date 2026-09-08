@@ -25,6 +25,7 @@ const scenario: Scenario = {
     { kind: 'production', good: 'oil', target: 6 },
   ],
   invasions: [],
+  events: [],
 };
 
 describe('goals', () => {

@@ -6,6 +6,7 @@ import { TAX_RATES } from '../sim/taxation';
 import { GODS, GOD_KINDS, moodName } from '../sim/gods';
 import { UNITS, companiesIn, type UnitKind } from '../sim/military';
 import { DIFFICULTIES } from '../sim/difficulty';
+import { describeRequest } from '../sim/events';
 import { CAMPAIGN } from '../sim/scenario';
 import type { BuildingKind } from '../sim/types';
 import { abandonCity } from '../sim/save';
@@ -49,6 +50,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
         <span class="cartouche" data-field="date"></span>
         ${renderMenu('treasury', 'treasury', financeMenu())}
         ${renderMenu('people', '', peopleMenu())}
+        ${renderMenu('requests', '', '<div data-requests></div>')}
         ${renderMenu('army', '', armyMenu())}
         ${renderMenu('trade', '', tradeMenu())}
         ${renderMenu('gods', '', godsMenu())}
@@ -219,6 +221,8 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       field('date').textContent = world.dateLabel;
       field('treasury').innerHTML = money(world.treasury);
       field('speed').textContent = speedLabel(game.speed);
+      field('requests').textContent = requestsLabel(world);
+      renderRequests(hud, world, game);
       field('army').textContent = armyLabel(world);
       for (const kind of Object.keys(UNITS) as UnitKind[]) {
         field(`army-${kind}`).textContent = `${world.army[kind]} compan${world.army[kind] === 1 ? 'y' : 'ies'}`;
@@ -356,6 +360,34 @@ function groupFor(kind: string): string {
   if (kind === 'palace' || kind === 'taxOffice' || kind === 'tradingPost') return 'Government';
   if (kind.startsWith('sanctuary')) return 'Mythology';
   return 'Services';
+}
+
+function requestsLabel(world: Game['world']): string {
+  if (world.requests.length === 0) return `Standing ${world.standing}`;
+  return `${world.requests.length} request${world.requests.length > 1 ? 's' : ''}`;
+}
+
+function renderRequests(hud: HTMLElement, world: Game['world'], game: Game): void {
+  const host = hud.querySelector('[data-requests]') as HTMLElement;
+  const rows = world.requests
+    .map(
+      (request, index) =>
+        `<button class="choice" data-request="${index}"><span>${describeRequest(request)}</span><b>${request.reward} ${COIN}</b></button>`,
+    )
+    .join('');
+  const note = `<p class="dropdown-note">Standing with the world: ${world.standing} of 100.</p>`;
+  const empty = '<p class="dropdown-note">No city asks anything of you.</p>';
+  const markup = (rows === '' ? empty : rows) + note;
+
+  if (host.innerHTML === markup) return;
+  host.innerHTML = markup;
+  host.querySelectorAll<HTMLButtonElement>('[data-request]').forEach((element) => {
+    element.addEventListener('click', () => {
+      if (!game.world.fulfilRequest(Number(element.dataset.request))) {
+        game.world.log('The city has not the goods to send.');
+      }
+    });
+  });
 }
 
 function armyLabel(world: Game['world']): string {

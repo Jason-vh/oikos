@@ -1,4 +1,5 @@
 import { HOUSE_TIERS } from './buildings';
+import type { CityEvent } from './events';
 import type { Invasion } from './military';
 import type { Good } from './types';
 
@@ -16,6 +17,7 @@ export interface Scenario {
   blurb: string;
   goals: Goal[];
   invasions: Invasion[];
+  events: CityEvent[];
 }
 
 export interface CitySnapshot {
@@ -49,6 +51,10 @@ export const CAMPAIGN: Scenario[] = [
       { kind: 'treasury', target: 3000 },
     ],
     invasions: [{ year: -494, nation: 'Thessalians', companies: 2 }],
+    events: [
+      { year: -497, kind: 'gift', city: 'Corinth', reward: 500 },
+      { year: -493, kind: 'request', city: 'Mycenae', good: 'food', cartloads: 8, reward: 600, months: 12 },
+    ],
   },
   {
     name: 'The Oil of Corinth',
@@ -63,6 +69,10 @@ export const CAMPAIGN: Scenario[] = [
       { year: -492, nation: 'Thessalians', companies: 3 },
       { year: -487, nation: 'Trojans', companies: 6 },
     ],
+    events: [
+      { year: -495, kind: 'request', city: 'Knossos', good: 'oil', cartloads: 10, reward: 900, months: 12 },
+      { year: -489, kind: 'earthquake', city: 'Corinth' },
+    ],
   },
   {
     name: 'The Sanctuaries of Delphi',
@@ -75,6 +85,10 @@ export const CAMPAIGN: Scenario[] = [
     invasions: [
       { year: -490, nation: 'Persians', companies: 5 },
       { year: -486, nation: 'Persians', companies: 9 },
+    ],
+    events: [
+      { year: -494, kind: 'request', city: 'Troy', good: 'oil', cartloads: 14, reward: 1200, months: 10 },
+      { year: -488, kind: 'gift', city: 'Delphi', reward: 1500 },
     ],
   },
   {
@@ -90,6 +104,11 @@ export const CAMPAIGN: Scenario[] = [
       { year: -493, nation: 'Trojans', companies: 6 },
       { year: -489, nation: 'Persians', companies: 12 },
       { year: -484, nation: 'Persians', companies: 18 },
+    ],
+    events: [
+      { year: -496, kind: 'request', city: 'Corinth', good: 'food', cartloads: 16, reward: 1400, months: 12 },
+      { year: -491, kind: 'earthquake', city: 'Mycenae' },
+      { year: -486, kind: 'gift', city: 'Knossos', reward: 2000 },
     ],
   },
 ];

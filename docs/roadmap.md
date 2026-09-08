@@ -486,14 +486,17 @@ Sustained debt loses the episode.
 good price for a small quota and a poor one for a large; Mycenae and Troy sell grain.
 A route is an order the player opens, and a manned trading post carries it out each
 month — oil carted in leaves, bought grain lands there and the agora fetches it like
-a granary. Relationships, goodwill, requests, tribute, travel time and the world map
-are not started.
+a granary. A scenario also carries events: a city may ask for a number of cartloads
+within a deadline, paying a reward and raising your standing when the goods go out,
+and taking standing when the months run out; another may simply send a gift. Cities
+as places, relationships, tribute, travel time and the world map are not started.
 
 **Natural disasters**: earthquake (permanent crevices, bridgeable by road), tidal
 wave (temporary) vs flood (permanent), lava (destroys land forever), landslide,
 sink land (up to 5 tiles of coast).
 
-⬜ All.
+🟡 An earthquake event razes five buildings. Crevices, floods, lava, landslides and
+sinking coast are not started.
 
 ---
 
@@ -540,8 +543,9 @@ per-episode text, MP3 briefings).
 Corinth, Delphi and Mycenae, each with its own goals, blurb and invasions. Goals now
 cover population, treasury, housing level, yearly production, sanctuaries, companies
 and trading partners; meeting them all offers the next city, and two years in debt
-ends the rule. Adventures, colonies, ratings, the event system and the editor are not
-started.
+ends the rule. Events cover requests, gifts, earthquakes and invasions, each fixed to
+a year. Adventures, colonies, ratings, recurring and triggered events, and the editor
+are not started.
 
 ---
 

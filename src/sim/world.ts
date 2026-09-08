@@ -36,6 +36,13 @@ import {
 } from './scenario';
 import { DEFAULT_DIFFICULTY, costAt } from './difficulty';
 import { DEFAULT_TAX_RATE, collectTax, type TaxReport } from './taxation';
+import {
+  BROKEN_PROMISE_STANDING,
+  REQUEST_STANDING,
+  ageRequests,
+  requestFrom,
+  type Request,
+} from './events';
 import { NO_TRADE, TRADE_ROUTES, newTradeOrders, trade, type TradeReport } from './trade';
 import { NO_ARMY, companiesIn, fightInvasion, musterArmy, type Army, type Battle } from './military';
 import { TICKS_PER_MONTH } from './time';
@@ -56,6 +63,8 @@ const COLLEGE_SPAWN_INTERVAL = 90;
 const MAINTENANCE_SPAWN_INTERVAL = 70;
 const STAGGERED_RISK = 40;
 const INVASION_MONTH = 6;
+const EVENT_MONTH = 2;
+const EARTHQUAKE_BUILDINGS = 5;
 const MONTHS_OF_DEBT_ALLOWED = 24;
 const PLUNDER_PER_COMPANY = 250;
 const HADES_GIFT = 600;
@@ -99,6 +108,8 @@ export class World {
   tradeOrders: Record<string, boolean> = newTradeOrders();
   trade: TradeReport = NO_TRADE;
   army: Army = { ...NO_ARMY };
+  requests: Request[] = [];
+  standing = 50;
   lastBattle: Battle | null = null;
   scenario: Scenario = DEFAULT_SCENARIO;
   episode = 0;
@@ -336,6 +347,7 @@ export class World {
     });
     this.migrate();
     this.army = musterArmy(this.buildings.values(), this.has('palace'));
+    this.answerTheWorld();
     this.defendCity();
     this.sufferAfflictions();
     this.attendGods();
@@ -421,6 +433,63 @@ export class World {
 
     this.trade = posts.length === 0 ? NO_TRADE : trade(posts, this.tradeOrders, this.treasury);
     this.treasury += this.trade.earned - this.trade.spent;
+  }
+
+  private answerTheWorld(): void {
+    const { live, expired } = ageRequests(this.requests);
+    this.requests = live;
+
+    for (const request of expired) {
+      this.standing = Math.max(0, this.standing - BROKEN_PROMISE_STANDING);
+      this.log(`${request.city} waited in vain for ${request.good}.`);
+    }
+
+    for (const event of this.scenario.events) {
+      if (event.year !== this.year || this.month !== EVENT_MONTH) continue;
+
+      if (event.kind === 'request') {
+        this.requests.push(requestFrom(event));
+        this.log(`${event.city} asks the city for ${event.cartloads} ${event.good}.`);
+      }
+      if (event.kind === 'gift') {
+        this.treasury += event.reward ?? 0;
+        this.log(`${event.city} sends a gift of ${event.reward} drachmas.`);
+      }
+      if (event.kind === 'earthquake') this.shakeTheGround();
+    }
+  }
+
+  private shakeTheGround(): void {
+    for (let razed = 0; razed < EARTHQUAKE_BUILDINGS; razed++) {
+      const victim = this.randomBuilding();
+      if (victim) this.demolish(victim.x, victim.y);
+    }
+    this.log('An earthquake shakes the city, Archon.');
+  }
+
+  fulfilRequest(index: number): boolean {
+    const request = this.requests[index];
+    if (!request) return false;
+
+    const sources = [...this.buildings.values()].filter(
+      (building) => BUILDINGS[building.kind].accepts === request.good || BUILDINGS[building.kind].supplies === request.good,
+    );
+    const available = sources.reduce((total, building) => total + building.stock[request.good], 0);
+    if (available < request.cartloads) return false;
+
+    let owed = request.cartloads;
+    for (const building of sources) {
+      const taken = Math.min(owed, building.stock[request.good]);
+      building.stock[request.good] -= taken;
+      owed -= taken;
+      if (owed === 0) break;
+    }
+
+    this.treasury += request.reward;
+    this.standing = Math.min(100, this.standing + REQUEST_STANDING);
+    this.requests.splice(index, 1);
+    this.log(`${request.city} thanks you, and sends ${request.reward} drachmas.`);
+    return true;
   }
 
   private defendCity(): void {
