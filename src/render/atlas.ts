@@ -460,9 +460,17 @@ function drawWater(
   const cx = x + width / 2;
   const cy = y + height / 2;
   const phase = (frame / WATER_FRAMES) * Math.PI * 2;
+  const EDGE_MARGIN = 3;
 
   ctx.save();
   diamondPath(ctx, cx, cy, HALF_W, HALF_H);
+  ctx.clip();
+  ctx.fillStyle = css(0x1f7f8a);
+  ctx.fillRect(x, y, width, height);
+  ctx.restore();
+
+  ctx.save();
+  diamondPath(ctx, cx, cy, HALF_W - EDGE_MARGIN, HALF_H - EDGE_MARGIN);
   ctx.clip();
 
   const gradient = ctx.createLinearGradient(0, cy - HALF_H, 0, cy + HALF_H);
@@ -489,7 +497,7 @@ function drawWater(
     const t = phase + i * 1.6;
     ctx.fillStyle = `rgba(255,255,255,${0.06 + 0.14 * Math.abs(Math.sin(t))})`;
     ctx.beginPath();
-    ctx.ellipse(cx + Math.cos(t) * HALF_W * 0.6, cy + Math.sin(t * 1.3) * HALF_H * 0.55, 4, 1.4, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + Math.cos(t) * HALF_W * 0.55, cy + Math.sin(t * 1.3) * HALF_H * 0.5, 4, 1.4, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 

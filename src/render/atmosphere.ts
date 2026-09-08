@@ -101,9 +101,9 @@ function ambientFor(progress: number): Ambient {
   const warmth = 1 - altitude;
 
   return {
-    red: 0.9 + 0.18 * altitude + 0.2 * warmth,
-    green: 0.82 + 0.22 * altitude + 0.04 * warmth,
-    blue: 0.68 + 0.24 * altitude - 0.18 * warmth,
+    red: 0.9 + 0.18 * altitude + 0.14 * warmth,
+    green: 0.82 + 0.22 * altitude - 0.06 * warmth,
+    blue: 0.68 + 0.24 * altitude - 0.02 * warmth,
     brightness: 0.84 + 0.24 * altitude,
   };
 }
