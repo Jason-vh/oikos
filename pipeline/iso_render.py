@@ -188,6 +188,11 @@ def square_radius(half_side):
     return half_side * math.sqrt(2)
 
 
+def add_eaves(name, half_side, z, mat):
+    """Thin slab under the roof edge so the overhang reads from below."""
+    return add_box(name, (0, 0, z - 0.0125), (half_side * 2, half_side * 2, 0.025), mat)
+
+
 def add_hip_roof(name, centre, half_side, depth, mat, ridge_half=0.08):
     """A pyramid roof flattened at the peak — reads as a hip roof, not a shack point."""
     bpy.ops.mesh.primitive_cone_add(
@@ -379,7 +384,9 @@ def build_house_2(phase):
 
     roof_z = 0.05 + wall_h + 0.03
     roof_h = 0.22
-    add_hip_roof("roof", (0, 0, roof_z + roof_h / 2), half + 0.04, roof_h, terracotta, ridge_half=0.1)
+    eave = half + 0.09
+    add_eaves("eaves", eave, roof_z, wood)
+    add_hip_roof("roof", (0, 0, roof_z + roof_h / 2), eave, roof_h, terracotta, ridge_half=0.1)
     add_box("ridge", (0, 0, roof_z + roof_h + 0.01), (0.22, 0.05, 0.03), terracotta)
     add_box("chimney", (-0.16, 0.16, roof_z + roof_h - 0.02), (0.07, 0.07, 0.2), brick)
 
@@ -414,7 +421,9 @@ def build_house_3(phase):
 
     roof_z = 0.06 + wall_h + 0.04
     roof_h = 0.18
-    add_hip_roof("roof", (0, 0, roof_z + roof_h / 2), half + 0.04, roof_h, terracotta, ridge_half=0.14)
+    eave = half + 0.09
+    add_eaves("eaves", eave, roof_z, wood)
+    add_hip_roof("roof", (0, 0, roof_z + roof_h / 2), eave, roof_h, terracotta, ridge_half=0.14)
     add_box("clerestory", (0, 0, roof_z + roof_h + 0.06), (0.22, 0.22, 0.12), whitewash)
     add_box("chimney", (-0.2, 0.2, roof_z + roof_h * 0.45 + 0.1), (0.07, 0.07, 0.24), brick)
     add_hip_roof("clerestory_roof", (0, 0, roof_z + roof_h + 0.12 + 0.04), 0.15, 0.08, terracotta, ridge_half=0.03)
