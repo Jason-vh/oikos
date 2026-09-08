@@ -7,6 +7,7 @@ import type { TileAtlas } from './atlas';
 import type { BakedStructures } from './baked';
 import { DecorLayer } from './decor';
 import { TILE_WIDTH, depthOf, footprintAnchor, tileToScreen } from './iso';
+import { Gulls } from './gulls';
 import { Particles } from './particles';
 import { TerrainLayer } from './terrain';
 import {
@@ -46,6 +47,7 @@ export class Scene {
   private readonly terrain: TerrainLayer;
   private readonly decor: DecorLayer;
   private readonly particles: Particles;
+  private readonly gulls: Gulls;
   private readonly overlayTiles = new Container();
   private readonly structures = new Container();
   private readonly buildingSprites = new Map<number, BuildingEntry>();
@@ -65,6 +67,7 @@ export class Scene {
     this.textures = textures;
     this.terrain = new TerrainLayer(world, atlas);
     this.particles = new Particles(textures);
+    this.gulls = new Gulls(world, textures);
 
     this.structures.sortableChildren = true;
     this.decor = new DecorLayer(world, textures, this.structures);
@@ -74,6 +77,7 @@ export class Scene {
       this.overlayTiles,
       this.structures,
       this.particles.container,
+      this.gulls.container,
       this.cursor,
     );
     this.buildOverlay();
@@ -114,6 +118,7 @@ export class Scene {
     this.syncWalkers();
     this.emitParticles();
     this.particles.update(deltaMs);
+    this.gulls.update(deltaMs);
   }
 
   private buildOverlay(): void {

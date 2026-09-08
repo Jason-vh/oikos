@@ -55,6 +55,7 @@ const CITIZEN_LOOKS = [
 export const WALKER_LOOKS = CITIZEN_LOOKS.length;
 
 export const WALKER_FRAMES = 4;
+export const GULL_FRAMES = 3;
 
 const FOOTPRINT_INSET: Record<BuildingKind, number> = {
   house: 0.82,
@@ -73,6 +74,14 @@ export class TextureCache {
     return this.cache(`walker:${kind}:${look}:${direction}:${frame}`, () => {
       const surface = createSurface(40, 56);
       drawWalker(surface, kind, look, direction, frame);
+      return surface;
+    });
+  }
+
+  gull(frame: number): Texture {
+    return this.cache(`gull:${frame}`, () => {
+      const surface = createSurface(24, 14);
+      drawGull(surface, frame);
       return surface;
     });
   }
@@ -562,6 +571,30 @@ function drawStatue(
   ctx.beginPath();
   ctx.moveTo(cx - 5, top - 10);
   ctx.lineTo(cx - 2, top - 30);
+  ctx.stroke();
+}
+
+function drawGull(surface: DrawSurface, frame: number): void {
+  const { ctx } = surface;
+  const cx = 12;
+  const cy = 8;
+  const lift = [-4, 0, 3][frame % GULL_FRAMES];
+
+  ctx.lineWidth = 1.8;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#f6f3ea';
+  ctx.beginPath();
+  ctx.moveTo(cx - 10, cy + lift);
+  ctx.quadraticCurveTo(cx - 5, cy - 1 + lift * 0.4, cx, cy);
+  ctx.quadraticCurveTo(cx + 5, cy - 1 + lift * 0.4, cx + 10, cy + lift);
+  ctx.stroke();
+
+  ctx.strokeStyle = '#4a4640';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(cx - 10, cy + lift + 1);
+  ctx.quadraticCurveTo(cx - 5, cy + lift * 0.4, cx, cy + 1);
+  ctx.quadraticCurveTo(cx + 5, cy + lift * 0.4, cx + 10, cy + lift + 1);
   ctx.stroke();
 }
 
