@@ -1,12 +1,14 @@
 import { Container, Matrix, Sprite } from 'pixi.js';
 import { TERRAIN_WATER } from '../sim/grid';
 import type { World } from '../sim/world';
-import { TERRAIN_PRIORITY, TERRAIN_VARIANTS, ROAD_VARIANTS, WATER_FRAMES, TileAtlas } from './atlas';
+import { CLIFF_VARIANTS, TERRAIN_PRIORITY, TERRAIN_VARIANTS, ROAD_VARIANTS, WATER_FRAMES, TileAtlas } from './atlas';
 import type { BlendDirection } from './atlas';
 import { shade } from './canvas';
 import { ELEVATION_STEP, TILE_HEIGHT, TILE_WIDTH, tileToScreen } from './iso';
 
 const WATER_FRAME_MS = 150;
+const RIM_LIFT = 9;
+const BAND_HEIGHT = ELEVATION_STEP + 4;
 const HALF_W = TILE_WIDTH / 2;
 const HALF_H = TILE_HEIGHT / 2;
 
@@ -165,13 +167,13 @@ export class TerrainLayer {
         neighbour: { x: x + 1, y },
         origin: { x: screen.x + HALF_W, y: screen.y },
         span: { x: -HALF_W, y: HALF_H },
-        texture: this.atlas.cliff('right'),
+        face: 'right' as const,
       },
       {
         neighbour: { x, y: y + 1 },
         origin: { x: screen.x - HALF_W, y: screen.y },
         span: { x: HALF_W, y: HALF_H },
-        texture: this.atlas.cliff('left'),
+        face: 'left' as const,
       },
     ];
 
@@ -182,22 +184,40 @@ export class TerrainLayer {
       const drop = (height - neighbourHeight) * ELEVATION_STEP;
       if (drop <= 0) continue;
 
-      const sprite = new Sprite(face.texture);
-      const width = sprite.texture.frame.width;
-      const heightPixels = sprite.texture.frame.height;
-      sprite.setFromMatrix(
-        new Matrix(
-          face.span.x / width,
-          face.span.y / width,
-          0,
-          drop / heightPixels,
-          face.origin.x,
-          face.origin.y,
-        ),
+      const levels = Math.round(drop / ELEVATION_STEP);
+      for (let level = 0; level < levels; level++) {
+        const band = new Sprite(this.atlas.cliff(face.face, variantOf(x + level, y, CLIFF_VARIANTS)));
+        band.setFromMatrix(
+          this.cliffMatrix(face.origin, face.span, band.texture.frame, BAND_HEIGHT, -level * ELEVATION_STEP),
+        );
+        band.zIndex = depth + 2 + level;
+        sprites.push(band);
+      }
+
+      const rim = new Sprite(this.atlas.cliffRim(face.face, variantOf(x, y, CLIFF_VARIANTS)));
+      rim.setFromMatrix(
+        this.cliffMatrix(face.origin, face.span, rim.texture.frame, rim.texture.frame.height, RIM_LIFT),
       );
-      sprite.zIndex = depth + 2;
-      sprites.push(sprite);
+      rim.zIndex = depth + 2 + levels;
+      sprites.push(rim);
     }
+  }
+
+  private cliffMatrix(
+    origin: { x: number; y: number },
+    span: { x: number; y: number },
+    frame: { width: number; height: number },
+    drawnHeight: number,
+    lift: number,
+  ): Matrix {
+    return new Matrix(
+      span.x / frame.width,
+      span.y / frame.width,
+      0,
+      drawnHeight / frame.height,
+      origin.x,
+      origin.y - lift,
+    );
   }
 
   private clearTile(index: number): void {

@@ -134,10 +134,16 @@ Body and shadow are baked as **separate sprites** so a shadow can be drawn in it
 own layer beneath every building. In one sprite a long shadow paints over the
 neighbour it should fall behind.
 
-Elevation is a real terrain layer: tiles are offset vertically, cliff faces are
-drawn as affine-transformed rock sprites down to each lower neighbour, buildings
-require level ground, and picking walks height levels from high to low so the
-cursor lands on the surface you can actually see.
+Elevation is a real terrain layer: tiles are offset vertically, buildings require
+level ground, and picking walks height levels from high to low so the cursor lands
+on the surface you can actually see.
+
+A drop is read from its rocks, as in the original. Each level of a cliff face is one
+**band of boulders** — sheared along the edge but never stretched, so a two-level
+drop stacks two bands rather than smearing one — and a rim of larger rocks and grass
+tufts straddles the lip. Rock terrain, which cannot be built on, carries the same
+stones scattered loose and outcrops of five boulders where the map generator clusters
+them.
 
 ## Asset pipeline
 

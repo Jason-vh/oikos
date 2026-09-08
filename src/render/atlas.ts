@@ -14,7 +14,9 @@ const CELL_PAD = 6;
 const CELL_WIDTH = TILE_WIDTH + 4;
 const CELL_HEIGHT = TILE_HEIGHT + 4;
 const CLIFF_WIDTH = 72;
-const CLIFF_HEIGHT = 44;
+const CLIFF_BAND_HEIGHT = 30;
+const CLIFF_RIM_HEIGHT = 26;
+export const CLIFF_VARIANTS = 3;
 const ATLAS_MAX_WIDTH = 2048;
 
 const HALF_W = TILE_WIDTH / 2 + 0.75;
@@ -123,8 +125,12 @@ export class TileAtlas {
     return this.lookup(`shore:${direction}`);
   }
 
-  cliff(face: 'left' | 'right'): Texture {
-    return this.lookup(`cliff:${face}`);
+  cliff(face: 'left' | 'right', variant: number): Texture {
+    return this.lookup(`cliff:${face}:${variant % CLIFF_VARIANTS}`);
+  }
+
+  cliffRim(face: 'left' | 'right', variant: number): Texture {
+    return this.lookup(`cliffRim:${face}:${variant % CLIFF_VARIANTS}`);
   }
 
   marker(): Texture {
@@ -179,14 +185,25 @@ function defineCells(): Cell[] {
   });
 
   for (const face of ['left', 'right'] as const) {
-    cells.push({
-      key: `cliff:${face}`,
-      width: CLIFF_WIDTH,
-      height: CLIFF_HEIGHT,
-      draw: (ctx, x, y, w, h) => drawCliff(ctx, x, y, w, h, face === 'right' ? 1.06 : 0.74),
-      x: 0,
-      y: 0,
-    });
+    const light = face === 'right' ? 1.06 : 0.74;
+    for (let variant = 0; variant < CLIFF_VARIANTS; variant++) {
+      cells.push({
+        key: `cliff:${face}:${variant}`,
+        width: CLIFF_WIDTH,
+        height: CLIFF_BAND_HEIGHT,
+        draw: (ctx, x, y, w, h) => drawCliffBand(ctx, x, y, w, h, light, variant),
+        x: 0,
+        y: 0,
+      });
+      cells.push({
+        key: `cliffRim:${face}:${variant}`,
+        width: CLIFF_WIDTH,
+        height: CLIFF_RIM_HEIGHT,
+        draw: (ctx, x, y, w, h) => drawCliffRim(ctx, x, y, w, h, light, variant),
+        x: 0,
+        y: 0,
+      });
+    }
   }
 
   return cells;
@@ -332,22 +349,12 @@ function drawStones(
   width: number,
   height: number,
 ): void {
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 7; i++) {
     const sx = x + random() * width;
     const sy = y + random() * height;
-    const size = 3 + random() * 7;
-    polygonPath(ctx, [
-      sx, sy - size,
-      sx + size, sy - size * 0.2,
-      sx + size * 0.6, sy + size * 0.7,
-      sx - size * 0.7, sy + size * 0.4,
-      sx - size, sy - size * 0.4,
-    ]);
-    ctx.fillStyle = css(0xe0d9c6, 0.7);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(110,100,80,0.45)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    const halfWidth = 3 + random() * 5;
+    drawRock(ctx, random, sx, sy, halfWidth, halfWidth * (0.5 + random() * 0.4), 0.98 + random() * 0.08);
+    if (random() < 0.4) tuft(ctx, random, sx + halfWidth * 0.6, sy, 1);
   }
 }
 
@@ -592,61 +599,122 @@ function maskEdge(
   ctx.globalCompositeOperation = 'source-over';
 }
 
-function drawCliff(
+function drawCliffBand(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   width: number,
   height: number,
   light: number,
+  variant: number,
 ): void {
-  const random = createRandom(Math.round(light * 1000) + 31);
-  const shadowed = light < 1;
-  const base = shade(shadowed ? 0xdcd2b6 : 0xe8dfc6, light);
+  const random = createRandom(variant * 331 + Math.round(light * 100) + 7);
 
-  ctx.fillStyle = css(base);
+  ctx.fillStyle = css(shade(0x8b7f66, light * 0.8));
   ctx.fillRect(x, y, width, height);
 
-  for (let i = 0; i < 9; i++) {
-    const stratum = y + random() * height;
-    const bandTone = 0.8 + random() * 0.36;
-    ctx.fillStyle = css(shade(base, bandTone), 0.7);
-    ctx.fillRect(x, stratum, width, 2 + random() * 4);
-  }
-
-  for (let i = 0; i < 5; i++) {
-    const crackY = y + random() * height;
-    ctx.strokeStyle = shadowed ? 'rgba(120, 104, 76, 0.35)' : 'rgba(140, 122, 90, 0.28)';
-    ctx.lineWidth = 0.8 + random() * 0.6;
-    ctx.beginPath();
-    ctx.moveTo(x, crackY);
-    for (let px = 0; px <= width; px += 8) {
-      ctx.lineTo(x + px, crackY + Math.sin(px * 0.3 + i) * 1.4);
+  for (const row of [0.92, 0.5]) {
+    let stoneX = x - 12;
+    while (stoneX < x + width + 10) {
+      const big = random() < 0.45;
+      const halfWidth = big ? 11 + random() * 7 : 5 + random() * 4;
+      const rise = height * (big ? 0.62 + random() * 0.34 : 0.34 + random() * 0.26);
+      const baseY = y + height * row + (random() - 0.5) * 8;
+      drawRock(ctx, random, stoneX + halfWidth, baseY, halfWidth, rise, light * (0.92 + random() * 0.16));
+      if (random() < 0.22) tuft(ctx, random, stoneX + halfWidth, baseY + 1, light);
+      stoneX += halfWidth * (0.95 + random() * 0.5);
     }
-    ctx.stroke();
   }
-
-  speckle(ctx, random, { x, y, width, height }, 70, [shade(base, 0.82), shade(base, 1.12)], 1.5, 0.4);
-
-  const warmth = shadowed ? 'rgba(110, 92, 64, 0.1)' : 'rgba(255, 240, 205, 0.06)';
-  ctx.fillStyle = warmth;
-  ctx.fillRect(x, y, width, height);
 
   const occlusion = ctx.createLinearGradient(0, y, 0, y + height);
-  occlusion.addColorStop(0, 'rgba(0,0,0,0.01)');
-  occlusion.addColorStop(0.6, shadowed ? 'rgba(80,66,44,0.12)' : 'rgba(0,0,0,0.07)');
-  occlusion.addColorStop(1, shadowed ? 'rgba(70,58,38,0.22)' : 'rgba(0,0,0,0.16)');
+  occlusion.addColorStop(0, 'rgba(66, 55, 36, 0.16)');
+  occlusion.addColorStop(0.4, 'rgba(0,0,0,0)');
+  occlusion.addColorStop(1, 'rgba(66, 55, 36, 0.14)');
   ctx.fillStyle = occlusion;
   ctx.fillRect(x, y, width, height);
+}
 
-  const lip = ctx.createLinearGradient(0, y, 0, y + 4);
-  lip.addColorStop(0, 'rgba(96, 92, 48, 0.9)');
-  lip.addColorStop(1, 'rgba(96, 92, 48, 0)');
-  ctx.fillStyle = lip;
-  ctx.fillRect(x, y, width, 4);
+function drawCliffRim(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  light: number,
+  variant: number,
+): void {
+  const random = createRandom(variant * 617 + Math.round(light * 100));
+  const ground = y + height - 8;
 
-  ctx.fillStyle = 'rgba(40, 30, 20, 0.35)';
-  ctx.fillRect(x, y + height - 1, width, 1);
+  let stoneX = x - 6;
+  while (stoneX < x + width + 4) {
+    const big = random() < 0.45;
+    const halfWidth = big ? 9 + random() * 6 : 4 + random() * 3;
+    const rise = halfWidth * (0.6 + random() * 0.4);
+    const centreX = stoneX + halfWidth;
+    const baseY = ground + (random() - 0.5) * 5;
+
+    drawRock(ctx, random, centreX, baseY, halfWidth, rise, light * (0.92 + random() * 0.16));
+    if (random() < 0.35) tuft(ctx, random, centreX + halfWidth * 0.6, baseY + 2, light);
+    stoneX += halfWidth * (1.0 + random() * 0.5);
+  }
+}
+
+function drawRock(
+  ctx: CanvasRenderingContext2D,
+  random: () => number,
+  cx: number,
+  baseY: number,
+  halfWidth: number,
+  rise: number,
+  light: number,
+): void {
+  const lit = shade(0xfffbef, light);
+  const mid = shade(0xe4dcc2, light);
+  const dark = shade(0x9b8f74, light * 0.8);
+
+  const corners = 6;
+  const points: Array<[number, number]> = [];
+  for (let i = 0; i < corners; i++) {
+    const angle = Math.PI + (i / (corners - 1)) * Math.PI;
+    const wobble = 0.78 + random() * 0.26;
+    points.push([cx + Math.cos(angle) * halfWidth * wobble, baseY + Math.sin(angle) * rise * wobble]);
+  }
+
+  const gradient = ctx.createLinearGradient(cx - halfWidth, baseY - rise, cx + halfWidth * 0.7, baseY);
+  gradient.addColorStop(0, css(lit));
+  gradient.addColorStop(0.55, css(mid));
+  gradient.addColorStop(1, css(dark));
+
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.moveTo(cx - halfWidth, baseY + 1);
+  for (const [px, py] of points) ctx.lineTo(px, py);
+  ctx.lineTo(cx + halfWidth, baseY + 1);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = css(dark, 0.45);
+  ctx.lineWidth = 0.9;
+  ctx.stroke();
+}
+
+function tuft(
+  ctx: CanvasRenderingContext2D,
+  random: () => number,
+  cx: number,
+  baseY: number,
+  light: number,
+): void {
+  ctx.strokeStyle = css(shade(0x7d8b4a, light), 0.8);
+  ctx.lineWidth = 1.1;
+  for (let i = 0; i < 3; i++) {
+    const lean = (random() - 0.5) * 5;
+    ctx.beginPath();
+    ctx.moveTo(cx + lean * 0.3, baseY);
+    ctx.quadraticCurveTo(cx + lean, baseY - 4, cx + lean * 1.6, baseY - 7 - random() * 3);
+    ctx.stroke();
+  }
 }
 
 function drawMarker(

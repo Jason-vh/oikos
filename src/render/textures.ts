@@ -960,71 +960,85 @@ function drawScrub(variant: number): { surface: DrawSurface; baseY: number } {
 }
 
 function drawBoulder(variant: number): { surface: DrawSurface; baseY: number } {
-  const width = 54;
-  const height = 36;
+  const width = 96;
+  const height = 74;
   const surface = createSurface(width, height);
   const { ctx } = surface;
   const random = createRandom(variant * 511 + 19);
   const light = topLight(DECOR_SUN);
   const cx = width / 2;
-  const baseY = height - 6;
-  const halfWidth = 15 + random() * 4;
-  const rockHeight = 12 + random() * 3;
+  const baseY = height - 8;
 
-  castShadow(ctx, cx, baseY, halfWidth * 1.2, 4);
-  groundShadow(ctx, cx, baseY + 1, halfWidth * 0.9, 3.5);
+  castShadow(ctx, cx, baseY, 40, 7);
+  groundShadow(ctx, cx, baseY + 1, 26, 7);
 
-  const points: Array<[number, number]> = [];
-  const corners = 7;
-  for (let i = 0; i < corners; i++) {
-    const angle = Math.PI + (i / (corners - 1)) * Math.PI;
-    const wobble = 0.82 + random() * 0.18;
-    const px = cx + Math.cos(angle) * halfWidth * wobble;
-    const py = baseY - 1 + Math.sin(angle) * rockHeight * wobble;
-    points.push([px, py]);
+  const stones: Array<{ x: number; y: number; halfWidth: number; rise: number }> = [
+    { x: cx - 15 + random() * 6, y: baseY - 9 - random() * 4, halfWidth: 9 + random() * 4, rise: 13 + random() * 6 },
+    { x: cx + 10 + random() * 8, y: baseY - 7 - random() * 5, halfWidth: 11 + random() * 5, rise: 16 + random() * 8 },
+    { x: cx - 4 + random() * 8, y: baseY - 1, halfWidth: 14 + random() * 5, rise: 22 + random() * 10 },
+    { x: cx - 24 + random() * 6, y: baseY, halfWidth: 7 + random() * 4, rise: 9 + random() * 5 },
+    { x: cx + 22 + random() * 8, y: baseY + 1, halfWidth: 8 + random() * 4, rise: 10 + random() * 6 },
+  ];
+
+  for (const stone of stones) {
+    paintRock(ctx, random, stone.x, stone.y, stone.halfWidth, stone.rise, light * (0.92 + random() * 0.16));
   }
 
-  const lit = shade(0xb9ad92, light);
-  const mid = shade(0x9a8f76, light);
-  const dark = shade(0x6f6652, light * 0.8);
-
-  const gradient = ctx.createLinearGradient(cx - halfWidth, baseY - rockHeight, cx + halfWidth * 0.6, baseY);
-  gradient.addColorStop(0, css(lit));
-  gradient.addColorStop(0.5, css(mid));
-  gradient.addColorStop(1, css(dark));
-
-  ctx.fillStyle = gradient;
-  ctx.beginPath();
-  ctx.moveTo(cx - halfWidth * 0.95, baseY + 1);
-  for (const [px, py] of points) ctx.lineTo(px, py);
-  ctx.lineTo(cx + halfWidth * 0.95, baseY + 1);
-  ctx.closePath();
-  ctx.fill();
-
-  const ridge = points[Math.floor(corners / 2) - 1];
-  ctx.fillStyle = css(dark, 0.55);
-  ctx.beginPath();
-  ctx.moveTo(ridge[0], ridge[1]);
-  ctx.lineTo(cx + halfWidth * 0.95, baseY + 1);
-  ctx.lineTo(cx + halfWidth * 0.2, baseY + 1);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.strokeStyle = css(dark, 0.6);
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(cx - halfWidth * 0.95, baseY + 1);
-  for (const [px, py] of points) ctx.lineTo(px, py);
-  ctx.lineTo(cx + halfWidth * 0.95, baseY + 1);
-  ctx.stroke();
-
-  ctx.fillStyle = css(shade(0x6f7a3c, light), 0.85);
-  for (let i = 0; i < 4; i++) {
-    const tx = cx + (random() - 0.5) * halfWidth * 2;
+  ctx.fillStyle = css(shade(0x6f7a3c, light), 0.8);
+  for (let i = 0; i < 7; i++) {
+    const tx = cx + (random() - 0.5) * 62;
+    const ty = baseY + 1 - random() * 5;
     ctx.beginPath();
-    ctx.ellipse(tx, baseY + 1, 3, 1.6, 0, 0, Math.PI * 2);
+    ctx.ellipse(tx, ty, 3.5, 1.8, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
   return { surface, baseY };
+}
+
+function paintRock(
+  ctx: CanvasRenderingContext2D,
+  random: () => number,
+  cx: number,
+  baseY: number,
+  halfWidth: number,
+  rise: number,
+  light: number,
+): void {
+  const lit = shade(0xfffbef, light);
+  const mid = shade(0xe4dcc2, light);
+  const dark = shade(0x9b8f74, light * 0.8);
+
+  const corners = 7;
+  const points: Array<[number, number]> = [];
+  for (let i = 0; i < corners; i++) {
+    const angle = Math.PI + (i / (corners - 1)) * Math.PI;
+    const wobble = 0.76 + random() * 0.3;
+    points.push([cx + Math.cos(angle) * halfWidth * wobble, baseY + Math.sin(angle) * rise * wobble]);
+  }
+
+  const gradient = ctx.createLinearGradient(cx - halfWidth, baseY - rise, cx + halfWidth * 0.7, baseY);
+  gradient.addColorStop(0, css(lit));
+  gradient.addColorStop(0.55, css(mid));
+  gradient.addColorStop(1, css(dark));
+
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.moveTo(cx - halfWidth, baseY + 1);
+  for (const [px, py] of points) ctx.lineTo(px, py);
+  ctx.lineTo(cx + halfWidth, baseY + 1);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = css(dark, 0.55);
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.fillStyle = css(dark, 0.4);
+  ctx.beginPath();
+  ctx.moveTo(cx + halfWidth * 0.25, baseY - rise * 0.5);
+  ctx.lineTo(cx + halfWidth, baseY + 1);
+  ctx.lineTo(cx + halfWidth * 0.2, baseY + 1);
+  ctx.closePath();
+  ctx.fill();
 }
