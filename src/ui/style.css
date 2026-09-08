@@ -253,13 +253,12 @@ button.cartouche:hover {
 
 .coin {
   display: inline-block;
-  width: 0.85em;
-  height: 0.85em;
-  vertical-align: -0.08em;
-  border-radius: 50%;
-  background: radial-gradient(circle at 34% 30%, var(--gold-bright), var(--gold) 55%, var(--bronze-2) 100%);
-  box-shadow: inset 0 0 0 1px rgba(94, 60, 24, 0.55), inset 0 -1px 1px rgba(0, 0, 0, 0.35);
+  width: 0.95em;
+  height: 0.95em;
+  vertical-align: -0.12em;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><defs><linearGradient id='g' x1='0.2' y1='0' x2='0.8' y2='1'><stop offset='0' stop-color='%23fdf1c4'/><stop offset='0.5' stop-color='%23e0bd5c'/><stop offset='1' stop-color='%23c09338'/></linearGradient><linearGradient id='e' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='%23a9772f'/><stop offset='1' stop-color='%236b481a'/></linearGradient></defs><g transform='rotate(-15 8 8)'><path d='M 1.5 7.2 a 6.5 5.1 0 0 0 13.0 0 l 0 1.5 a 6.5 5.1 0 0 1 -13.0 0 z' fill='url(%23e)' stroke='%235e3c18' stroke-width='0.9' stroke-linejoin='round'/><ellipse cx='8' cy='7.2' rx='6.5' ry='5.1' fill='url(%23g)' stroke='%235e3c18' stroke-width='1'/><ellipse cx='8' cy='7.2' rx='3.8' ry='2.96' fill='none' stroke='%235e3c18' stroke-width='0.8' opacity='0.4'/></g></svg>") center/contain no-repeat;
 }
+
 
 .spacer {
   flex: 1;
