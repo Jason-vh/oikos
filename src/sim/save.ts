@@ -2,7 +2,7 @@ import type { Building } from './types';
 import { World } from './world';
 
 const STORAGE_KEY = 'zeus.city';
-const SAVE_VERSION = 2;
+const SAVE_VERSION = 3;
 
 export interface View {
   x: number;
@@ -21,13 +21,16 @@ interface SavedCity {
   year: number;
   buildings: Building[];
   roads: number[];
+  roadblocks: number[];
   view: View;
 }
 
 export function serialise(world: World, view: View): SavedCity {
   const roads: number[] = [];
+  const roadblocks: number[] = [];
   for (let tile = 0; tile < world.grid.road.length; tile++) {
     if (world.grid.road[tile] === 1) roads.push(tile);
+    if (world.grid.roadblock[tile] === 1) roadblocks.push(tile);
   }
 
   return {
@@ -41,6 +44,7 @@ export function serialise(world: World, view: View): SavedCity {
     year: world.year,
     buildings: [...world.buildings.values()],
     roads,
+    roadblocks,
     view,
   };
 }
@@ -54,6 +58,7 @@ export function deserialise(saved: SavedCity): World {
   world.year = saved.year;
 
   for (const tile of saved.roads) world.grid.road[tile] = 1;
+  for (const tile of saved.roadblocks) world.grid.roadblock[tile] = 1;
   for (const building of saved.buildings) world.restore({ ...building, walkerOut: false });
   world.settle();
   return world;

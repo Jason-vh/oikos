@@ -9,6 +9,7 @@ import { DecorLayer } from './decor';
 import { TILE_WIDTH, depthOf, footprintAnchor, tileToScreen } from './iso';
 import { Gulls } from './gulls';
 import { Particles } from './particles';
+import { RoadblockLayer } from './roadblocks';
 import { TerrainLayer } from './terrain';
 import {
   WALKER_FRAMES,
@@ -48,6 +49,7 @@ export class Scene {
   private readonly textures: TextureCache;
   private readonly terrain: TerrainLayer;
   private readonly decor: DecorLayer;
+  private readonly roadblocks: RoadblockLayer;
   private readonly particles: Particles;
   private readonly gulls: Gulls;
   private readonly overlayTiles = new Container();
@@ -75,6 +77,7 @@ export class Scene {
     this.shadows.sortableChildren = true;
     this.structures.sortableChildren = true;
     this.decor = new DecorLayer(world, textures, this.structures);
+    this.roadblocks = new RoadblockLayer(world, textures, this.structures);
     this.overlayTiles.visible = false;
     this.root.addChild(
       this.terrain.container,
@@ -113,6 +116,7 @@ export class Scene {
     this.terrain.rebuildTiles(changedTiles);
     this.terrain.update(deltaMs);
     this.decor.sync(changedTiles);
+    this.roadblocks.sync(changedTiles);
 
     if (this.syncedVersion !== this.world.structureVersion) {
       this.syncedVersion = this.world.structureVersion;

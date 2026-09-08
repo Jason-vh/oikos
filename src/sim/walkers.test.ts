@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { Grid } from './grid';
-import { exitTile, northOf } from './pathing';
+import { bfsRoute, exitTile, nextRoamTile, northOf } from './pathing';
 import { createBuilding } from './types';
 import { ROAM_RANGE, WALKER_SPEED } from './walkers';
 import { World } from './world';
@@ -48,6 +48,42 @@ describe('exit point', () => {
 
     expect(northOf(grid, fountain)).toBe(grid.index(4, 3));
     expect(northOf(new Grid(16), fountain)).toBe(-1);
+  });
+});
+
+describe('roadblocks', () => {
+  const straightRoad = (): Grid => {
+    const grid = new Grid(16);
+    for (let x = 0; x < 16; x++) grid.road[grid.index(x, 5)] = 1;
+    return grid;
+  };
+
+  test('turn a roaming walker back', () => {
+    const grid = straightRoad();
+    grid.roadblock[grid.index(9, 5)] = 1;
+
+    expect(nextRoamTile(grid, grid.index(8, 5), grid.index(7, 5))).toBe(grid.index(7, 5));
+  });
+
+  test('let a walker with a destination through', () => {
+    const grid = straightRoad();
+    grid.roadblock[grid.index(9, 5)] = 1;
+    const goal = grid.index(12, 5);
+
+    expect(bfsRoute(grid, grid.index(2, 5), (tile) => tile === goal)).toContain(grid.index(9, 5));
+  });
+
+  test('cost drachmas, sit only on roads, and come off with the demolish tool', () => {
+    const world = new World(24, 3);
+    for (let x = 2; x < 20; x++) world.grid.road[world.grid.index(x, 5)] = 1;
+
+    expect(world.canPlaceRoadblock(4, 6)).toBe(false);
+    expect(world.placeRoadblock(4, 5)).toBe(true);
+    expect(world.canPlaceRoadblock(4, 5)).toBe(false);
+
+    world.demolish(4, 5);
+    expect(world.grid.isRoadblock(world.grid.index(4, 5))).toBe(false);
+    expect(world.grid.isRoad(world.grid.index(4, 5))).toBe(true);
   });
 });
 

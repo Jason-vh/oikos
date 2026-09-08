@@ -1,5 +1,5 @@
 import { recomputeAppeal } from './appeal';
-import { BUILDINGS, ROAD_COST } from './buildings';
+import { BUILDINGS, ROADBLOCK_COST, ROAD_COST } from './buildings';
 import { Grid, NO_BUILDING, TERRAIN_MEADOW } from './grid';
 import { updateHouses } from './housing';
 import {
@@ -150,9 +150,30 @@ export class World {
     return true;
   }
 
+  canPlaceRoadblock(x: number, y: number): boolean {
+    if (!this.grid.contains(x, y)) return false;
+    const tile = this.grid.index(x, y);
+    return this.grid.isRoad(tile) && !this.grid.isRoadblock(tile) && this.treasury >= ROADBLOCK_COST;
+  }
+
+  placeRoadblock(x: number, y: number): boolean {
+    if (!this.canPlaceRoadblock(x, y)) return false;
+    const tile = this.grid.index(x, y);
+    this.grid.roadblock[tile] = 1;
+    this.treasury -= ROADBLOCK_COST;
+    this.markChanged([tile]);
+    return true;
+  }
+
   demolish(x: number, y: number): boolean {
     if (!this.grid.contains(x, y)) return false;
     const tile = this.grid.index(x, y);
+
+    if (this.grid.roadblock[tile] === 1) {
+      this.grid.roadblock[tile] = 0;
+      this.markChanged([tile]);
+      return true;
+    }
 
     if (this.grid.road[tile] === 1) {
       this.grid.road[tile] = 0;

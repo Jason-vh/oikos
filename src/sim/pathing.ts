@@ -78,7 +78,7 @@ function reconstruct(cameFrom: Map<number, number>, goal: number): number[] {
 }
 
 export function nextRoamTile(grid: Grid, current: number, previous: number): number {
-  const options = grid.neighbours(current).filter((tile) => grid.isRoad(tile));
+  const options = grid.neighbours(current).filter((tile) => grid.isRoad(tile) && !grid.isRoadblock(tile));
   if (options.length === 0) return -1;
   const forward = options.filter((tile) => tile !== previous);
   const pool = forward.length > 0 ? forward : options;

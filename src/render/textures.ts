@@ -119,12 +119,24 @@ export class TextureCache {
     });
   }
 
+  roadblock(): DecorSprite {
+    return this.decorSprite('roadblock', drawRoadblock);
+  }
+
   decor(kind: DecorKind, variant: number): DecorSprite {
-    const key = `${kind}:${variant}`;
+    return this.decorSprite(`${kind}:${variant}`, () => drawDecorSurface(kind, variant));
+  }
+
+  private decorSprite(key: string, draw: () => { surface: DrawSurface; baseY: number }): DecorSprite {
     const existing = this.decorSprites.get(key);
     if (existing) return existing;
 
-    const sprite = buildDecor(kind, variant);
+    const { surface, baseY } = draw();
+    const sprite: DecorSprite = {
+      texture: toTexture(surface),
+      anchorX: 0.5,
+      anchorY: baseY / surface.height,
+    };
     this.decorSprites.set(key, sprite);
     return sprite;
   }
@@ -726,9 +738,47 @@ function drawCart(ctx: CanvasRenderingContext2D, cx: number, feet: number, direc
 
 const DECOR_SUN = SUN;
 
-function buildDecor(kind: DecorKind, variant: number): DecorSprite {
-  const { surface, baseY } = drawDecorSurface(kind, variant);
-  return { texture: toTexture(surface), anchorX: 0.5, anchorY: baseY / surface.height };
+function drawRoadblock(): { surface: DrawSurface; baseY: number } {
+  const width = 84;
+  const height = 46;
+  const surface = createSurface(width, height);
+  const { ctx } = surface;
+  const light = topLight(DECOR_SUN);
+  const cx = width / 2;
+  const baseY = height - 8;
+  const span = 26;
+  const postTop = baseY - 24;
+
+  groundShadow(ctx, cx, baseY, 26, 7);
+
+  const timber = shade(0x8a6136, light);
+  const timberLit = shade(0xa9784a, light * 1.1);
+  const timberDark = shade(0x5f4326, light * 0.85);
+
+  for (const bar of [postTop + 5, postTop + 14]) {
+    ctx.fillStyle = css(timber);
+    ctx.beginPath();
+    ctx.moveTo(cx - span, bar + span * 0.5);
+    ctx.lineTo(cx + span, bar - span * 0.5);
+    ctx.lineTo(cx + span, bar - span * 0.5 + 5);
+    ctx.lineTo(cx - span, bar + span * 0.5 + 5);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = css(timberLit, 0.7);
+    ctx.fillRect(cx - span, bar + span * 0.5 - 1, 1, 1);
+  }
+
+  for (const side of [-1, 1]) {
+    const px = cx + side * span;
+    const py = baseY - side * span * 0.5;
+    ctx.fillStyle = css(timberDark);
+    ctx.fillRect(px - 3, py - 30, 6, 30);
+    ctx.fillStyle = css(timberLit);
+    ctx.fillRect(px - 3, py - 30, 2.5, 30);
+  }
+
+  return { surface, baseY };
 }
 
 function drawDecorSurface(kind: DecorKind, variant: number): { surface: DrawSurface; baseY: number } {

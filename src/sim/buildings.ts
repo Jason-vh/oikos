@@ -155,3 +155,5 @@ export const PLACEABLE: BuildingKind[] = ['house', 'wheatFarm', 'granary', 'foun
 export const LABOUR_PRIORITY: BuildingKind[] = ['wheatFarm', 'granary', 'fountain', 'statue', 'house'];
 
 export const ROAD_COST = 4;
+
+export const ROADBLOCK_COST = 8;

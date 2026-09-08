@@ -1,5 +1,5 @@
 import type { Game, Tool } from '../game';
-import { BUILDINGS, PLACEABLE, ROAD_COST } from '../sim/buildings';
+import { BUILDINGS, PLACEABLE, ROADBLOCK_COST, ROAD_COST } from '../sim/buildings';
 import { WAGE_LEVELS, type LabourReport } from '../sim/labour';
 import { abandonCity } from '../sim/save';
 
@@ -121,6 +121,14 @@ function toolButtons(): ToolButton[] {
 
   return [
     { label: 'Road', cost: ROAD_COST, hint: 'Per tile', shortcut: 'r', tool: { kind: 'road' }, group: 'Road' },
+    {
+      label: 'Roadblock',
+      cost: ROADBLOCK_COST,
+      hint: 'Roaming walkers turn back here; deliverymen pass',
+      shortcut: 'b',
+      tool: { kind: 'roadblock' },
+      group: 'Road',
+    },
     ...structures,
     { label: 'Demolish', cost: null, hint: 'Remove roads and buildings', shortcut: 'x', tool: { kind: 'demolish' }, group: 'Demolish' },
   ];
@@ -134,7 +142,7 @@ function groupFor(kind: string): string {
 
 function renderPanel(buttons: ToolButton[]): string {
   const headed = ['Housing', 'Food', 'Services'];
-  const road = buttons.findIndex((button) => button.group === 'Road');
+  const roads = buttons.map((button, index) => ({ button, index })).filter(({ button }) => button.group === 'Road');
   const demolish = buttons.findIndex((button) => button.group === 'Demolish');
 
   const sections = headed
@@ -152,7 +160,7 @@ function renderPanel(buttons: ToolButton[]): string {
     .join('');
 
   return `
-    ${renderButton(buttons[road], road)}
+    ${roads.map(({ button, index }) => renderButton(button, index)).join('')}
     ${sections}
     <div class="divider"></div>
     ${renderButton(buttons[demolish], demolish)}

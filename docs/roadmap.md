@@ -31,7 +31,7 @@ Status against this repo: ✅ shipped · 🟡 partial · ⬜ not started.
 | --- | --- | --- |
 | Isometric tile grid, elevation, terrain classes | ✅ | Zeus terrain classes: grass, meadow (purple tufts — farms/orchards/livestock only), rock, water, forest, and resource outcrops (silver, copper, orichalc, black marble, white marble) |
 | Roads as the only social network | ✅ | Road cost 2/2/3/4/5 by difficulty; clear land 1/2/2/2/3 |
-| Roaming and destination walkers | ✅ | Ranges, exit points and out-and-back patrols in `walkers.ts`; roadblocks still missing |
+| Roaming and destination walkers | ✅ | Ranges, exit points, out-and-back patrols and roadblocks |
 | Housing evolution | 🟡 | 4 tiers today; the game has 7 common + 4 elite |
 | Appeal ("desirability") field | ✅ | Band model in `src/sim/appeal.ts`; housing is a source, gates apply from the third tier up |
 | Build cost + treasury | 🟡 | Needs wages, taxes, trade, debt |
@@ -154,9 +154,9 @@ Rules worth reproducing exactly, because city layout is built on them:
   superintendents fighting fires.
 - Culture walkers switch mode: destination walker to their venue, roaming after.
 
-🟡 Ranges, the exit-point rule (with the fountain's due-north entry) and shortest-road
-returns are in. Roadblocks, gatehouses, off-road walkers and culture walkers switching
-mode are not.
+🟡 Ranges, the exit-point rule (with the fountain's due-north entry), shortest-road
+returns and roadblocks are in. Gatehouses, off-road walkers and culture walkers
+switching mode are not.
 
 ---
 

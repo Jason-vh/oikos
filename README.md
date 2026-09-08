@@ -19,14 +19,16 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
 | Right / middle drag | Pan |
 | WASD / arrows | Pan |
 | Wheel | Zoom |
-| `R`, `1`–`5`, `X` | Select tool |
+| `R`, `B`, `1`–`5`, `X` | Select tool |
 | `O` | Appeal overlay |
 | Space | Pause |
 
 ## What is simulated
 
 - **Terrain**: grass, meadow (farms only), sand, rock, water, over 5 elevation levels.
-- **Roads**: the only network. Everything social flows along it.
+- **Roads**: the only network. Everything social flows along it. A roadblock turns
+  roaming walkers back without stopping anyone walking to a destination, so a block
+  can be sealed off from wandering vendors while carts still reach it.
 - **Walkers**: they leave and re-enter their building by its *exit point* — the first
   road found clockwise from north of the footprint — except a fountain's carrier,
   which comes home to the tile due north. Roamers walk out their range (water carrier
@@ -50,7 +52,7 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
 
 ```
 src/sim/      headless simulation — no Pixi imports
-  grid.ts         typed-array layers (terrain, height, road, occupant, appeal)
+  grid.ts         typed-array layers (terrain, height, road, roadblock, occupant, appeal)
   world.ts        fixed 20 Hz tick, placement, production, changed-tile tracking
   walkers.ts      spawn + movement + service delivery
   pathing.ts      road BFS, exit points, roaming

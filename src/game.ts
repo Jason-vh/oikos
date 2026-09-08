@@ -16,6 +16,7 @@ import { World } from './sim/world';
 export type Tool =
   | { kind: 'inspect' }
   | { kind: 'road' }
+  | { kind: 'roadblock' }
   | { kind: 'demolish' }
   | { kind: 'build'; building: BuildingKind };
 
@@ -118,6 +119,7 @@ export class Game {
       return `${name}${describeStaff(building)}${describeBuildingState(building.kind, building.stock, building.supply)} · ${suffix}`;
     }
 
+    if (grid.isRoadblock(index)) return `Roadblock · turns roaming walkers back · ${suffix}`;
     if (grid.isRoad(index)) return `Road · ${suffix}`;
     return `${terrainName(grid.terrain[index])} · ${suffix}`;
   }
@@ -134,12 +136,17 @@ export class Game {
       this.world.demolish(tile.x, tile.y);
       return;
     }
+    if (this.tool.kind === 'roadblock') {
+      this.world.placeRoadblock(tile.x, tile.y);
+      return;
+    }
     if (this.tool.kind === 'build') this.tryBuild(tile);
   }
 
   private onDrag(tile: Point): void {
     this.hovered = tile;
     if (this.tool.kind === 'demolish') this.world.demolish(tile.x, tile.y);
+    if (this.tool.kind === 'roadblock') this.world.placeRoadblock(tile.x, tile.y);
     if (this.tool.kind === 'build' && BUILDINGS[this.tool.building].size === 1) this.tryBuild(tile);
   }
 
@@ -189,6 +196,12 @@ export class Game {
 
     if (this.tool.kind === 'demolish') {
       this.addTileMarker(this.hovered, 0xe07070);
+      return;
+    }
+
+    if (this.tool.kind === 'roadblock') {
+      const allowed = this.world.canPlaceRoadblock(this.hovered.x, this.hovered.y);
+      this.addTileMarker(this.hovered, allowed ? 0x8ce39a : 0xe07070);
       return;
     }
 
