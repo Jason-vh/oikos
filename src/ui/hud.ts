@@ -18,7 +18,7 @@ const SPEEDS = [
   { speed: 0, name: 'Paused' },
   { speed: 1, name: 'Steady' },
   { speed: 2, name: 'Brisk' },
-  { speed: 4, name: 'Headlong' },
+  { speed: 4, name: 'Yeet' },
 ];
 
 interface ToolButton {

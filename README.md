@@ -1,4 +1,4 @@
-# Zeus — Master of Olympus (web)
+# Zeus
 
 A browser city builder in the spirit of Impressions' *Zeus: Master of Olympus*.
 Isometric, tile-based, and built around the walker model that defines the original:
