@@ -2,12 +2,15 @@ export const TERRAIN_GRASS = 0;
 export const TERRAIN_MEADOW = 1;
 export const TERRAIN_WATER = 2;
 export const TERRAIN_ROCK = 3;
+export const TERRAIN_SAND = 4;
 
 export const NO_BUILDING = -1;
+export const MAX_HEIGHT = 4;
 
 export class Grid {
   readonly size: number;
   readonly terrain: Uint8Array;
+  readonly height: Uint8Array;
   readonly road: Uint8Array;
   readonly occupant: Int32Array;
   readonly desirability: Int16Array;
@@ -16,9 +19,30 @@ export class Grid {
     this.size = size;
     const cells = size * size;
     this.terrain = new Uint8Array(cells);
+    this.height = new Uint8Array(cells);
     this.road = new Uint8Array(cells);
     this.occupant = new Int32Array(cells).fill(NO_BUILDING);
     this.desirability = new Int16Array(cells);
+  }
+
+  heightAt(x: number, y: number): number {
+    if (!this.contains(x, y)) return 0;
+    return this.height[this.index(x, y)];
+  }
+
+  isFlat(x: number, y: number, size: number): boolean {
+    const reference = this.heightAt(x, y);
+    for (let dy = 0; dy < size; dy++) {
+      for (let dx = 0; dx < size; dx++) {
+        if (this.heightAt(x + dx, y + dy) !== reference) return false;
+      }
+    }
+    return true;
+  }
+
+  terrainAt(x: number, y: number): number {
+    if (!this.contains(x, y)) return -1;
+    return this.terrain[this.index(x, y)];
   }
 
   index(x: number, y: number): number {

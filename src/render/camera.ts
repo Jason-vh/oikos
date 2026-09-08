@@ -1,8 +1,8 @@
 import type { Container } from 'pixi.js';
-import { screenToTile, tileToScreen, type Point } from './iso';
+import { tileToScreen, type Point } from './iso';
 
-const MIN_SCALE = 0.35;
-const MAX_SCALE = 2.4;
+const MIN_SCALE = 0.22;
+const MAX_SCALE = 1.8;
 
 export class Camera {
   x = 0;
@@ -32,12 +32,6 @@ export class Camera {
       x: (screenX - this.x) / this.scale,
       y: (screenY - this.y) / this.scale,
     };
-  }
-
-  screenToTile(screenX: number, screenY: number): Point {
-    const world = this.screenToWorld(screenX, screenY);
-    const tile = screenToTile(world.x, world.y);
-    return { x: Math.floor(tile.x), y: Math.floor(tile.y) };
   }
 
   centreOnTile(tileX: number, tileY: number, viewWidth: number, viewHeight: number): void {

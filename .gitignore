@@ -1,4 +1,6 @@
 node_modules
 dist
-scripts/smoke.png
+scripts/shot-*.png
+scripts/atlas.png
+pipeline/out
 .DS_Store

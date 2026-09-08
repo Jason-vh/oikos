@@ -1,11 +1,13 @@
-import { Application, Sprite } from 'pixi.js';
+import { Application, Container, Sprite } from 'pixi.js';
+import { Atmosphere } from './render/atmosphere';
+import { TileAtlas } from './render/atlas';
 import { Camera } from './render/camera';
 import { attachKeyboardPan, attachPointerInput } from './render/input';
-import { footprintAnchor, tileToScreen, type Point } from './render/iso';
+import { footprintAnchor, pickTile, tileToScreen, type Point } from './render/iso';
 import { Scene, structureLook } from './render/scene';
 import { TextureCache } from './render/textures';
 import { BUILDINGS, HOUSE_TIERS, ROAD_COST } from './sim/buildings';
-import { TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_WATER } from './sim/grid';
+import { MAX_HEIGHT, TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_SAND, TERRAIN_WATER } from './sim/grid';
 import type { BuildingKind } from './sim/types';
 import { TICKS_PER_SECOND, World } from './sim/world';
 
@@ -23,11 +25,13 @@ export class Game {
   readonly world: World;
   readonly scene: Scene;
   readonly camera = new Camera();
+  readonly atmosphere: Atmosphere;
 
   tool: Tool = { kind: 'road' };
   speed = 1;
 
-  private readonly textures: TextureCache;
+  private readonly atlas: TileAtlas;
+  readonly textures: TextureCache;
   private readonly panKeyboard: () => void;
   private hovered: Point = { x: -1, y: -1 };
   private dragOrigin: Point | null = null;
@@ -36,19 +40,26 @@ export class Game {
 
   constructor(app: Application, seed = Math.floor(Math.random() * 1e9)) {
     this.world = new World(MAP_SIZE, seed);
-    this.textures = new TextureCache(app.renderer);
-    this.scene = new Scene(this.world, this.textures);
+    this.atlas = new TileAtlas();
+    this.textures = new TextureCache();
+    this.scene = new Scene(this.world, this.atlas, this.textures);
+    this.atmosphere = new Atmosphere(app, this.textures);
     this.panKeyboard = attachKeyboardPan(this.camera);
 
-    app.stage.addChild(this.scene.root);
+    const worldLayer = new Container();
+    worldLayer.addChild(this.scene.root);
+    app.stage.addChild(worldLayer, this.atmosphere.overlay);
+    this.atmosphere.attach(worldLayer);
+
+    this.camera.scale = 0.7;
     this.camera.centreOnTile(MAP_SIZE / 2, MAP_SIZE / 2, app.screen.width, app.screen.height);
 
     attachPointerInput(app.canvas, this.camera, {
       hover: (tile) => {
-        this.hovered = tile;
+        this.hovered = this.resolveTile(tile);
       },
-      press: (tile) => this.onPress(tile),
-      drag: (tile) => this.onDrag(tile),
+      press: (tile) => this.onPress(this.resolveTile(tile)),
+      drag: (tile) => this.onDrag(this.resolveTile(tile)),
       release: () => this.onRelease(),
       cancel: () => {
         this.dragOrigin = null;
@@ -68,9 +79,14 @@ export class Game {
     }
     if (steps === MAX_TICKS_PER_FRAME) this.accumulator = 0;
 
-    this.scene.sync();
+    this.atmosphere.update(this.world.tick);
+    this.scene.sync(deltaMs, this.atmosphere.sunPhase);
     this.updateCursor();
     this.camera.applyTo(this.scene.root);
+  }
+
+  resize(): void {
+    this.atmosphere.resize();
   }
 
   toggleDesirabilityOverlay(): void {
@@ -80,24 +96,27 @@ export class Game {
 
   describeHover(): string {
     const { x, y } = this.hovered;
-    if (!this.world.grid.contains(x, y)) return '—';
-
     const grid = this.world.grid;
+    if (!grid.contains(x, y)) return '—';
+
     const index = grid.index(x, y);
     const building = this.world.buildingAt(index);
-    const desirability = grid.desirability[index];
+    const suffix = `desirability ${grid.desirability[index]} · level ${grid.height[index]}`;
 
     if (building) {
       const name =
         building.kind === 'house'
           ? `${HOUSE_TIERS[building.tier].name} (${building.population})`
           : BUILDINGS[building.kind].name;
-      const detail = describeBuildingState(building.kind, building.stock, building.supply);
-      return `${name} · desirability ${desirability}${detail}`;
+      return `${name}${describeBuildingState(building.kind, building.stock, building.supply)} · ${suffix}`;
     }
 
-    if (grid.isRoad(index)) return `Road · desirability ${desirability}`;
-    return `${terrainName(grid.terrain[index])} · desirability ${desirability}`;
+    if (grid.isRoad(index)) return `Road · ${suffix}`;
+    return `${terrainName(grid.terrain[index])} · ${suffix}`;
+  }
+
+  private resolveTile(world: Point): Point {
+    return pickTile(world.x, world.y, (x, y) => this.world.grid.heightAt(x, y), MAX_HEIGHT);
   }
 
   private onPress(tile: Point): void {
@@ -156,20 +175,20 @@ export class Game {
     if (this.tool.kind === 'road') {
       const origin = this.dragOrigin ?? this.hovered;
       for (const tile of roadPath(origin, this.hovered)) {
-        this.addTileMarker(tile, this.world.canPlaceRoad(tile.x, tile.y) ? 0x7bd88f : 0xe06060);
+        this.addTileMarker(tile, this.world.canPlaceRoad(tile.x, tile.y) ? 0x8ce39a : 0xe07070);
       }
       return;
     }
 
     if (this.tool.kind === 'demolish') {
-      this.addTileMarker(this.hovered, 0xe06060);
+      this.addTileMarker(this.hovered, 0xe07070);
       return;
     }
 
     if (this.tool.kind === 'build') {
       const def = BUILDINGS[this.tool.building];
       const check = this.world.canPlace(this.tool.building, this.hovered.x, this.hovered.y);
-      const tint = check.ok ? 0x7bd88f : 0xe06060;
+      const tint = check.ok ? 0x8ce39a : 0xe07070;
 
       for (let dy = 0; dy < def.size; dy++) {
         for (let dx = 0; dx < def.size; dx++) {
@@ -177,27 +196,34 @@ export class Game {
         }
       }
 
-      const ghost = new Sprite(
-        this.textures.structure(this.tool.building, structureLook(this.tool.building)),
-      );
-      const anchor = footprintAnchor(this.hovered.x, this.hovered.y, def.size);
-      ghost.anchor.set(0.5, 1);
+      const structure = this.textures.structure({
+        ...structureLook(this.tool.building),
+        kind: this.tool.building,
+        variant: 0,
+        phase: this.atmosphere.sunPhase,
+      });
+      const ghost = new Sprite(structure.texture);
+      const height = this.world.grid.heightAt(this.hovered.x, this.hovered.y);
+      const anchor = footprintAnchor(this.hovered.x, this.hovered.y, def.size, height);
+      ghost.anchor.set(structure.anchorX, structure.anchorY);
       ghost.position.set(anchor.x, anchor.y);
-      ghost.alpha = 0.55;
+      ghost.alpha = 0.6;
       ghost.tint = tint;
       this.scene.cursor.addChild(ghost);
     }
   }
 
   private addTileMarker(tile: Point, colour: number): void {
-    if (!this.world.grid.contains(tile.x, tile.y)) return;
-    const marker = new Sprite(this.textures.selection(colour));
-    const position = tileToScreen(tile.x, tile.y);
+    const grid = this.world.grid;
+    if (!grid.contains(tile.x, tile.y)) return;
+
+    const marker = new Sprite(this.atlas.marker());
+    const position = tileToScreen(tile.x, tile.y, grid.heightAt(tile.x, tile.y));
     marker.anchor.set(0.5);
     marker.position.set(position.x, position.y);
+    marker.tint = colour;
     this.scene.cursor.addChild(marker);
   }
-
 }
 
 function roadPath(from: Point, to: Point): Point[] {
@@ -224,6 +250,7 @@ function terrainName(terrain: number): string {
   if (terrain === TERRAIN_WATER) return 'Water';
   if (terrain === TERRAIN_MEADOW) return 'Meadow';
   if (terrain === TERRAIN_ROCK) return 'Rocks';
+  if (terrain === TERRAIN_SAND) return 'Sand';
   return 'Grass';
 }
 
@@ -233,8 +260,6 @@ function describeBuildingState(
   supply: { food: number; water: number },
 ): string {
   if (kind === 'granary' || kind === 'wheatFarm') return ` · food ${stock}`;
-  if (kind === 'house') {
-    return ` · water ${Math.round(supply.water)} · food ${Math.round(supply.food)}`;
-  }
+  if (kind === 'house') return ` · water ${Math.round(supply.water)} · food ${Math.round(supply.food)}`;
   return '';
 }

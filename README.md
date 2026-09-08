@@ -24,7 +24,7 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
 
 ## What is simulated
 
-- **Terrain**: grass, meadow (farms only), water, rock.
+- **Terrain**: grass, meadow (farms only), sand, rock, water, over 5 elevation levels.
 - **Roads**: the only network. Everything social flows along it.
 - **Walkers**: cart pushers route with BFS to a granary; food vendors and water
   carriers roam randomly and serve houses adjacent to the road they walk.
@@ -37,35 +37,79 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
 
 ```
 src/sim/      headless simulation — no Pixi imports
-  grid.ts         typed-array layers (terrain, road, occupant, desirability)
-  world.ts        fixed 20 Hz tick, placement, production
+  grid.ts         typed-array layers (terrain, height, road, occupant, desirability)
+  world.ts        fixed 20 Hz tick, placement, production, changed-tile tracking
   walkers.ts      spawn + movement + service delivery
   pathing.ts      road BFS and roaming
   housing.ts      evolution rules
   desirability.ts influence field
-  mapgen.ts       seeded terrain
-src/render/   Pixi v8 — textures generated at runtime, no art assets
-src/ui/       DOM overlay
+  mapgen.ts       seeded terraced terrain
+src/render/
+  iso.ts          tile metric (120x60, 22px per elevation step) and height-aware picking
+  canvas.ts       Canvas2D surfaces, sun model, lighting maths
+  atlas.ts        procedural terrain/road/water/cliff atlas — one texture, one draw call
+  textures.ts     per-building sprites baked per sun phase
+  baked.ts        loads Blender-rendered sprites when present, else falls back
+  terrain.ts      tile sprites, edge blending, cliff faces, water animation
+  scene.ts        buildings, walkers, particles, overlays
+  atmosphere.ts   day/night colour grading, bloom, vignette
+  particles.ts    chimney smoke and cart dust
+src/ui/         DOM overlay
+pipeline/       Blender → sprite atlas asset pipeline
 ```
 
 The simulation is deterministic per tick and independent of frame rate; rendering
-reads it and never writes to it. Speed controls and future save/load fall out of
-that split.
+reads it and never writes to it.
+
+## How the graphics work
+
+Nothing is hand-drawn. Two sources feed the same sprite interface:
+
+1. **Procedural** — Canvas2D draws every tile, building and walker at load time.
+   Terrain is packed into a single atlas so thousands of tiles cost one draw call.
+   Adjacent terrain types blend across their shared edge with a gradient-masked
+   copy of the neighbour, so there are no hard diamonds.
+2. **Baked** — `pipeline/` renders 3D models in Blender and packs them into
+   `public/assets/structures.png`. If that file exists the game prefers it.
+
+**Lighting is baked per sun phase, not shaded at runtime.** Each building is drawn
+six times across the day arc plus once at night, and the renderer swaps textures as
+the clock turns. That gives directional light, moving shadows and lit windows after
+dark without a normal-mapped shader, and it works identically for procedural and
+Blender-rendered art. Global time of day is a `ColorMatrixFilter` over the world,
+with bloom and a vignette on top.
+
+Elevation is a real terrain layer: tiles are offset vertically, cliff faces are
+drawn as affine-transformed rock sprites down to each lower neighbour, buildings
+require level ground, and picking walks height levels from high to low so the
+cursor lands on the surface you can actually see.
+
+## Asset pipeline
+
+```bash
+npm run render   # Blender: renders each model at 4x across 7 sun phases
+npm run pack     # Pillow: downsamples, trims, packs, computes anchors
+```
+
+The camera is orthographic at yaw 45° and **elevation 30°** — the angle at which one
+tile step projects to exactly `TILE_WIDTH/2` across and `TILE_HEIGHT/2` down, so
+renders drop into the game's metric with no fudging. Anchors are derived
+analytically from that camera rather than eyeballed. A Cycles shadow-catcher plane
+puts real contact shadows in the sprite's alpha.
+
+To add a building: write a builder function in `pipeline/iso_render.py`, register it
+in `MODELS`, re-run the two commands. The game picks it up by name.
 
 ## Roadmap
 
 1. **Labour and employment** — buildings need workers drawn from housing.
-2. **Second production chain** — olives → olive press → agora stalls, so goods,
-   storage yards and vendors generalise beyond food.
-3. **Agora** — vendors spawning from a market supplied by granary + storage,
-   rather than the granary itself.
+2. **Second production chain** — olives → olive press → agora stalls.
+3. **Agora** — vendors spawning from a market rather than the granary itself.
 4. **Culture and gods** — sanctuaries, gods that visit and bless or curse.
 5. **Save/load** — structured clone of world state into IndexedDB.
 6. **Campaign scaffolding** — scenario definitions, goals, ratings.
 
-## Art
+## Art licence
 
-Everything on screen is generated from `Graphics` primitives at runtime. Original
-game assets are copyrighted and must not be shipped; any real art has to be drawn
-or commissioned against the same isometric tile metrics (`TILE_WIDTH` 64,
-`TILE_HEIGHT` 32).
+Original *Zeus* assets are copyrighted and are not used here. Everything shipped is
+generated by the code in `src/render/` or by the Blender models in `pipeline/`.

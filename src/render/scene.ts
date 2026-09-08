@@ -1,50 +1,74 @@
 import { Container, Sprite } from 'pixi.js';
 import { BUILDINGS, HOUSE_TIERS } from '../sim/buildings';
-import { TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_WATER } from '../sim/grid';
-import type { Building, BuildingKind, WalkerKind } from '../sim/types';
+import { TERRAIN_WATER } from '../sim/grid';
+import type { Building, BuildingKind } from '../sim/types';
 import type { World } from '../sim/world';
+import type { TileAtlas } from './atlas';
+import type { BakedStructures } from './baked';
 import { depthOf, footprintAnchor, tileToScreen } from './iso';
-import { TextureCache, shade, type StructureLook } from './textures';
-
-const TERRAIN_COLOURS: Record<number, number> = {
-  0: 0x6f9a52,
-  [TERRAIN_MEADOW]: 0x8cbb5c,
-  [TERRAIN_WATER]: 0x3d7fae,
-  [TERRAIN_ROCK]: 0x8b8578,
-};
-
-const WALKER_COLOURS: Record<WalkerKind, number> = {
-  cartPusher: 0xe0c060,
-  foodVendor: 0xe07b3c,
-  waterCarrier: 0x54b0e0,
-};
+import { Particles } from './particles';
+import { TerrainLayer } from './terrain';
+import { WALKER_FRAMES, type StructureLook, type TextureCache } from './textures';
 
 export type OverlayMode = 'none' | 'desirability';
 
+const WALKER_FRAME_MS = 130;
+const SMOKE_INTERVAL_MS = 1500;
+const DUST_INTERVAL_MS = 320;
+
+interface BuildingEntry {
+  sprite: Sprite;
+  key: string;
+}
+
 export class Scene {
   readonly root = new Container();
-  readonly ground = new Container();
-  readonly overlayTiles = new Container();
-  readonly structures = new Container();
   readonly cursor = new Container();
 
   private readonly world: World;
+  private readonly atlas: TileAtlas;
   private readonly textures: TextureCache;
-  private readonly buildingSprites = new Map<number, { sprite: Sprite; key: string }>();
+  private readonly terrain: TerrainLayer;
+  private readonly particles: Particles;
+  private readonly overlayTiles = new Container();
+  private readonly structures = new Container();
+  private readonly buildingSprites = new Map<number, BuildingEntry>();
   private readonly walkerSprites = new Map<number, Sprite>();
-  private readonly groundSprites: Sprite[] = [];
   private readonly overlaySprites: Sprite[] = [];
+  private readonly emissionSchedule = new Map<number, number>();
 
-  private syncedVersion = -1;
   private overlayMode: OverlayMode = 'none';
+  private syncedVersion = -1;
+  private clock = 0;
+  private baked: BakedStructures | null = null;
+  private bakedVersion = 0;
 
-  constructor(world: World, textures: TextureCache) {
+  constructor(world: World, atlas: TileAtlas, textures: TextureCache) {
     this.world = world;
+    this.atlas = atlas;
     this.textures = textures;
+    this.terrain = new TerrainLayer(world, atlas);
+    this.particles = new Particles(textures);
+
     this.structures.sortableChildren = true;
     this.overlayTiles.visible = false;
-    this.root.addChild(this.ground, this.overlayTiles, this.structures, this.cursor);
-    this.buildGround();
+    this.root.addChild(
+      this.terrain.container,
+      this.overlayTiles,
+      this.structures,
+      this.particles.container,
+      this.cursor,
+    );
+    this.buildOverlay();
+  }
+
+  get currentOverlayMode(): OverlayMode {
+    return this.overlayMode;
+  }
+
+  setBakedStructures(baked: BakedStructures): void {
+    this.baked = baked;
+    this.bakedVersion += 1;
   }
 
   setOverlayMode(mode: OverlayMode): void {
@@ -53,85 +77,72 @@ export class Scene {
     if (mode === 'desirability') this.refreshOverlay();
   }
 
-  get currentOverlayMode(): OverlayMode {
-    return this.overlayMode;
-  }
+  sync(deltaMs: number, sunPhase: number): void {
+    this.clock += deltaMs;
+    this.terrain.rebuildTiles(this.world.consumeChangedTiles());
+    this.terrain.update(deltaMs);
 
-  sync(): void {
     if (this.syncedVersion !== this.world.structureVersion) {
       this.syncedVersion = this.world.structureVersion;
-      this.refreshGround();
       if (this.overlayMode === 'desirability') this.refreshOverlay();
     }
-    this.syncBuildings();
+
+    this.syncBuildings(sunPhase);
     this.syncWalkers();
+    this.emitParticles();
+    this.particles.update(deltaMs);
   }
 
-  private buildGround(): void {
+  private buildOverlay(): void {
     const { grid } = this.world;
     for (let y = 0; y < grid.size; y++) {
       for (let x = 0; x < grid.size; x++) {
-        const position = tileToScreen(x, y);
-
-        const tile = new Sprite(this.groundTexture(x, y));
-        tile.anchor.set(0.5);
-        tile.position.set(position.x, position.y);
-        this.ground.addChild(tile);
-        this.groundSprites.push(tile);
-
-        const overlay = new Sprite(this.textures.tile(0xffffff));
-        overlay.anchor.set(0.5);
-        overlay.position.set(position.x, position.y);
-        overlay.alpha = 0.55;
-        this.overlayTiles.addChild(overlay);
-        this.overlaySprites.push(overlay);
+        const sprite = new Sprite(this.atlas.overlay());
+        const position = tileToScreen(x, y, grid.heightAt(x, y));
+        sprite.anchor.set(0.5);
+        sprite.position.set(position.x, position.y);
+        sprite.alpha = 0.5;
+        sprite.visible = grid.terrain[grid.index(x, y)] !== TERRAIN_WATER;
+        this.overlayTiles.addChild(sprite);
+        this.overlaySprites.push(sprite);
       }
-    }
-  }
-
-  private refreshGround(): void {
-    const { grid } = this.world;
-    for (let index = 0; index < this.groundSprites.length; index++) {
-      this.groundSprites[index].texture = this.groundTexture(grid.tileX(index), grid.tileY(index));
     }
   }
 
   private refreshOverlay(): void {
     const { grid } = this.world;
     for (let index = 0; index < this.overlaySprites.length; index++) {
-      const value = grid.desirability[index];
-      this.overlaySprites[index].tint = desirabilityColour(value);
+      this.overlaySprites[index].tint = desirabilityColour(grid.desirability[index]);
     }
   }
 
-  private groundTexture(x: number, y: number) {
-    const { grid } = this.world;
-    const index = grid.index(x, y);
-    if (grid.road[index] === 1) return this.textures.road();
-
-    const base = TERRAIN_COLOURS[grid.terrain[index]] ?? TERRAIN_COLOURS[0];
-    const variation = (x * 7 + y * 13) % 3 === 0 ? 0.94 : 1;
-    return this.textures.tile(shade(base, variation));
-  }
-
-  private syncBuildings(): void {
+  private syncBuildings(sunPhase: number): void {
     for (const [id, entry] of this.buildingSprites) {
-      if (!this.world.buildings.has(id)) {
-        entry.sprite.destroy();
-        this.buildingSprites.delete(id);
-      }
+      if (this.world.buildings.has(id)) continue;
+      entry.sprite.destroy();
+      this.buildingSprites.delete(id);
+      this.emissionSchedule.delete(id);
     }
 
     for (const building of this.world.buildings.values()) {
-      const key = lookKey(building);
+      const key = `${lookKey(building)}:${sunPhase}:${this.bakedVersion}`;
       const existing = this.buildingSprites.get(building.id);
       if (existing && existing.key === key) continue;
-
       if (existing) existing.sprite.destroy();
 
-      const sprite = new Sprite(this.textures.structure(key, lookOf(building)));
-      const anchor = footprintAnchor(building.x, building.y, building.size);
-      sprite.anchor.set(0.5, 1);
+      const structure =
+        this.baked?.get(building.kind, sunPhase) ??
+        this.textures.structure({
+          ...lookOf(building),
+          kind: building.kind,
+          variant: variantOf(building.id),
+          phase: sunPhase,
+        });
+
+      const sprite = new Sprite(structure.texture);
+      const height = this.world.grid.heightAt(building.x, building.y);
+      const anchor = footprintAnchor(building.x, building.y, building.size, height);
+      sprite.anchor.set(structure.anchorX, structure.anchorY);
       sprite.position.set(anchor.x, anchor.y);
       sprite.zIndex = depthOf(building.x, building.y, building.size);
       this.structures.addChild(sprite);
@@ -141,33 +152,87 @@ export class Scene {
 
   private syncWalkers(): void {
     for (const [id, sprite] of this.walkerSprites) {
-      if (!this.world.walkers.has(id)) {
-        sprite.destroy();
-        this.walkerSprites.delete(id);
-      }
+      if (this.world.walkers.has(id)) continue;
+      sprite.destroy();
+      this.walkerSprites.delete(id);
     }
 
     const { grid } = this.world;
-    for (const walker of this.world.walkers.values()) {
-      let sprite = this.walkerSprites.get(walker.id);
-      if (!sprite) {
-        sprite = new Sprite(this.textures.walker(WALKER_COLOURS[walker.kind]));
-        sprite.anchor.set(0.5, 0.8);
-        this.structures.addChild(sprite);
-        this.walkerSprites.set(walker.id, sprite);
-      }
+    const baseFrame = Math.floor(this.clock / WALKER_FRAME_MS);
 
+    for (const walker of this.world.walkers.values()) {
       const fromX = grid.tileX(walker.from);
       const fromY = grid.tileY(walker.from);
       const toX = grid.tileX(walker.to);
       const toY = grid.tileY(walker.to);
       const x = fromX + (toX - fromX) * walker.progress;
       const y = fromY + (toY - fromY) * walker.progress;
-      const position = tileToScreen(x, y);
+      const height =
+        grid.heightAt(fromX, fromY) +
+        (grid.heightAt(toX, toY) - grid.heightAt(fromX, fromY)) * walker.progress;
+
+      let sprite = this.walkerSprites.get(walker.id);
+      if (!sprite) {
+        sprite = new Sprite();
+        sprite.anchor.set(0.5, 0.92);
+        this.structures.addChild(sprite);
+        this.walkerSprites.set(walker.id, sprite);
+      }
+
+      sprite.texture = this.textures.walker(
+        walker.kind,
+        directionOf(toX - fromX, toY - fromY),
+        (baseFrame + walker.id) % WALKER_FRAMES,
+      );
+
+      const position = tileToScreen(x, y, height);
       sprite.position.set(position.x, position.y);
       sprite.zIndex = x + y + 0.5;
     }
   }
+
+  private emitParticles(): void {
+    for (const building of this.world.buildings.values()) {
+      if (building.kind !== 'house' || building.tier < 1) continue;
+      if (!this.isDue(building.id, SMOKE_INTERVAL_MS)) continue;
+
+      const height = this.world.grid.heightAt(building.x, building.y);
+      const position = tileToScreen(building.x + 0.1, building.y + 0.1, height);
+      this.particles.smoke(position.x - 4, position.y - HOUSE_TIERS[building.tier].height - 16);
+    }
+
+    const { grid } = this.world;
+    for (const walker of this.world.walkers.values()) {
+      if (walker.kind !== 'cartPusher') continue;
+      if (!this.isDue(-walker.id, DUST_INTERVAL_MS)) continue;
+
+      const x = grid.tileX(walker.from);
+      const y = grid.tileY(walker.from);
+      const position = tileToScreen(x, y, grid.heightAt(x, y));
+      this.particles.dust(position.x, position.y);
+    }
+  }
+
+  private isDue(id: number, interval: number): boolean {
+    const next = this.emissionSchedule.get(id) ?? this.clock + Math.random() * interval;
+    if (this.clock < next) {
+      this.emissionSchedule.set(id, next);
+      return false;
+    }
+    this.emissionSchedule.set(id, this.clock + interval * (0.7 + Math.random() * 0.6));
+    return true;
+  }
+}
+
+function directionOf(dx: number, dy: number): number {
+  if (dx > 0) return 0;
+  if (dy > 0) return 1;
+  if (dx < 0) return 2;
+  return 3;
+}
+
+function variantOf(id: number): number {
+  return Math.abs((id * 2654435761) % 4);
 }
 
 function lookKey(building: Building): string {
@@ -189,14 +254,8 @@ export function structureLook(kind: BuildingKind): StructureLook {
 }
 
 function desirabilityColour(value: number): number {
-  if (value > 0) {
-    const strength = Math.min(1, value / 20);
-    return blend(0xf2f2c8, 0x2f9e44, strength);
-  }
-  if (value < 0) {
-    const strength = Math.min(1, -value / 20);
-    return blend(0xf2f2c8, 0xc9342b, strength);
-  }
+  if (value > 0) return blend(0xf2f2c8, 0x2f9e44, Math.min(1, value / 20));
+  if (value < 0) return blend(0xf2f2c8, 0xc9342b, Math.min(1, -value / 20));
   return 0xf2f2c8;
 }
 

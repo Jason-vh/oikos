@@ -8,9 +8,12 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "smoke": "bun scripts/smoke.mjs"
+    "smoke": "bun scripts/smoke.mjs",
+    "render": "blender --background --python pipeline/iso_render.py -- --out pipeline/out",
+    "pack": "python3 pipeline/pack.py"
   },
   "dependencies": {
+    "pixi-filters": "^6.1.5",
     "pixi.js": "^8.6.6"
   },
   "devDependencies": {

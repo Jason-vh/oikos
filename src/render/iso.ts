@@ -1,15 +1,16 @@
-export const TILE_WIDTH = 64;
-export const TILE_HEIGHT = 32;
+export const TILE_WIDTH = 120;
+export const TILE_HEIGHT = 60;
+export const ELEVATION_STEP = 22;
 
 export interface Point {
   x: number;
   y: number;
 }
 
-export function tileToScreen(tileX: number, tileY: number): Point {
+export function tileToScreen(tileX: number, tileY: number, height = 0): Point {
   return {
     x: (tileX - tileY) * (TILE_WIDTH / 2),
-    y: (tileX + tileY) * (TILE_HEIGHT / 2),
+    y: (tileX + tileY) * (TILE_HEIGHT / 2) - height * ELEVATION_STEP,
   };
 }
 
@@ -22,13 +23,29 @@ export function screenToTile(screenX: number, screenY: number): Point {
   };
 }
 
-export function footprintAnchor(tileX: number, tileY: number, size: number): Point {
+export function footprintAnchor(tileX: number, tileY: number, size: number, height = 0): Point {
   return {
     x: (tileX - tileY) * (TILE_WIDTH / 2),
-    y: (tileX + tileY + 2 * size - 1) * (TILE_HEIGHT / 2),
+    y: (tileX + tileY + 2 * size - 1) * (TILE_HEIGHT / 2) - height * ELEVATION_STEP,
   };
 }
 
 export function depthOf(tileX: number, tileY: number, size: number): number {
   return tileX + tileY + 2 * (size - 1);
+}
+
+export function pickTile(
+  worldX: number,
+  worldY: number,
+  heightAt: (x: number, y: number) => number,
+  maxHeight: number,
+): Point {
+  for (let height = maxHeight; height > 0; height--) {
+    const candidate = screenToTile(worldX, worldY + height * ELEVATION_STEP);
+    const tile = { x: Math.floor(candidate.x), y: Math.floor(candidate.y) };
+    if (heightAt(tile.x, tile.y) === height) return tile;
+  }
+
+  const ground = screenToTile(worldX, worldY);
+  return { x: Math.floor(ground.x), y: Math.floor(ground.y) };
 }

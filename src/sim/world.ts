@@ -43,6 +43,7 @@ export class World {
   messages: string[] = [];
 
   private nextId = 1;
+  private readonly changedTiles = new Set<number>();
 
   constructor(size: number, seed: number) {
     this.grid = new Grid(size);
@@ -85,6 +86,7 @@ export class World {
         }
       }
     }
+    if (!this.grid.isFlat(x, y, def.size)) return { ok: false, reason: 'Ground must be level' };
     return { ok: true, reason: def.description };
   }
 
@@ -111,7 +113,7 @@ export class World {
     for (const tile of this.grid.footprint(x, y, def.size)) this.grid.occupant[tile] = building.id;
 
     this.treasury -= def.cost;
-    this.markStructuresChanged();
+    this.markChanged(this.grid.footprint(x, y, def.size));
     return true;
   }
 
@@ -121,9 +123,10 @@ export class World {
 
   placeRoad(x: number, y: number): boolean {
     if (!this.canPlaceRoad(x, y)) return false;
-    this.grid.road[this.grid.index(x, y)] = 1;
+    const tile = this.grid.index(x, y);
+    this.grid.road[tile] = 1;
     this.treasury -= ROAD_COST;
-    this.markStructuresChanged();
+    this.markChanged([tile]);
     return true;
   }
 
@@ -133,7 +136,7 @@ export class World {
 
     if (this.grid.road[tile] === 1) {
       this.grid.road[tile] = 0;
-      this.markStructuresChanged();
+      this.markChanged([tile]);
       return true;
     }
 
@@ -147,7 +150,7 @@ export class World {
     for (const walker of this.walkers.values()) {
       if (walker.homeId === building.id) this.walkers.delete(walker.id);
     }
-    this.markStructuresChanged();
+    this.markChanged(this.grid.footprint(building.x, building.y, building.size));
     return true;
   }
 
@@ -246,7 +249,17 @@ export class World {
     if (spawnRoamer(this, fountain, 'waterCarrier')) fountain.spawnTimer = 0;
   }
 
-  private markStructuresChanged(): void {
+  consumeChangedTiles(): number[] {
+    const tiles = [...this.changedTiles];
+    this.changedTiles.clear();
+    return tiles;
+  }
+
+  private markChanged(tiles: Iterable<number>): void {
+    for (const tile of tiles) {
+      this.changedTiles.add(tile);
+      for (const neighbour of this.grid.neighbours(tile)) this.changedTiles.add(neighbour);
+    }
     recomputeDesirability(this.grid, this.buildings.values());
     this.structureVersion += 1;
   }

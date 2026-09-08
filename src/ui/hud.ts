@@ -18,6 +18,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       <header class="status">
         <span class="brand">Zeus</span>
         <span data-field="date"></span>
+        <span data-field="daylight"></span>
         <span data-field="treasury"></span>
         <span data-field="population"></span>
         <span class="spacer"></span>
@@ -70,6 +71,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
   return {
     update: () => {
       field('date').textContent = game.world.dateLabel;
+      field('daylight').textContent = game.atmosphere.timeOfDay;
       field('treasury').textContent = `${Math.floor(game.world.treasury)} dr`;
       field('population').textContent = `${game.world.population} citizens`;
       field('hover').textContent = game.describeHover();

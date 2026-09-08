@@ -1,5 +1,6 @@
 import { Application } from 'pixi.js';
 import { Game } from './game';
+import { loadBakedStructures } from './render/baked';
 import { createHud } from './ui/hud';
 
 const root = document.getElementById('app') as HTMLElement;
@@ -19,6 +20,12 @@ const game = new Game(app);
 const hud = createHud(document.body, game);
 
 if (import.meta.env.DEV) Reflect.set(window, 'game', game);
+
+window.addEventListener('resize', () => game.resize());
+
+loadBakedStructures().then((baked) => {
+  if (baked) game.scene.setBakedStructures(baked);
+});
 
 app.ticker.add((ticker) => {
   game.update(ticker.deltaMS);

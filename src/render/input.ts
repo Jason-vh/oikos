@@ -2,9 +2,9 @@ import type { Point } from './iso';
 import type { Camera } from './camera';
 
 export interface PointerHandlers {
-  hover(tile: Point): void;
-  press(tile: Point): void;
-  drag(tile: Point): void;
+  hover(world: Point): void;
+  press(world: Point): void;
+  drag(world: Point): void;
   release(): void;
   cancel(): void;
 }
@@ -25,7 +25,7 @@ export function attachPointerInput(
 
     if (event.button === 0) {
       painting = true;
-      handlers.press(camera.screenToTile(event.offsetX, event.offsetY));
+      handlers.press(camera.screenToWorld(event.offsetX, event.offsetY));
       return;
     }
 
@@ -45,9 +45,9 @@ export function attachPointerInput(
       lastPan = { x: event.clientX, y: event.clientY };
     }
 
-    const tile = camera.screenToTile(event.offsetX, event.offsetY);
-    handlers.hover(tile);
-    if (painting) handlers.drag(tile);
+    const world = camera.screenToWorld(event.offsetX, event.offsetY);
+    handlers.hover(world);
+    if (painting) handlers.drag(world);
   });
 
   const endPointer = (event: PointerEvent) => {
