@@ -490,6 +490,11 @@ recurring, triggered-only, on episode completion — with year ranges for random
 costs (~×1 to ×3), worker percentage, housing evolution thresholds, elite tax
 multiplier, fire/damage risk, and raid yields.
 
+🟡 One scenario with four goal types — population, housing at a tier or better, yearly
+production of a good, and treasury — measured monthly in `src/sim/scenario.ts` and shown
+in a goals panel. Episodes, adventures, failure conditions, events and the editor are
+not started.
+
 **Presentation and UI**: overview tab (popularity, food, unemployment, hygiene,
 unrest, treasury, threats, requests), "go to" event jumps, city rotation in 90°
 steps, overlay maps (appeal, water, hygiene, hazards, unrest, taxes, culture,

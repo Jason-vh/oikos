@@ -51,6 +51,11 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
           ${renderPanel(buttons)}
         </div>
       </aside>
+      <section class="goals" data-goals>
+        <h2 data-goals-title></h2>
+        <p class="goals-blurb" data-goals-blurb></p>
+        <ul class="goals-list" data-goals-list></ul>
+      </section>
       <section class="popup" data-popup hidden>
         <button class="popup-close" data-popup-close>×</button>
         <h2 data-popup-title></h2>
@@ -137,6 +142,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       field('popularity').textContent = popularityLabel(game.world.sentiment.popularity, game.world.migrants);
       field('wages').textContent = `Wages: ${WAGE_LEVELS[game.world.wageLevel].name}`;
       field('taxes').textContent = taxLabel(game.world);
+      renderGoals(hud, game.world);
       renderPopup(popup, balloon ?? game.inspectSelection(), balloon === null);
       field('hover').textContent = game.describeHover();
       field('messages').textContent = game.world.messages[0] ?? '';
@@ -190,6 +196,23 @@ function toolButtons(): ToolButton[] {
       describe: describeDemolishTool,
     },
   ];
+}
+
+function renderGoals(hud: HTMLElement, world: Game['world']): void {
+  const title = hud.querySelector('[data-goals-title]') as HTMLElement;
+  const blurb = hud.querySelector('[data-goals-blurb]') as HTMLElement;
+  const list = hud.querySelector('[data-goals-list]') as HTMLElement;
+
+  title.textContent = world.scenario.name;
+  blurb.textContent = world.scenarioWon ? 'Every goal is met. The city is yours.' : world.scenario.blurb;
+
+  const rows = world.goals
+    .map(
+      (goal) =>
+        `<li class="${goal.met ? 'met' : ''}"><span>${goal.label}</span><b>${goal.current} / ${goal.target}</b></li>`,
+    )
+    .join('');
+  if (list.innerHTML !== rows) list.innerHTML = rows;
 }
 
 function renderPopup(popup: HTMLElement, inspection: Inspection | null, closable: boolean): void {

@@ -14,6 +14,14 @@ import { generateMap } from './mapgen';
 import { hasRoadAccess, roadAccessTiles } from './pathing';
 import { accrueRisk, nameOf } from './hazards';
 import { judgeCity, migrantsFor, type Sentiment } from './popularity';
+import {
+  DEFAULT_SCENARIO,
+  allGoalsMet,
+  measureGoals,
+  type CitySnapshot,
+  type GoalProgress,
+  type Scenario,
+} from './scenario';
 import { DEFAULT_TAX_RATE, collectTax, type TaxReport } from './taxation';
 import { TICKS_PER_MONTH } from './time';
 import { createBuilding } from './types';
@@ -32,6 +40,9 @@ const AGORA_GOODS: Good[] = ['food', 'oil'];
 const COLLEGE_SPAWN_INTERVAL = 90;
 const MAINTENANCE_SPAWN_INTERVAL = 70;
 const STAGGERED_RISK = 40;
+const MONTHS_PER_YEAR = 12;
+
+const sum = (values: number[]): number => values.reduce((total, value) => total + value, 0);
 const FOUNTAIN_SPAWN_INTERVAL = 70;
 const TAX_OFFICE_SPAWN_INTERVAL = 70;
 
@@ -62,6 +73,9 @@ export class World {
   taxes: TaxReport = { collected: 0, taxedPeople: 0, untaxedPeople: 0 };
   sentiment: Sentiment = { popularity: 50, complaint: null };
   migrants = 0;
+  scenario: Scenario = DEFAULT_SCENARIO;
+  goals: GoalProgress[] = [];
+  scenarioWon = false;
   tick = 0;
   month = 0;
   year = -500;
@@ -70,6 +84,11 @@ export class World {
 
   private nextId = 1;
   private appealDirty = false;
+  private readonly outputByMonth: Record<Good, number[]> = {
+    food: new Array(MONTHS_PER_YEAR).fill(0),
+    olives: new Array(MONTHS_PER_YEAR).fill(0),
+    oil: new Array(MONTHS_PER_YEAR).fill(0),
+  };
   private readonly changedTiles = new Set<number>();
 
   constructor(size: number, seed: number) {
@@ -270,6 +289,8 @@ export class World {
     });
     this.migrate();
     this.sufferMishaps();
+    this.reviewGoals();
+    for (const counts of Object.values(this.outputByMonth)) counts[this.month] = 0;
 
     if (this.labour.employed < this.labour.required) this.log('Buildings stand short of workers.');
     else if (this.sentiment.complaint) this.log(this.sentiment.complaint);
@@ -290,6 +311,32 @@ export class World {
     const { workforce, employed } = this.labour;
     if (workforce === 0) return 0;
     return (workforce - employed) / workforce;
+  }
+
+  citySnapshot(): CitySnapshot {
+    const peopleByTier = HOUSE_TIERS.map(() => 0);
+    for (const building of this.buildings.values()) {
+      if (building.kind === 'house') peopleByTier[building.tier] += building.population;
+    }
+
+    return {
+      population: this.population,
+      treasury: this.treasury,
+      peopleByTier,
+      yearlyOutput: {
+        food: sum(this.outputByMonth.food),
+        olives: sum(this.outputByMonth.olives),
+        oil: sum(this.outputByMonth.oil),
+      },
+    };
+  }
+
+  private reviewGoals(): void {
+    this.goals = measureGoals(this.scenario, this.citySnapshot());
+    if (this.scenarioWon || !allGoalsMet(this.goals)) return;
+
+    this.scenarioWon = true;
+    this.log(`Every goal of ${this.scenario.name} is met, Archon.`);
   }
 
   private sufferMishaps(): void {
@@ -356,6 +403,7 @@ export class World {
       if (producer.productionProgress >= TICKS_PER_LOAD) {
         producer.productionProgress = 0;
         producer.stock[good] += 1;
+        this.outputByMonth[good][this.month] += 1;
         if (def.consumes) producer.stock[def.consumes] -= 1;
       }
     }

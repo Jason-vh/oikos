@@ -54,6 +54,9 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
   its footprint — a fountain gives 4,4,2,2, a granary −12,−10,−8,−6. Housing itself
   is a source: shacks push their neighbours down and stop doing so as they evolve,
   so a block that improves keeps improving.
+- **Goals**: a scenario gives the city something to be for — citizens, people housed at
+  a tier or better, a good produced per year, drachmas in the treasury — tracked in a
+  panel and announced when all of them are met.
 - **Hazards**: every building accrues fire and damage risk each month at its own rate —
   an olive press far faster than a podium. At 100 it burns down or collapses. A
   maintenance office sends a superintendent 44 tiles, and he wipes both risks clean on
@@ -83,6 +86,7 @@ src/sim/      headless simulation — no Pixi imports
   appeal.ts       band model field
   labour.ts       wage levels, workforce, staffing
   hazards.ts      fire and collapse risk
+  scenario.ts     goals and how they are measured
   popularity.ts   sentiment and migration
   taxation.ts     tax rates, tier multipliers, collection
   mapgen.ts       seeded terraced terrain
@@ -182,7 +186,7 @@ The full inventory lives in [docs/roadmap.md](docs/roadmap.md). Next up:
 
 1. **Palace** — required before taxes or any military, as in the original.
 2. **Gods** — sanctuaries, gods that visit and bless or curse.
-3. **Campaign scaffolding** — scenario definitions, goals, ratings.
+3. **Campaign** — more than one scenario, episodes, ratings, failure conditions.
 
 ## Art licence
 
