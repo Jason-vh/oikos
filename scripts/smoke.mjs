@@ -82,18 +82,18 @@ const report = await page.evaluate(async () => {
 });
 
 await page.waitForTimeout(1500);
-await page.screenshot({ path: 'scripts/shot-day.png' });
+await page.screenshot({ path: new URL('./shot-day.png', import.meta.url).pathname });
 
 await page.evaluate(() => {
   const game = Reflect.get(window, 'game');
   game.world.tick = 300;
 });
 await page.waitForTimeout(900);
-await page.screenshot({ path: 'scripts/shot-night.png' });
+await page.screenshot({ path: new URL('./shot-night.png', import.meta.url).pathname });
 
 await page.evaluate(() => Reflect.get(window, 'game').toggleDesirabilityOverlay());
 await page.waitForTimeout(400);
-await page.screenshot({ path: 'scripts/shot-overlay.png' });
+await page.screenshot({ path: new URL('./shot-overlay.png', import.meta.url).pathname });
 
 await browser.close();
 console.log(JSON.stringify({ report, errors: errors.slice(0, 8) }, null, 2));
