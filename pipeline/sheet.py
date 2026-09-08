@@ -1,6 +1,6 @@
 """Contact sheet of rendered sprites at game scale, each over its tile diamond.
 
-    python3 pipeline/sheet.py [phase] [out.png]
+    python3 pipeline/sheet.py [out.png]
 """
 
 import json
@@ -12,8 +12,7 @@ from PIL import Image, ImageDraw
 
 from pack import IN_DIR, south_vertex_offset
 
-phase = int(sys.argv[1]) if len(sys.argv) > 1 else 2
-out_path = sys.argv[2] if len(sys.argv) > 2 else "/tmp/sheet.png"
+out_path = sys.argv[1] if len(sys.argv) > 1 else "/tmp/sheet.png"
 
 with open(os.path.join(IN_DIR, "manifest.json")) as handle:
     manifest = json.load(handle)
@@ -22,7 +21,7 @@ tile_w = manifest["tileWidth"]
 tile_h = manifest["tileHeight"]
 pixels_per_unit = tile_w / math.sqrt(2)
 sprites = sorted(
-    (s for s in manifest["sprites"] if s["phase"] == phase),
+    (s for s in manifest["sprites"] if s["layer"] == "body"),
     key=lambda s: (s["kind"], s["variant"]),
 )
 

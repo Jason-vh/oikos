@@ -7,7 +7,6 @@ type BakedLayer = 'body' | 'shadow';
 interface BakedFrame {
   kind: string;
   variant: number;
-  phase: number;
   layer?: BakedLayer;
   x: number;
   y: number;
@@ -29,7 +28,7 @@ export class BakedStructures {
 
   constructor(manifest: BakedManifest, sheet: Texture) {
     for (const frame of manifest.frames) {
-      this.sprites.set(`${frame.kind}:${frame.variant ?? 0}:${frame.phase}:${frame.layer ?? 'body'}`, {
+      this.sprites.set(`${frame.kind}:${frame.variant ?? 0}:${frame.layer ?? 'body'}`, {
         texture: new Texture({
           source: sheet.source,
           frame: new Rectangle(frame.x, frame.y, frame.width, frame.height),
@@ -40,18 +39,16 @@ export class BakedStructures {
     }
   }
 
-  get(kind: BuildingKind, variant: number, phase: number): StructureSprite | undefined {
-    return this.lookup(kind, variant, phase, 'body');
+  get(kind: BuildingKind, variant: number): StructureSprite | undefined {
+    return this.lookup(kind, variant, 'body');
   }
 
-  shadow(kind: BuildingKind, variant: number, phase: number): StructureSprite | undefined {
-    return this.lookup(kind, variant, phase, 'shadow');
+  shadow(kind: BuildingKind, variant: number): StructureSprite | undefined {
+    return this.lookup(kind, variant, 'shadow');
   }
 
-  private lookup(kind: BuildingKind, variant: number, phase: number, layer: BakedLayer): StructureSprite | undefined {
-    return (
-      this.sprites.get(`${kind}:${variant}:${phase}:${layer}`) ?? this.sprites.get(`${kind}:0:${phase}:${layer}`)
-    );
+  private lookup(kind: BuildingKind, variant: number, layer: BakedLayer): StructureSprite | undefined {
+    return this.sprites.get(`${kind}:${variant}:${layer}`) ?? this.sprites.get(`${kind}:0:${layer}`);
   }
 
   get size(): number {

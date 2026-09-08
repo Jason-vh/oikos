@@ -12,8 +12,7 @@ import {
   shade,
   shadowVector,
   speckle,
-  sunForPhase,
-  NIGHT_PHASE,
+  SUN,
   toTexture,
   topLight,
   type DrawSurface,
@@ -38,7 +37,6 @@ export interface StructureLook {
 export interface StructureRequest extends StructureLook {
   kind: BuildingKind;
   variant: number;
-  phase: number;
 }
 
 const WALKER_PALETTES: Record<WalkerKind, { tunic: number; trim: number }> = {
@@ -139,7 +137,6 @@ export class TextureCache {
       request.colour,
       request.roofColour,
       request.variant,
-      request.phase,
     ].join(':');
 
     const existing = this.structures.get(key);
@@ -161,7 +158,7 @@ export class TextureCache {
 }
 
 function buildStructure(request: StructureRequest): StructureSprite {
-  const sun = sunForPhase(request.phase);
+  const sun = SUN;
   const halfWidth = (request.size * TILE_WIDTH) / 2;
   const halfHeight = (request.size * TILE_HEIGHT) / 2;
   const marginX = 40;
@@ -304,13 +301,12 @@ function drawWallDetail(
   }
 
   if (request.kind === 'house' || request.kind === 'granary') {
-    const lit = request.phase >= NIGHT_PHASE;
     const windows = request.size === 1 ? 2 : 3;
     for (let i = 0; i < windows; i++) {
       const u = (i + 1) / (windows + 1) - 0.07;
-      ctx.fillStyle = lit ? 'rgb(255, 216, 138)' : `rgba(38, 26, 18, ${0.5 + light * 0.16})`;
+      ctx.fillStyle = `rgba(38, 26, 18, ${0.5 + light * 0.16})`;
       ctx.fillRect(u, 0.3, 0.13, 0.32);
-      ctx.fillStyle = lit ? 'rgba(255, 240, 200, 0.9)' : 'rgba(255, 228, 168, 0.14)';
+      ctx.fillStyle = 'rgba(255, 228, 168, 0.14)';
       ctx.fillRect(u + 0.02, 0.33, 0.09, 0.11);
     }
   }
@@ -320,27 +316,6 @@ function drawWallDetail(
   shading.addColorStop(1, 'rgba(0,0,0,0.26)');
   ctx.fillStyle = shading;
   ctx.fillRect(0, 0, 1, 1);
-  ctx.restore();
-
-  if (request.phase >= NIGHT_PHASE && request.kind === 'house') {
-    drawWindowGlow(ctx, originX, originY, spanX, spanY, height);
-  }
-}
-
-function drawWindowGlow(
-  ctx: CanvasRenderingContext2D,
-  originX: number,
-  originY: number,
-  spanX: number,
-  spanY: number,
-  height: number,
-): void {
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  ctx.filter = 'blur(5px)';
-  ctx.transform(spanX, spanY, 0, height, originX, originY);
-  ctx.fillStyle = 'rgba(255, 196, 96, 0.55)';
-  ctx.fillRect(0.15, 0.2, 0.7, 0.5);
   ctx.restore();
 }
 
@@ -749,7 +724,7 @@ function drawCart(ctx: CanvasRenderingContext2D, cx: number, feet: number, direc
   ctx.fill();
 }
 
-const DECOR_SUN = sunForPhase(2);
+const DECOR_SUN = SUN;
 
 function buildDecor(kind: DecorKind, variant: number): DecorSprite {
   const { surface, baseY } = drawDecorSurface(kind, variant);

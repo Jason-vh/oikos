@@ -4,7 +4,6 @@ import { TERRAIN_WATER } from '../sim/grid';
 import type { Building, BuildingKind } from '../sim/types';
 import type { World } from '../sim/world';
 import type { TileAtlas } from './atlas';
-import type { Lighting } from './atmosphere';
 import type { BakedStructures } from './baked';
 import { DecorLayer } from './decor';
 import { TILE_WIDTH, depthOf, footprintAnchor, tileToScreen } from './iso';
@@ -36,9 +35,7 @@ const DUST_INTERVAL_MS = 320;
 interface BuildingEntry {
   key: string;
   body: Sprite;
-  bodyFade: Sprite;
   shadow: Sprite | null;
-  shadowFade: Sprite | null;
 }
 
 export class Scene {
@@ -53,6 +50,7 @@ export class Scene {
   private readonly particles: Particles;
   private readonly gulls: Gulls;
   private readonly overlayTiles = new Container();
+  private readonly shadows = new Container();
   private readonly structures = new Container();
   private readonly buildingSprites = new Map<number, BuildingEntry>();
   private readonly walkerSprites = new Map<number, Sprite>();
@@ -73,12 +71,14 @@ export class Scene {
     this.particles = new Particles(textures);
     this.gulls = new Gulls(world, textures);
 
+    this.shadows.sortableChildren = true;
     this.structures.sortableChildren = true;
     this.decor = new DecorLayer(world, textures, this.structures);
     this.overlayTiles.visible = false;
     this.root.addChild(
       this.terrain.container,
       this.overlayTiles,
+      this.shadows,
       this.structures,
       this.particles.container,
       this.gulls.container,
@@ -97,7 +97,7 @@ export class Scene {
   }
 
   structureFor(request: StructureRequest, bakedVariant: number): StructureSprite {
-    return this.baked?.get(request.kind, bakedVariant, request.phase) ?? this.textures.structure(request);
+    return this.baked?.get(request.kind, bakedVariant) ?? this.textures.structure(request);
   }
 
   setOverlayMode(mode: OverlayMode): void {
@@ -106,7 +106,7 @@ export class Scene {
     if (mode === 'desirability') this.refreshOverlay();
   }
 
-  sync(deltaMs: number, lighting: Lighting): void {
+  sync(deltaMs: number): void {
     this.clock += deltaMs;
     const changedTiles = this.world.consumeChangedTiles();
     this.terrain.rebuildTiles(changedTiles);
@@ -118,7 +118,7 @@ export class Scene {
       if (this.overlayMode === 'desirability') this.refreshOverlay();
     }
 
-    this.syncBuildings(lighting);
+    this.syncBuildings();
     this.syncWalkers();
     this.emitParticles();
     this.particles.update(deltaMs);
@@ -148,7 +148,7 @@ export class Scene {
     }
   }
 
-  private syncBuildings(lighting: Lighting): void {
+  private syncBuildings(): void {
     for (const [id, entry] of this.buildingSprites) {
       if (this.world.buildings.has(id)) continue;
       destroyBuilding(entry);
@@ -157,21 +157,16 @@ export class Scene {
     }
 
     for (const building of this.world.buildings.values()) {
-      const key = `${lookKey(building)}:${lighting.from}:${lighting.to}:${this.bakedVersion}`;
+      const key = `${lookKey(building)}:${this.bakedVersion}`;
       const existing = this.buildingSprites.get(building.id);
-      if (existing && existing.key === key) {
-        blendBuilding(existing, lighting.blend);
-        continue;
-      }
+      if (existing && existing.key === key) continue;
       if (existing) destroyBuilding(existing);
 
-      const entry = this.createBuilding(building, key, lighting);
-      blendBuilding(entry, lighting.blend);
-      this.buildingSprites.set(building.id, entry);
+      this.buildingSprites.set(building.id, this.createBuilding(building, key));
     }
   }
 
-  private createBuilding(building: Building, key: string, lighting: Lighting): BuildingEntry {
+  private createBuilding(building: Building, key: string): BuildingEntry {
     const depth = depthOf(building.x, building.y, building.size);
     const anchor = footprintAnchor(
       building.x,
@@ -180,37 +175,32 @@ export class Scene {
       this.world.grid.heightAt(building.x, building.y),
     );
 
-    const place = (structure: StructureSprite, zIndex: number): Sprite => {
+    const place = (structure: StructureSprite, layer: Container): Sprite => {
       const sprite = new Sprite(structure.texture);
       sprite.anchor.set(structure.anchorX, structure.anchorY);
       sprite.position.set(anchor.x, anchor.y);
-      sprite.zIndex = zIndex;
-      this.structures.addChild(sprite);
+      sprite.zIndex = depth;
+      layer.addChild(sprite);
       return sprite;
     };
 
-    const placeShadow = (structure: StructureSprite | undefined, zIndex: number): Sprite | null => {
-      if (!structure) return null;
-      return place(structure, zIndex);
+    const cast = this.shadowFor(building);
+    return {
+      key,
+      shadow: cast ? place(cast, this.shadows) : null,
+      body: place(this.bodyFor(building), this.structures),
     };
-
-    const shadow = placeShadow(this.shadowFor(building, lighting.from), depth - 0.5);
-    const shadowFade = placeShadow(this.shadowFor(building, lighting.to), depth - 0.25);
-    const body = place(this.bodyFor(building, lighting.from), depth);
-    const bodyFade = place(this.bodyFor(building, lighting.to), depth + 0.25);
-
-    return { key, body, bodyFade, shadow, shadowFade };
   }
 
-  private bodyFor(building: Building, phase: number): StructureSprite {
+  private bodyFor(building: Building): StructureSprite {
     return this.structureFor(
-      { ...lookOf(building), kind: building.kind, variant: variantOf(building.id), phase },
+      { ...lookOf(building), kind: building.kind, variant: variantOf(building.id) },
       bakedVariantOf(building),
     );
   }
 
-  private shadowFor(building: Building, phase: number): StructureSprite | undefined {
-    return this.baked?.shadow(building.kind, bakedVariantOf(building), phase);
+  private shadowFor(building: Building): StructureSprite | undefined {
+    return this.baked?.shadow(building.kind, bakedVariantOf(building));
   }
 
 
@@ -310,17 +300,9 @@ function variantOf(id: number): number {
   return Math.abs((id * 2654435761) % 4);
 }
 
-function blendBuilding(entry: BuildingEntry, blend: number): void {
-  entry.bodyFade.alpha = blend;
-  if (entry.shadow) entry.shadow.alpha = 1 - blend;
-  if (entry.shadowFade) entry.shadowFade.alpha = blend;
-}
-
 function destroyBuilding(entry: BuildingEntry): void {
   entry.body.destroy();
-  entry.bodyFade.destroy();
   entry.shadow?.destroy();
-  entry.shadowFade?.destroy();
 }
 
 function bakedVariantOf(building: Building): number {

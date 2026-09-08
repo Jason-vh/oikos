@@ -16,6 +16,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 IN_DIR = os.path.join(ROOT, "pipeline", "out")
 OUT_DIR = os.path.join(ROOT, "public", "assets")
 ATLAS_PAD = 4
+SHADOW_FLOOR = 12
 MAX_ATLAS_WIDTH = 4096
 
 RIGHT = (math.cos(math.radians(45)), math.sin(math.radians(45)), 0.0)
@@ -37,6 +38,14 @@ def south_vertex_offset(footprint, height, pixels_per_unit):
 def load_manifest():
     with open(os.path.join(IN_DIR, "manifest.json")) as handle:
         return json.load(handle)
+
+
+def drop_faint_alpha(image):
+    """A shadow catcher darkens the whole plane a little; clear that so the
+    sprite trims down to the shadow itself."""
+    alpha = image.getchannel("A").point(lambda value: 0 if value < SHADOW_FLOOR else value)
+    image.putalpha(alpha)
+    return image
 
 
 def shelf_pack(items):
@@ -74,6 +83,8 @@ def main():
     for sprite in manifest["sprites"]:
         source = Image.open(os.path.join(IN_DIR, sprite["file"])).convert("RGBA")
         image = source.resize((sprite["width"], sprite["height"]), Image.LANCZOS)
+        if sprite.get("layer") == "shadow":
+            image = drop_faint_alpha(image)
 
         bbox = image.getbbox()
         if bbox is None:
@@ -87,7 +98,6 @@ def main():
             {
                 "kind": sprite["kind"],
                 "variant": sprite.get("variant", 0),
-                "phase": sprite["phase"],
                 "layer": sprite.get("layer", "body"),
                 "image": trimmed,
                 "anchorX": (image.width / 2 - bbox[0]) / trimmed.width,
@@ -106,7 +116,6 @@ def main():
             {
                 "kind": item["kind"],
                 "variant": item["variant"],
-                "phase": item["phase"],
                 "layer": item["layer"],
                 "x": x,
                 "y": y,

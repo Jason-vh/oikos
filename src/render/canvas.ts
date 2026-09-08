@@ -116,18 +116,7 @@ export function shadowVector(sun: Sun): { x: number; y: number; alpha: number } 
   };
 }
 
-export const SUN_PHASES = 6;
-export const NIGHT_PHASE = SUN_PHASES;
-
-export function sunForPhase(phase: number): Sun {
-  if (phase >= NIGHT_PHASE) return { azimuth: Math.PI / 2, elevation: 0.5 };
-
-  const progress = (phase + 0.5) / SUN_PHASES;
-  return {
-    azimuth: Math.PI * (1 - progress),
-    elevation: 0.18 + Math.sin(progress * Math.PI) * 1.0,
-  };
-}
+export const SUN: Sun = { azimuth: Math.PI * 0.31, elevation: 0.73 };
 
 function clampByte(value: number): number {
   return Math.max(0, Math.min(255, Math.round(value)));

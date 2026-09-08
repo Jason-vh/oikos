@@ -4,8 +4,8 @@
 
 Camera: yaw 45 degrees, elevation 30 degrees, orthographic. Elevation 30 is what
 makes one tile step project to exactly TILE_WIDTH/2 across and TILE_HEIGHT/2 down,
-matching src/render/iso.ts. One sprite is rendered per sun phase, so the game can
-swap textures as the day turns instead of running a normal-mapped shader.
+matching src/render/iso.ts. Each model is rendered twice: the body, and the shadow
+it casts on the ground, so the game can lay shadows under their neighbours.
 """
 
 import argparse
@@ -19,7 +19,8 @@ from mathutils import Matrix, Vector
 
 TILE_WIDTH = 120
 TILE_HEIGHT = 60
-SUN_PHASES = 6
+SUN_ALTITUDE = math.radians(42)
+SUN_AZIMUTH = math.radians(125)
 SUPERSAMPLE = 2
 SAMPLES = 16
 PIXELS_PER_UNIT = TILE_WIDTH / math.sqrt(2)
@@ -56,7 +57,6 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", default="pipeline/out")
     parser.add_argument("--only", default="", help="comma-separated model names")
-    parser.add_argument("--phases", default="", help="comma-separated phase indices")
     parser.add_argument("--samples", type=int, default=SAMPLES)
     parser.add_argument("--device", default="GPU", choices=("GPU", "CPU"))
     return parser.parse_args(argv)
@@ -259,43 +259,26 @@ def add_wall(name, centre, length, height, thickness, mat, along_x=True):
     add_box(name, centre, size, mat)
 
 
-def window_material(night):
+def window_material():
     mat = bpy.data.materials.new("window")
     mat.use_nodes = True
     bsdf = mat.node_tree.nodes["Principled BSDF"]
-    if night:
-        bsdf.inputs["Base Color"].default_value = (*WINDOW_GLOW, 1)
-        bsdf.inputs["Emission Color"].default_value = (*WINDOW_GLOW, 1)
-        bsdf.inputs["Emission Strength"].default_value = 1.4
-    else:
-        bsdf.inputs["Base Color"].default_value = (0.09, 0.07, 0.05, 1)
-        bsdf.inputs["Roughness"].default_value = 0.4
+    bsdf.inputs["Base Color"].default_value = (0.09, 0.07, 0.05, 1)
+    bsdf.inputs["Roughness"].default_value = 0.4
     return mat
 
 
-def door_glow_material():
-    mat = bpy.data.materials.new("doorway_glow")
-    mat.use_nodes = True
-    bsdf = mat.node_tree.nodes["Principled BSDF"]
-    bsdf.inputs["Base Color"].default_value = (*WINDOW_GLOW, 1)
-    bsdf.inputs["Emission Color"].default_value = (*WINDOW_GLOW, 1)
-    bsdf.inputs["Emission Strength"].default_value = 1.2
-    return mat
-
-
-def add_door(half, height, night, door_mat, centre=(0.0, 0.0)):
+def add_door(half, height, door_mat, centre=(0.0, 0.0)):
     """Door on the +X face, the one the camera sees on the right."""
     cx, cy = centre
     door_w = max(0.14, half * 0.4)
     add_box("door", (cx + half - 0.01, cy, height / 2), (0.05, door_w, height), door_mat)
-    if night:
-        add_box("doorway_glow", (cx + half + 0.008, cy, height * 0.46), (0.015, door_w * 1.15, height * 0.8), door_glow_material())
 
 
-def add_window_row(half, z, size, night, centre=(0.0, 0.0), on_door_face=False):
+def add_window_row(half, z, size, centre=(0.0, 0.0), on_door_face=False):
     """Windows on the -Y face, and optionally flanking the door on +X."""
     cx, cy = centre
-    glass = window_material(night)
+    glass = window_material()
     window_w, window_h = size
     for offset in (-half * 0.55, half * 0.55):
         add_box("window", (cx + offset, cy - half + 0.01, z), (window_w, 0.06, window_h), glass)
@@ -303,16 +286,15 @@ def add_window_row(half, z, size, night, centre=(0.0, 0.0), on_door_face=False):
             add_box("window", (cx + half - 0.01, cy + offset, z), (0.06, window_w, window_h), glass)
 
 
-def add_openings(half, sill, tall, night, door_mat, centre=(0.0, 0.0)):
-    add_door(half, sill * 1.1, night, door_mat, centre)
+def add_openings(half, sill, tall, door_mat, centre=(0.0, 0.0)):
+    add_door(half, sill * 1.1, door_mat, centre)
     window_w = max(0.16, tall * 0.26)
     window_h = max(0.18, tall * 0.3)
-    add_window_row(half, sill + tall * 0.15, (window_w, window_h), night, centre)
+    add_window_row(half, sill + tall * 0.15, (window_w, window_h), centre)
 
 
-def build_house_0(phase):
+def build_house_0():
     """Shack: rough fieldstone walls, deep straw roof, lean-to, pot by the door."""
-    night = phase >= SUN_PHASES
     fieldstone = plaster_material("fieldstone", FIELDSTONE, roughness=0.95, variation=0.12, scale=14.0)
     straw_dull = plaster_material("straw_dull", STRAW_DULL, roughness=0.95, variation=0.1, scale=20.0)
     straw_ridge = material("straw_ridge", STRAW_RIDGE, roughness=0.85)
@@ -322,8 +304,8 @@ def build_house_0(phase):
     half = 0.32
     wall_h = 0.34
     add_box("walls", (0, 0, wall_h / 2), (half * 2, half * 2, wall_h), fieldstone)
-    add_door(half, 0.26, night, wood)
-    add_window_row(half, 0.2, (0.1, 0.1), night)
+    add_door(half, 0.26, wood)
+    add_window_row(half, 0.2, (0.1, 0.1))
 
     eave_half = half + 0.07
     eave_h = 0.05
@@ -343,9 +325,8 @@ def build_house_0(phase):
     return {"kind": "house", "variant": 0, "footprint": 1, "height": top + 0.1}
 
 
-def build_house_1(phase):
+def build_house_1():
     """Hovel: mud-plaster ochre walls, pitched terracotta roof, small wooden awning."""
-    night = phase >= SUN_PHASES
     ochre = plaster_material("ochre", OCHRE, roughness=0.9, variation=0.08, scale=8.0)
     terracotta = roof_material("terracotta", TERRACOTTA)
     stone = plaster_material("stone", STONE, roughness=0.85, variation=0.06, scale=10.0)
@@ -355,8 +336,8 @@ def build_house_1(phase):
     wall_h = 0.42
     add_box("plinth", (0, 0, 0.02), (half * 2 + 0.05, half * 2 + 0.05, 0.04), stone)
     add_box("walls", (0, 0, 0.04 + wall_h / 2), (half * 2, half * 2, wall_h), ochre)
-    add_door(half, 0.3, night, wood)
-    add_window_row(half, 0.28, (0.12, 0.12), night)
+    add_door(half, 0.3, wood)
+    add_window_row(half, 0.28, (0.12, 0.12))
 
     roof_z = 0.04 + wall_h
     roof_h = 0.2
@@ -370,9 +351,8 @@ def build_house_1(phase):
     return {"kind": "house", "variant": 2, "footprint": 1, "height": roof_z + roof_h + 0.1}
 
 
-def build_house_2(phase):
+def build_house_2():
     """Tenement: whitewashed walls, terracotta hip roof, pergola, amphorae, chimney."""
-    night = phase >= SUN_PHASES
     whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.85, variation=0.05, scale=6.0)
     terracotta = roof_material("terracotta", TERRACOTTA)
     stone = plaster_material("stone", STONE, roughness=0.8, variation=0.06, scale=10.0)
@@ -385,8 +365,8 @@ def build_house_2(phase):
     add_box("plinth", (0, 0, 0.025), (half * 2 + 0.05, half * 2 + 0.05, 0.05), stone)
     add_box("walls", (0, 0, 0.05 + wall_h / 2), (half * 2, half * 2, wall_h), whitewash)
     add_box("cornice", (0, 0, 0.05 + wall_h + 0.015), (half * 2 + 0.04, half * 2 + 0.04, 0.03), stone)
-    add_door(half, 0.32, night, wood)
-    add_window_row(half, 0.4, (0.12, 0.14), night, on_door_face=True)
+    add_door(half, 0.32, wood)
+    add_window_row(half, 0.4, (0.12, 0.14), on_door_face=True)
 
     roof_z = 0.05 + wall_h + 0.03
     roof_h = 0.22
@@ -403,9 +383,8 @@ def build_house_2(phase):
     return {"kind": "house", "variant": 4, "footprint": 1, "height": roof_z + roof_h + 0.1}
 
 
-def build_house_3(phase):
+def build_house_3():
     """Homestead: two storeys of whitewash with marble trim, clerestory roof, columned porch, cypress."""
-    night = phase >= SUN_PHASES
     whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.85, variation=0.05, scale=6.0)
     terracotta = roof_material("terracotta", TERRACOTTA)
     marble = material("marble", MARBLE, roughness=0.35)
@@ -421,9 +400,9 @@ def build_house_3(phase):
     add_box("walls", (0, 0, 0.06 + wall_h / 2), (half * 2, half * 2, wall_h), whitewash)
     add_box("string_course", (0, 0, 0.06 + 0.38), (half * 2 + 0.03, half * 2 + 0.03, 0.025), marble)
     add_box("cornice", (0, 0, 0.06 + wall_h + 0.02), (half * 2 + 0.05, half * 2 + 0.05, 0.04), marble)
-    add_door(half, 0.34, night, wood)
-    add_window_row(half, 0.26, (0.12, 0.14), night)
-    add_window_row(half, 0.6, (0.12, 0.14), night, on_door_face=True)
+    add_door(half, 0.34, wood)
+    add_window_row(half, 0.26, (0.12, 0.14))
+    add_window_row(half, 0.6, (0.12, 0.14), on_door_face=True)
 
     roof_z = 0.06 + wall_h + 0.04
     roof_h = 0.18
@@ -447,9 +426,8 @@ def build_house_3(phase):
     return {"kind": "house", "variant": 6, "footprint": 1, "height": top + 0.1}
 
 
-def build_wheat_farm(phase):
+def build_wheat_farm():
     """Farmhouse with a terracotta roof; low golden wheat rows behind a stone wall."""
-    night = phase >= SUN_PHASES
     soil = plaster_material("soil", SOIL, roughness=0.98, variation=0.1, scale=12.0)
     crop = plaster_material("crop", STRAW, roughness=0.85, variation=0.1, scale=30.0)
     ochre = plaster_material("ochre", OCHRE, roughness=0.9, variation=0.08, scale=8.0)
@@ -470,13 +448,13 @@ def build_wheat_farm(phase):
     wall_h = 0.4
     add_box("hut_wall", (hx, hy, wall_h / 2), (half * 2, half * 2, wall_h), ochre)
     add_hip_roof("hut_roof", (hx, hy, wall_h + 0.09), half + 0.04, 0.18, terracotta, ridge_half=0.07)
-    add_door(half, 0.26, night, wood, (hx, hy))
-    add_window_row(half, 0.24, (0.1, 0.1), night, (hx, hy))
+    add_door(half, 0.26, wood, (hx, hy))
+    add_window_row(half, 0.24, (0.1, 0.1), (hx, hy))
 
     return {"kind": "wheatFarm", "variant": 0, "footprint": 2, "height": 0.75}
 
 
-def build_granary(phase):
+def build_granary():
     """Stone base, whitewashed walls, a big terracotta roof, storage jars, loading door."""
     stone = plaster_material("stone", STONE, roughness=0.8, variation=0.06, scale=10.0)
     whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.85, variation=0.05, scale=6.0)
@@ -507,7 +485,7 @@ def build_granary(phase):
     return {"kind": "granary", "variant": 0, "footprint": 2, "height": roof_z + roof_h + 0.1}
 
 
-def build_fountain(phase):
+def build_fountain():
     """Marble basin with a raised centre and a small bronze statue; light blue water."""
     marble = material("marble", MARBLE, roughness=0.3)
     bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
@@ -530,7 +508,7 @@ def build_fountain(phase):
     return {"kind": "fountain", "variant": 0, "footprint": 1, "height": 0.9}
 
 
-def build_statue(phase):
+def build_statue():
     """Marble on a stepped plinth, a bronze figure with green patina accents."""
     stone = material("stone", STONE, roughness=0.7)
     marble = material("marble", MARBLE, roughness=0.3)
@@ -569,8 +547,8 @@ MIRROR_DIAGONAL = Matrix(((0, -1, 0, 0), (-1, 0, 0, 0), (0, 0, 1, 0), (0, 0, 0, 
 def mirrored(builder):
     """Reflect across the x = -y plane so the door and windows swap camera-facing sides."""
 
-    def build(phase):
-        spec = builder(phase)
+    def build():
+        spec = builder()
         for obj in bpy.data.objects:
             if obj.type == "MESH":
                 obj.matrix_world = MIRROR_DIAGONAL @ obj.matrix_world
@@ -601,18 +579,23 @@ def add_ground():
     return ground
 
 
+def frame_camera(camera, resolution):
+    """The camera stays put; a bigger frame simply shows more around the model."""
+    scene = bpy.context.scene
+    scene.render.resolution_x = resolution[0]
+    scene.render.resolution_y = resolution[1]
+    scene.render.resolution_percentage = 100
+    camera.data.ortho_scale = resolution[0] / (PIXELS_PER_UNIT * SUPERSAMPLE)
+
+
 def add_camera(footprint, height, resolution):
     bpy.ops.object.camera_add(location=(0, 0, 0))
     camera = bpy.context.active_object
     camera.data.type = "ORTHO"
     camera.rotation_euler = (math.pi / 2 - CAMERA_ELEVATION, 0, CAMERA_YAW)
 
-    scene = bpy.context.scene
-    scene.camera = camera
-    scene.render.resolution_x = resolution[0]
-    scene.render.resolution_y = resolution[1]
-    scene.render.resolution_percentage = 100
-    camera.data.ortho_scale = resolution[0] / (PIXELS_PER_UNIT * SUPERSAMPLE)
+    bpy.context.scene.camera = camera
+    frame_camera(camera, resolution)
 
     target = Vector((0, 0, height / 2))
     direction = Vector(
@@ -626,51 +609,33 @@ def add_camera(footprint, height, resolution):
     return camera
 
 
-def add_sun(phase):
-    """Phase 0..SUN_PHASES-1 walks the day arc; SUN_PHASES is night."""
-    night = phase >= SUN_PHASES
+def add_sun():
+    """Mid-afternoon, and low enough that shadows clear the footprint."""
     bpy.ops.object.light_add(type="SUN", location=(0, 0, 12))
     sun = bpy.context.active_object
-
-    if night:
-        sun.data.energy = 0.6
-        sun.data.color = (0.55, 0.68, 1.0)
-        sun.data.angle = math.radians(20)
-        altitude = math.radians(55)
-        azimuth = math.radians(200)
-    else:
-        progress = (phase + 0.5) / SUN_PHASES
-        altitude = math.radians(12 + 62 * math.sin(progress * math.pi))
-        azimuth = math.radians(20 + 140 * progress)
-        warmth = 1 - math.sin(progress * math.pi)
-        sun.data.energy = 2.4
-        sun.data.color = (1.0, 0.94 - 0.16 * warmth, 0.84 - 0.34 * warmth)
-        sun.data.angle = math.radians(5 + 8 * warmth)
-
-    sun.rotation_euler = (math.pi / 2 - altitude, 0, azimuth)
+    sun.data.energy = 3.1
+    sun.data.color = (1.0, 0.9, 0.75)
+    sun.data.angle = math.radians(2.0)
+    sun.rotation_euler = (math.pi / 2 - SUN_ALTITUDE, 0, SUN_AZIMUTH)
 
     world = bpy.data.worlds.new("world")
     bpy.context.scene.world = world
     world.use_nodes = True
     background = world.node_tree.nodes["Background"]
-    background.inputs[0].default_value = (0.42, 0.52, 0.68, 1) if night else (0.55, 0.62, 0.72, 1)
-    background.inputs[1].default_value = 0.35 if night else 0.9
+    background.inputs[0].default_value = (0.55, 0.62, 0.72, 1)
+    background.inputs[1].default_value = 0.62
     return sun
 
 
-def render_phase(name, spec, phase, out_dir, ground):
-    """Two passes: the body with no shadow catcher, then the shadow with no body.
-
-    A building's silhouette is the same at every sun angle; only its shadow moves.
-    Kept in one sprite the two cannot be cross-faded — the outgoing shadow has
-    nowhere to fade to. Split, each layer dissolves cleanly.
-    """
+def render_model(name, spec, out_dir, ground):
+    """Two passes: the body with no shadow catcher, then the shadow with no body,
+    so the game can lay a shadow under its neighbours instead of over them."""
     resolution = (
         int((spec["footprint"] * TILE_WIDTH + 120) * SUPERSAMPLE),
         int((spec["footprint"] * TILE_HEIGHT + spec["height"] * 90 + 120) * SUPERSAMPLE),
     )
-    add_camera(spec["footprint"], spec["height"], resolution)
-    add_sun(phase)
+    camera = add_camera(spec["footprint"], spec["height"], resolution)
+    add_sun()
 
     scene = bpy.context.scene
     scene.render.image_settings.file_format = "PNG"
@@ -678,7 +643,7 @@ def render_phase(name, spec, phase, out_dir, ground):
 
     ground.is_shadow_catcher = False
     ground.visible_camera = False
-    body = os.path.join(out_dir, f"{name}-{phase}.png")
+    body = os.path.join(out_dir, f"{name}.png")
     scene.render.filepath = body
     bpy.ops.render.render(write_still=True)
 
@@ -687,11 +652,21 @@ def render_phase(name, spec, phase, out_dir, ground):
     for obj in bpy.data.objects:
         if obj.type == "MESH" and obj is not ground:
             obj.visible_camera = False
-    shadow = os.path.join(out_dir, f"{name}-{phase}-shadow.png")
+
+    shadow_resolution = shadow_frame(spec, resolution)
+    frame_camera(camera, shadow_resolution)
+    shadow = os.path.join(out_dir, f"{name}-shadow.png")
     scene.render.filepath = shadow
     bpy.ops.render.render(write_still=True)
 
-    return body, shadow, resolution
+    return (("body", body, resolution), ("shadow", shadow, shadow_resolution))
+
+
+def shadow_frame(spec, resolution):
+    """Room for the shadow the sun casts across the ground."""
+    reach = (spec["height"] / math.tan(SUN_ALTITUDE) + spec["footprint"]) * PIXELS_PER_UNIT
+    pad = int(reach * SUPERSAMPLE)
+    return (resolution[0] + 2 * pad, resolution[1] + 2 * pad)
 
 
 def main():
@@ -703,39 +678,30 @@ def main():
     manifest = {"tileWidth": TILE_WIDTH, "tileHeight": TILE_HEIGHT, "supersample": SUPERSAMPLE, "sprites": []}
 
     names = args.only.split(",") if args.only else list(MODELS)
-    phases = [int(phase) for phase in args.phases.split(",")] if args.phases else list(range(SUN_PHASES + 1))
-    rebuilt = set()
-    for name in names:
-        for phase in phases:
-            rebuilt.add(f"{name}-{phase}.png")
-            rebuilt.add(f"{name}-{phase}-shadow.png")
+    rebuilt = {f"{name}.png" for name in names} | {f"{name}-shadow.png" for name in names}
 
-    if len(rebuilt) < len(MODELS) * (SUN_PHASES + 1) * 2 and os.path.exists(manifest_path):
+    if len(names) < len(MODELS) and os.path.exists(manifest_path):
         with open(manifest_path) as handle:
             existing = json.load(handle)
         manifest["sprites"] = [s for s in existing["sprites"] if s["file"] not in rebuilt]
 
     for name in names:
-        for phase in phases:
-            clear_scene(args.samples, args.device)
-            spec = MODELS[name](phase)
-            ground = add_ground()
-            body, shadow, resolution = render_phase(name, spec, phase, out_dir, ground)
-
-            for layer, path in (("body", body), ("shadow", shadow)):
-                manifest["sprites"].append(
-                    {
-                        "kind": spec["kind"],
-                        "variant": spec["variant"],
-                        "phase": phase,
-                        "layer": layer,
-                        "file": os.path.basename(path),
-                        "footprint": spec["footprint"],
-                        "heightUnits": spec["height"],
-                        "width": resolution[0] // SUPERSAMPLE,
-                        "height": resolution[1] // SUPERSAMPLE,
-                    }
-                )
+        clear_scene(args.samples, args.device)
+        spec = MODELS[name]()
+        ground = add_ground()
+        for layer, path, resolution in render_model(name, spec, out_dir, ground):
+            manifest["sprites"].append(
+                {
+                    "kind": spec["kind"],
+                    "variant": spec["variant"],
+                    "layer": layer,
+                    "file": os.path.basename(path),
+                    "footprint": spec["footprint"],
+                    "heightUnits": spec["height"],
+                    "width": resolution[0] // SUPERSAMPLE,
+                    "height": resolution[1] // SUPERSAMPLE,
+                }
+            )
 
     with open(manifest_path, "w") as handle:
         json.dump(manifest, handle, indent=2)
