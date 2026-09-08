@@ -98,6 +98,14 @@ blender --background --python pipeline/iso_render.py -- --out pipeline/out \
 `--only` and `--phases` merge into the existing manifest, so a night-lighting tweak
 is seconds rather than minutes.
 
+```bash
+python3 pipeline/sheet.py 2 /tmp/sheet.png            # every sprite over its tile diamond
+bun scripts/noon.mjs http://localhost:5180 out.png 100  # in-game shot; tick 100/220/300 = morning/dusk/night, optional zoom
+```
+
+One model unit is one tile side, so a 1×1 building's walls should stay inside
+±0.5. `add_box` takes full extents; cones and cylinders take radii.
+
 Material colours are written in sRGB and converted to linear at the material
 boundary — passing sRGB straight to Blender is what makes renders look washed out.
 
