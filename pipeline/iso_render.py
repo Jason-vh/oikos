@@ -51,11 +51,11 @@ CYPRESS = (0.13, 0.30, 0.18)
 WATER_LIGHT = (0.40, 0.74, 0.77)
 SOIL = (0.36, 0.27, 0.17)
 SLATE = (0.30, 0.36, 0.40)
-EARTH = hex_rgb("bda875")
-DAUB = hex_rgb("a98f5f")
-DAUB_LIGHT = hex_rgb("bda173")
-THATCH = hex_rgb("c2a45c")
-THATCH_DARK = hex_rgb("9c8241")
+EARTH = hex_rgb("c9b489")
+DAUB = hex_rgb("a4794c")
+DAUB_LIGHT = hex_rgb("b98d5c")
+THATCH = hex_rgb("d8c579")
+THATCH_DARK = hex_rgb("ab944d")
 SHADOW_DARK = (0.06, 0.05, 0.04)
 
 
@@ -333,7 +333,7 @@ def add_gable_roof(name, centre, half_x, half_y, rise, thickness, mat):
             (slope, half_y * 2, thickness),
             mat,
         )
-        plane.rotation_euler[1] = -side * pitch
+        plane.rotation_euler[1] = side * pitch
     return add_box(f"{name}_ridge", (cx, cy, cz + rise), (thickness * 1.6, half_y * 2, thickness), mat)
 
 
