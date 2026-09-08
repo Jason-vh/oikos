@@ -42,7 +42,7 @@ export function inspectTile(world: World, x: number, y: number): Inspection | nu
 export function describeBuildingTool(kind: BuildingKind): Inspection {
   const def = BUILDINGS[kind];
   const facts: [string, string][] = [
-    ['Cost', `${def.cost} dr`],
+    ['Cost', `${def.cost} ₯`],
     ['Size', `${def.size}×${def.size} tiles`],
   ];
   if (def.workers > 0) facts.push(['Workers', `${def.workers}`]);
@@ -59,7 +59,7 @@ export function describeRoadTool(): Inspection {
     title: 'Road',
     subtitle: 'Network',
     description: 'The only network in the city. Every walker follows it, and nothing social crosses bare ground.',
-    facts: [['Cost', `${ROAD_COST} dr per tile`]],
+    facts: [['Cost', `${ROAD_COST} ₯ per tile`]],
   };
 }
 
@@ -69,7 +69,7 @@ export function describeRoadblockTool(): Inspection {
     subtitle: 'Network',
     description:
       'Roaming walkers turn back here, so a block can be sealed off from wandering vendors. Anyone walking to a destination — a cart pusher, a deliveryman, a walker heading home — passes straight through.',
-    facts: [['Cost', `${ROADBLOCK_COST} dr`]],
+    facts: [['Cost', `${ROADBLOCK_COST} ₯`]],
   };
 }
 

@@ -5,12 +5,11 @@ import { attachKeyboardPan, attachPointerInput } from './render/input';
 import { footprintAnchor, pickTile, tileToScreen, type Point } from './render/iso';
 import { Scene, structureLook, type OverlayMode } from './render/scene';
 import { TextureCache } from './render/textures';
-import { BUILDINGS, HOUSE_TIERS, ROAD_COST } from './sim/buildings';
-import { MAX_HEIGHT, TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_SAND, TERRAIN_WATER } from './sim/grid';
+import { BUILDINGS, ROAD_COST } from './sim/buildings';
+import { MAX_HEIGHT } from './sim/grid';
 import type { View } from './sim/save';
 import { inspectTile, type Inspection } from './ui/inspect';
-import { SERVICE_KINDS } from './sim/types';
-import type { Building, BuildingKind } from './sim/types';
+import type { BuildingKind } from './sim/types';
 import { TICKS_PER_SECOND } from './sim/time';
 import { World } from './sim/world';
 
@@ -105,28 +104,6 @@ export class Game {
 
   clearSelection(): void {
     this.selected = null;
-  }
-
-  describeHover(): string {
-    const { x, y } = this.hovered;
-    const grid = this.world.grid;
-    if (!grid.contains(x, y)) return '—';
-
-    const index = grid.index(x, y);
-    const building = this.world.buildingAt(index);
-    const suffix = `appeal ${grid.appeal[index]} · level ${grid.height[index]}`;
-
-    if (building) {
-      const name =
-        building.kind === 'house'
-          ? `${HOUSE_TIERS[building.tier].name} (${building.population})`
-          : BUILDINGS[building.kind].name;
-      return `${name}${describeStaff(building)}${describeBuildingState(building)} · ${suffix}`;
-    }
-
-    if (grid.isRoadblock(index)) return `Roadblock · turns roaming walkers back · ${suffix}`;
-    if (grid.isRoad(index)) return `Road · ${suffix}`;
-    return `${terrainName(grid.terrain[index])} · ${suffix}`;
   }
 
   private resolveTile(world: Point): Point {
@@ -289,29 +266,3 @@ function roadPath(from: Point, to: Point): Point[] {
   return tiles;
 }
 
-function terrainName(terrain: number): string {
-  if (terrain === TERRAIN_WATER) return 'Water';
-  if (terrain === TERRAIN_MEADOW) return 'Meadow';
-  if (terrain === TERRAIN_ROCK) return 'Rocks';
-  if (terrain === TERRAIN_SAND) return 'Sand';
-  return 'Grass';
-}
-
-function describeStaff(building: Building): string {
-  const needed = BUILDINGS[building.kind].workers;
-  if (needed === 0) return '';
-  return ` · ${building.staff}/${needed} workers`;
-}
-
-function describeBuildingState(building: Building): string {
-  const def = BUILDINGS[building.kind];
-  if (building.kind === 'agora') {
-    return ` · ${Math.round(building.stock.food)} food · ${Math.round(building.stock.oil)} oil`;
-  }
-  if (def.produces) return ` · ${building.stock[def.produces]} cartloads`;
-  if (def.accepts) return ` · ${building.stock[def.accepts]} cartloads`;
-  if (building.kind !== 'house') return '';
-
-  const supplied = SERVICE_KINDS.filter((service) => building.supply[service] > 0);
-  return supplied.length > 0 ? ` · ${supplied.join(', ')}` : ' · unserved';
-}

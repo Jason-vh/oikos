@@ -100,7 +100,7 @@ src/render/
   scene.ts        buildings, walkers, particles, overlays
   particles.ts    chimney smoke and cart dust
 src/ui/         DOM overlay
-  hud.ts          top bar, tool panel, message scroll
+  hud.ts          top bar and its dropdowns, tool panel, menu
   inspect.ts      what every building, tile and tool says about itself
 pipeline/       Blender → sprite atlas asset pipeline
 ```

@@ -123,7 +123,97 @@ button.cartouche {
   font-family: inherit;
 }
 
+button.cartouche::after {
+  content: '';
+  display: inline-block;
+  margin-left: 8px;
+  border: 4px solid transparent;
+  border-top-color: currentColor;
+  transform: translateY(2px);
+}
+
 button.cartouche:hover {
+  filter: brightness(1.12);
+}
+
+.cartouche-menu {
+  position: relative;
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 3;
+  display: none;
+  width: 240px;
+  padding: 10px 12px;
+  border: 1px solid var(--stone-shadow);
+  border-radius: 8px;
+  background:
+    radial-gradient(ellipse at 15% 10%, rgba(255, 255, 255, 0.25), transparent 55%),
+    linear-gradient(200deg, var(--parchment-1), var(--parchment-2));
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.cartouche-menu.open .dropdown {
+  display: block;
+}
+
+.dropdown-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 3px 0;
+}
+
+.dropdown-row span {
+  color: var(--stone-shadow);
+}
+
+.dropdown-row b {
+  font-variant-numeric: tabular-nums;
+}
+
+.dropdown-rule {
+  height: 1px;
+  margin: 7px 0;
+  background: rgba(107, 89, 54, 0.3);
+}
+
+.dropdown-note {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--ink-soft);
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stepper b {
+  min-width: 68px;
+  text-align: center;
+}
+
+.stepper button {
+  cursor: pointer;
+  border: 1px solid var(--bronze-3);
+  border-radius: 4px;
+  background: linear-gradient(180deg, var(--bronze-1), var(--bronze-2));
+  color: var(--gold-bright);
+  font-size: 10px;
+  line-height: 1;
+  padding: 4px 6px;
+}
+
+.stepper button:hover {
   filter: brightness(1.12);
 }
 
@@ -336,42 +426,78 @@ button.cartouche:hover {
   border-color: rgba(0, 0, 0, 0.25);
 }
 
-/* ---------- bottom message scroll ---------- */
+/* ---------- message ---------- */
 
-.scroll {
+.message {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 276px;
-  display: flex;
-  gap: 24px;
-  align-items: center;
-  padding: 24px 18px 8px;
-  pointer-events: auto;
-  min-height: 20px;
-  background: linear-gradient(180deg, var(--parchment-2), var(--parchment-1));
-  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.35);
-  font-size: 15px;
-  color: var(--ink-soft);
-}
-
-.scroll::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 16px;
-  background-image: var(--meander);
-  background-repeat: repeat-x;
-  background-size: 24px 16px;
-  background-position: center;
-  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.22), inset 0 -1px 0 rgba(255, 255, 255, 0.3), 0 -1px 2px rgba(0, 0, 0, 0.3);
-}
-
-.scroll [data-field='messages'] {
+  left: 18px;
+  bottom: 18px;
+  margin: 0;
+  max-width: 320px;
   color: var(--bronze-3);
+  font-size: 15px;
   font-weight: 600;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.message:empty {
+  display: none;
+}
+
+/* ---------- menu ---------- */
+
+.modal {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  background: rgba(24, 18, 10, 0.55);
+  z-index: 4;
+}
+
+.modal[hidden] {
+  display: none;
+}
+
+.modal-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 240px;
+  padding: 20px;
+  border: 1px solid var(--stone-shadow);
+  border-radius: 10px;
+  background:
+    radial-gradient(ellipse at 15% 10%, rgba(255, 255, 255, 0.25), transparent 55%),
+    linear-gradient(200deg, var(--parchment-1), var(--parchment-2));
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.modal-card h2 {
+  margin: 0 0 6px;
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 22px;
+  letter-spacing: 0.2em;
+  color: var(--bronze-3);
+}
+
+.modal-button {
+  cursor: pointer;
+  padding: 8px 12px;
+  border: 1px solid var(--bronze-3);
+  border-radius: 6px;
+  background: linear-gradient(180deg, var(--bronze-1), var(--bronze-2));
+  color: var(--gold-bright);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.modal-button:hover {
+  filter: brightness(1.1);
 }
 
 /* ---------- inspection popup ---------- */
@@ -379,7 +505,7 @@ button.cartouche:hover {
 .popup {
   position: absolute;
   left: 18px;
-  bottom: 68px;
+  bottom: 52px;
   width: 320px;
   padding: 14px 16px 12px;
   pointer-events: auto;
@@ -468,6 +594,35 @@ button.cartouche:hover {
     linear-gradient(200deg, var(--parchment-1), var(--parchment-2));
   box-shadow: 0 5px 14px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.5);
   color: var(--ink);
+}
+
+.goals-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+}
+
+.chevron {
+  border: 5px solid transparent;
+  border-top-color: var(--bronze-3);
+  transform: translateY(3px);
+}
+
+.goals.collapsed .chevron {
+  transform: translateY(-2px) rotate(180deg);
+}
+
+.goals.collapsed .goals-blurb,
+.goals.collapsed .goals-list {
+  display: none;
 }
 
 .goals h2 {

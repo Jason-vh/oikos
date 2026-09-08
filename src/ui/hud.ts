@@ -1,7 +1,7 @@
 import type { Game, Tool } from '../game';
 import type { OverlayMode } from '../render/scene';
 import { BUILDINGS, PLACEABLE, ROADBLOCK_COST, ROAD_COST } from '../sim/buildings';
-import { WAGE_LEVELS, type LabourReport } from '../sim/labour';
+import { monthlyWages, WAGE_LEVELS, type LabourReport } from '../sim/labour';
 import { TAX_RATES } from '../sim/taxation';
 import { abandonCity } from '../sim/save';
 import {
@@ -12,6 +12,8 @@ import {
   describeRoadblockTool,
   type Inspection,
 } from './inspect';
+
+const DRACHMA = '₯';
 
 interface ToolButton {
   label: string;
@@ -32,19 +34,14 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       <header class="topbar">
         <span class="brand">Zeus</span>
         <span class="cartouche" data-field="date"></span>
-        <span class="cartouche treasury" data-field="treasury"></span>
-        <span class="cartouche" data-field="population"></span>
-        <span class="cartouche" data-field="labour"></span>
-        <span class="cartouche" data-field="popularity"></span>
-        <button class="cartouche" data-wages data-field="wages"></button>
-        <button class="cartouche" data-taxes data-field="taxes"></button>
+        ${renderMenu('treasury', 'treasury', financeMenu())}
+        ${renderMenu('people', '', peopleMenu())}
         <span class="spacer"></span>
         <span class="speeds">
           ${[0, 1, 2, 4].map((speed) => `<button class="medallion" data-speed="${speed}">${speedLabel(speed)}</button>`).join('')}
         </span>
         <button class="overlay-toggle" data-overlay="appeal">Appeal <kbd>O</kbd></button>
         <button class="overlay-toggle" data-overlay="hazard">Hazards <kbd>H</kbd></button>
-        <button class="overlay-toggle" data-new-city>New city</button>
       </header>
       <aside class="panel">
         <div class="panel-inner">
@@ -52,7 +49,10 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
         </div>
       </aside>
       <section class="goals" data-goals>
-        <h2 data-goals-title></h2>
+        <button class="goals-header" data-goals-toggle>
+          <h2 data-goals-title></h2>
+          <span class="chevron"></span>
+        </button>
         <p class="goals-blurb" data-goals-blurb></p>
         <ul class="goals-list" data-goals-list></ul>
       </section>
@@ -63,10 +63,14 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
         <p class="popup-description" data-popup-description></p>
         <dl class="popup-facts" data-popup-facts></dl>
       </section>
-      <footer class="scroll">
-        <span data-field="hover"></span>
-        <span data-field="messages"></span>
-      </footer>
+      <p class="message" data-field="messages"></p>
+      <div class="modal" data-modal hidden>
+        <div class="modal-card">
+          <h2>Zeus</h2>
+          <button class="modal-button" data-resume>Resume</button>
+          <button class="modal-button" data-new-city>Abandon city</button>
+        </div>
+      </div>
     </div>
   `,
   );
@@ -96,18 +100,44 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
   hud.querySelectorAll<HTMLButtonElement>('[data-overlay]').forEach((element) => {
     element.addEventListener('click', () => game.toggleOverlay(element.dataset.overlay as OverlayMode));
   });
-  hud.querySelector('[data-wages]')?.addEventListener('click', () => {
-    game.world.wageLevel = (game.world.wageLevel + 1) % WAGE_LEVELS.length;
-    game.world.hireWorkers();
+  const menus = Array.from(hud.querySelectorAll<HTMLElement>('[data-menu]'));
+  const closeMenus = () => menus.forEach((menu) => menu.classList.remove('open'));
+
+  menus.forEach((menu) => {
+    menu.querySelector('[data-menu-button]')?.addEventListener('click', () => {
+      const wasOpen = menu.classList.contains('open');
+      closeMenus();
+      menu.classList.toggle('open', !wasOpen);
+    });
   });
-  hud.querySelector('[data-taxes]')?.addEventListener('click', () => {
-    game.world.taxRate = (game.world.taxRate + 1) % TAX_RATES.length;
+  document.addEventListener('pointerdown', (event) => {
+    if (!(event.target instanceof Node) || !menus.some((menu) => menu.contains(event.target as Node))) closeMenus();
+  });
+
+  hud.querySelectorAll<HTMLButtonElement>('[data-step]').forEach((element) => {
+    element.addEventListener('click', () => {
+      const [setting, amount] = element.dataset.step!.split(':');
+      if (setting === 'wages') {
+        game.world.wageLevel = clampIndex(game.world.wageLevel + Number(amount), WAGE_LEVELS.length);
+        game.world.hireWorkers();
+      } else {
+        game.world.taxRate = clampIndex(game.world.taxRate + Number(amount), TAX_RATES.length);
+      }
+    });
+  });
+
+  const modal = hud.querySelector('[data-modal]') as HTMLElement;
+  hud.querySelector('[data-resume]')?.addEventListener('click', () => {
+    modal.hidden = true;
   });
   hud.querySelector('[data-new-city]')?.addEventListener('click', () => {
     if (!confirm('Abandon this city and found a new one?')) return;
     abandonCity();
     location.reload();
   });
+
+  const goals = hud.querySelector('[data-goals]') as HTMLElement;
+  hud.querySelector('[data-goals-toggle]')?.addEventListener('click', () => goals.classList.toggle('collapsed'));
 
   const selectTool = (index: number) => {
     const button = buttons[index];
@@ -118,8 +148,20 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
   window.addEventListener('keydown', (event) => {
     const key = event.key.toLowerCase();
     if (key === 'escape') {
-      game.clearSelection();
-      selectTool(buttons.findIndex((button) => button.tool.kind === 'inspect'));
+      if (!modal.hidden) {
+        modal.hidden = true;
+        return;
+      }
+      if (menus.some((menu) => menu.classList.contains('open'))) {
+        closeMenus();
+        return;
+      }
+      if (game.selected || game.tool.kind !== 'inspect') {
+        game.clearSelection();
+        selectTool(buttons.findIndex((button) => button.tool.kind === 'inspect'));
+        return;
+      }
+      modal.hidden = false;
       return;
     }
 
@@ -135,17 +177,23 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
 
   return {
     update: () => {
-      field('date').textContent = game.world.dateLabel;
-      field('treasury').textContent = `${Math.floor(game.world.treasury)} dr`;
-      field('population').textContent = `${game.world.population} citizens`;
-      field('labour').textContent = labourLabel(game.world.labour);
-      field('popularity').textContent = popularityLabel(game.world.sentiment.popularity, game.world.migrants);
-      field('wages').textContent = `Wages: ${WAGE_LEVELS[game.world.wageLevel].name}`;
-      field('taxes').textContent = taxLabel(game.world);
-      renderGoals(hud, game.world);
+      const { world } = game;
+      field('date').textContent = world.dateLabel;
+      field('treasury').textContent = money(world.treasury);
+      field('people').textContent = `${world.population} citizens`;
+      field('taxRate').textContent = TAX_RATES[world.taxRate].name;
+      field('taxTake').textContent = `${money(world.taxes.collected)} a month`;
+      field('taxCover').textContent = `${taxCoverage(world)}% of citizens`;
+      field('wageLevel').textContent = WAGE_LEVELS[world.wageLevel].name;
+      field('wageBill').textContent = `${money(monthlyWages(world.labour.employed, world.wageLevel))} a month`;
+      field('workers').textContent = labourLabel(world.labour);
+      field('idle').textContent = `${world.labour.workforce - world.labour.employed}`;
+      field('popularity').textContent = `${world.sentiment.popularity} of 100`;
+      field('migration').textContent = migrationLabel(world.migrants);
+      field('complaint').textContent = world.sentiment.complaint ?? 'Nobody complains.';
+      renderGoals(hud, world);
       renderPopup(popup, balloon ?? game.inspectSelection(), balloon === null);
-      field('hover').textContent = game.describeHover();
-      field('messages').textContent = game.world.messages[0] ?? '';
+      field('messages').textContent = world.messages[0] ?? '';
 
       hud.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((element) => {
         const button = buttons[Number(element.dataset.tool)];
@@ -243,10 +291,66 @@ function groupFor(kind: string): string {
   return 'Services';
 }
 
-function taxLabel(world: Game['world']): string {
-  const { taxedPeople, untaxedPeople, collected } = world.taxes;
-  const covered = taxedPeople + untaxedPeople === 0 ? 0 : Math.round((100 * taxedPeople) / (taxedPeople + untaxedPeople));
-  return `Tax: ${TAX_RATES[world.taxRate].name} · ${covered}% · ${Math.round(collected)} dr`;
+function taxCoverage(world: Game['world']): number {
+  const { taxedPeople, untaxedPeople } = world.taxes;
+  if (taxedPeople + untaxedPeople === 0) return 0;
+  return Math.round((100 * taxedPeople) / (taxedPeople + untaxedPeople));
+}
+
+function renderMenu(name: string, extraClass: string, rows: string): string {
+  return `
+    <div class="cartouche-menu" data-menu="${name}">
+      <button class="cartouche ${extraClass}" data-menu-button data-field="${name}"></button>
+      <div class="dropdown">${rows}</div>
+    </div>
+  `;
+}
+
+function financeMenu(): string {
+  return `
+    ${renderStepper('Tax rate', 'tax', 'taxRate')}
+    ${renderReading('Collected', 'taxTake')}
+    ${renderReading('Paying tax', 'taxCover')}
+    <div class="dropdown-rule"></div>
+    ${renderStepper('Wages', 'wages', 'wageLevel')}
+    ${renderReading('Wage bill', 'wageBill')}
+  `;
+}
+
+function peopleMenu(): string {
+  return `
+    ${renderReading('Workers', 'workers')}
+    ${renderReading('Unemployed', 'idle')}
+    <div class="dropdown-rule"></div>
+    ${renderReading('Popularity', 'popularity')}
+    ${renderReading('Migration', 'migration')}
+    <p class="dropdown-note" data-field="complaint"></p>
+  `;
+}
+
+function renderStepper(label: string, setting: string, field: string): string {
+  return `
+    <div class="dropdown-row">
+      <span>${label}</span>
+      <span class="stepper">
+        <button data-step="${setting}:-1">◀</button>
+        <b data-field="${field}"></b>
+        <button data-step="${setting}:1">▶</button>
+      </span>
+    </div>
+  `;
+}
+
+function renderReading(label: string, field: string): string {
+  return `<div class="dropdown-row"><span>${label}</span><b data-field="${field}"></b></div>`;
+}
+
+function money(amount: number): string {
+  return `${Math.round(amount)} ${DRACHMA}`;
+}
+
+function clampIndex(index: number, length: number): number {
+  return Math.min(length - 1, Math.max(0, index));
 }
 
 function renderPanel(buttons: ToolButton[]): string {
@@ -276,16 +380,15 @@ function renderPanel(buttons: ToolButton[]): string {
   `;
 }
 
-function labourLabel({ employed, required, workforce }: LabourReport): string {
-  const idle = workforce - employed;
-  if (employed < required) return `${employed}/${required} workers · ${required - employed} short`;
-  return `${employed}/${required} workers · ${idle} idle`;
+function labourLabel({ employed, required }: LabourReport): string {
+  if (employed < required) return `${employed}/${required} · ${required - employed} short`;
+  return `${employed}/${required}`;
 }
 
-function popularityLabel(popularity: number, migrants: number): string {
-  if (migrants > 0) return `Popularity ${popularity} · ${migrants} settling`;
-  if (migrants < 0) return `Popularity ${popularity} · ${-migrants} leaving`;
-  return `Popularity ${popularity}`;
+function migrationLabel(migrants: number): string {
+  if (migrants > 0) return `${migrants} settling`;
+  if (migrants < 0) return `${-migrants} leaving`;
+  return 'Steady';
 }
 
 function speedLabel(speed: number): string {
@@ -294,7 +397,7 @@ function speedLabel(speed: number): string {
 }
 
 function renderButton(button: ToolButton, index: number): string {
-  const cost = button.cost === null ? '' : `<small>${button.cost} dr</small>`;
+  const cost = button.cost === null ? '' : `<small>${button.cost} ${DRACHMA}</small>`;
   return `<button class="tool" data-tool="${index}">
     <span class="tool-label">${button.label}${cost}</span>
     <kbd>${button.shortcut.toUpperCase()}</kbd>
