@@ -28,6 +28,119 @@ export function generateMap(grid: Grid, seed: number): void {
   scatterBlobs(grid, random, TERRAIN_MEADOW, 8, 2.5, 5, (index) => grid.height[index] <= 1);
   scatterBlobs(grid, random, TERRAIN_ROCK, 6, 1.5, 3, (index) => grid.height[index] >= 2);
   fringeWaterWithSand(grid);
+  scatterDecor(grid, random);
+}
+
+export const DECOR_KINDS = ['cypress', 'olive', 'scrub', 'boulder'] as const;
+export type DecorKind = (typeof DECOR_KINDS)[number];
+export const DECOR_VARIANTS = 3;
+
+export function decorKindOf(byte: number): DecorKind {
+  return DECOR_KINDS[Math.floor((byte - 1) / DECOR_VARIANTS)];
+}
+
+export function decorVariantOf(byte: number): number {
+  return (byte - 1) % DECOR_VARIANTS;
+}
+
+const CLUSTER_OFFSETS = [
+  [1, 0], [-1, 0], [0, 1], [0, -1],
+  [1, 1], [1, -1], [-1, 1], [-1, -1],
+];
+
+function scatterDecor(grid: Grid, random: () => number): void {
+  for (let index = 0; index < grid.terrain.length; index++) {
+    if (grid.decor[index] !== 0) continue;
+
+    const terrain = grid.terrain[index];
+    if (terrain === TERRAIN_WATER || terrain === TERRAIN_SAND) continue;
+
+    const nearCliff = isNearCliff(grid, index);
+    if (random() >= seedDensity(terrain, nearCliff)) continue;
+
+    placeCluster(grid, random, index, terrain, nearCliff);
+  }
+}
+
+function isNearCliff(grid: Grid, index: number): boolean {
+  return grid.neighbours(index).some((neighbour) => grid.height[neighbour] !== grid.height[index]);
+}
+
+function seedDensity(terrain: number, nearCliff: boolean): number {
+  if (terrain === TERRAIN_ROCK) return nearCliff ? 0.3 : 0.22;
+  if (terrain === TERRAIN_MEADOW) return 0.035;
+  return nearCliff ? 0.14 : 0.07;
+}
+
+function placeCluster(
+  grid: Grid,
+  random: () => number,
+  seed: number,
+  terrain: number,
+  nearCliff: boolean,
+): void {
+  const kindIndex = pickDecorKind(terrain, nearCliff, random);
+  for (const tile of clusterTiles(grid, random, seed, kindIndex)) {
+    if (grid.decor[tile] !== 0 || grid.terrain[tile] !== terrain) continue;
+    const variant = Math.floor(random() * DECOR_VARIANTS);
+    grid.decor[tile] = kindIndex * DECOR_VARIANTS + variant + 1;
+  }
+}
+
+function clusterTiles(grid: Grid, random: () => number, seed: number, kindIndex: number): number[] {
+  const x = grid.tileX(seed);
+  const y = grid.tileY(seed);
+  const tiles = [seed];
+
+  if (kindIndex === 0) {
+    const length = 2 + Math.floor(random() * 2);
+    const horizontal = random() < 0.5;
+    for (let i = 1; i < length; i++) {
+      const nx = horizontal ? x + i : x;
+      const ny = horizontal ? y : y + i;
+      if (!grid.contains(nx, ny)) break;
+      tiles.push(grid.index(nx, ny));
+    }
+    return tiles;
+  }
+
+  const size = kindIndex === 3 ? 2 + Math.floor(random() * 2) : 1 + Math.floor(random() * 4);
+  const offsets = shuffled(CLUSTER_OFFSETS, random);
+  for (const [dx, dy] of offsets) {
+    if (tiles.length >= size) break;
+    const nx = x + dx;
+    const ny = y + dy;
+    if (!grid.contains(nx, ny)) continue;
+    tiles.push(grid.index(nx, ny));
+  }
+  return tiles;
+}
+
+function shuffled<T>(items: readonly T[], random: () => number): T[] {
+  const result = items.slice();
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+function pickDecorKind(terrain: number, nearCliff: boolean, random: () => number): number {
+  const roll = random();
+
+  if (terrain === TERRAIN_ROCK || nearCliff) {
+    if (roll < 0.45) return 3;
+    if (roll < 0.7) return 0;
+    if (roll < 0.87) return 1;
+    return 2;
+  }
+
+  if (terrain === TERRAIN_MEADOW) return roll < 0.7 ? 2 : 1;
+
+  if (roll < 0.28) return 0;
+  if (roll < 0.58) return 1;
+  if (roll < 0.9) return 2;
+  return 3;
 }
 
 function fractalNoise(size: number, random: () => number): Float32Array {
