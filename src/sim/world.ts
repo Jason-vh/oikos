@@ -32,6 +32,7 @@ import {
   type Scenario,
 } from './scenario';
 import { DEFAULT_TAX_RATE, collectTax, type TaxReport } from './taxation';
+import { NO_TRADE, newTradeOrders, trade, type TradeReport } from './trade';
 import { TICKS_PER_MONTH } from './time';
 import { createBuilding } from './types';
 import type { Building, BuildingKind, Good, Walker } from './types';
@@ -84,6 +85,8 @@ export class World {
   taxes: TaxReport = { collected: 0, taxedPeople: 0, untaxedPeople: 0 };
   sentiment: Sentiment = { popularity: 50, complaint: null };
   migrants = 0;
+  tradeOrders: Record<string, boolean> = newTradeOrders();
+  trade: TradeReport = NO_TRADE;
   scenario: Scenario = DEFAULT_SCENARIO;
   goals: GoalProgress[] = [];
   scenarioWon = false;
@@ -299,6 +302,7 @@ export class World {
     this.taxes = collectTax(this.buildings.values(), this.taxRate);
     this.treasury += this.taxes.collected;
     this.treasury -= monthlyWages(this.labour.employed, this.wageLevel);
+    this.runTrade();
 
     this.sentiment = judgeCity({
       wageLevel: this.wageLevel,
@@ -358,6 +362,15 @@ export class World {
 
     this.scenarioWon = true;
     this.log(`Every goal of ${this.scenario.name} is met, Archon.`);
+  }
+
+  private runTrade(): void {
+    const posts = [...this.buildings.values()].filter(
+      (building) => building.kind === 'tradingPost' && building.staff > 0,
+    );
+
+    this.trade = posts.length === 0 ? NO_TRADE : trade(posts, this.tradeOrders, this.treasury);
+    this.treasury += this.trade.earned - this.trade.spent;
   }
 
   private attendGods(): void {

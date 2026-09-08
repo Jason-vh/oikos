@@ -3,7 +3,7 @@ import type { Building } from './types';
 import { World } from './world';
 
 const STORAGE_KEY = 'zeus.city';
-const SAVE_VERSION = 6;
+const SAVE_VERSION = 7;
 
 export interface View {
   x: number;
@@ -23,6 +23,7 @@ interface SavedCity {
   year: number;
   buildings: Building[];
   gods: Record<GodKind, GodState>;
+  tradeOrders: Record<string, boolean>;
   roads: number[];
   roadblocks: number[];
   view: View;
@@ -48,6 +49,7 @@ export function serialise(world: World, view: View): SavedCity {
     year: world.year,
     buildings: [...world.buildings.values()],
     gods: world.gods,
+    tradeOrders: world.tradeOrders,
     roads,
     roadblocks,
     view,
@@ -63,6 +65,7 @@ export function deserialise(saved: SavedCity): World {
   world.month = saved.month;
   world.year = saved.year;
   world.gods = saved.gods;
+  world.tradeOrders = saved.tradeOrders;
 
   for (const tile of saved.roads) world.grid.road[tile] = 1;
   for (const tile of saved.roadblocks) world.grid.roadblock[tile] = 1;

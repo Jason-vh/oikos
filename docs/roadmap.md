@@ -464,6 +464,13 @@ strength of 1–6 (6 = unconquerable), and a visible economy and army on the map
 hippodrome. Costs: wages, construction, imports, gifts, tribute, bribes, aid.
 Sustained debt loses the episode.
 
+🟡 Four distant cities trade in `src/sim/trade.ts`: Corinth and Knossos buy oil, at a
+good price for a small quota and a poor one for a large; Mycenae and Troy sell grain.
+A route is an order the player opens, and a manned trading post carries it out each
+month — oil carted in leaves, bought grain lands there and the agora fetches it like
+a granary. Relationships, goodwill, requests, tribute, travel time and the world map
+are not started.
+
 **Natural disasters**: earthquake (permanent crevices, bridgeable by road), tidal
 wave (temporary) vs flood (permanent), lava (destroys land forever), landslide,
 sink land (up to 5 tiles of coast).

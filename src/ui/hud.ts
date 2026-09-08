@@ -5,7 +5,8 @@ import { monthlyWages, WAGE_LEVELS, type LabourReport } from '../sim/labour';
 import { TAX_RATES } from '../sim/taxation';
 import { GODS, GOD_KINDS, moodName } from '../sim/gods';
 import { abandonCity } from '../sim/save';
-import { money } from './money';
+import { TRADE_ROUTES } from '../sim/trade';
+import { COIN, money } from './money';
 import {
   describeBuildingTool,
   describeDemolishTool,
@@ -43,6 +44,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
         <span class="cartouche" data-field="date"></span>
         ${renderMenu('treasury', 'treasury', financeMenu())}
         ${renderMenu('people', '', peopleMenu())}
+        ${renderMenu('trade', '', tradeMenu())}
         ${renderMenu('gods', '', godsMenu())}
         ${renderMenu('speed', '', speedMenu())}
         <span class="spacer"></span>
@@ -109,6 +111,12 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
     element.addEventListener('click', () => {
       game.speed = Number(element.dataset.speed);
       closeMenus();
+    });
+  });
+  hud.querySelectorAll<HTMLButtonElement>('[data-route]').forEach((element) => {
+    element.addEventListener('click', () => {
+      const route = element.dataset.route!;
+      game.world.tradeOrders[route] = !game.world.tradeOrders[route];
     });
   });
 
@@ -190,6 +198,8 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       field('date').textContent = world.dateLabel;
       field('treasury').innerHTML = money(world.treasury);
       field('speed').textContent = speedLabel(game.speed);
+      field('trade').textContent = tradeLabel(world);
+      field('tradeNote').innerHTML = tradeNote(world);
       field('gods').textContent = godsLabel(world);
       for (const kind of GOD_KINDS) {
         const god = world.gods[kind];
@@ -217,6 +227,9 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       });
       hud.querySelectorAll<HTMLButtonElement>('[data-speed]').forEach((element) => {
         element.classList.toggle('chosen', Number(element.dataset.speed) === game.speed);
+      });
+      hud.querySelectorAll<HTMLButtonElement>('[data-route]').forEach((element) => {
+        element.classList.toggle('chosen', world.tradeOrders[element.dataset.route!]);
       });
     },
   };
@@ -303,9 +316,21 @@ function groupFor(kind: string): string {
   if (kind === 'wheatFarm' || kind === 'granary' || kind === 'growersLodge' || kind === 'agora') return 'Food';
   if (kind === 'olivePress') return 'Industry';
   if (kind === 'college' || kind === 'podium') return 'Culture';
-  if (kind === 'palace' || kind === 'taxOffice') return 'Government';
+  if (kind === 'palace' || kind === 'taxOffice' || kind === 'tradingPost') return 'Government';
   if (kind.startsWith('sanctuary')) return 'Mythology';
   return 'Services';
+}
+
+function tradeLabel(world: Game['world']): string {
+  const open = TRADE_ROUTES.filter((route) => world.tradeOrders[route.id]).length;
+  if (open === 0) return 'No trade';
+  return `${open} route${open > 1 ? 's' : ''} open`;
+}
+
+function tradeNote(world: Game['world']): string {
+  const { earned, spent, exported, imported } = world.trade;
+  if (earned === 0 && spent === 0) return 'A staffed trading post carries the orders you open.';
+  return `Last month: ${exported} out for ${money(earned)}, ${imported} in for ${money(spent)}.`;
 }
 
 function godsLabel(world: Game['world']): string {
@@ -422,6 +447,17 @@ function migrationLabel(migrants: number): string {
   if (migrants > 0) return `${migrants} settling`;
   if (migrants < 0) return `${-migrants} leaving`;
   return 'Steady';
+}
+
+function tradeMenu(): string {
+  const rows = TRADE_ROUTES.map(
+    (route) => `
+      <button class="choice" data-route="${route.id}">
+        <span>${route.city} ${route.direction === 'export' ? 'buys' : 'sells'} ${route.good}</span>
+        <b>${route.price} ${COIN}</b>
+      </button>`,
+  ).join('');
+  return `${rows}<p class="dropdown-note" data-field="tradeNote"></p>`;
 }
 
 function godsMenu(): string {

@@ -1069,6 +1069,49 @@ def sanctuary_builder(name, god):
     return lambda: build_sanctuary(kind, god)
 
 
+def build_trading_post():
+    """Trading post: a walled yard of crates and jars under awnings, with a weighing beam."""
+    earth = plaster_material("earth", EARTH, roughness=0.97, variation=0.09, scale=16.0)
+    plaster = plaster_material("plaster", WHITEWASH, roughness=0.85, variation=0.05, scale=7.0)
+    tiles = roof_material("tiles", TERRACOTTA, rows_per_unit=20.0)
+    canvas = plaster_material("canvas", hex_rgb("d9cba4"), roughness=0.95, variation=0.07, scale=9.0)
+    wood = material("wood", WOOD, roughness=0.86)
+    crate = material("crate", hex_rgb("8a6134"), roughness=0.9)
+    clay = material("clay", CLAY, roughness=0.8)
+    bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
+
+    half = 0.94
+    yard = add_box("yard", (0, 0, 0.03), (half * 2, half * 2, 0.06), earth)
+    yard.visible_shadow = False
+    for side in (-1, 1):
+        add_box("yard_wall", (side * half, 0, 0.16), (0.08, half * 2, 0.2), plaster)
+        add_box("yard_wall", (0, side * half, 0.16), (half * 2, 0.08, 0.2), plaster)
+
+    office_half = 0.42
+    wall_h = 0.56
+    ox, oy = -0.42, -0.42
+    add_box("office", (ox, oy, 0.06 + wall_h / 2), (office_half * 2, office_half * 2, wall_h), plaster)
+    add_hip_roof("office_roof", (ox, oy, 0.06 + wall_h + 0.13), office_half + 0.12, 0.26, tiles, ridge_half=0.12)
+    add_doorway(office_half, 0.36, (ox, oy))
+
+    add_box("awning", (0.46, 0.2, 0.06 + 0.52), (0.72, 0.9, 0.04), canvas)
+    for cx, cy in ((0.14, -0.22), (0.78, -0.22), (0.14, 0.62), (0.78, 0.62)):
+        add_cylinder("awning_post", (cx, cy, 0.06 + 0.26), 0.022, 0.52, wood, vertices=6)
+
+    for cx, cy, cz, size in ((0.4, 0.06, 0.06, 0.28), (0.72, 0.3, 0.06, 0.24), (0.4, 0.06, 0.34, 0.22)):
+        add_box("crate", (cx, cy, cz + size / 2), (size, size, size), crate)
+    add_amphora("jar1", (0.28, 0.62, 0.06), 0.3, clay)
+    add_amphora("jar2", (0.52, 0.72, 0.06), 0.26, clay)
+    add_amphora("jar3", (-0.2, 0.74, 0.06), 0.28, clay)
+
+    add_cylinder("scale_post", (-0.66, 0.58, 0.06 + 0.3), 0.03, 0.6, wood, vertices=8)
+    add_box("scale_beam", (-0.66, 0.58, 0.06 + 0.6), (0.06, 0.5, 0.04), wood)
+    for pan in (-0.22, 0.22):
+        add_cylinder("scale_pan", (-0.66, 0.58 + pan, 0.06 + 0.5), 0.09, 0.03, bronze, vertices=12)
+
+    return {"kind": "tradingPost", "variant": 0, "footprint": 2, "height": 0.95}
+
+
 def build_fountain():
     """Marble basin with a raised centre and a small bronze statue; light blue water."""
     marble = material("marble", MARBLE, roughness=0.3)
@@ -1162,6 +1205,7 @@ HOUSES = [
 MODELS = {
     "palace": build_palace,
     "granary": build_granary,
+    "trading-post": build_trading_post,
     "tax-office": build_tax_office,
     "agora": build_agora,
     "growers-lodge": build_growers_lodge,

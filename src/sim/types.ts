@@ -22,6 +22,7 @@ export type BuildingKind =
   | 'statue'
   | 'taxOffice'
   | 'palace'
+  | 'tradingPost'
   | 'sanctuaryDemeter'
   | 'sanctuaryHephaestus'
   | 'sanctuaryHermes'

@@ -4,6 +4,7 @@ import type { BuildingDef } from '../sim/buildings';
 import { TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_SAND, TERRAIN_WATER } from '../sim/grid';
 import { GODS, GOD_KINDS, moodName } from '../sim/gods';
 import { describeRisk } from '../sim/hazards';
+import { TRADE_ROUTES } from '../sim/trade';
 import { ROAM_RANGE } from '../sim/walkers';
 import type { Building, BuildingKind, Good, WalkerKind } from '../sim/types';
 import type { World } from '../sim/world';
@@ -110,6 +111,12 @@ function inspectBuilding(world: World, building: Building, index: number): Inspe
   }
   if (building.kind === 'agora') {
     facts.push(['Stalls hold', `${Math.round(building.stock.food)} food, ${Math.round(building.stock.oil)} oil`]);
+  }
+
+  if (building.kind === 'tradingPost') {
+    facts.push(['Oil to sell', `${building.stock.oil} cartloads`]);
+    facts.push(['Grain bought in', `${building.stock.food} cartloads`]);
+    facts.push(['Routes open', `${TRADE_ROUTES.filter((route) => world.tradeOrders[route.id]).length} of ${TRADE_ROUTES.length}`]);
   }
 
   const god = GOD_KINDS.find((kind) => GODS[kind].sanctuary === building.kind);

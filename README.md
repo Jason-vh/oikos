@@ -187,7 +187,7 @@ becomes the shadow sprite, framed wide enough for the shadow the sun actually ca
 
 Models live in `pipeline/iso_render.py`: the seven housing tiers, wheat farm, growers'
 lodge, olive press, granary, agora, college, podium, maintenance office, palace, tax
-office, four sanctuaries, fountain and statue, each rendered as a body and a shadow. Sprites are keyed by
+office, trading post, four sanctuaries, fountain and statue, each rendered as a body and a shadow. Sprites are keyed by
 `kind:variant:layer` — housing uses `tier * 2`, plus one for the mirrored copy.
 
 Mirrored variants reflect across `x = -y`, and the reflection is **baked into the mesh
