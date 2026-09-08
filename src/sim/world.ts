@@ -1,5 +1,14 @@
 import { recomputeAppeal } from './appeal';
-import { BUILDINGS, HOUSE_TIERS, ROADBLOCK_COST, ROAD_COST, UNITS_PER_CARTLOAD, isDwelling, tierOf } from './buildings';
+import {
+  BUILDINGS,
+  HOUSE_TIERS,
+  ROADBLOCK_COST,
+  ROAD_COST,
+  UNITS_PER_CARTLOAD,
+  WALL_COST,
+  isDwelling,
+  tierOf,
+} from './buildings';
 import { Grid, NO_BUILDING, TERRAIN_MEADOW } from './grid';
 import { updateHouses } from './housing';
 import {
@@ -77,6 +86,9 @@ const STAGGERED_RISK = 40;
 const INVASION_MONTH = 6;
 const EVENT_MONTH = 2;
 const EARTHQUAKE_BUILDINGS = 5;
+const TOWER_STRENGTH = 2;
+const WALL_STRENGTH = 1;
+const WALL_TILES_PER_COMPANY = 12;
 const MONTHS_OF_DEBT_ALLOWED = 24;
 const PLUNDER_PER_COMPANY = 250;
 const HADES_GIFT = 600;
@@ -259,6 +271,26 @@ export class World {
     return true;
   }
 
+  canPlaceWall(x: number, y: number): boolean {
+    if (!this.grid.contains(x, y)) return false;
+    return this.grid.isFree(x, y) && this.treasury >= WALL_COST;
+  }
+
+  placeWall(x: number, y: number): boolean {
+    if (!this.canPlaceWall(x, y)) return false;
+    const tile = this.grid.index(x, y);
+    this.grid.wall[tile] = 1;
+    this.treasury -= WALL_COST;
+    this.markChanged([tile]);
+    return true;
+  }
+
+  get wallLength(): number {
+    let tiles = 0;
+    for (const value of this.grid.wall) tiles += value;
+    return tiles;
+  }
+
   canPlaceRoadblock(x: number, y: number): boolean {
     if (!this.grid.contains(x, y)) return false;
     const tile = this.grid.index(x, y);
@@ -277,6 +309,12 @@ export class World {
   demolish(x: number, y: number): boolean {
     if (!this.grid.contains(x, y)) return false;
     const tile = this.grid.index(x, y);
+
+    if (this.grid.wall[tile] === 1) {
+      this.grid.wall[tile] = 0;
+      this.markChanged([tile]);
+      return true;
+    }
 
     if (this.grid.roadblock[tile] === 1) {
       this.grid.roadblock[tile] = 0;
@@ -555,7 +593,7 @@ export class World {
     );
     if (!invasion) return;
 
-    const battle = fightInvasion(this.army, invasion);
+    const battle = fightInvasion(this.army, invasion, this.fortification());
     this.lastBattle = battle;
 
     if (battle.won) {
@@ -569,6 +607,13 @@ export class World {
       if (victim) this.demolish(victim.x, victim.y);
     }
     this.log(`The ${invasion.nation} sack the city, Archon.`);
+  }
+
+  fortification(): number {
+    const towers = [...this.buildings.values()].filter(
+      (building) => building.kind === 'tower' && building.staff > 0,
+    ).length;
+    return towers * TOWER_STRENGTH + Math.floor(this.wallLength / WALL_TILES_PER_COMPANY) * WALL_STRENGTH;
   }
 
   private sufferAfflictions(): void {

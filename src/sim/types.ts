@@ -27,6 +27,7 @@ export type BuildingKind =
   | 'infirmary'
   | 'watchpost'
   | 'heroHall'
+  | 'tower'
   | 'sanctuaryDemeter'
   | 'sanctuaryHephaestus'
   | 'sanctuaryHermes'

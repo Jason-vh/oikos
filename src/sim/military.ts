@@ -75,7 +75,8 @@ export interface Battle {
 
 const INVADER_STRENGTH_PER_COMPANY = UNITS.hoplite.attack * UNITS.hoplite.hitPoints;
 
-export function fightInvasion(army: Army, invasion: Invasion): Battle {
+export function fightInvasion(army: Army, invasion: Invasion, fortification = 0): Battle {
   const attacking = invasion.companies * INVADER_STRENGTH_PER_COMPANY;
-  return { won: strengthOf(army) >= attacking, invasion };
+  const defending = strengthOf(army) + fortification * INVADER_STRENGTH_PER_COMPANY;
+  return { won: defending >= attacking, invasion };
 }

@@ -1,5 +1,5 @@
 import { bandValues } from '../sim/appeal';
-import { BUILDINGS, ROADBLOCK_COST, ROAD_COST, isDwelling, tiersOf } from '../sim/buildings';
+import { BUILDINGS, ROADBLOCK_COST, ROAD_COST, WALL_COST, isDwelling, tiersOf } from '../sim/buildings';
 import type { BuildingDef } from '../sim/buildings';
 import { TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_SAND, TERRAIN_WATER } from '../sim/grid';
 import { GODS, GOD_KINDS, moodName } from '../sim/gods';
@@ -39,6 +39,7 @@ export function inspectTile(world: World, x: number, y: number): Inspection | nu
   const index = grid.index(x, y);
   const building = world.buildingAt(index);
   if (building) return inspectBuilding(world, building, index);
+  if (grid.isWall(index)) return describeWallTool();
   if (grid.isRoadblock(index)) return inspectRoadblock(world, index);
   if (grid.isRoad(index)) return inspectRoad(world, index);
   return inspectGround(world, index);
@@ -58,6 +59,15 @@ export function describeBuildingTool(kind: BuildingKind, difficulty: number): In
   facts.push(['Appeal', appealSummary(def)]);
 
   return { title: def.name, subtitle: 'Building', description: def.description, facts };
+}
+
+export function describeWallTool(): Inspection {
+  return {
+    title: 'Wall',
+    subtitle: 'Defence',
+    description: 'Dragged in a line like a road. Twelve tiles of wall are worth a company when the city is attacked.',
+    facts: [['Cost', `${money(WALL_COST)} per tile`]],
+  };
 }
 
 export function describeRoadTool(): Inspection {

@@ -1,10 +1,10 @@
 import type { Game, Tool } from '../game';
 import type { OverlayMode } from '../render/scene';
-import { BUILDINGS, PLACEABLE, ROADBLOCK_COST, ROAD_COST } from '../sim/buildings';
+import { BUILDINGS, PLACEABLE, ROADBLOCK_COST, ROAD_COST, WALL_COST } from '../sim/buildings';
 import { monthlyWages, WAGE_LEVELS, type LabourReport } from '../sim/labour';
 import { TAX_RATES } from '../sim/taxation';
 import { GODS, GOD_KINDS, moodName } from '../sim/gods';
-import { UNITS, companiesIn, type UnitKind } from '../sim/military';
+import { UNITS, type UnitKind } from '../sim/military';
 import { DIFFICULTIES } from '../sim/difficulty';
 import { describeRequest } from '../sim/events';
 import { HEROES, HERO_KINDS, summonable, type HeroKind } from '../sim/heroes';
@@ -19,6 +19,7 @@ import {
   describeInspectTool,
   describeRoadTool,
   describeRoadblockTool,
+  describeWallTool,
   type Inspection,
 } from './inspect';
 
@@ -223,18 +224,21 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       field('date').textContent = world.dateLabel;
       field('treasury').innerHTML = money(world.treasury);
       field('speed').textContent = speedLabel(game.speed);
-      field('heroes').textContent = heroesLabel(world);
+      field('heroes').textContent = 'Heroes';
       renderHeroes(hud, game);
-      field('requests').textContent = requestsLabel(world);
+      field('requests').textContent = 'World';
+      alert(hud, 'requests', world.requests.length > 0);
+      alert(hud, 'gods', GOD_KINDS.some((kind) => world.gods[kind].honoured && world.gods[kind].mood <= 20));
+      alert(hud, 'heroes', world.monster !== null);
       renderRequests(hud, world, game);
-      field('army').textContent = armyLabel(world);
+      field('army').textContent = 'Army';
       for (const kind of Object.keys(UNITS) as UnitKind[]) {
         field(`army-${kind}`).textContent = `${world.army[kind]} compan${world.army[kind] === 1 ? 'y' : 'ies'}`;
       }
       field('armyNote').textContent = armyNote(world);
-      field('trade').textContent = tradeLabel(world);
+      field('trade').textContent = 'Trade';
       field('tradeNote').innerHTML = tradeNote(world);
-      field('gods').textContent = godsLabel(world);
+      field('gods').textContent = 'Gods';
       for (const kind of GOD_KINDS) {
         const god = world.gods[kind];
         field(`mood-${kind}`).textContent = `${moodName(god.mood, god.honoured)}${god.honoured ? ` · ${god.mood}` : ''}`;
@@ -306,6 +310,14 @@ function toolButtons(game: Game): ToolButton[] {
     },
     ...structures,
     {
+      label: 'Wall',
+      cost: WALL_COST,
+      shortcut: 'w',
+      tool: { kind: 'wall' },
+      group: 'Defence',
+      describe: describeWallTool,
+    },
+    {
       label: 'Demolish',
       cost: null,
       shortcut: 'x',
@@ -362,15 +374,11 @@ function groupFor(kind: string): string {
   if (kind === 'college' || kind === 'podium') return 'Culture';
   if (kind === 'infirmary' || kind === 'watchpost') return 'Services';
   if (kind === 'palace' || kind === 'taxOffice' || kind === 'tradingPost') return 'Government';
+  if (kind === 'tower') return 'Defence';
   if (kind.startsWith('sanctuary') || kind === 'heroHall') return 'Mythology';
   return 'Services';
 }
 
-function heroesLabel(world: Game['world']): string {
-  if (world.hero) return HEROES[world.hero.kind].name;
-  if (world.monster) return world.monster.name;
-  return 'No hero';
-}
 
 function renderHeroes(hud: HTMLElement, game: Game): void {
   const host = hud.querySelector('[data-heroes]') as HTMLElement;
@@ -400,10 +408,6 @@ function renderHeroes(hud: HTMLElement, game: Game): void {
   });
 }
 
-function requestsLabel(world: Game['world']): string {
-  if (world.requests.length === 0) return `Standing ${world.standing}`;
-  return `${world.requests.length} request${world.requests.length > 1 ? 's' : ''}`;
-}
 
 function renderRequests(hud: HTMLElement, world: Game['world'], game: Game): void {
   const host = hud.querySelector('[data-requests]') as HTMLElement;
@@ -428,11 +432,6 @@ function renderRequests(hud: HTMLElement, world: Game['world'], game: Game): voi
   });
 }
 
-function armyLabel(world: Game['world']): string {
-  const companies = companiesIn(world.army);
-  if (companies === 0) return 'No army';
-  return `${companies} compan${companies === 1 ? 'y' : 'ies'}`;
-}
 
 function armyNote(world: Game['world']): string {
   if (!world.has('palace')) return 'Without a palace nobody musters.';
@@ -442,11 +441,6 @@ function armyNote(world: Game['world']): string {
   return `The ${battle.invasion.nation} sacked the city.`;
 }
 
-function tradeLabel(world: Game['world']): string {
-  const open = TRADE_ROUTES.filter((route) => world.tradeOrders[route.id]).length;
-  if (open === 0) return 'No trade';
-  return `${open} route${open > 1 ? 's' : ''} open`;
-}
 
 function tradeNote(world: Game['world']): string {
   const { earned, spent, exported, imported } = world.trade;
@@ -454,13 +448,6 @@ function tradeNote(world: Game['world']): string {
   return `Last month: ${exported} out for ${money(earned)}, ${imported} in for ${money(spent)}.`;
 }
 
-function godsLabel(world: Game['world']): string {
-  const honoured = GOD_KINDS.filter((kind) => world.gods[kind].honoured);
-  if (honoured.length === 0) return 'No gods';
-  const wrathful = honoured.filter((kind) => moodName(world.gods[kind].mood, true) === 'Wrathful').length;
-  if (wrathful > 0) return `${wrathful} god${wrathful > 1 ? 's' : ''} wrathful`;
-  return `${honoured.length} god${honoured.length > 1 ? 's' : ''} honoured`;
-}
 
 function godsNote(world: Game['world']): string {
   for (const kind of GOD_KINDS) {
@@ -470,6 +457,10 @@ function godsNote(world: Game['world']): string {
   const honoured = GOD_KINDS.some((kind) => world.gods[kind].honoured);
   if (honoured) return 'No god has stirred yet.';
   return 'Raise a sanctuary and a god will take an interest.';
+}
+
+function alert(hud: HTMLElement, menu: string, active: boolean): void {
+  hud.querySelector(`[data-field="${menu}"]`)?.classList.toggle('alert', active);
 }
 
 function episodeBlurb(world: Game['world']): string {
@@ -540,7 +531,7 @@ function clampIndex(index: number, length: number): number {
 }
 
 function renderPanel(buttons: ToolButton[]): string {
-  const headed = ['Housing', 'Food', 'Industry', 'Culture', 'Services', 'Government', 'Mythology'];
+  const headed = ['Housing', 'Food', 'Industry', 'Culture', 'Services', 'Government', 'Defence', 'Mythology'];
   const roads = buttons.map((button, index) => ({ button, index })).filter(({ button }) => button.group === 'Road');
   const demolish = buttons.findIndex((button) => button.group === 'Demolish');
 

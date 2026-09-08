@@ -4,7 +4,7 @@ import type { Building } from './types';
 import { World } from './world';
 
 const STORAGE_KEY = 'zeus.city';
-const SAVE_VERSION = 12;
+const SAVE_VERSION = 13;
 
 export interface View {
   x: number;
@@ -31,15 +31,18 @@ interface SavedCity {
   standing: number;
   roads: number[];
   roadblocks: number[];
+  walls: number[];
   view: View;
 }
 
 export function serialise(world: World, view: View): SavedCity {
   const roads: number[] = [];
   const roadblocks: number[] = [];
+  const walls: number[] = [];
   for (let tile = 0; tile < world.grid.road.length; tile++) {
     if (world.grid.road[tile] === 1) roads.push(tile);
     if (world.grid.roadblock[tile] === 1) roadblocks.push(tile);
+    if (world.grid.wall[tile] === 1) walls.push(tile);
   }
 
   return {
@@ -61,6 +64,7 @@ export function serialise(world: World, view: View): SavedCity {
     standing: world.standing,
     roads,
     roadblocks,
+    walls,
     view,
   };
 }
@@ -82,6 +86,7 @@ export function deserialise(saved: SavedCity): World {
 
   for (const tile of saved.roads) world.grid.road[tile] = 1;
   for (const tile of saved.roadblocks) world.grid.roadblock[tile] = 1;
+  for (const tile of saved.walls) world.grid.wall[tile] = 1;
   for (const building of saved.buildings) world.restore({ ...building, walkersOut: 0 });
   world.settle();
   return world;

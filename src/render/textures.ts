@@ -73,6 +73,7 @@ const FOOTPRINT_INSET: Record<BuildingKind, number> = {
   infirmary: 0.86,
   watchpost: 0.84,
   heroHall: 0.84,
+  tower: 0.8,
   tradingPost: 0.82,
   sanctuaryDemeter: 0.88,
   sanctuaryHephaestus: 0.88,
@@ -123,6 +124,10 @@ export class TextureCache {
 
   roadblock(): DecorSprite {
     return this.decorSprite('roadblock', drawRoadblock);
+  }
+
+  wall(): DecorSprite {
+    return this.decorSprite('wall', drawWall);
   }
 
   decor(kind: DecorKind, variant: number): DecorSprite {
@@ -778,6 +783,65 @@ function drawRoadblock(): { surface: DrawSurface; baseY: number } {
     ctx.fillRect(px - 3, py - 30, 6, 30);
     ctx.fillStyle = css(timberLit);
     ctx.fillRect(px - 3, py - 30, 2.5, 30);
+  }
+
+  return { surface, baseY };
+}
+
+function drawWall(): { surface: DrawSurface; baseY: number } {
+  const halfW = TILE_WIDTH / 2;
+  const halfH = TILE_HEIGHT / 2;
+  const wallHeight = 26;
+  const width = TILE_WIDTH + 12;
+  const height = TILE_HEIGHT + wallHeight + 18;
+  const surface = createSurface(width, height);
+  const { ctx } = surface;
+  const light = topLight(DECOR_SUN);
+  const cx = width / 2;
+  const baseY = height - 6;
+  const capBottom = baseY - wallHeight;
+  const capTop = capBottom - TILE_HEIGHT;
+
+  const top = shade(0xdfd6b8, light * 1.04);
+  const east = shade(0xc2b797, light);
+  const south = shade(0x9d9376, light * 0.84);
+
+  ctx.fillStyle = css(east);
+  ctx.beginPath();
+  ctx.moveTo(cx, capBottom);
+  ctx.lineTo(cx + halfW, capBottom - halfH);
+  ctx.lineTo(cx + halfW, capBottom - halfH + wallHeight);
+  ctx.lineTo(cx, baseY);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = css(south);
+  ctx.beginPath();
+  ctx.moveTo(cx, capBottom);
+  ctx.lineTo(cx - halfW, capBottom - halfH);
+  ctx.lineTo(cx - halfW, capBottom - halfH + wallHeight);
+  ctx.lineTo(cx, baseY);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = css(top);
+  ctx.beginPath();
+  ctx.moveTo(cx, capTop);
+  ctx.lineTo(cx + halfW, capTop + halfH);
+  ctx.lineTo(cx, capBottom);
+  ctx.lineTo(cx - halfW, capTop + halfH);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = css(shade(0x8f866c, light * 0.8), 0.4);
+  ctx.lineWidth = 1;
+  for (const course of [0.4, 0.75]) {
+    const drop = wallHeight * course;
+    ctx.beginPath();
+    ctx.moveTo(cx - halfW, capBottom - halfH + drop);
+    ctx.lineTo(cx, capBottom + drop);
+    ctx.lineTo(cx + halfW, capBottom - halfH + drop);
+    ctx.stroke();
   }
 
   return { surface, baseY };

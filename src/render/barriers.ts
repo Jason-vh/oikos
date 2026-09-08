@@ -3,7 +3,7 @@ import type { World } from '../sim/world';
 import { tileToScreen } from './iso';
 import type { TextureCache } from './textures';
 
-export class RoadblockLayer {
+export class BarrierLayer {
   private readonly world: World;
   private readonly textures: TextureCache;
   private readonly structures: Container;
@@ -26,7 +26,7 @@ export class RoadblockLayer {
     for (const index of tiles) {
       const existing = this.sprites.get(index);
 
-      if (!grid.isRoadblock(index)) {
+      if (!grid.isRoadblock(index) && !grid.isWall(index)) {
         if (!existing) continue;
         existing.destroy();
         this.sprites.delete(index);
@@ -36,7 +36,7 @@ export class RoadblockLayer {
 
       const x = grid.tileX(index);
       const y = grid.tileY(index);
-      const barrier = this.textures.roadblock();
+      const barrier = grid.isWall(index) ? this.textures.wall() : this.textures.roadblock();
       const sprite = new Sprite(barrier.texture);
       const position = tileToScreen(x, y, grid.height[index]);
 

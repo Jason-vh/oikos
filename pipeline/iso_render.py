@@ -1295,6 +1295,45 @@ def build_hero_hall():
     return {"kind": "heroHall", "variant": 0, "footprint": 4, "height": roof_z + roof_h + 0.36}
 
 
+def build_tower():
+    """Tower: a stone bastion on a plinth, battlemented, with a stair and a brazier."""
+    stone = plaster_material("stone", STONE, roughness=0.86, variation=0.06, scale=12.0)
+    ashlar = plaster_material("ashlar", hex_rgb("e4dcc4"), roughness=0.82, variation=0.05, scale=9.0)
+    earth = plaster_material("earth", EARTH, roughness=0.96, variation=0.08, scale=15.0)
+    tiles = roof_material("tiles", hex_rgb("8f4526"), rows_per_unit=18.0)
+    wood = material("wood", WOOD, roughness=0.86)
+    bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
+
+    half = 0.94
+    yard = add_box("yard", (0, 0, 0.03), (half * 2, half * 2, 0.06), earth)
+    yard.visible_shadow = False
+
+    tower_half = 0.52
+    shaft_h = 1.5
+    tx, ty = -0.2, -0.2
+    add_box("plinth", (tx, ty, 0.12), (tower_half * 2 + 0.22, tower_half * 2 + 0.22, 0.12), stone)
+    add_box("shaft", (tx, ty, 0.18 + shaft_h / 2), (tower_half * 2, tower_half * 2, shaft_h), ashlar)
+    add_doorway(tower_half, 0.44, (tx, ty))
+    add_window_row(tower_half, 0.9, (0.12, 0.2), (tx, ty), on_door_face=True)
+
+    parapet_z = 0.18 + shaft_h
+    add_box("corbel", (tx, ty, parapet_z + 0.05), (tower_half * 2 + 0.2, tower_half * 2 + 0.2, 0.1), stone)
+    merlon = 0.14
+    for step in (-3, -1, 1, 3):
+        offset = step * (tower_half / 3)
+        for side in (-1, 1):
+            add_box("merlon", (tx + offset, ty + side * (tower_half + 0.08), parapet_z + 0.2), (merlon, 0.1, 0.2), ashlar)
+            add_box("merlon", (tx + side * (tower_half + 0.08), ty + offset, parapet_z + 0.2), (0.1, merlon, 0.2), ashlar)
+
+    add_shed_roof("hood", (tx, ty, parapet_z + 0.34), tower_half * 0.7, tower_half * 0.7, 0.06, tiles)
+    add_cylinder("brazier", (0.66, 0.6, 0.06 + 0.2), 0.08, 0.4, bronze, vertices=10)
+    add_cylinder("brazier_bowl", (0.66, 0.6, 0.06 + 0.42), 0.16, 0.1, bronze, vertices=14)
+    for step in range(3):
+        add_box("stair", (tx + tower_half + 0.2, ty - 0.5 + step * 0.16, 0.06 + 0.05 + step * 0.09), (0.34, 0.16, 0.1 + step * 0.16), wood)
+
+    return {"kind": "tower", "variant": 0, "footprint": 2, "height": parapet_z + 0.5}
+
+
 def build_fountain():
     """Marble basin with a raised centre and a small bronze statue; light blue water."""
     marble = material("marble", MARBLE, roughness=0.3)
@@ -1397,6 +1436,7 @@ MODELS = {
     "maintenance-office": build_maintenance_office,
     "infirmary": build_infirmary,
     "hero-hall": build_hero_hall,
+    "tower": build_tower,
     "watchpost": build_watchpost,
     "olive-press": build_olive_press,
     "wheat-farm": build_wheat_farm,

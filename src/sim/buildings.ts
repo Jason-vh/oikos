@@ -603,6 +603,30 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     damageRisk: 3,
     description: 'Sends a watchman on his rounds. Where he walks, no one turns to crime.',
   },
+  tower: {
+    kind: 'tower',
+    name: 'Tower',
+    size: 2,
+    cost: 50,
+    colour: 0xe4dcc4,
+    roofColour: 0x8f4526,
+    height: 44,
+    workers: 15,
+    maxWalkers: 0,
+    appeal: { initial: -4, bandSize: 1, step: 1, range: 3 },
+    requiresMeadow: false,
+    needsRoad: true,
+    requires: 'palace',
+    minAppeal: 0,
+    produces: null,
+    consumes: null,
+    accepts: null,
+    supplies: null,
+    capacity: 0,
+    fireRisk: 0,
+    damageRisk: 3,
+    description: 'Archers hold the wall from here. A tower is worth companies when the city is attacked.',
+  },
   heroHall: {
     kind: 'heroHall',
     name: 'Hero Hall',
@@ -748,6 +772,7 @@ export const PLACEABLE: BuildingKind[] = [
   'sanctuaryHermes',
   'sanctuaryHades',
   'heroHall',
+  'tower',
 ];
 
 export const LABOUR_PRIORITY: BuildingKind[] = [
@@ -770,6 +795,7 @@ export const LABOUR_PRIORITY: BuildingKind[] = [
   'sanctuaryHermes',
   'sanctuaryHades',
   'heroHall',
+  'tower',
   'house',
   'estate',
 ];
@@ -779,3 +805,5 @@ export const UNITS_PER_CARTLOAD = 100;
 export const ROAD_COST = 4;
 
 export const ROADBLOCK_COST = 8;
+
+export const WALL_COST = 6;

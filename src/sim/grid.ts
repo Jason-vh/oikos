@@ -13,6 +13,7 @@ export class Grid {
   readonly height: Uint8Array;
   readonly road: Uint8Array;
   readonly roadblock: Uint8Array;
+  readonly wall: Uint8Array;
   readonly occupant: Int32Array;
   readonly appeal: Int16Array;
   readonly decor: Uint8Array;
@@ -24,6 +25,7 @@ export class Grid {
     this.height = new Uint8Array(cells);
     this.road = new Uint8Array(cells);
     this.roadblock = new Uint8Array(cells);
+    this.wall = new Uint8Array(cells);
     this.occupant = new Int32Array(cells).fill(NO_BUILDING);
     this.appeal = new Int16Array(cells);
     this.decor = new Uint8Array(cells);
@@ -74,7 +76,7 @@ export class Grid {
   isFree(x: number, y: number): boolean {
     if (!this.isLand(x, y)) return false;
     const i = this.index(x, y);
-    return this.occupant[i] === NO_BUILDING && this.road[i] === 0;
+    return this.occupant[i] === NO_BUILDING && this.road[i] === 0 && this.wall[i] === 0;
   }
 
   isRoad(index: number): boolean {
@@ -83,6 +85,10 @@ export class Grid {
 
   isRoadblock(index: number): boolean {
     return this.roadblock[index] === 1;
+  }
+
+  isWall(index: number): boolean {
+    return this.wall[index] === 1;
   }
 
   *footprint(x: number, y: number, size: number): Generator<number> {
