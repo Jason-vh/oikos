@@ -17,6 +17,8 @@ export const ROAM_RANGE: Record<WalkerKind, number> = {
   clerk: 35,
   doctor: 35,
   watchman: 30,
+  athlete: 30,
+  actor: 30,
 };
 
 export const WALKER_SPEED: Record<WalkerKind, number> = {
@@ -29,6 +31,8 @@ export const WALKER_SPEED: Record<WalkerKind, number> = {
   clerk: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
   doctor: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
   watchman: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
+  athlete: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
+  actor: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
 };
 
 export const PEDDLER_LOAD = UNITS_PER_CARTLOAD;
@@ -40,6 +44,8 @@ export const WALKER_SERVICE: Partial<Record<WalkerKind, ServiceKind>> = {
   clerk: 'tax',
   doctor: 'health',
   watchman: 'safety',
+  athlete: 'athletics',
+  actor: 'drama',
 };
 
 const SOLD_AS: Record<Good, ServiceKind | null> = {
@@ -52,6 +58,8 @@ const SOLD_AS: Record<Good, ServiceKind | null> = {
 };
 
 const SUPPLY_FULL = 100;
+
+const PERFORMERS: WalkerKind[] = ['philosopher', 'actor'];
 
 export function spawnRoamer(
   world: World,
@@ -85,11 +93,16 @@ export function spawnDeliveryman(world: World, agora: Building, sources: Set<num
   return spawnCarrier(world, 'deliveryman', agora, sources, 0, good);
 }
 
-export function spawnPhilosopher(world: World, college: Building, podium: Building): boolean {
-  const destinations = new Set(roadAccessTiles(world.grid, podium));
+export function spawnPerformer(
+  world: World,
+  kind: WalkerKind,
+  school: Building,
+  venue: Building,
+): boolean {
+  const destinations = new Set(roadAccessTiles(world.grid, venue));
   if (destinations.size === 0) return false;
 
-  return spawnCarrier(world, 'philosopher', college, destinations, 0, 'food', podium.id);
+  return spawnCarrier(world, kind, school, destinations, 0, 'food', venue.id);
 }
 
 export function spawnCartPusher(
@@ -161,7 +174,7 @@ function advance(world: World, walker: Walker): void {
 }
 
 function onTileEntered(world: World, walker: Walker): void {
-  if (walker.kind === 'philosopher' && walker.state === 'delivering' && atRouteEnd(walker)) {
+  if (PERFORMERS.includes(walker.kind) && walker.state === 'delivering' && atRouteEnd(walker)) {
     takeTheStage(world, walker);
     return;
   }
@@ -247,7 +260,7 @@ function takeTheStage(world: World, walker: Walker): void {
   walker.state = 'roaming';
   walker.route = [];
   walker.routeIndex = 0;
-  walker.stepsLeft = ROAM_RANGE.philosopher;
+  walker.stepsLeft = ROAM_RANGE[walker.kind];
 }
 
 function turnBack(walker: Walker): void {

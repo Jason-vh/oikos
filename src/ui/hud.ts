@@ -371,7 +371,7 @@ function groupFor(kind: string): string {
   if (kind === 'house' || kind === 'estate') return 'Housing';
   if (kind === 'wheatFarm' || kind === 'granary' || kind === 'growersLodge' || kind === 'agora') return 'Food';
   if (kind === 'olivePress' || kind === 'winery' || kind === 'cardingShed' || kind === 'vineyard') return 'Industry';
-  if (kind === 'college' || kind === 'podium') return 'Culture';
+  if (['college', 'podium', 'gymnasium', 'dramaSchool', 'theatre', 'stadium'].includes(kind)) return 'Culture';
   if (kind === 'infirmary' || kind === 'watchpost') return 'Services';
   if (kind === 'palace' || kind === 'taxOffice' || kind === 'tradingPost') return 'Government';
   if (kind === 'tower') return 'Defence';

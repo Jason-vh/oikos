@@ -1442,6 +1442,154 @@ def build_carding_shed():
     return {"kind": "cardingShed", "variant": 0, "footprint": 2, "height": 0.9}
 
 
+def build_gymnasium():
+    """Gymnasium: a sanded palaestra ringed by a colonnade, with weights and a washing basin."""
+    sand = plaster_material("sand", hex_rgb("e6d7ab"), roughness=0.97, variation=0.08, scale=16.0)
+    paving = plaster_material("paving", STONE, roughness=0.88, variation=0.05, scale=14.0)
+    marble = material("marble", MARBLE, roughness=0.3)
+    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.84, variation=0.04, scale=7.0)
+    tiles = roof_material("tiles", TERRACOTTA, rows_per_unit=20.0)
+    bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
+    clay = material("clay", CLAY, roughness=0.8)
+
+    half = 1.44
+    yard = add_box("yard", (0, 0, 0.03), (half * 2, half * 2, 0.06), paving)
+    yard.visible_shadow = False
+    add_box("palaestra", (0.2, 0.2, 0.07), (1.9, 1.9, 0.03), sand)
+
+    room_half = 0.48
+    wall_h = 0.6
+    rx, ry = -0.86, -0.86
+    add_box("changing_room", (rx, ry, 0.06 + wall_h / 2), (room_half * 2, room_half * 2, wall_h), whitewash)
+    add_hip_roof("room_roof", (rx, ry, 0.06 + wall_h + 0.14), room_half + 0.12, 0.28, tiles, ridge_half=0.12)
+    add_doorway(room_half, 0.4, (rx, ry))
+
+    for offset in (-0.9, -0.3, 0.3, 0.9):
+        add_cylinder("column", (half - 0.16, offset + 0.2, 0.06 + 0.36), 0.055, 0.72, marble, vertices=14)
+        add_cylinder("column", (offset + 0.2, -half + 0.16, 0.06 + 0.36), 0.055, 0.72, marble, vertices=14)
+    add_box("stoa_roof", (half - 0.16, 0.2, 0.06 + 0.76), (0.36, 2.3, 0.08), marble)
+    add_box("stoa_roof", (0.2, -half + 0.16, 0.06 + 0.76), (2.3, 0.36, 0.08), marble)
+
+    add_cylinder("basin", (-0.1, 1.0, 0.06 + 0.2), 0.26, 0.4, marble, vertices=18)
+    add_cylinder("basin_water", (-0.1, 1.0, 0.06 + 0.4), 0.22, 0.03, bronze, vertices=18)
+    for weight_x in (0.6, 0.86):
+        add_cylinder("weight", (weight_x, -0.6, 0.09), 0.09, 0.06, bronze, vertices=12)
+    add_amphora("oil_jar", (-0.2, -1.1, 0.06), 0.3, clay)
+
+    return {"kind": "gymnasium", "variant": 0, "footprint": 3, "height": 1.05}
+
+
+def build_drama_school():
+    """Drama school: a rehearsal court with masks on the wall and a low stage."""
+    paving = plaster_material("paving", STONE, roughness=0.88, variation=0.05, scale=14.0)
+    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.84, variation=0.05, scale=7.0)
+    tiles = roof_material("tiles", hex_rgb("c0603a"), rows_per_unit=20.0)
+    marble = material("marble", MARBLE, roughness=0.32)
+    wood = material("wood", WOOD, roughness=0.86)
+    mask = material("mask", hex_rgb("d9c2e0"), roughness=0.7)
+    clay = material("clay", CLAY, roughness=0.8)
+
+    half = 1.44
+    yard = add_box("yard", (0, 0, 0.03), (half * 2, half * 2, 0.06), paving)
+    yard.visible_shadow = False
+
+    hall_half = 0.6
+    wall_h = 0.66
+    hx, hy = -0.7, -0.7
+    add_box("hall", (hx, hy, 0.06 + wall_h / 2), (hall_half * 2, hall_half * 2, wall_h), whitewash)
+    add_hip_roof("hall_roof", (hx, hy, 0.06 + wall_h + 0.15), hall_half + 0.12, 0.3, tiles, ridge_half=0.14)
+    add_doorway(hall_half, 0.42, (hx, hy))
+
+    add_box("stage", (0.5, 0.4, 0.06 + 0.09), (1.5, 1.3, 0.18), wood)
+    add_box("backdrop", (0.5, 1.1, 0.06 + 0.52), (1.5, 0.1, 0.7), whitewash)
+    for mask_x in (0.1, 0.5, 0.9):
+        add_cylinder("mask", (mask_x, 1.04, 0.06 + 0.66), 0.12, 0.05, mask, vertices=14)
+    for offset in (-0.5, 0.5):
+        add_cylinder("bench_post", (offset + 0.5, -0.5, 0.06 + 0.1), 0.04, 0.2, wood, vertices=8)
+    add_box("bench", (0.5, -0.5, 0.06 + 0.22), (1.3, 0.22, 0.08), marble)
+    add_amphora("jar", (-1.1, 0.9, 0.06), 0.3, clay)
+
+    return {"kind": "dramaSchool", "variant": 0, "footprint": 3, "height": 1.1}
+
+
+def build_theatre():
+    """Theatre: a tiered semicircle of stone seats around an orchestra and a skene."""
+    paving = plaster_material("paving", STONE, roughness=0.88, variation=0.05, scale=14.0)
+    sand = plaster_material("orchestra", hex_rgb("e6d7ab"), roughness=0.96, variation=0.07, scale=16.0)
+    marble = material("marble", MARBLE, roughness=0.3)
+    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.84, variation=0.04, scale=7.0)
+    tiles = roof_material("tiles", TERRACOTTA, rows_per_unit=20.0)
+    wood = material("wood", WOOD, roughness=0.86)
+    clay = material("clay", CLAY, roughness=0.8)
+    cypress = material("cypress", CYPRESS, roughness=0.9)
+
+    half = 1.92
+    yard = add_box("yard", (0, 0, 0.03), (half * 2, half * 2, 0.06), paving)
+    yard.visible_shadow = False
+
+    cx, cy = -0.34, 0.2
+    add_cylinder("terrace", (cx, cy, 0.06 + 0.07), 1.82, 0.14, marble, vertices=30)
+    add_cylinder("orchestra", (cx, cy, 0.06 + 0.15), 0.8, 0.04, sand, vertices=30)
+    for radius, rise, count in ((1.04, 0.16, 16), (1.34, 0.3, 20), (1.64, 0.46, 24)):
+        for index in range(count):
+            angle = math.radians(62 + index * (236 / (count - 1)))
+            seat = add_box(
+                f"seat_{radius}_{index}",
+                (cx + math.cos(angle) * radius, cy + math.sin(angle) * radius, 0.13 + rise / 2),
+                (0.32, 2 * math.pi * radius / count * 1.5, rise),
+                marble,
+            )
+            seat.rotation_euler[2] = angle
+
+    add_box("skene", (1.16, 0.2, 0.06 + 0.44), (0.5, 2.0, 0.88), whitewash)
+    add_box("skene_cornice", (1.16, 0.2, 0.06 + 0.9), (0.62, 2.12, 0.08), marble)
+    add_shed_roof("skene_roof", (1.16, 0.2, 0.06 + 0.98), 0.3, 1.06, 0.07, tiles)
+    for door_y in (-0.4, 0.2, 0.8):
+        add_box("skene_door", (0.92, door_y, 0.06 + 0.26), (0.05, 0.24, 0.5), wood)
+
+    add_cypress_pot("cypress", (-1.6, -1.5, 0.06), 0.5, clay, cypress)
+    add_amphora("jar", (0.4, -1.6, 0.06), 0.34, clay)
+
+    return {"kind": "theatre", "variant": 0, "footprint": 4, "height": 1.3}
+
+
+def build_stadium():
+    """Stadium: a long running track between banked stone seats, with turning posts."""
+    paving = plaster_material("paving", STONE, roughness=0.88, variation=0.05, scale=14.0)
+    track = plaster_material("track", hex_rgb("e0cf9f"), roughness=0.97, variation=0.07, scale=18.0)
+    marble = material("marble", MARBLE, roughness=0.3)
+    bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
+    clay = material("clay", CLAY, roughness=0.8)
+    cypress = material("cypress", CYPRESS, roughness=0.9)
+
+    half = 2.4
+    yard = add_box("ground", (0, 0, 0.03), (half * 2, half * 2, 0.06), paving)
+    yard.visible_shadow = False
+    add_box("track", (0, 0, 0.07), (4.2, 1.5, 0.03), track)
+
+    for side in (-1, 1):
+        bank = 1.0 if side > 0 else 0.45
+        for tier in range(3):
+            rise = (0.22 + tier * 0.4) * bank
+            add_box(
+                f"seating_{side}_{tier}",
+                (0, side * (0.95 + tier * 0.3), 0.06 + rise / 2),
+                (4.4, 0.32, rise),
+                marble,
+            )
+    add_box("gate", (-2.2, 0, 0.06 + 0.4), (0.24, 1.6, 0.8), marble)
+    add_box("gate_cap", (-2.2, 0, 0.06 + 0.84), (0.36, 1.72, 0.1), marble)
+
+    for post_x in (-1.7, 1.7):
+        add_cylinder("turning_post", (post_x, 0, 0.06 + 0.3), 0.08, 0.6, marble, vertices=12)
+        add_cylinder("post_cap", (post_x, 0, 0.06 + 0.62), 0.1, 0.06, bronze, vertices=12)
+
+    add_cypress_pot("cypress1", (2.1, 2.0, 0.06), 0.55, clay, cypress)
+    add_cypress_pot("cypress2", (-2.0, -2.1, 0.06), 0.5, clay, cypress)
+
+    return {"kind": "stadium", "variant": 0, "footprint": 5, "height": 1.3}
+
+
 def build_fountain():
     """Marble basin with a raised centre and a small bronze statue; light blue water."""
     marble = material("marble", MARBLE, roughness=0.3)
@@ -1540,6 +1688,10 @@ MODELS = {
     "agora": build_agora,
     "growers-lodge": build_growers_lodge,
     "college": build_college,
+    "gymnasium": build_gymnasium,
+    "drama-school": build_drama_school,
+    "theatre": build_theatre,
+    "stadium": build_stadium,
     "podium": build_podium,
     "maintenance-office": build_maintenance_office,
     "infirmary": build_infirmary,

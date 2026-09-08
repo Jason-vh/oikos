@@ -31,6 +31,10 @@ const GOOD_NAMES: Record<Good, string> = {
 const WALKER_OF: Partial<Record<BuildingKind, { name: string; kind: WalkerKind }>> = {
   agora: { name: 'Peddler', kind: 'peddler' },
   podium: { name: 'Philosopher', kind: 'philosopher' },
+  gymnasium: { name: 'Athlete', kind: 'athlete' },
+  theatre: { name: 'Actor', kind: 'actor' },
+  infirmary: { name: 'Doctor', kind: 'doctor' },
+  watchpost: { name: 'Watchman', kind: 'watchman' },
   fountain: { name: 'Water carrier', kind: 'waterCarrier' },
   taxOffice: { name: 'Clerk', kind: 'clerk' },
 };

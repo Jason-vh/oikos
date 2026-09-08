@@ -15,6 +15,8 @@ const SUPPLY_DECAY_PER_TICK: Record<ServiceKind, number> = {
   safety: 0.05,
   wine: 0.04,
   fleece: 0.04,
+  athletics: 0.04,
+  drama: 0.04,
 };
 const EVOLUTION_INTERVAL = 25;
 

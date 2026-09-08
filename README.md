@@ -186,7 +186,7 @@ to the view direction lifts every sprite off its plot. A Cycles shadow-catcher p
 becomes the shadow sprite, framed wide enough for the shadow the sun actually casts.
 
 Models live in `pipeline/iso_render.py`: the seven common housing tiers and four elite ones, wheat farm, growers'
-lodge, olive press, vineyard, winery, carding shed, granary, agora, college, podium, maintenance office, palace, tax
+lodge, olive press, vineyard, winery, carding shed, granary, agora, college, podium, gymnasium, drama school, theatre, stadium, maintenance office, palace, tax
 office, trading post, infirmary, watchpost, four sanctuaries, hero hall, fountain and
 statue, each rendered as a body and a shadow. Sprites are keyed by
 `kind:variant:layer` — housing uses `tier * 2`, plus one for the mirrored copy.

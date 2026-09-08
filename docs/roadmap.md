@@ -324,7 +324,13 @@ segments at 30→100 dr, with 4×1 crosswalks (25→75) to cross it.
 | 100–198 | 12 | 200 |
 | 200+ | 24 | 500 (but popularity drops) |
 
-🟡 The Greek philosopher chain is in: a college walks him to a podium, he roams 35
+🟡 All three Greek culture types are in, counted separately as the original counts
+them: philosopher (college → podium), athlete (gymnasium) and actor (drama school →
+theatre), with a manned stadium counting every house in the city as athletic. A hovel
+asks for one type, a tenement two, a townhouse and every elite house three. The
+Pan-Hellenic games, the Atlantean science track and the hippodrome are not started.
+
+🟡 Earlier: the Greek philosopher chain is in: a college walks him to a podium, he roams 35
 tiles from there, and housing needs him from the third tier up. Points-per-visit,
 the other three Greek walkers, the Atlantean science track, the games and the
 hippodrome are not.

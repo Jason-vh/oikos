@@ -69,7 +69,7 @@ import {
 import { TICKS_PER_MONTH } from './time';
 import { GOODS, createBuilding } from './types';
 import type { Building, BuildingKind, Good, Walker, WalkerKind } from './types';
-import { PEDDLER_LOAD, spawnCartPusher, spawnDeliveryman, spawnPhilosopher, spawnRoamer } from './walkers';
+import { PEDDLER_LOAD, spawnCartPusher, spawnDeliveryman, spawnPerformer, spawnRoamer } from './walkers';
 import { updateWalkers } from './walkers';
 
 const MONTH_NAMES = [
@@ -100,6 +100,8 @@ const FOUNTAIN_SPAWN_INTERVAL = 70;
 const TAX_OFFICE_SPAWN_INTERVAL = 70;
 const INFIRMARY_SPAWN_INTERVAL = 80;
 const WATCHPOST_SPAWN_INTERVAL = 70;
+const GYMNASIUM_SPAWN_INTERVAL = 80;
+const STADIUM_CULTURE = 10;
 
 function roomIn(house: Building): number {
   return Math.max(0, tierOf(house).capacity - house.population);
@@ -396,6 +398,7 @@ export class World {
       inDebt: this.treasury < 0,
     });
     this.migrate();
+    this.holdGames();
     this.army = musterArmy(this.buildings.values(), this.has('palace'));
     if (this.hero) this.army.hoplite += HERO_COMPANIES;
     this.answerTheWorld();
@@ -483,6 +486,18 @@ export class World {
 
     this.trade = posts.length === 0 ? NO_TRADE : trade(posts, this.tradeOrders, this.treasury);
     this.treasury += this.trade.earned - this.trade.spent;
+  }
+
+  private holdGames(): void {
+    const stadium = [...this.buildings.values()].find(
+      (building) => building.kind === 'stadium' && building.staff > 0,
+    );
+    if (!stadium) return;
+
+    for (const building of this.buildings.values()) {
+      if (!isDwelling(building.kind)) continue;
+      building.supply.athletics = Math.max(building.supply.athletics, STADIUM_CULTURE);
+    }
   }
 
   private answerTheWorld(): void {
@@ -739,7 +754,13 @@ export class World {
           this.updateFountain(building);
           break;
         case 'college':
-          this.updateCollege(building);
+          this.updateSchool(building, 'philosopher', 'podium');
+          break;
+        case 'dramaSchool':
+          this.updateSchool(building, 'actor', 'theatre');
+          break;
+        case 'gymnasium':
+          this.updateRoamingService(building, 'athlete', GYMNASIUM_SPAWN_INTERVAL);
           break;
         case 'maintenanceOffice':
           this.updateMaintenanceOffice(building);
@@ -841,19 +862,19 @@ export class World {
     if (spawnRoamer(this, fountain, 'waterCarrier')) fountain.spawnTimer = 0;
   }
 
-  private updateCollege(college: Building): void {
-    college.spawnTimer += staffing(college);
-    if (college.spawnTimer < COLLEGE_SPAWN_INTERVAL) return;
-    if (atWalkerLimit(college) || !hasRoadAccess(this.grid, college)) return;
+  private updateSchool(school: Building, walker: WalkerKind, venueKind: BuildingKind): void {
+    school.spawnTimer += staffing(school);
+    if (school.spawnTimer < COLLEGE_SPAWN_INTERVAL) return;
+    if (atWalkerLimit(school) || !hasRoadAccess(this.grid, school)) return;
 
-    const podium = this.freePodium();
-    if (!podium) return;
-    if (spawnPhilosopher(this, college, podium)) college.spawnTimer = 0;
+    const venue = this.freeVenue(venueKind);
+    if (!venue) return;
+    if (spawnPerformer(this, walker, school, venue)) school.spawnTimer = 0;
   }
 
-  private freePodium(): Building | undefined {
+  private freeVenue(kind: BuildingKind): Building | undefined {
     for (const building of this.buildings.values()) {
-      if (building.kind !== 'podium' || atWalkerLimit(building)) continue;
+      if (building.kind !== kind || atWalkerLimit(building)) continue;
       if (hasRoadAccess(this.grid, building)) return building;
     }
     return undefined;
