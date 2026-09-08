@@ -1,0 +1,4 @@
+node_modules
+dist
+scripts/smoke.png
+.DS_Store
