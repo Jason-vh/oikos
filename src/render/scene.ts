@@ -8,7 +8,13 @@ import type { BakedStructures } from './baked';
 import { depthOf, footprintAnchor, tileToScreen } from './iso';
 import { Particles } from './particles';
 import { TerrainLayer } from './terrain';
-import { WALKER_FRAMES, type StructureLook, type TextureCache } from './textures';
+import {
+  WALKER_FRAMES,
+  type StructureLook,
+  type StructureRequest,
+  type StructureSprite,
+  type TextureCache,
+} from './textures';
 
 export type OverlayMode = 'none' | 'desirability';
 
@@ -71,6 +77,10 @@ export class Scene {
     this.bakedVersion += 1;
   }
 
+  structureFor(request: StructureRequest, bakedVariant: number): StructureSprite {
+    return this.baked?.get(request.kind, bakedVariant, request.phase) ?? this.textures.structure(request);
+  }
+
   setOverlayMode(mode: OverlayMode): void {
     this.overlayMode = mode;
     this.overlayTiles.visible = mode === 'desirability';
@@ -130,14 +140,15 @@ export class Scene {
       if (existing && existing.key === key) continue;
       if (existing) existing.sprite.destroy();
 
-      const structure =
-        this.baked?.get(building.kind, sunPhase) ??
-        this.textures.structure({
+      const structure = this.structureFor(
+        {
           ...lookOf(building),
           kind: building.kind,
           variant: variantOf(building.id),
           phase: sunPhase,
-        });
+        },
+        building.kind === 'house' ? building.tier : 0,
+      );
 
       const sprite = new Sprite(structure.texture);
       const height = this.world.grid.heightAt(building.x, building.y);

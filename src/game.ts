@@ -196,12 +196,15 @@ export class Game {
         }
       }
 
-      const structure = this.textures.structure({
-        ...structureLook(this.tool.building),
-        kind: this.tool.building,
-        variant: 0,
-        phase: this.atmosphere.sunPhase,
-      });
+      const structure = this.scene.structureFor(
+        {
+          ...structureLook(this.tool.building),
+          kind: this.tool.building,
+          variant: 0,
+          phase: this.atmosphere.sunPhase,
+        },
+        0,
+      );
       const ghost = new Sprite(structure.texture);
       const height = this.world.grid.heightAt(this.hovered.x, this.hovered.y);
       const anchor = footprintAnchor(this.hovered.x, this.hovered.y, def.size, height);

@@ -54,12 +54,13 @@ def main():
             continue
         trimmed = image.crop(bbox)
 
-        height_units = sprite.get("heightUnits", 2.1)
+        height_units = sprite["heightUnits"]
         anchor_y = image.height / 2 + south_vertex_offset(sprite["footprint"], height_units, pixels_per_unit)
 
         prepared.append(
             {
                 "kind": sprite["kind"],
+                "variant": sprite.get("variant", 0),
                 "phase": sprite["phase"],
                 "image": trimmed,
                 "anchorX": (image.width / 2 - bbox[0]) / trimmed.width,
@@ -67,7 +68,7 @@ def main():
             }
         )
 
-    prepared.sort(key=lambda item: (item["kind"], item["phase"]))
+    prepared.sort(key=lambda item: (item["kind"], item["variant"], item["phase"]))
     columns = max(1, math.ceil(math.sqrt(len(prepared))))
     cell_width = max(item["image"].width for item in prepared) + ATLAS_PAD
     cell_height = max(item["image"].height for item in prepared) + ATLAS_PAD
@@ -83,6 +84,7 @@ def main():
         frames.append(
             {
                 "kind": item["kind"],
+                "variant": item["variant"],
                 "phase": item["phase"],
                 "x": x,
                 "y": y,

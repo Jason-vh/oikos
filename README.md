@@ -97,8 +97,13 @@ renders drop into the game's metric with no fudging. Anchors are derived
 analytically from that camera rather than eyeballed. A Cycles shadow-catcher plane
 puts real contact shadows in the sprite's alpha.
 
-To add a building: write a builder function in `pipeline/iso_render.py`, register it
-in `MODELS`, re-run the two commands. The game picks it up by name.
+Models live in `pipeline/iso_render.py`: the four housing tiers, wheat farm, granary,
+fountain and statue, each rendered across six day phases plus night. Builders receive
+the phase, so windows can be given an emissive material after dark. Sprites are keyed
+by `kind:variant:phase` — housing uses the tier as its variant.
+
+To add a building: write a builder, register it in `MODELS`, re-run the two commands.
+The game picks it up with no client changes.
 
 ## Roadmap
 

@@ -4,6 +4,7 @@ import type { StructureSprite } from './textures';
 
 interface BakedFrame {
   kind: string;
+  variant: number;
   phase: number;
   x: number;
   y: number;
@@ -25,7 +26,7 @@ export class BakedStructures {
 
   constructor(manifest: BakedManifest, sheet: Texture) {
     for (const frame of manifest.frames) {
-      this.sprites.set(`${frame.kind}:${frame.phase}`, {
+      this.sprites.set(`${frame.kind}:${frame.variant ?? 0}:${frame.phase}`, {
         texture: new Texture({
           source: sheet.source,
           frame: new Rectangle(frame.x, frame.y, frame.width, frame.height),
@@ -36,8 +37,8 @@ export class BakedStructures {
     }
   }
 
-  get(kind: BuildingKind, phase: number): StructureSprite | undefined {
-    return this.sprites.get(`${kind}:${phase}`);
+  get(kind: BuildingKind, variant: number, phase: number): StructureSprite | undefined {
+    return this.sprites.get(`${kind}:${variant}:${phase}`) ?? this.sprites.get(`${kind}:0:${phase}`);
   }
 
   get size(): number {
