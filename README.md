@@ -27,8 +27,12 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
 
 - **Terrain**: grass, meadow (farms only), sand, rock, water, over 5 elevation levels.
 - **Roads**: the only network. Everything social flows along it.
-- **Walkers**: cart pushers route with BFS to a granary; food vendors and water
-  carriers roam randomly and serve houses adjacent to the road they walk.
+- **Walkers**: they leave and re-enter their building by its *exit point* — the first
+  road found clockwise from north of the footprint — except a fountain's carrier,
+  which comes home to the tile due north. Roamers walk out their range (water carrier
+  27 tiles, vendor 44) serving houses beside the road, then take the shortest road
+  home. Everyone moves at a citizen's 54.4 tiles a month. Cart pushers route with BFS
+  to a granary.
 - **Housing**: Shack → Hovel → Tenement → Homestead, gated on supplied services
   and, from Tenement up, on local appeal. Houses devolve when their tier's needs
   lapse or their surroundings decay.
@@ -49,7 +53,8 @@ src/sim/      headless simulation — no Pixi imports
   grid.ts         typed-array layers (terrain, height, road, occupant, appeal)
   world.ts        fixed 20 Hz tick, placement, production, changed-tile tracking
   walkers.ts      spawn + movement + service delivery
-  pathing.ts      road BFS and roaming
+  pathing.ts      road BFS, exit points, roaming
+  time.ts         tick and month constants
   housing.ts      evolution rules
   appeal.ts       band model field
   labour.ts       wage levels, workforce, staffing

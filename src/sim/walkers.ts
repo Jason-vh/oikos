@@ -1,11 +1,24 @@
-import { bfsRoute, nextRoamTile, roadAccessTiles } from './pathing';
+import { bfsRoute, exitTile, nextRoamTile, northOf } from './pathing';
+import { TICKS_PER_MONTH } from './time';
 import type { Building, ServiceKind, Walker, WalkerKind } from './types';
 import type { World } from './world';
 
+const TILES_PER_MONTH: Record<WalkerKind, number> = {
+  cartPusher: 54.4,
+  foodVendor: 54.4,
+  waterCarrier: 54.4,
+};
+
+export const ROAM_RANGE: Record<WalkerKind, number> = {
+  cartPusher: 0,
+  foodVendor: 44,
+  waterCarrier: 27,
+};
+
 export const WALKER_SPEED: Record<WalkerKind, number> = {
-  cartPusher: 0.045,
-  foodVendor: 0.06,
-  waterCarrier: 0.06,
+  cartPusher: TILES_PER_MONTH.cartPusher / TICKS_PER_MONTH,
+  foodVendor: TILES_PER_MONTH.foodVendor / TICKS_PER_MONTH,
+  waterCarrier: TILES_PER_MONTH.waterCarrier / TICKS_PER_MONTH,
 };
 
 export const WALKER_SERVICE: Partial<Record<WalkerKind, ServiceKind>> = {
@@ -13,14 +26,12 @@ export const WALKER_SERVICE: Partial<Record<WalkerKind, ServiceKind>> = {
   waterCarrier: 'water',
 };
 
-const ROAM_STEPS = 36;
 const SUPPLY_FULL = 100;
 
 export function spawnRoamer(world: World, home: Building, kind: WalkerKind): boolean {
-  const access = roadAccessTiles(world.grid, home);
-  if (access.length === 0) return false;
+  const start = exitTile(world.grid, home);
+  if (start === -1) return false;
 
-  const start = access[Math.floor(Math.random() * access.length)];
   world.addWalker({
     kind,
     homeId: home.id,
@@ -32,17 +43,17 @@ export function spawnRoamer(world: World, home: Building, kind: WalkerKind): boo
     progress: 1,
     route: [],
     routeIndex: 0,
-    stepsLeft: ROAM_STEPS,
+    stepsLeft: ROAM_RANGE[kind],
     cargo: 0,
   });
   return true;
 }
 
 export function spawnCartPusher(world: World, farm: Building, destinations: Set<number>, cargo: number): boolean {
-  const access = roadAccessTiles(world.grid, farm);
-  if (access.length === 0) return false;
+  const start = exitTile(world.grid, farm);
+  if (start === -1) return false;
 
-  const route = bfsRoute(world.grid, access[0], (tile) => destinations.has(tile));
+  const route = bfsRoute(world.grid, start, (tile) => destinations.has(tile));
   if (!route) return false;
 
   world.addWalker({
@@ -125,11 +136,35 @@ function atRouteEnd(walker: Walker): boolean {
 function chooseNextTile(world: World, walker: Walker): number {
   if (walker.state === 'roaming') {
     walker.stepsLeft -= 1;
-    if (walker.stepsLeft <= 0) return -1;
-    return nextRoamTile(world.grid, walker.from, walker.prev);
+    if (walker.stepsLeft > 0) return nextRoamTile(world.grid, walker.from, walker.prev);
+    return startWalkingHome(world, walker);
   }
 
   walker.routeIndex += 1;
   if (walker.routeIndex >= walker.route.length) return -1;
   return walker.route[walker.routeIndex];
+}
+
+function startWalkingHome(world: World, walker: Walker): number {
+  const home = world.buildings.get(walker.homeId);
+  if (!home) return -1;
+
+  const entry = entryTile(world, home);
+  if (entry === -1) return -1;
+
+  const route = bfsRoute(world.grid, walker.from, (tile) => tile === entry);
+  if (!route || route.length < 2) return -1;
+
+  walker.state = 'returning';
+  walker.route = route;
+  walker.routeIndex = 1;
+  return route[1];
+}
+
+function entryTile(world: World, home: Building): number {
+  if (home.kind === 'fountain') {
+    const north = northOf(world.grid, home);
+    if (north !== -1) return north;
+  }
+  return exitTile(world.grid, home);
 }

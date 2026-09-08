@@ -12,13 +12,11 @@ import {
 } from './labour';
 import { generateMap } from './mapgen';
 import { hasRoadAccess, roadAccessTiles } from './pathing';
+import { TICKS_PER_MONTH } from './time';
 import { createBuilding } from './types';
 import type { Building, BuildingKind, Walker } from './types';
 import { spawnCartPusher, spawnRoamer } from './walkers';
 import { updateWalkers } from './walkers';
-
-export const TICKS_PER_SECOND = 20;
-export const TICKS_PER_MONTH = 1200;
 
 const MONTH_NAMES = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',

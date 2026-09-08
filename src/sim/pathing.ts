@@ -9,6 +9,32 @@ export function roadAccessTiles(grid: Grid, building: Building): number[] {
   return tiles;
 }
 
+export function exitTile(grid: Grid, building: Building): number {
+  for (const tile of clockwiseFromNorth(grid, building)) {
+    if (grid.isRoad(tile)) return tile;
+  }
+  return -1;
+}
+
+export function northOf(grid: Grid, building: Building): number {
+  if (!grid.contains(building.x, building.y - 1)) return -1;
+  const tile = grid.index(building.x, building.y - 1);
+  return grid.isRoad(tile) ? tile : -1;
+}
+
+function* clockwiseFromNorth(grid: Grid, building: Building): Generator<number> {
+  const { x, y, size } = building;
+  const ring: [number, number][] = [];
+  for (let d = 0; d < size; d++) ring.push([x + d, y - 1]);
+  for (let d = 0; d < size; d++) ring.push([x + size, y + d]);
+  for (let d = size - 1; d >= 0; d--) ring.push([x + d, y + size]);
+  for (let d = size - 1; d >= 0; d--) ring.push([x - 1, y + d]);
+
+  for (const [tileX, tileY] of ring) {
+    if (grid.contains(tileX, tileY)) yield grid.index(tileX, tileY);
+  }
+}
+
 export function hasRoadAccess(grid: Grid, building: Building): boolean {
   for (const tile of grid.perimeter(building.x, building.y, building.size)) {
     if (grid.isRoad(tile)) return true;
