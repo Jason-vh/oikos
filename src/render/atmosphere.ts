@@ -92,7 +92,7 @@ function ambientFor(progress: number): Ambient {
       red: 0.5 - 0.14 * depth + 0.34 * dusk,
       green: 0.56 - 0.14 * depth + 0.14 * dusk,
       blue: 0.98 - 0.02 * depth - 0.1 * dusk,
-      brightness: 0.58 - 0.1 * depth + 0.14 * dusk,
+      brightness: 0.68 - 0.08 * depth + 0.12 * dusk,
     };
   }
 
