@@ -12,7 +12,16 @@ import {
 } from './labour';
 import { generateMap } from './mapgen';
 import { hasRoadAccess, roadAccessTiles } from './pathing';
-import { accrueRisk, nameOf } from './hazards';
+import { RISK_LIMIT, accrueRisk, nameOf } from './hazards';
+import {
+  GODS,
+  GOD_KINDS,
+  actFor,
+  moodAfterMonth,
+  newPantheon,
+  type GodKind,
+  type GodState,
+} from './gods';
 import { judgeCity, migrantsFor, type Sentiment } from './popularity';
 import {
   DEFAULT_SCENARIO,
@@ -40,6 +49,8 @@ const AGORA_GOODS: Good[] = ['food', 'oil'];
 const COLLEGE_SPAWN_INTERVAL = 90;
 const MAINTENANCE_SPAWN_INTERVAL = 70;
 const STAGGERED_RISK = 40;
+const HADES_GIFT = 600;
+const HADES_TRIBUTE = 400;
 const MONTHS_PER_YEAR = 12;
 
 const sum = (values: number[]): number => values.reduce((total, value) => total + value, 0);
@@ -81,6 +92,7 @@ export class World {
   year = -500;
   structureVersion = 0;
   messages: string[] = [];
+  gods: Record<GodKind, GodState> = newPantheon();
 
   private nextId = 1;
   private appealDirty = false;
@@ -296,6 +308,7 @@ export class World {
       inDebt: this.treasury < 0,
     });
     this.migrate();
+    this.attendGods();
     this.sufferMishaps();
     this.reviewGoals();
     for (const counts of Object.values(this.outputByMonth)) counts[this.month] = 0;
@@ -345,6 +358,73 @@ export class World {
 
     this.scenarioWon = true;
     this.log(`Every goal of ${this.scenario.name} is met, Archon.`);
+  }
+
+  private attendGods(): void {
+    for (const kind of GOD_KINDS) {
+      const god = this.gods[kind];
+      const sanctuaries = [...this.buildings.values()].filter(
+        (building) => building.kind === GODS[kind].sanctuary,
+      );
+      if (sanctuaries.length > 0) god.honoured = true;
+      if (!god.honoured) continue;
+
+      const staffed = sanctuaries.filter((building) => building.staff >= BUILDINGS[building.kind].workers);
+      god.mood = moodAfterMonth(god.mood, sanctuaries.length, staffed.length);
+
+      const act = actFor(god.mood, Math.random());
+      if (act === 'bless') this.receiveBlessing(kind);
+      if (act === 'curse') this.sufferWrath(kind);
+    }
+  }
+
+  private receiveBlessing(kind: GodKind): void {
+    if (kind === 'demeter') {
+      for (const building of this.buildings.values()) {
+        if (building.kind !== 'granary') continue;
+        building.stock.food = BUILDINGS.granary.capacity;
+      }
+    }
+    if (kind === 'hephaestus') {
+      for (const building of this.buildings.values()) building.fireRisk = 0;
+    }
+    if (kind === 'hermes') {
+      for (const building of this.buildings.values()) {
+        const def = BUILDINGS[building.kind];
+        if (def.produces) building.stock[def.produces] += UNITS_PER_CARTLOAD;
+      }
+    }
+    if (kind === 'hades') this.treasury += HADES_GIFT;
+
+    this.gods[kind].lastAct = GODS[kind].blessing;
+    this.log(GODS[kind].blessing);
+  }
+
+  private sufferWrath(kind: GodKind): void {
+    if (kind === 'demeter') {
+      for (const building of this.buildings.values()) {
+        if (BUILDINGS[building.kind].produces === 'food') building.stock.food = 0;
+      }
+    }
+    if (kind === 'hephaestus') {
+      const victim = this.randomBuilding();
+      if (victim) victim.fireRisk = RISK_LIMIT;
+    }
+    if (kind === 'hermes') {
+      for (const building of this.buildings.values()) {
+        if (building.kind === 'granary' || building.kind === 'agora') building.stock.food = 0;
+      }
+    }
+    if (kind === 'hades') this.treasury -= Math.min(this.treasury, HADES_TRIBUTE);
+
+    this.gods[kind].lastAct = GODS[kind].wrath;
+    this.log(GODS[kind].wrath);
+  }
+
+  private randomBuilding(): Building | null {
+    const buildings = [...this.buildings.values()];
+    if (buildings.length === 0) return null;
+    return buildings[Math.floor(Math.random() * buildings.length)];
   }
 
   private sufferMishaps(): void {

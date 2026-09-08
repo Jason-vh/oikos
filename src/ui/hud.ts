@@ -3,6 +3,7 @@ import type { OverlayMode } from '../render/scene';
 import { BUILDINGS, PLACEABLE, ROADBLOCK_COST, ROAD_COST } from '../sim/buildings';
 import { monthlyWages, WAGE_LEVELS, type LabourReport } from '../sim/labour';
 import { TAX_RATES } from '../sim/taxation';
+import { GODS, GOD_KINDS, moodName } from '../sim/gods';
 import { abandonCity } from '../sim/save';
 import { money } from './money';
 import {
@@ -42,6 +43,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
         <span class="cartouche" data-field="date"></span>
         ${renderMenu('treasury', 'treasury', financeMenu())}
         ${renderMenu('people', '', peopleMenu())}
+        ${renderMenu('gods', '', godsMenu())}
         ${renderMenu('speed', '', speedMenu())}
         <span class="spacer"></span>
         <button class="overlay-toggle" data-overlay="appeal">Appeal <kbd>O</kbd></button>
@@ -172,7 +174,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       return;
     }
 
-    const index = buttons.findIndex((button) => button.shortcut === key);
+    const index = buttons.findIndex((button) => button.shortcut !== '' && button.shortcut === key);
     if (index >= 0) selectTool(index);
     if (key === 'o') game.toggleOverlay('appeal');
     if (key === 'h') game.toggleOverlay('hazard');
@@ -188,6 +190,12 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       field('date').textContent = world.dateLabel;
       field('treasury').innerHTML = money(world.treasury);
       field('speed').textContent = speedLabel(game.speed);
+      field('gods').textContent = godsLabel(world);
+      for (const kind of GOD_KINDS) {
+        const god = world.gods[kind];
+        field(`mood-${kind}`).textContent = `${moodName(god.mood, god.honoured)}${god.honoured ? ` · ${god.mood}` : ''}`;
+      }
+      field('godsNote').textContent = godsNote(world);
       field('people').textContent = `${world.population} citizens`;
       field('taxRate').textContent = TAX_RATES[world.taxRate].name;
       field('taxTake').innerHTML = `${money(world.taxes.collected)} a month`;
@@ -218,7 +226,7 @@ function toolButtons(): ToolButton[] {
   const structures = PLACEABLE.map((kind, index) => ({
     label: BUILDINGS[kind].name,
     cost: BUILDINGS[kind].cost,
-    shortcut: String(index + 1),
+    shortcut: index < 9 ? String(index + 1) : '',
     tool: { kind: 'build', building: kind } as Tool,
     group: groupFor(kind),
     describe: () => describeBuildingTool(kind),
@@ -296,7 +304,26 @@ function groupFor(kind: string): string {
   if (kind === 'olivePress') return 'Industry';
   if (kind === 'college' || kind === 'podium') return 'Culture';
   if (kind === 'palace' || kind === 'taxOffice') return 'Government';
+  if (kind.startsWith('sanctuary')) return 'Mythology';
   return 'Services';
+}
+
+function godsLabel(world: Game['world']): string {
+  const honoured = GOD_KINDS.filter((kind) => world.gods[kind].honoured);
+  if (honoured.length === 0) return 'No gods';
+  const wrathful = honoured.filter((kind) => moodName(world.gods[kind].mood, true) === 'Wrathful').length;
+  if (wrathful > 0) return `${wrathful} god${wrathful > 1 ? 's' : ''} wrathful`;
+  return `${honoured.length} god${honoured.length > 1 ? 's' : ''} honoured`;
+}
+
+function godsNote(world: Game['world']): string {
+  for (const kind of GOD_KINDS) {
+    const act = world.gods[kind].lastAct;
+    if (act) return act;
+  }
+  const honoured = GOD_KINDS.some((kind) => world.gods[kind].honoured);
+  if (honoured) return 'No god has stirred yet.';
+  return 'Raise a sanctuary and a god will take an interest.';
 }
 
 function taxCoverage(world: Game['world']): number {
@@ -360,7 +387,7 @@ function clampIndex(index: number, length: number): number {
 }
 
 function renderPanel(buttons: ToolButton[]): string {
-  const headed = ['Housing', 'Food', 'Industry', 'Culture', 'Services'];
+  const headed = ['Housing', 'Food', 'Industry', 'Culture', 'Services', 'Government', 'Mythology'];
   const roads = buttons.map((button, index) => ({ button, index })).filter(({ button }) => button.group === 'Road');
   const demolish = buttons.findIndex((button) => button.group === 'Demolish');
 
@@ -397,6 +424,17 @@ function migrationLabel(migrants: number): string {
   return 'Steady';
 }
 
+function godsMenu(): string {
+  const rows = GOD_KINDS.map(
+    (kind) => `
+      <div class="dropdown-row">
+        <span>${GODS[kind].name}</span>
+        <b data-field="mood-${kind}"></b>
+      </div>`,
+  ).join('');
+  return `${rows}<p class="dropdown-note" data-field="godsNote"></p>`;
+}
+
 function speedMenu(): string {
   return SPEEDS.map(
     ({ speed, name }) => `<button class="choice" data-speed="${speed}"><span>${name}</span><b>${speed === 0 ? '—' : `${speed}×`}</b></button>`,
@@ -410,9 +448,10 @@ function speedLabel(speed: number): string {
 
 function renderButton(button: ToolButton, index: number): string {
   const cost = button.cost === null ? '' : `<small>${money(button.cost)}</small>`;
+  const key = button.shortcut === '' ? '' : `<kbd>${button.shortcut.toUpperCase()}</kbd>`;
   return `<button class="tool" data-tool="${index}">
     <span class="tool-label">${button.label}${cost}</span>
-    <kbd>${button.shortcut.toUpperCase()}</kbd>
+    ${key}
   </button>`;
 }
 

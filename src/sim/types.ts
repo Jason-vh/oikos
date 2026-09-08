@@ -21,7 +21,11 @@ export type BuildingKind =
   | 'fountain'
   | 'statue'
   | 'taxOffice'
-  | 'palace';
+  | 'palace'
+  | 'sanctuaryDemeter'
+  | 'sanctuaryHephaestus'
+  | 'sanctuaryHermes'
+  | 'sanctuaryHades';
 
 export type ServiceSupply = Record<ServiceKind, number>;
 

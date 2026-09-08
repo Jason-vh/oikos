@@ -981,6 +981,94 @@ def build_palace():
     return {"kind": "palace", "variant": 0, "footprint": 4, "height": roof_z + roof_h + 0.34}
 
 
+def build_sanctuary(kind, god):
+    """Sanctuary: a peristyle temple on a stepped platform inside a walled precinct,
+    with an altar, and the god's own emblem in the yard."""
+    paving = plaster_material("paving", STONE, roughness=0.88, variation=0.05, scale=14.0)
+    marble = material("marble", MARBLE, roughness=0.3)
+    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.84, variation=0.04, scale=6.0)
+    roof_colour = god["roof"]
+    tiles = roof_material("tiles", roof_colour, rows_per_unit=20.0)
+    bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
+    wood = material("wood", WOOD, roughness=0.85)
+    clay = material("clay", CLAY, roughness=0.8)
+    cypress = material("cypress", CYPRESS, roughness=0.9)
+
+    half = 1.44
+    yard = add_box("yard", (0, 0, 0.03), (half * 2, half * 2, 0.06), paving)
+    yard.visible_shadow = False
+    for side in (-1, 1):
+        add_box("precinct_wall", (side * half, 0, 0.18), (0.1, half * 2, 0.24), whitewash)
+        add_box("precinct_wall", (0, side * half, 0.18), (half * 2, 0.1, 0.24), whitewash)
+
+    temple_half = 0.66
+    wall_h = 0.78
+    tx, ty = -0.36, -0.36
+    for step, (size, z) in enumerate(((temple_half * 2 + 0.52, 0.09), (temple_half * 2 + 0.34, 0.17))):
+        add_box(f"step_{step}", (tx, ty, z), (size, size, 0.08), marble)
+
+    add_box("cella", (tx, ty, 0.21 + wall_h / 2), (temple_half * 2, temple_half * 2, wall_h), whitewash)
+    add_box("architrave", (tx, ty, 0.21 + wall_h + 0.04), (temple_half * 2 + 0.42, temple_half * 2 + 0.42, 0.09), marble)
+    add_doorway(temple_half, 0.5, (tx, ty), width=0.34)
+
+    for offset in (-0.52, 0, 0.52):
+        add_cylinder("column_east", (tx + temple_half + 0.2, ty + offset, 0.21 + wall_h / 2), 0.07, wall_h, marble, vertices=16)
+        add_cylinder("column_south", (tx + offset, ty - temple_half - 0.2, 0.21 + wall_h / 2), 0.07, wall_h, marble, vertices=16)
+
+    roof_z = 0.21 + wall_h + 0.09
+    add_hip_roof("roof", (tx, ty, roof_z + 0.19), temple_half + 0.28, 0.38, tiles, ridge_half=0.2)
+    add_cylinder("finial", (tx, ty, roof_z + 0.44), 0.05, 0.18, bronze, vertices=10)
+
+    add_box("altar", (0.74, 0.74, 0.06 + 0.16), (0.42, 0.42, 0.32), marble)
+    add_box("altar_cap", (0.74, 0.74, 0.06 + 0.34), (0.5, 0.5, 0.05), marble)
+    add_cylinder("flame", (0.74, 0.74, 0.06 + 0.42), 0.08, 0.12, bronze, vertices=10)
+
+    god["emblem"](marble, bronze, wood, clay, cypress)
+
+    return {"kind": kind, "variant": 0, "footprint": 3, "height": roof_z + 0.6}
+
+
+def demeter_emblem(marble, bronze, wood, clay, cypress):
+    for x, y in ((1.0, -0.6), (0.6, -1.0), (1.1, -1.1)):
+        add_cylinder("sheaf", (x, y, 0.06 + 0.18), 0.09, 0.36, material("wheat", STRAW, roughness=0.9), vertices=8)
+    add_cypress_pot("cypress", (-1.06, 1.06, 0.06), 0.44, clay, cypress)
+
+
+def hephaestus_emblem(marble, bronze, wood, clay, cypress):
+    add_box("anvil", (1.0, -0.86, 0.06 + 0.12), (0.34, 0.2, 0.24), bronze)
+    add_box("anvil_horn", (1.24, -0.86, 0.06 + 0.2), (0.16, 0.1, 0.08), bronze)
+    add_cylinder("forge", (-1.0, 1.0, 0.06 + 0.2), 0.24, 0.4, material("brick", CLAY, roughness=0.9), vertices=12)
+    add_cylinder("smoke_hood", (-1.0, 1.0, 0.06 + 0.48), 0.1, 0.2, bronze, vertices=10)
+
+
+def hermes_emblem(marble, bronze, wood, clay, cypress):
+    add_box("herm", (1.02, -0.9, 0.06 + 0.3), (0.2, 0.2, 0.6), marble)
+    add_box("herm_head", (1.02, -0.9, 0.06 + 0.66), (0.16, 0.16, 0.14), marble)
+    add_cylinder("milestone", (-1.04, 0.96, 0.06 + 0.16), 0.11, 0.32, marble, vertices=12)
+    add_cypress_pot("cypress", (-1.0, -1.0, 0.06), 0.4, clay, cypress)
+
+
+def hades_emblem(marble, bronze, wood, clay, cypress):
+    add_box("shaft_kerb", (0.96, -0.96, 0.06 + 0.08), (0.68, 0.68, 0.16), marble)
+    add_box("shaft", (0.96, -0.96, 0.06 + 0.15), (0.46, 0.46, 0.06), material("dark", SHADOW_DARK, roughness=0.95))
+    for x, y in ((-1.06, 1.06), (-1.06, 0.5)):
+        add_cylinder("post", (x, y, 0.06 + 0.24), 0.06, 0.48, wood, vertices=8)
+    add_box("lintel", (-1.06, 0.78, 0.06 + 0.5), (0.14, 0.72, 0.08), wood)
+
+
+SANCTUARIES = {
+    "sanctuary-demeter": {"roof": hex_rgb("b8502c"), "emblem": demeter_emblem},
+    "sanctuary-hephaestus": {"roof": hex_rgb("8f4526"), "emblem": hephaestus_emblem},
+    "sanctuary-hermes": {"roof": hex_rgb("c0603a"), "emblem": hermes_emblem},
+    "sanctuary-hades": {"roof": hex_rgb("7c4030"), "emblem": hades_emblem},
+}
+
+
+def sanctuary_builder(name, god):
+    kind = "".join(part.capitalize() if index else part for index, part in enumerate(name.split("-")))
+    return lambda: build_sanctuary(kind, god)
+
+
 def build_fountain():
     """Marble basin with a raised centre and a small bronze statue; light blue water."""
     marble = material("marble", MARBLE, roughness=0.3)
@@ -1085,6 +1173,9 @@ MODELS = {
     "fountain": build_fountain,
     "statue": build_statue,
 }
+for sanctuary_name, sanctuary_god in SANCTUARIES.items():
+    MODELS[sanctuary_name] = sanctuary_builder(sanctuary_name, sanctuary_god)
+
 for tier, builder in enumerate(HOUSES):
     MODELS[f"house-{tier}"] = builder
     MODELS[f"house-{tier}m"] = mirrored(builder)

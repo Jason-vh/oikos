@@ -2,6 +2,7 @@ import { bandValues } from '../sim/appeal';
 import { BUILDINGS, HOUSE_TIERS, ROADBLOCK_COST, ROAD_COST } from '../sim/buildings';
 import type { BuildingDef } from '../sim/buildings';
 import { TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_SAND, TERRAIN_WATER } from '../sim/grid';
+import { GODS, GOD_KINDS, moodName } from '../sim/gods';
 import { describeRisk } from '../sim/hazards';
 import { ROAM_RANGE } from '../sim/walkers';
 import type { Building, BuildingKind, Good, WalkerKind } from '../sim/types';
@@ -109,6 +110,13 @@ function inspectBuilding(world: World, building: Building, index: number): Inspe
   }
   if (building.kind === 'agora') {
     facts.push(['Stalls hold', `${Math.round(building.stock.food)} food, ${Math.round(building.stock.oil)} oil`]);
+  }
+
+  const god = GOD_KINDS.find((kind) => GODS[kind].sanctuary === building.kind);
+  if (god) {
+    const state = world.gods[god];
+    facts.push([GODS[god].name, `${moodName(state.mood, state.honoured)} · ${state.mood} of 100`]);
+    if (state.lastAct) facts.push(['Last seen', state.lastAct]);
   }
 
   const walker = WALKER_OF[building.kind];

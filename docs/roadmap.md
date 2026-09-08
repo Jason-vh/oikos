@@ -388,7 +388,14 @@ artisans:
 | Small / — / Grand monument to the sky | 5×5 / 6×6 / 8×8 | 72 / 105 / 232 | 8 / 8 / 16 | 4 / 18 / 33 |
 | Minor shrine / shrine | 3×3 / 6×6 | 16 / 110 + 16 statue | — | 4 |
 
-⬜ All.
+🟡 Four gods keep a mood in `src/sim/gods.ts`: Demeter, Hephaestus, Hermes and Hades.
+A god ignores the city until a sanctuary to them stands (3×3, 8 workers, 340–460 dr,
+in place of the original's marble-and-sculpture construction). From then the mood
+climbs while the sanctuary is staffed and falls when it is neglected, and at the ends
+of the scale the god acts: Demeter fills or empties the granaries, Hephaestus damps
+every hearth or lights one, Hermes tops up or spills the stores, Hades pays or takes.
+Sanctuary sizes, artisans, the other ten gods, heroes, monsters and quests are not
+started.
 
 ---
 
