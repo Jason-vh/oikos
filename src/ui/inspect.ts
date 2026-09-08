@@ -3,6 +3,7 @@ import { BUILDINGS, ROADBLOCK_COST, ROAD_COST, isDwelling, tiersOf } from '../si
 import type { BuildingDef } from '../sim/buildings';
 import { TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_SAND, TERRAIN_WATER } from '../sim/grid';
 import { GODS, GOD_KINDS, moodName } from '../sim/gods';
+import { costAt } from '../sim/difficulty';
 import { describeRisk } from '../sim/hazards';
 import { TRADE_ROUTES } from '../sim/trade';
 import { describeAffliction } from '../sim/unrest';
@@ -43,10 +44,10 @@ export function inspectTile(world: World, x: number, y: number): Inspection | nu
   return inspectGround(world, index);
 }
 
-export function describeBuildingTool(kind: BuildingKind): Inspection {
+export function describeBuildingTool(kind: BuildingKind, difficulty: number): Inspection {
   const def = BUILDINGS[kind];
   const facts: [string, string][] = [
-    ['Cost', money(def.cost)],
+    ['Cost', money(costAt(def.cost, difficulty))],
     ['Size', `${def.size}×${def.size} tiles`],
   ];
   if (def.workers > 0) facts.push(['Workers', `${def.workers}`]);

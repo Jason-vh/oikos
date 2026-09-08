@@ -1,4 +1,5 @@
 import { isDwelling, tiersOf } from './buildings';
+import { DIFFICULTIES } from './difficulty';
 import type { HouseTier } from './buildings';
 import { SERVICE_KINDS } from './types';
 import type { Building, ServiceKind } from './types';
@@ -35,9 +36,11 @@ function evaluate(world: World, house: Building): void {
   const next = tiers[house.tier + 1];
   const current = tiers[house.tier];
 
-  if (next && meetsNeeds(house, next) && appeal >= next.evolveAppeal) {
+  const shift = DIFFICULTIES[world.difficulty].evolveAppealShift;
+
+  if (next && meetsNeeds(house, next) && appeal >= next.evolveAppeal + shift) {
     setTier(world, house, house.tier + 1);
-  } else if (house.tier > 0 && (!meetsNeeds(house, current) || appeal < current.devolveAppeal)) {
+  } else if (house.tier > 0 && (!meetsNeeds(house, current) || appeal < current.devolveAppeal + shift)) {
     setTier(world, house, house.tier - 1);
   }
 

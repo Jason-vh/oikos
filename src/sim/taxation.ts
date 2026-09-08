@@ -1,4 +1,5 @@
 import { isDwelling, tierOf } from './buildings';
+import { DEFAULT_DIFFICULTY, DIFFICULTIES } from './difficulty';
 import type { Building } from './types';
 
 export interface TaxRate {
@@ -24,7 +25,11 @@ export interface TaxReport {
   untaxedPeople: number;
 }
 
-export function collectTax(buildings: Iterable<Building>, rate: number): TaxReport {
+export function collectTax(
+  buildings: Iterable<Building>,
+  rate: number,
+  difficulty = DEFAULT_DIFFICULTY,
+): TaxReport {
   const drachmasPerPerson = TAX_RATES[rate].perPersonPerMonth;
   let collected = 0;
   let taxedPeople = 0;
@@ -39,7 +44,9 @@ export function collectTax(buildings: Iterable<Building>, rate: number): TaxRepo
     }
 
     taxedPeople += building.population;
-    collected += tierOf(building).taxMultiplier * building.population * drachmasPerPerson;
+    const multiplier =
+      building.kind === 'estate' ? DIFFICULTIES[difficulty].eliteTaxMultiplier : tierOf(building).taxMultiplier;
+    collected += multiplier * building.population * drachmasPerPerson;
   }
 
   return { collected, taxedPeople, untaxedPeople };

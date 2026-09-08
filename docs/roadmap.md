@@ -523,10 +523,10 @@ recurring, triggered-only, on episode completion — with year ranges for random
 costs (~×1 to ×3), worker percentage, housing evolution thresholds, elite tax
 multiplier, fire/damage risk, and raid yields.
 
-🟡 One scenario with four goal types — population, housing at a tier or better, yearly
-production of a good, and treasury — measured monthly in `src/sim/scenario.ts` and shown
-in a goals panel. Episodes, adventures, failure conditions, events and the editor are
-not started.
+🟡 All five are in `src/sim/difficulty.ts` and chosen from the city menu: build costs
+×1 to ×3, the full worker-share table, the elite tax multiplier 22 down to 12, fire
+and damage risk ×0.7 to ×2, and a shift of −8 to +14 on every housing threshold. Raid
+yields scale with nothing yet.
 
 **Presentation and UI**: overview tab (popularity, food, unemployment, hygiene,
 unrest, treasury, threats, requests), "go to" event jumps, city rotation in 90°

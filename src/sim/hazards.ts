@@ -1,4 +1,5 @@
 import { BUILDINGS, HOUSE_TIERS } from './buildings';
+import { DEFAULT_DIFFICULTY, DIFFICULTIES } from './difficulty';
 import type { Building } from './types';
 
 export const RISK_LIMIT = 100;
@@ -10,13 +11,14 @@ export interface Mishap {
   disaster: Disaster;
 }
 
-export function accrueRisk(buildings: Iterable<Building>): Mishap[] {
+export function accrueRisk(buildings: Iterable<Building>, difficulty = DEFAULT_DIFFICULTY): Mishap[] {
+  const scale = DIFFICULTIES[difficulty].riskMultiplier;
   const mishaps: Mishap[] = [];
 
   for (const building of buildings) {
     const def = BUILDINGS[building.kind];
-    building.fireRisk += def.fireRisk;
-    building.damageRisk += def.damageRisk;
+    building.fireRisk += def.fireRisk * scale;
+    building.damageRisk += def.damageRisk * scale;
 
     const disaster = disasterAt(building);
     if (disaster) mishaps.push({ building, disaster });

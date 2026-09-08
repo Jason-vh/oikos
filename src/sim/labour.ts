@@ -1,3 +1,4 @@
+import { DEFAULT_DIFFICULTY, DIFFICULTIES } from './difficulty';
 import { BUILDINGS, LABOUR_PRIORITY } from './buildings';
 import type { Building } from './types';
 
@@ -24,8 +25,8 @@ export interface LabourReport {
   required: number;
 }
 
-export function workforceOf(population: number, wageLevel: number): number {
-  return Math.floor(population * WAGE_LEVELS[wageLevel].workerShare);
+export function workforceOf(population: number, wageLevel: number, difficulty = DEFAULT_DIFFICULTY): number {
+  return Math.floor(population * DIFFICULTIES[difficulty].workerShares[wageLevel]);
 }
 
 export function allocateLabour(buildings: Iterable<Building>, workforce: number): LabourReport {

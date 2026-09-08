@@ -5,7 +5,9 @@ import { monthlyWages, WAGE_LEVELS, type LabourReport } from '../sim/labour';
 import { TAX_RATES } from '../sim/taxation';
 import { GODS, GOD_KINDS, moodName } from '../sim/gods';
 import { UNITS, companiesIn, type UnitKind } from '../sim/military';
+import { DIFFICULTIES } from '../sim/difficulty';
 import { CAMPAIGN } from '../sim/scenario';
+import type { BuildingKind } from '../sim/types';
 import { abandonCity } from '../sim/save';
 import { TRADE_ROUTES } from '../sim/trade';
 import { COIN, money } from './money';
@@ -28,6 +30,7 @@ const SPEEDS = [
 interface ToolButton {
   label: string;
   cost: number | null;
+  costOf?: BuildingKind;
   shortcut: string;
   tool: Tool;
   group: string;
@@ -35,7 +38,7 @@ interface ToolButton {
 }
 
 export function createHud(root: HTMLElement, game: Game): { update: () => void } {
-  const buttons = toolButtons();
+  const buttons = toolButtons(game);
 
   root.insertAdjacentHTML(
     'beforeend',
@@ -79,6 +82,10 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       <div class="modal" data-modal hidden>
         <div class="modal-card">
           <h2>Zeus</h2>
+          <div class="modal-section">Difficulty</div>
+          ${DIFFICULTIES.map(
+            (level, index) => `<button class="choice" data-difficulty="${index}"><span>${level.name}</span><b>×${level.costMultiplier}</b></button>`,
+          ).join('')}
           <button class="modal-button" data-resume>Resume</button>
           <button class="modal-button" data-new-city>Abandon city</button>
         </div>
@@ -150,6 +157,12 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
   const modal = hud.querySelector('[data-modal]') as HTMLElement;
   hud.querySelector('[data-resume]')?.addEventListener('click', () => {
     modal.hidden = true;
+  });
+  hud.querySelectorAll<HTMLButtonElement>('[data-difficulty]').forEach((element) => {
+    element.addEventListener('click', () => {
+      game.world.difficulty = Number(element.dataset.difficulty);
+      game.world.hireWorkers();
+    });
   });
   hud.querySelector('[data-new-city]')?.addEventListener('click', () => {
     if (!confirm('Abandon this city and found a new one?')) return;
@@ -244,18 +257,25 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       hud.querySelectorAll<HTMLButtonElement>('[data-route]').forEach((element) => {
         element.classList.toggle('chosen', world.tradeOrders[element.dataset.route!]);
       });
+      hud.querySelectorAll<HTMLButtonElement>('[data-difficulty]').forEach((element) => {
+        element.classList.toggle('chosen', Number(element.dataset.difficulty) === world.difficulty);
+      });
+      hud.querySelectorAll<HTMLElement>('[data-cost]').forEach((element) => {
+        element.innerHTML = money(world.costOf(element.dataset.cost as BuildingKind));
+      });
     },
   };
 }
 
-function toolButtons(): ToolButton[] {
+function toolButtons(game: Game): ToolButton[] {
   const structures = PLACEABLE.map((kind, index) => ({
     label: BUILDINGS[kind].name,
-    cost: BUILDINGS[kind].cost,
+    cost: null,
+    costOf: kind,
     shortcut: index < 9 ? String(index + 1) : '',
     tool: { kind: 'build', building: kind } as Tool,
     group: groupFor(kind),
-    describe: () => describeBuildingTool(kind),
+    describe: () => describeBuildingTool(kind, game.world.difficulty),
   }));
 
   return [
@@ -528,7 +548,11 @@ function speedLabel(speed: number): string {
 }
 
 function renderButton(button: ToolButton, index: number): string {
-  const cost = button.cost === null ? '' : `<small>${money(button.cost)}</small>`;
+  const cost = button.costOf
+    ? `<small data-cost="${button.costOf}"></small>`
+    : button.cost === null
+      ? ''
+      : `<small>${money(button.cost)}</small>`;
   const key = button.shortcut === '' ? '' : `<kbd>${button.shortcut.toUpperCase()}</kbd>`;
   return `<button class="tool" data-tool="${index}">
     <span class="tool-label">${button.label}${cost}</span>

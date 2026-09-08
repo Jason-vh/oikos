@@ -484,6 +484,14 @@ button.cartouche:hover {
   color: var(--bronze-3);
 }
 
+.modal-section {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--bronze-3);
+}
+
 .modal-button {
   cursor: pointer;
   padding: 8px 12px;

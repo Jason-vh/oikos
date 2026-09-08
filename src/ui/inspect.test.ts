@@ -52,8 +52,9 @@ describe('inspecting the city', () => {
   });
 
   test('a build button explains cost, ground and appeal before anything is placed', () => {
-    const wheatFarm = describeBuildingTool('wheatFarm');
+    const wheatFarm = describeBuildingTool('wheatFarm', 1);
 
+    expect(new Map(wheatFarm.facts).get('Cost')).toContain('60');
     expect(new Map(wheatFarm.facts).get('Ground')).toBe('Meadow only');
     expect(new Map(wheatFarm.facts).get('Appeal')).toBe('-3 -2 -1');
   });

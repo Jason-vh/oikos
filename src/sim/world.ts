@@ -34,6 +34,7 @@ import {
   type GoalProgress,
   type Scenario,
 } from './scenario';
+import { DEFAULT_DIFFICULTY, costAt } from './difficulty';
 import { DEFAULT_TAX_RATE, collectTax, type TaxReport } from './taxation';
 import { NO_TRADE, TRADE_ROUTES, newTradeOrders, trade, type TradeReport } from './trade';
 import { NO_ARMY, companiesIn, fightInvasion, musterArmy, type Army, type Battle } from './military';
@@ -89,6 +90,7 @@ export class World {
 
   treasury = 2000;
   wageLevel = DEFAULT_WAGE_LEVEL;
+  difficulty = DEFAULT_DIFFICULTY;
   taxRate = DEFAULT_TAX_RATE;
   labour: LabourReport = { workforce: 0, employed: 0, required: 0 };
   taxes: TaxReport = { collected: 0, taxedPeople: 0, untaxedPeople: 0 };
@@ -151,7 +153,7 @@ export class World {
 
   canPlace(kind: BuildingKind, x: number, y: number): PlacementCheck {
     const def = BUILDINGS[kind];
-    if (this.treasury < def.cost) return { ok: false, reason: 'Not enough drachmas' };
+    if (this.treasury < this.costOf(kind)) return { ok: false, reason: 'Not enough drachmas' };
     if (def.requires && !this.has(def.requires)) {
       return { ok: false, reason: `Not until a ${BUILDINGS[def.requires].name.toLowerCase()} stands` };
     }
@@ -172,6 +174,10 @@ export class World {
     return { ok: true, reason: def.description };
   }
 
+  costOf(kind: BuildingKind): number {
+    return costAt(BUILDINGS[kind].cost, this.difficulty);
+  }
+
   has(kind: BuildingKind): boolean {
     for (const building of this.buildings.values()) if (building.kind === kind) return true;
     return false;
@@ -188,7 +194,7 @@ export class World {
     this.buildings.set(building.id, building);
     for (const tile of this.grid.footprint(x, y, def.size)) this.grid.occupant[tile] = building.id;
 
-    this.treasury -= def.cost;
+    this.treasury -= this.costOf(kind);
     this.markChanged(this.grid.footprint(x, y, def.size));
     return true;
   }
@@ -208,7 +214,7 @@ export class World {
   }
 
   hireWorkers(): void {
-    this.labour = allocateLabour(this.buildings.values(), workforceOf(this.population, this.wageLevel));
+    this.labour = allocateLabour(this.buildings.values(), workforceOf(this.population, this.wageLevel, this.difficulty));
   }
 
   invalidateAppeal(): void {
@@ -316,7 +322,7 @@ export class World {
       this.year += 1;
     }
     this.hireWorkers();
-    this.taxes = collectTax(this.buildings.values(), this.taxRate);
+    this.taxes = collectTax(this.buildings.values(), this.taxRate, this.difficulty);
     this.treasury += this.taxes.collected;
     this.treasury -= monthlyWages(this.labour.employed, this.wageLevel);
     this.runTrade();
@@ -525,7 +531,7 @@ export class World {
   }
 
   private sufferMishaps(): void {
-    for (const { building, disaster } of accrueRisk(this.buildings.values())) {
+    for (const { building, disaster } of accrueRisk(this.buildings.values(), this.difficulty)) {
       const name = nameOf(building);
       this.demolish(building.x, building.y);
       this.log(
