@@ -13,7 +13,7 @@ export class Grid {
   readonly height: Uint8Array;
   readonly road: Uint8Array;
   readonly occupant: Int32Array;
-  readonly desirability: Int16Array;
+  readonly appeal: Int16Array;
   readonly decor: Uint8Array;
 
   constructor(size: number) {
@@ -23,7 +23,7 @@ export class Grid {
     this.height = new Uint8Array(cells);
     this.road = new Uint8Array(cells);
     this.occupant = new Int32Array(cells).fill(NO_BUILDING);
-    this.desirability = new Int16Array(cells);
+    this.appeal = new Int16Array(cells);
     this.decor = new Uint8Array(cells);
   }
 

@@ -27,7 +27,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
         <span class="speeds">
           ${[0, 1, 2, 4].map((speed) => `<button class="medallion" data-speed="${speed}">${speedLabel(speed)}</button>`).join('')}
         </span>
-        <button class="overlay-toggle" data-overlay>Desirability <kbd>O</kbd></button>
+        <button class="overlay-toggle" data-overlay>Appeal <kbd>O</kbd></button>
         <button class="overlay-toggle" data-new-city>New city</button>
       </header>
       <aside class="panel">
@@ -54,7 +54,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       game.speed = Number(element.dataset.speed);
     });
   });
-  hud.querySelector('[data-overlay]')?.addEventListener('click', () => game.toggleDesirabilityOverlay());
+  hud.querySelector('[data-overlay]')?.addEventListener('click', () => game.toggleAppealOverlay());
   hud.querySelector('[data-new-city]')?.addEventListener('click', () => {
     if (!confirm('Abandon this city and found a new one?')) return;
     abandonCity();
@@ -71,7 +71,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
     const key = event.key.toLowerCase();
     const index = buttons.findIndex((button) => button.shortcut === key);
     if (index >= 0) selectTool(index);
-    if (key === 'o') game.toggleDesirabilityOverlay();
+    if (key === 'o') game.toggleAppealOverlay();
     if (key === ' ') {
       event.preventDefault();
       game.speed = game.speed === 0 ? 1 : 0;

@@ -33,12 +33,12 @@ Status against this repo: ✅ shipped · 🟡 partial · ⬜ not started.
 | Roads as the only social network | ✅ | Road cost 2/2/3/4/5 by difficulty; clear land 1/2/2/2/3 |
 | Roaming and destination walkers | 🟡 | Both classes exist; ranges/exit rules not yet modelled |
 | Housing evolution | 🟡 | 4 tiers today; the game has 7 common + 4 elite |
-| Appeal ("desirability") field | 🟡 | Needs the real band model (below) |
+| Appeal ("desirability") field | ✅ | Band model in `src/sim/appeal.ts`; housing is a source, gates apply from the third tier up |
 | Build cost + treasury | 🟡 | Needs wages, taxes, trade, debt |
 | Save/load | 🟡 | `src/sim/save.ts` |
 | Time: 20 Hz tick, month/year clock | ✅ | Game year = 12 months; production and consumption are per-month/per-year |
 
-### Appeal model (replace the linear falloff)
+### Appeal model
 
 Every building has four appeal parameters: **INI** (value on ring 1), **SZE** (tiles
 per band), **STP** (change per band), **RNG** (number of tiles reached).

@@ -23,7 +23,7 @@ const report = await page.evaluate(async () => {
   const farmSpot = findSpot(world, 'wheatFarm');
   if (!farmSpot) return { fatal: 'no meadow for a farm' };
 
-  const row = farmSpot.y + 3;
+  const row = farmSpot.y + 2;
   for (let x = farmSpot.x - 8; x < farmSpot.x + 12; x++) world.placeRoad(x, row);
 
   const farmPlaced = world.place('wheatFarm', farmSpot.x, farmSpot.y);
@@ -84,7 +84,7 @@ const report = await page.evaluate(async () => {
 await page.waitForTimeout(1500);
 await page.screenshot({ path: new URL('./shot-day.png', import.meta.url).pathname });
 
-await page.evaluate(() => Reflect.get(window, 'game').toggleDesirabilityOverlay());
+await page.evaluate(() => Reflect.get(window, 'game').toggleAppealOverlay());
 await page.waitForTimeout(400);
 await page.screenshot({ path: new URL('./shot-overlay.png', import.meta.url).pathname });
 

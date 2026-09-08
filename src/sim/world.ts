@@ -1,5 +1,5 @@
+import { recomputeAppeal } from './appeal';
 import { BUILDINGS, ROAD_COST } from './buildings';
-import { recomputeDesirability } from './desirability';
 import { Grid, NO_BUILDING, TERRAIN_MEADOW } from './grid';
 import { updateHouses } from './housing';
 import { generateMap } from './mapgen';
@@ -44,6 +44,7 @@ export class World {
   messages: string[] = [];
 
   private nextId = 1;
+  private appealDirty = false;
   private readonly changedTiles = new Set<number>();
 
   constructor(size: number, seed: number) {
@@ -128,8 +129,12 @@ export class World {
   }
 
   settle(): void {
-    recomputeDesirability(this.grid, this.buildings.values());
+    recomputeAppeal(this.grid, this.buildings.values());
     this.structureVersion += 1;
+  }
+
+  invalidateAppeal(): void {
+    this.appealDirty = true;
   }
 
   canPlaceRoad(x: number, y: number): boolean {
@@ -188,6 +193,10 @@ export class World {
     this.updateProduction();
     updateWalkers(this);
     updateHouses(this);
+    if (this.appealDirty) {
+      this.appealDirty = false;
+      this.settle();
+    }
 
     if (this.tick % TICKS_PER_MONTH === 0) this.advanceMonth();
   }
@@ -275,7 +284,6 @@ export class World {
       this.changedTiles.add(tile);
       for (const neighbour of this.grid.neighbours(tile)) this.changedTiles.add(neighbour);
     }
-    recomputeDesirability(this.grid, this.buildings.values());
-    this.structureVersion += 1;
+    this.settle();
   }
 }

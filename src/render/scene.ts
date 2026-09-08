@@ -19,7 +19,7 @@ import {
   type TextureCache,
 } from './textures';
 
-export type OverlayMode = 'none' | 'desirability';
+export type OverlayMode = 'none' | 'appeal';
 
 const WALKER_FRAME_MS = 130;
 const SMOKE_INTERVAL_MS = 700;
@@ -31,6 +31,7 @@ const CHIMNEYS: Record<number, { x: number; y: number; z: number }> = {
   3: { x: -0.2, y: 0.2, z: 1.2 },
 };
 const DUST_INTERVAL_MS = 320;
+const APPEAL_COLOUR_SCALE = 20;
 
 interface BuildingEntry {
   key: string;
@@ -102,8 +103,8 @@ export class Scene {
 
   setOverlayMode(mode: OverlayMode): void {
     this.overlayMode = mode;
-    this.overlayTiles.visible = mode === 'desirability';
-    if (mode === 'desirability') this.refreshOverlay();
+    this.overlayTiles.visible = mode === 'appeal';
+    if (mode === 'appeal') this.refreshOverlay();
   }
 
   sync(deltaMs: number): void {
@@ -115,7 +116,7 @@ export class Scene {
 
     if (this.syncedVersion !== this.world.structureVersion) {
       this.syncedVersion = this.world.structureVersion;
-      if (this.overlayMode === 'desirability') this.refreshOverlay();
+      if (this.overlayMode === 'appeal') this.refreshOverlay();
     }
 
     this.syncBuildings();
@@ -144,7 +145,7 @@ export class Scene {
   private refreshOverlay(): void {
     const { grid } = this.world;
     for (let index = 0; index < this.overlaySprites.length; index++) {
-      this.overlaySprites[index].tint = desirabilityColour(grid.desirability[index]);
+      this.overlaySprites[index].tint = appealColour(grid.appeal[index]);
     }
   }
 
@@ -328,9 +329,9 @@ export function structureLook(kind: BuildingKind): StructureLook {
   return { size: def.size, height: def.height, colour: def.colour, roofColour: def.roofColour };
 }
 
-function desirabilityColour(value: number): number {
-  if (value > 0) return blend(0xf2f2c8, 0x2f9e44, Math.min(1, value / 20));
-  if (value < 0) return blend(0xf2f2c8, 0xc9342b, Math.min(1, -value / 20));
+function appealColour(value: number): number {
+  if (value > 0) return blend(0xf2f2c8, 0x2f9e44, Math.min(1, value / APPEAL_COLOUR_SCALE));
+  if (value < 0) return blend(0xf2f2c8, 0xc9342b, Math.min(1, -value / APPEAL_COLOUR_SCALE));
   return 0xf2f2c8;
 }
 

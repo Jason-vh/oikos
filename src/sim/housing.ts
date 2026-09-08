@@ -20,14 +20,14 @@ export function updateHouses(world: World): void {
 }
 
 function evaluate(world: World, house: Building): void {
-  const desirability = world.grid.desirability[world.grid.index(house.x, house.y)];
+  const appeal = world.grid.appeal[world.grid.index(house.x, house.y)];
   const next = HOUSE_TIERS[house.tier + 1];
   const current = HOUSE_TIERS[house.tier];
 
-  if (next && satisfies(house, next, desirability)) {
-    house.tier += 1;
-  } else if (house.tier > 0 && !satisfies(house, current, desirability)) {
-    house.tier -= 1;
+  if (next && meetsNeeds(house, next) && appeal >= next.evolveAppeal) {
+    setTier(world, house, house.tier + 1);
+  } else if (house.tier > 0 && (!meetsNeeds(house, current) || appeal < current.devolveAppeal)) {
+    setTier(world, house, house.tier - 1);
   }
 
   const capacity = HOUSE_TIERS[house.tier].capacity;
@@ -35,7 +35,11 @@ function evaluate(world: World, house: Building): void {
   if (house.population > capacity) house.population = capacity;
 }
 
-function satisfies(house: Building, tier: HouseTier, desirability: number): boolean {
-  if (desirability < tier.minDesirability) return false;
+function setTier(world: World, house: Building, tier: number): void {
+  house.tier = tier;
+  world.invalidateAppeal();
+}
+
+function meetsNeeds(house: Building, tier: HouseTier): boolean {
   return tier.needs.every((need) => house.supply[need] > 0);
 }

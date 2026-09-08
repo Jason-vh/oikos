@@ -95,8 +95,8 @@ export class Game {
     this.atmosphere.resize();
   }
 
-  toggleDesirabilityOverlay(): void {
-    const next = this.scene.currentOverlayMode === 'desirability' ? 'none' : 'desirability';
+  toggleAppealOverlay(): void {
+    const next = this.scene.currentOverlayMode === 'appeal' ? 'none' : 'appeal';
     this.scene.setOverlayMode(next);
   }
 
@@ -107,7 +107,7 @@ export class Game {
 
     const index = grid.index(x, y);
     const building = this.world.buildingAt(index);
-    const suffix = `desirability ${grid.desirability[index]} · level ${grid.height[index]}`;
+    const suffix = `appeal ${grid.appeal[index]} · level ${grid.height[index]}`;
 
     if (building) {
       const name =

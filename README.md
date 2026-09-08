@@ -7,6 +7,7 @@ buildings do not serve a radius, they send people down roads.
 ```bash
 npm install
 npm run dev      # http://localhost:5180
+npm run test     # unit tests (bun)
 npm run smoke    # headless render + simulation check (needs a dev server running)
 ```
 
@@ -19,7 +20,7 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
 | WASD / arrows | Pan |
 | Wheel | Zoom |
 | `R`, `1`–`5`, `X` | Select tool |
-| `O` | Desirability overlay |
+| `O` | Appeal overlay |
 | Space | Pause |
 
 ## What is simulated
@@ -29,20 +30,25 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
 - **Walkers**: cart pushers route with BFS to a granary; food vendors and water
   carriers roam randomly and serve houses adjacent to the road they walk.
 - **Housing**: Shack → Hovel → Tenement → Homestead, gated on supplied services
-  and local desirability. Houses devolve when their tier's needs lapse.
-- **Desirability**: a field recomputed from building influence with linear falloff.
+  and, from Tenement up, on local appeal. Houses devolve when their tier's needs
+  lapse or their surroundings decay.
+- **Appeal**: Zeus's band model. Every building carries `INI, SZE, STP, RNG` and
+  contributes `INI + STP * floor((d - 1) / SZE)` to each tile within `RNG` rings of
+  its footprint — a fountain gives 4,4,2,2, a granary −12,−10,−8,−6. Housing itself
+  is a source: shacks push their neighbours down and stop doing so as they evolve,
+  so a block that improves keeps improving.
 - **Economy**: build costs and a monthly head tax.
 
 ## Architecture
 
 ```
 src/sim/      headless simulation — no Pixi imports
-  grid.ts         typed-array layers (terrain, height, road, occupant, desirability)
+  grid.ts         typed-array layers (terrain, height, road, occupant, appeal)
   world.ts        fixed 20 Hz tick, placement, production, changed-tile tracking
   walkers.ts      spawn + movement + service delivery
   pathing.ts      road BFS and roaming
   housing.ts      evolution rules
-  desirability.ts influence field
+  appeal.ts       band model field
   mapgen.ts       seeded terraced terrain
 src/render/
   iso.ts          tile metric (120x60, 22px per elevation step) and height-aware picking
