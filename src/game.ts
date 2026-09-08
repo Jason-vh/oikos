@@ -287,7 +287,8 @@ function describeStaff(building: Building): string {
 }
 
 function describeBuildingState(kind: BuildingKind, stock: number, supply: ServiceSupply): string {
-  if (kind === 'granary' || kind === 'wheatFarm') return ` · food ${stock}`;
+  if (kind === 'granary' || kind === 'wheatFarm') return ` · ${stock} cartloads`;
+  if (kind === 'agora') return ` · ${Math.round(stock)} food`;
   if (kind !== 'house') return '';
 
   const taxed = supply.tax > 0 ? 'taxed' : 'untaxed';

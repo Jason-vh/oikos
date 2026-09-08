@@ -41,9 +41,10 @@ export interface StructureRequest extends StructureLook {
 
 const WALKER_PALETTES: Record<WalkerKind, { tunic: number; trim: number }> = {
   cartPusher: { tunic: 0xe3d3a8, trim: 0x9c6b35 },
-  foodVendor: { tunic: 0xe08a45, trim: 0x7c3f1d },
+  peddler: { tunic: 0xe08a45, trim: 0x7c3f1d },
   waterCarrier: { tunic: 0x6fb6de, trim: 0x2f6a8c },
   clerk: { tunic: 0xd8d2c2, trim: 0x4f6f7a },
+  deliveryman: { tunic: 0xc7b48b, trim: 0x6d5230 },
 };
 
 const CITIZEN_LOOKS = [
@@ -63,6 +64,7 @@ const FOOTPRINT_INSET: Record<BuildingKind, number> = {
   fountain: 1,
   statue: 1,
   taxOffice: 0.88,
+  agora: 0.94,
 };
 
 export class TextureCache {
@@ -691,7 +693,7 @@ function drawWalker(surface: DrawSurface, kind: WalkerKind, look: number, direct
 
   if (kind === 'cartPusher' && !facingAway) drawCart(ctx, cx, feet, direction);
   if (kind === 'waterCarrier') drawShoulderedAmphora(ctx, facingLeft ? cx - 7 : cx + 7, feet - 30);
-  if (kind === 'foodVendor') drawHeadBasket(ctx, cx, feet - 41);
+  if (kind === 'peddler' || kind === 'deliveryman') drawHeadBasket(ctx, cx, feet - 41);
 }
 
 function drawShoulderedAmphora(ctx: CanvasRenderingContext2D, x: number, y: number): void {

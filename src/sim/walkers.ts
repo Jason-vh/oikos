@@ -1,3 +1,4 @@
+import { UNITS_PER_CARTLOAD } from './buildings';
 import { bfsRoute, exitTile, nextRoamTile, northOf } from './pathing';
 import { TICKS_PER_MONTH } from './time';
 import type { Building, ServiceKind, Walker, WalkerKind } from './types';
@@ -7,27 +8,32 @@ const CITIZEN_TILES_PER_MONTH = 54.4;
 
 export const ROAM_RANGE: Record<WalkerKind, number> = {
   cartPusher: 0,
-  foodVendor: 44,
+  deliveryman: 0,
+  peddler: 44,
   waterCarrier: 27,
   clerk: 35,
 };
 
 export const WALKER_SPEED: Record<WalkerKind, number> = {
   cartPusher: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
-  foodVendor: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
+  deliveryman: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
+  peddler: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
   waterCarrier: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
   clerk: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
 };
 
+export const PEDDLER_LOAD = UNITS_PER_CARTLOAD;
+const SALE_PER_HOUSE = 4;
+
 export const WALKER_SERVICE: Partial<Record<WalkerKind, ServiceKind>> = {
-  foodVendor: 'food',
+  peddler: 'food',
   waterCarrier: 'water',
   clerk: 'tax',
 };
 
 const SUPPLY_FULL = 100;
 
-export function spawnRoamer(world: World, home: Building, kind: WalkerKind): boolean {
+export function spawnRoamer(world: World, home: Building, kind: WalkerKind, cargo = 0): boolean {
   const start = exitTile(world.grid, home);
   if (start === -1) return false;
 
@@ -43,21 +49,35 @@ export function spawnRoamer(world: World, home: Building, kind: WalkerKind): boo
     route: [],
     routeIndex: 0,
     stepsLeft: ROAM_RANGE[kind],
-    cargo: 0,
+    cargo,
   });
   return true;
 }
 
+export function spawnDeliveryman(world: World, agora: Building, sources: Set<number>): boolean {
+  return spawnCarrier(world, 'deliveryman', agora, sources, 0);
+}
+
 export function spawnCartPusher(world: World, farm: Building, destinations: Set<number>, cargo: number): boolean {
-  const start = exitTile(world.grid, farm);
+  return spawnCarrier(world, 'cartPusher', farm, destinations, cargo);
+}
+
+function spawnCarrier(
+  world: World,
+  kind: WalkerKind,
+  home: Building,
+  destinations: Set<number>,
+  cargo: number,
+): boolean {
+  const start = exitTile(world.grid, home);
   if (start === -1) return false;
 
   const route = bfsRoute(world.grid, start, (tile) => destinations.has(tile));
   if (!route) return false;
 
   world.addWalker({
-    kind: 'cartPusher',
-    homeId: farm.id,
+    kind,
+    homeId: home.id,
     targetId: -1,
     state: 'delivering',
     from: route[0],
@@ -100,19 +120,54 @@ function advance(world: World, walker: Walker): void {
 function onTileEntered(world: World, walker: Walker): void {
   const service = WALKER_SERVICE[walker.kind];
   if (service) {
-    serveAdjacentHouses(world, walker.from, service);
+    serve(world, walker, service);
     return;
   }
-  if (walker.kind === 'cartPusher' && walker.state === 'delivering' && atRouteEnd(walker)) {
-    deliverCargo(world, walker);
-  }
+  if (!atRouteEnd(walker)) return;
+
+  if (walker.kind === 'cartPusher' && walker.state === 'delivering') deliverCargo(world, walker);
+  if (walker.kind === 'deliveryman' && walker.state === 'delivering') collectCargo(world, walker);
+  if (walker.kind === 'deliveryman' && walker.state === 'returning') stockHome(world, walker);
 }
 
-function serveAdjacentHouses(world: World, tile: number, service: ServiceKind): void {
+function serve(world: World, walker: Walker, service: ServiceKind): void {
+  const selling = walker.kind === 'peddler';
+  if (selling && walker.cargo < SALE_PER_HOUSE) return;
+
+  const served = serveAdjacentHouses(world, walker.from, service);
+  if (!selling) return;
+
+  walker.cargo -= served * SALE_PER_HOUSE;
+  if (walker.cargo < SALE_PER_HOUSE) walker.stepsLeft = 0;
+}
+
+function serveAdjacentHouses(world: World, tile: number, service: ServiceKind): number {
+  let served = 0;
   for (const neighbour of world.grid.neighbours(tile)) {
     const building = world.buildingAt(neighbour);
-    if (building?.kind === 'house') building.supply[service] = SUPPLY_FULL;
+    if (building?.kind !== 'house') continue;
+    building.supply[service] = SUPPLY_FULL;
+    served += 1;
   }
+  return served;
+}
+
+function collectCargo(world: World, walker: Walker): void {
+  for (const neighbour of world.grid.neighbours(walker.from)) {
+    const granary = world.buildingAt(neighbour);
+    if (granary?.kind !== 'granary' || granary.stock <= 0) continue;
+    granary.stock -= 1;
+    walker.cargo = UNITS_PER_CARTLOAD;
+    break;
+  }
+  turnBack(walker);
+}
+
+function stockHome(world: World, walker: Walker): void {
+  const home = world.buildings.get(walker.homeId);
+  if (!home) return;
+  home.stock = Math.min(world.agoraCapacity, home.stock + walker.cargo);
+  walker.cargo = 0;
 }
 
 function deliverCargo(world: World, walker: Walker): void {
@@ -123,6 +178,10 @@ function deliverCargo(world: World, walker: Walker): void {
     walker.cargo = 0;
     break;
   }
+  turnBack(walker);
+}
+
+function turnBack(walker: Walker): void {
   walker.state = 'returning';
   walker.route = [...walker.route].reverse();
   walker.routeIndex = 0;

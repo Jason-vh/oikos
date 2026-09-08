@@ -2,7 +2,14 @@ export type ServiceKind = 'food' | 'water' | 'tax';
 
 export const SERVICE_KINDS: ServiceKind[] = ['food', 'water', 'tax'];
 
-export type BuildingKind = 'house' | 'wheatFarm' | 'granary' | 'fountain' | 'statue' | 'taxOffice';
+export type BuildingKind =
+  | 'house'
+  | 'wheatFarm'
+  | 'granary'
+  | 'agora'
+  | 'fountain'
+  | 'statue'
+  | 'taxOffice';
 
 export type ServiceSupply = Record<ServiceKind, number>;
 
@@ -19,10 +26,10 @@ export interface Building {
   stock: number;
   productionProgress: number;
   spawnTimer: number;
-  walkerOut: boolean;
+  walkersOut: number;
 }
 
-export type WalkerKind = 'cartPusher' | 'foodVendor' | 'waterCarrier' | 'clerk';
+export type WalkerKind = 'cartPusher' | 'deliveryman' | 'peddler' | 'waterCarrier' | 'clerk';
 
 export type WalkerState = 'roaming' | 'delivering' | 'returning';
 
@@ -58,6 +65,6 @@ export function createBuilding(id: number, kind: BuildingKind, x: number, y: num
     stock: 0,
     productionProgress: 0,
     spawnTimer: 0,
-    walkerOut: false,
+    walkersOut: 0,
   };
 }

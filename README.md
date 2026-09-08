@@ -29,6 +29,10 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
 - **Roads**: the only network. Everything social flows along it. A roadblock turns
   roaming walkers back without stopping anyone walking to a destination, so a block
   can be sealed off from wandering vendors while carts still reach it.
+- **Distribution**: farms cart wheat to a granary in cartloads; an agora sends
+  deliverymen to fetch a cartload (100 units) and peddlers to sell it door to door.
+  A granary on its own feeds nobody. An agora runs three stalls, so three walkers at
+  once; every other building sends one.
 - **Walkers**: they leave and re-enter their building by its *exit point* — the first
   road found clockwise from north of the footprint — except a fountain's carrier,
   which comes home to the tile due north. Roamers walk out their range (water carrier
@@ -146,7 +150,7 @@ analytically from that camera rather than eyeballed. A Cycles shadow-catcher pla
 becomes the shadow sprite, framed wide enough for the shadow the sun actually casts.
 
 Models live in `pipeline/iso_render.py`: the four housing tiers, wheat farm, granary,
-tax office, fountain and statue, each rendered as a body and a shadow. Sprites are keyed by
+agora, tax office, fountain and statue, each rendered as a body and a shadow. Sprites are keyed by
 `kind:variant:layer` — housing uses the tier as its variant.
 
 To add a building: write a builder, register it in `MODELS`, re-run the two commands.
@@ -157,11 +161,9 @@ The game picks it up with no client changes.
 The full inventory lives in [docs/roadmap.md](docs/roadmap.md). Next up:
 
 1. **Palace** — required before taxes or any military, as in the original.
-2. **Second production chain** — olives → olive press → agora stalls.
-3. **Agora** — vendors spawning from a market rather than the granary itself.
-4. **Culture and gods** — sanctuaries, gods that visit and bless or curse.
-5. **Save/load** — structured clone of world state into IndexedDB.
-6. **Campaign scaffolding** — scenario definitions, goals, ratings.
+2. **Second production chain** — olives → olive press → a second agora stall.
+3. **Culture and gods** — sanctuaries, gods that visit and bless or curse.
+4. **Campaign scaffolding** — scenario definitions, goals, ratings.
 
 ## Art licence
 

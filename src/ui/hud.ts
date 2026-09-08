@@ -142,7 +142,7 @@ function toolButtons(): ToolButton[] {
 
 function groupFor(kind: string): string {
   if (kind === 'house') return 'Housing';
-  if (kind === 'wheatFarm' || kind === 'granary') return 'Food';
+  if (kind === 'wheatFarm' || kind === 'granary' || kind === 'agora') return 'Food';
   return 'Services';
 }
 

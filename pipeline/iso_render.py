@@ -486,6 +486,40 @@ def build_granary():
     return {"kind": "granary", "variant": 0, "footprint": 2, "height": roof_z + roof_h + 0.1}
 
 
+def build_agora():
+    """Paved market square: colonnade along two sides, three awninged stalls, jars."""
+    paving = plaster_material("paving", STONE, roughness=0.9, variation=0.05, scale=14.0)
+    marble = material("marble", MARBLE, roughness=0.35)
+    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.85, variation=0.05, scale=6.0)
+    terracotta = roof_material("terracotta", TERRACOTTA)
+    awning = plaster_material("awning", TERRACOTTA_LIGHT, roughness=0.9, variation=0.08, scale=8.0)
+    wood = material("wood", WOOD, roughness=0.85)
+    clay = material("clay", CLAY, roughness=0.8)
+
+    half = 1.44
+    add_box("paving", (0, 0, 0.03), (half * 2, half * 2, 0.06), paving)
+    add_box("kerb", (0, 0, 0.02), (half * 2 + 0.06, half * 2 + 0.06, 0.04), marble)
+
+    for y in (-1.0, -0.34, 0.32, 0.98):
+        add_cylinder("colonnade", (-half + 0.18, y, 0.06 + 0.3), 0.05, 0.6, marble, vertices=14)
+        add_box("colonnade_cap", (-half + 0.18, y, 0.06 + 0.62), (0.13, 0.13, 0.04), marble)
+    add_box("colonnade_roof", (-half + 0.18, 0, 0.06 + 0.68), (0.34, half * 2, 0.06), marble)
+
+    stall_half = 0.3
+    for index, y in enumerate((-0.86, 0.0, 0.86)):
+        x = half - 0.52
+        add_box(f"stall_{index}", (x, y, 0.06 + 0.22), (stall_half * 2, stall_half * 2, 0.44), whitewash)
+        add_box(f"counter_{index}", (x - stall_half - 0.1, y, 0.06 + 0.2), (0.22, stall_half * 2, 0.1), wood)
+        add_hip_roof(f"awning_{index}", (x, y, 0.06 + 0.52), stall_half + 0.12, 0.16, awning, ridge_half=0.06)
+
+    add_box("notice_board", (-0.2, -half + 0.16, 0.06 + 0.24), (0.4, 0.06, 0.36), wood)
+    add_hip_roof("gate_roof", (half - 1.5, half - 0.2, 0.06 + 0.5), 0.34, 0.2, terracotta, ridge_half=0.08)
+    add_amphora("jar1", (0.1, -0.9, 0.06), 0.34, clay)
+    add_amphora("jar2", (-0.5, 1.0, 0.06), 0.3, clay)
+
+    return {"kind": "agora", "variant": 0, "footprint": 3, "height": 0.9}
+
+
 def build_tax_office():
     """Civic hall on a stone plinth: portico, slate roof, strongbox and record jars."""
     stone = plaster_material("stone", STONE, roughness=0.8, variation=0.06, scale=10.0)
@@ -599,6 +633,7 @@ HOUSES = [build_house_0, build_house_1, build_house_2, build_house_3]
 MODELS = {
     "granary": build_granary,
     "tax-office": build_tax_office,
+    "agora": build_agora,
     "wheat-farm": build_wheat_farm,
     "fountain": build_fountain,
     "statue": build_statue,

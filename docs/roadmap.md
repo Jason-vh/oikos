@@ -222,7 +222,10 @@ black marble. Chariots cannot be imported or exported.
 Deliverymen are destination walkers; peddlers roam 44 tiles selling from stalls.
 Storehouse "get" pulls 4 items at a time from other stores without needing a road.
 
-⬜ Agora, vendors, storehouse orders, stockpiling.
+🟡 Granary, agora, deliverymen and peddlers are in, with the cartload/unit conversion
+and three stalls per agora (3 walkers at once). Storehouses, orders, stockpiling,
+trading posts and piers are not; the agora is 3×3 rather than 3×6 because the grid
+holds square footprints.
 
 ---
 

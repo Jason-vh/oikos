@@ -115,6 +115,6 @@ describe('roaming', () => {
     expect(walked.size).toBeLessThanOrEqual(ROAM_RANGE.waterCarrier + 1);
 
     while (world.walkers.size > 0) world.update();
-    expect(world.buildings.get(fountain.id)?.walkerOut).toBe(false);
+    expect(world.buildings.get(fountain.id)?.walkersOut).toBe(0);
   });
 });

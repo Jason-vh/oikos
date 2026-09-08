@@ -62,7 +62,7 @@ export function deserialise(saved: SavedCity): World {
 
   for (const tile of saved.roads) world.grid.road[tile] = 1;
   for (const tile of saved.roadblocks) world.grid.roadblock[tile] = 1;
-  for (const building of saved.buildings) world.restore({ ...building, walkerOut: false });
+  for (const building of saved.buildings) world.restore({ ...building, walkersOut: 0 });
   world.settle();
   return world;
 }

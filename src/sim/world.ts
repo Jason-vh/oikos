@@ -1,5 +1,5 @@
 import { recomputeAppeal } from './appeal';
-import { BUILDINGS, ROADBLOCK_COST, ROAD_COST } from './buildings';
+import { BUILDINGS, ROADBLOCK_COST, ROAD_COST, UNITS_PER_CARTLOAD } from './buildings';
 import { Grid, NO_BUILDING, TERRAIN_MEADOW } from './grid';
 import { updateHouses } from './housing';
 import {
@@ -16,7 +16,7 @@ import { DEFAULT_TAX_RATE, collectTax, type TaxReport } from './taxation';
 import { TICKS_PER_MONTH } from './time';
 import { createBuilding } from './types';
 import type { Building, BuildingKind, Walker } from './types';
-import { spawnCartPusher, spawnRoamer } from './walkers';
+import { PEDDLER_LOAD, spawnCartPusher, spawnDeliveryman, spawnRoamer } from './walkers';
 import { updateWalkers } from './walkers';
 
 const MONTH_NAMES = [
@@ -27,9 +27,14 @@ const MONTH_NAMES = [
 const FARM_TICKS_PER_LOAD = 150;
 const FARM_CAPACITY = 4;
 const GRANARY_CAPACITY = 24;
-const GRANARY_SPAWN_INTERVAL = 80;
+const AGORA_CAPACITY = 4 * UNITS_PER_CARTLOAD;
+const AGORA_SPAWN_INTERVAL = 90;
 const FOUNTAIN_SPAWN_INTERVAL = 70;
 const TAX_OFFICE_SPAWN_INTERVAL = 70;
+
+function atWalkerLimit(building: Building): boolean {
+  return building.walkersOut >= BUILDINGS[building.kind].maxWalkers;
+}
 
 export interface PlacementCheck {
   ok: boolean;
@@ -42,6 +47,7 @@ export class World {
   readonly buildings = new Map<number, Building>();
   readonly walkers = new Map<number, Walker>();
   readonly granaryCapacity = GRANARY_CAPACITY;
+  readonly agoraCapacity = AGORA_CAPACITY;
 
   treasury = 2000;
   wageLevel = DEFAULT_WAGE_LEVEL;
@@ -202,14 +208,14 @@ export class World {
     const created: Walker = { ...walker, id: this.nextId++ };
     this.walkers.set(created.id, created);
     const home = this.buildings.get(created.homeId);
-    if (home) home.walkerOut = true;
+    if (home) home.walkersOut += 1;
     return created;
   }
 
   removeWalker(walker: Walker): void {
     this.walkers.delete(walker.id);
     const home = this.buildings.get(walker.homeId);
-    if (home) home.walkerOut = false;
+    if (home) home.walkersOut -= 1;
   }
 
   update(): void {
@@ -246,8 +252,8 @@ export class World {
         case 'wheatFarm':
           this.updateFarm(building);
           break;
-        case 'granary':
-          this.updateGranary(building);
+        case 'agora':
+          this.updateAgora(building);
           break;
         case 'fountain':
           this.updateFountain(building);
@@ -270,7 +276,7 @@ export class World {
       }
     }
 
-    if (farm.stock === 0 || farm.walkerOut) return;
+    if (farm.stock === 0 || atWalkerLimit(farm)) return;
 
     const destinations = this.granaryAccessTiles();
     if (destinations.size === 0) return;
@@ -286,21 +292,35 @@ export class World {
     return tiles;
   }
 
-  private updateGranary(granary: Building): void {
-    granary.spawnTimer += staffing(granary);
-    if (granary.spawnTimer < GRANARY_SPAWN_INTERVAL) return;
-    if (granary.stock <= 0 || granary.walkerOut || !hasRoadAccess(this.grid, granary)) return;
+  private updateAgora(agora: Building): void {
+    agora.spawnTimer += staffing(agora);
+    if (atWalkerLimit(agora) || !hasRoadAccess(this.grid, agora)) return;
 
-    if (spawnRoamer(this, granary, 'foodVendor')) {
-      granary.spawnTimer = 0;
-      granary.stock -= 1;
+    if (agora.stock <= AGORA_CAPACITY - UNITS_PER_CARTLOAD) {
+      const sources = this.stockedGranaryTiles();
+      if (sources.size > 0 && spawnDeliveryman(this, agora, sources)) return;
     }
+
+    if (agora.stock < PEDDLER_LOAD || agora.spawnTimer < AGORA_SPAWN_INTERVAL) return;
+    if (spawnRoamer(this, agora, 'peddler', PEDDLER_LOAD)) {
+      agora.spawnTimer = 0;
+      agora.stock -= PEDDLER_LOAD;
+    }
+  }
+
+  private stockedGranaryTiles(): Set<number> {
+    const tiles = new Set<number>();
+    for (const building of this.buildings.values()) {
+      if (building.kind !== 'granary' || building.stock <= 0) continue;
+      for (const tile of roadAccessTiles(this.grid, building)) tiles.add(tile);
+    }
+    return tiles;
   }
 
   private updateFountain(fountain: Building): void {
     fountain.spawnTimer += staffing(fountain);
     if (fountain.spawnTimer < FOUNTAIN_SPAWN_INTERVAL) return;
-    if (fountain.walkerOut || !hasRoadAccess(this.grid, fountain)) return;
+    if (atWalkerLimit(fountain) || !hasRoadAccess(this.grid, fountain)) return;
 
     if (spawnRoamer(this, fountain, 'waterCarrier')) fountain.spawnTimer = 0;
   }
@@ -308,7 +328,7 @@ export class World {
   private updateTaxOffice(office: Building): void {
     office.spawnTimer += staffing(office);
     if (office.spawnTimer < TAX_OFFICE_SPAWN_INTERVAL) return;
-    if (office.walkerOut || !hasRoadAccess(this.grid, office)) return;
+    if (atWalkerLimit(office) || !hasRoadAccess(this.grid, office)) return;
 
     if (spawnRoamer(this, office, 'clerk')) office.spawnTimer = 0;
   }

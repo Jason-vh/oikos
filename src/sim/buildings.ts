@@ -10,6 +10,7 @@ export interface BuildingDef {
   roofColour: number;
   height: number;
   workers: number;
+  maxWalkers: number;
   appeal: AppealBands;
   requiresMeadow: boolean;
   needsRoad: boolean;
@@ -92,6 +93,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     roofColour: 0x9c4b2f,
     height: 14,
     workers: 0,
+    maxWalkers: 0,
     appeal: HOUSE_TIERS[0].appeal,
     requiresMeadow: false,
     needsRoad: true,
@@ -106,6 +108,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     roofColour: 0x8a6b3a,
     height: 12,
     workers: 10,
+    maxWalkers: 1,
     appeal: { initial: -3, bandSize: 1, step: 1, range: 3 },
     requiresMeadow: true,
     needsRoad: true,
@@ -120,10 +123,26 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     roofColour: 0x6f6a5c,
     height: 20,
     workers: 18,
+    maxWalkers: 0,
     appeal: { initial: -12, bandSize: 1, step: 2, range: 4 },
     requiresMeadow: false,
     needsRoad: true,
     description: 'Stores food and sends vendors along the roads to feed houses.',
+  },
+  agora: {
+    kind: 'agora',
+    name: 'Agora',
+    size: 3,
+    cost: 25,
+    colour: 0xe3d6b4,
+    roofColour: 0xb4623a,
+    height: 16,
+    workers: 12,
+    maxWalkers: 3,
+    appeal: { initial: 12, bandSize: 2, step: -2, range: 6 },
+    requiresMeadow: false,
+    needsRoad: true,
+    description: 'Deliverymen fetch food from a granary; peddlers sell it to houses.',
   },
   fountain: {
     kind: 'fountain',
@@ -134,6 +153,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     roofColour: 0xdfe9ef,
     height: 8,
     workers: 4,
+    maxWalkers: 1,
     appeal: { initial: 4, bandSize: 2, step: -2, range: 4 },
     requiresMeadow: false,
     needsRoad: true,
@@ -148,6 +168,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     roofColour: 0xf6f2e8,
     height: 22,
     workers: 0,
+    maxWalkers: 0,
     appeal: { initial: 8, bandSize: 1, step: -1, range: 3 },
     requiresMeadow: false,
     needsRoad: false,
@@ -162,6 +183,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     roofColour: 0x4f6f7a,
     height: 18,
     workers: 8,
+    maxWalkers: 1,
     appeal: { initial: -4, bandSize: 1, step: 1, range: 2 },
     requiresMeadow: false,
     needsRoad: true,
@@ -169,16 +191,27 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
   },
 };
 
-export const PLACEABLE: BuildingKind[] = ['house', 'wheatFarm', 'granary', 'fountain', 'taxOffice', 'statue'];
+export const PLACEABLE: BuildingKind[] = [
+  'house',
+  'wheatFarm',
+  'granary',
+  'agora',
+  'fountain',
+  'taxOffice',
+  'statue',
+];
 
 export const LABOUR_PRIORITY: BuildingKind[] = [
   'wheatFarm',
   'granary',
+  'agora',
   'fountain',
   'taxOffice',
   'statue',
   'house',
 ];
+
+export const UNITS_PER_CARTLOAD = 100;
 
 export const ROAD_COST = 4;
 
