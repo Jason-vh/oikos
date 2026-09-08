@@ -10,7 +10,8 @@ import { BUILDINGS, HOUSE_TIERS, ROAD_COST } from './sim/buildings';
 import { MAX_HEIGHT, TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_SAND, TERRAIN_WATER } from './sim/grid';
 import type { View } from './sim/save';
 import { inspectTile, type Inspection } from './ui/inspect';
-import type { Building, BuildingKind, ServiceSupply } from './sim/types';
+import { SERVICE_KINDS } from './sim/types';
+import type { Building, BuildingKind } from './sim/types';
 import { TICKS_PER_SECOND } from './sim/time';
 import { World } from './sim/world';
 
@@ -127,7 +128,7 @@ export class Game {
         building.kind === 'house'
           ? `${HOUSE_TIERS[building.tier].name} (${building.population})`
           : BUILDINGS[building.kind].name;
-      return `${name}${describeStaff(building)}${describeBuildingState(building.kind, building.stock, building.supply)} · ${suffix}`;
+      return `${name}${describeStaff(building)}${describeBuildingState(building)} · ${suffix}`;
     }
 
     if (grid.isRoadblock(index)) return `Roadblock · turns roaming walkers back · ${suffix}`;
@@ -309,11 +310,15 @@ function describeStaff(building: Building): string {
   return ` · ${building.staff}/${needed} workers`;
 }
 
-function describeBuildingState(kind: BuildingKind, stock: number, supply: ServiceSupply): string {
-  if (kind === 'granary' || kind === 'wheatFarm') return ` · ${stock} cartloads`;
-  if (kind === 'agora') return ` · ${Math.round(stock)} food`;
-  if (kind !== 'house') return '';
+function describeBuildingState(building: Building): string {
+  const def = BUILDINGS[building.kind];
+  if (building.kind === 'agora') {
+    return ` · ${Math.round(building.stock.food)} food · ${Math.round(building.stock.oil)} oil`;
+  }
+  if (def.produces) return ` · ${building.stock[def.produces]} cartloads`;
+  if (def.accepts) return ` · ${building.stock[def.accepts]} cartloads`;
+  if (building.kind !== 'house') return '';
 
-  const taxed = supply.tax > 0 ? 'taxed' : 'untaxed';
-  return ` · water ${Math.round(supply.water)} · food ${Math.round(supply.food)} · ${taxed}`;
+  const supplied = SERVICE_KINDS.filter((service) => building.supply[service] > 0);
+  return supplied.length > 0 ? ` · ${supplied.join(', ')}` : ' · unserved';
 }

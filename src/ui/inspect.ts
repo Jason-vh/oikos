@@ -3,7 +3,7 @@ import { BUILDINGS, HOUSE_TIERS, ROADBLOCK_COST, ROAD_COST } from '../sim/buildi
 import type { BuildingDef } from '../sim/buildings';
 import { TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_SAND, TERRAIN_WATER } from '../sim/grid';
 import { ROAM_RANGE } from '../sim/walkers';
-import type { Building, BuildingKind } from '../sim/types';
+import type { Building, BuildingKind, Good } from '../sim/types';
 import type { World } from '../sim/world';
 
 export interface Inspection {
@@ -12,6 +12,12 @@ export interface Inspection {
   description: string;
   facts: [string, string][];
 }
+
+const GOOD_NAMES: Record<Good, string> = {
+  food: 'Wheat',
+  olives: 'Olives',
+  oil: 'Oil',
+};
 
 const WALKER_OF: Partial<Record<BuildingKind, { name: string; kind: 'peddler' | 'waterCarrier' | 'clerk' }>> = {
   agora: { name: 'Peddler', kind: 'peddler' },
@@ -92,10 +98,14 @@ function inspectBuilding(world: World, building: Building, index: number): Inspe
     const short = def.workers - building.staff;
     facts.push(['Workers', short > 0 ? `${building.staff} of ${def.workers} — ${short} short` : `${def.workers}, fully staffed`]);
   }
-  if (building.kind === 'wheatFarm' || building.kind === 'granary') {
-    facts.push(['Stored', `${building.stock} cartloads`]);
+  if (def.produces) facts.push([`${GOOD_NAMES[def.produces]} ready`, `${building.stock[def.produces]} cartloads`]);
+  if (def.consumes) facts.push([`${GOOD_NAMES[def.consumes]} waiting`, `${building.stock[def.consumes]} cartloads`]);
+  if (def.accepts && !def.consumes) {
+    facts.push(['Stored', `${building.stock[def.accepts]} of ${def.capacity} cartloads`]);
   }
-  if (building.kind === 'agora') facts.push(['Stalls hold', `${Math.round(building.stock)} units of food`]);
+  if (building.kind === 'agora') {
+    facts.push(['Stalls hold', `${Math.round(building.stock.food)} food, ${Math.round(building.stock.oil)} oil`]);
+  }
 
   const walker = WALKER_OF[building.kind];
   if (walker) {
@@ -117,6 +127,7 @@ function inspectHouse(world: World, house: Building, index: number): Inspection 
     ['Citizens', `${house.population} of ${tier.capacity}`],
     ['Water', house.supply.water > 0 ? 'supplied' : 'none'],
     ['Food', house.supply.food > 0 ? 'supplied' : 'none'],
+    ['Oil', house.supply.oil > 0 ? 'supplied' : 'none'],
     ['Tax', house.supply.tax > 0 ? `paying, ×${tier.taxMultiplier}` : 'no clerk has called'],
     ['Appeal here', `${appeal}`],
   ];

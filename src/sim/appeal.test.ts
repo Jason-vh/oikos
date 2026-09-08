@@ -60,10 +60,12 @@ describe('appeal field', () => {
 
   test('a house drags its own block down until it evolves', () => {
     const grid = new Grid(16);
+    const homestead = HOUSE_TIERS.findIndex((tier) => tier.name === 'Homestead');
+
     recomputeAppeal(grid, [building('house', 4, 4, 0)]);
     expect(grid.appeal[grid.index(5, 4)]).toBe(HOUSE_TIERS[0].appeal.initial);
 
-    recomputeAppeal(grid, [building('house', 4, 4, HOUSE_TIERS.length - 1)]);
+    recomputeAppeal(grid, [building('house', 4, 4, homestead)]);
     expect(grid.appeal[grid.index(5, 4)]).toBe(0);
   });
 });

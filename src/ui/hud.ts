@@ -206,7 +206,8 @@ function renderPopup(popup: HTMLElement, inspection: Inspection | null, closable
 
 function groupFor(kind: string): string {
   if (kind === 'house') return 'Housing';
-  if (kind === 'wheatFarm' || kind === 'granary' || kind === 'agora') return 'Food';
+  if (kind === 'wheatFarm' || kind === 'granary' || kind === 'growersLodge' || kind === 'agora') return 'Food';
+  if (kind === 'olivePress') return 'Industry';
   return 'Services';
 }
 
@@ -217,7 +218,7 @@ function taxLabel(world: Game['world']): string {
 }
 
 function renderPanel(buttons: ToolButton[]): string {
-  const headed = ['Housing', 'Food', 'Services'];
+  const headed = ['Housing', 'Food', 'Industry', 'Services'];
   const roads = buttons.map((button, index) => ({ button, index })).filter(({ button }) => button.group === 'Road');
   const demolish = buttons.findIndex((button) => button.group === 'Demolish');
 

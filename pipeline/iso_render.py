@@ -427,6 +427,112 @@ def build_house_3():
     return {"kind": "house", "variant": 6, "footprint": 1, "height": top + 0.1}
 
 
+def build_house_4():
+    """Apartment: a taller block with a loggia, tiled roof, balcony rail and a roof terrace."""
+    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.85, variation=0.05, scale=6.0)
+    terracotta = roof_material("terracotta", TERRACOTTA)
+    marble = material("marble", MARBLE, roughness=0.32)
+    stone = plaster_material("stone", STONE, roughness=0.8, variation=0.06, scale=10.0)
+    wood = material("wood", WOOD, roughness=0.8)
+    clay = material("clay", CLAY, roughness=0.8)
+    cypress = material("cypress", CYPRESS, roughness=0.9)
+
+    half = 0.38
+    wall_h = 0.92
+    add_box("plinth", (0, 0, 0.035), (half * 2 + 0.07, half * 2 + 0.07, 0.07), stone)
+    add_box("walls", (0, 0, 0.07 + wall_h / 2), (half * 2, half * 2, wall_h), whitewash)
+    add_box("string_course", (0, 0, 0.07 + 0.44), (half * 2 + 0.04, half * 2 + 0.04, 0.03), marble)
+    add_box("cornice", (0, 0, 0.07 + wall_h + 0.02), (half * 2 + 0.06, half * 2 + 0.06, 0.045), marble)
+    add_door(half, 0.36, wood)
+    add_window_row(half, 0.24, (0.12, 0.14))
+    add_window_row(half, 0.58, (0.12, 0.16), on_door_face=True)
+    add_window_row(half, 0.78, (0.12, 0.14))
+
+    balcony_z = 0.07 + 0.56
+    add_box("balcony", (half + 0.07, 0, balcony_z), (0.18, half * 1.5, 0.04), marble)
+    for y in (-0.26, 0.0, 0.26):
+        add_cylinder("baluster", (half + 0.14, y, balcony_z + 0.07), 0.018, 0.14, marble, vertices=8)
+    add_box("balcony_rail", (half + 0.14, 0, balcony_z + 0.15), (0.05, half * 1.5, 0.025), marble)
+
+    roof_z = 0.07 + wall_h + 0.045
+    roof_h = 0.2
+    eave = half + 0.1
+    add_eaves("eaves", eave, roof_z, wood)
+    add_hip_roof("roof", (0, 0, roof_z + roof_h / 2), eave, roof_h, terracotta, ridge_half=0.16)
+    top = roof_z + roof_h
+
+    add_cypress_pot("cypress", (-half - 0.11, half + 0.06, 0.0), 0.34, clay, cypress)
+    add_amphora("jar", (half + 0.12, -half - 0.06, 0.0), 0.26, clay)
+
+    return {"kind": "house", "variant": 8, "footprint": 1, "height": top + 0.1}
+
+
+def build_growers_lodge():
+    """Lodge beside an olive grove: low stone hut, trees in rows, harvest baskets."""
+    soil = plaster_material("soil", SOIL, roughness=0.98, variation=0.1, scale=12.0)
+    grass = plaster_material("grove_grass", (0.42, 0.45, 0.24), roughness=0.95, variation=0.12, scale=14.0)
+    stone = plaster_material("stone", STONE, roughness=0.85, variation=0.06, scale=10.0)
+    ochre = plaster_material("ochre", OCHRE, roughness=0.9, variation=0.08, scale=8.0)
+    terracotta = roof_material("terracotta", TERRACOTTA)
+    wood = material("wood", WOOD, roughness=0.85)
+    bark = material("bark", (0.32, 0.26, 0.18), roughness=0.9)
+    leaf = material("leaf", (0.36, 0.44, 0.26), roughness=0.9)
+    clay = material("clay", CLAY, roughness=0.8)
+
+    add_box("ground", (-0.1, -0.1, 0.02), (1.7, 1.7, 0.04), grass)
+    add_wall("wall_south", (-0.1, -0.96, 0.09), 1.7, 0.18, 0.06, stone, along_x=True)
+    add_wall("wall_west", (-0.96, -0.1, 0.09), 1.7, 0.18, 0.06, stone, along_x=False)
+
+    for row, x in enumerate((-0.62, -0.02)):
+        for column, y in enumerate((-0.6, 0.0, 0.6)):
+            add_box(f"root_{row}{column}", (x, y, 0.05), (0.24, 0.24, 0.04), soil)
+            add_cylinder(f"trunk_{row}{column}", (x, y, 0.17), 0.045, 0.26, bark, vertices=8)
+            add_pyramid(f"crown_{row}{column}", (x, y, 0.42), 0.28, 0.34, leaf, vertices=7)
+
+    hx, hy = 0.62, 0.62
+    half = 0.3
+    wall_h = 0.42
+    add_box("lodge_wall", (hx, hy, wall_h / 2), (half * 2, half * 2, wall_h), ochre)
+    add_hip_roof("lodge_roof", (hx, hy, wall_h + 0.1), half + 0.05, 0.2, terracotta, ridge_half=0.08)
+    add_door(half, 0.26, wood, (hx, hy))
+    add_window_row(half, 0.24, (0.1, 0.1), (hx, hy))
+    add_amphora("basket", (0.66, -0.2, 0.04), 0.24, clay)
+
+    return {"kind": "growersLodge", "variant": 0, "footprint": 2, "height": 0.85}
+
+
+def build_olive_press():
+    """Open-sided press house: millstone under a tiled canopy, oil jars, screw beam."""
+    stone = plaster_material("stone", STONE, roughness=0.82, variation=0.06, scale=10.0)
+    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.85, variation=0.05, scale=6.0)
+    terracotta = roof_material("terracotta", TERRACOTTA)
+    wood = material("wood", WOOD, roughness=0.85)
+    millstone = plaster_material("millstone", FIELDSTONE, roughness=0.75, variation=0.05, scale=8.0)
+    clay = material("clay", CLAY, roughness=0.8)
+
+    add_box("yard", (0, 0, 0.03), (1.7, 1.7, 0.06), stone)
+
+    half = 0.44
+    wall_h = 0.56
+    add_box("press_house", (-0.42, -0.42, 0.06 + wall_h / 2), (half * 2, half * 2, wall_h), whitewash)
+    add_hip_roof("press_roof", (-0.42, -0.42, 0.06 + wall_h + 0.12), half + 0.07, 0.24, terracotta, ridge_half=0.1)
+    add_door(half, 0.3, wood, (-0.42, -0.42))
+
+    add_cylinder("basin", (0.42, 0.4, 0.14), 0.34, 0.16, stone, vertices=24)
+    add_cylinder("millstone", (0.42, 0.4, 0.3), 0.22, 0.09, millstone, vertices=20)
+    add_cylinder("spindle", (0.42, 0.4, 0.42), 0.03, 0.34, wood, vertices=10)
+    add_box("press_beam", (0.42, 0.4, 0.56), (0.7, 0.07, 0.07), wood)
+
+    for y in (-0.1, 0.1):
+        add_cylinder("canopy_post", (0.9, 0.4 + y * 4, 0.36), 0.03, 0.6, wood, vertices=8)
+    add_hip_roof("canopy", (0.42, 0.4, 0.72), 0.5, 0.14, terracotta, ridge_half=0.12)
+
+    add_amphora("oil_jar1", (-0.5, 0.72, 0.06), 0.32, clay)
+    add_amphora("oil_jar2", (-0.16, 0.86, 0.06), 0.28, clay)
+
+    return {"kind": "olivePress", "variant": 0, "footprint": 2, "height": 0.95}
+
+
 def build_wheat_farm():
     """Farmhouse with a terracotta roof; low golden wheat rows behind a stone wall."""
     soil = plaster_material("soil", SOIL, roughness=0.98, variation=0.1, scale=12.0)
@@ -628,12 +734,14 @@ def mirrored(builder):
     return build
 
 
-HOUSES = [build_house_0, build_house_1, build_house_2, build_house_3]
+HOUSES = [build_house_0, build_house_1, build_house_2, build_house_3, build_house_4]
 
 MODELS = {
     "granary": build_granary,
     "tax-office": build_tax_office,
     "agora": build_agora,
+    "growers-lodge": build_growers_lodge,
+    "olive-press": build_olive_press,
     "wheat-farm": build_wheat_farm,
     "fountain": build_fountain,
     "statue": build_statue,

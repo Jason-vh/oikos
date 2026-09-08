@@ -32,7 +32,7 @@ Status against this repo: ✅ shipped · 🟡 partial · ⬜ not started.
 | Isometric tile grid, elevation, terrain classes | ✅ | Zeus terrain classes: grass, meadow (purple tufts — farms/orchards/livestock only), rock, water, forest, and resource outcrops (silver, copper, orichalc, black marble, white marble) |
 | Roads as the only social network | ✅ | Road cost 2/2/3/4/5 by difficulty; clear land 1/2/2/2/3 |
 | Roaming and destination walkers | ✅ | Ranges, exit points, out-and-back patrols and roadblocks |
-| Housing evolution | 🟡 | 4 tiers today; the game has 7 common + 4 elite |
+| Housing evolution | 🟡 | 5 tiers today; the game has 7 common + 4 elite |
 | Appeal ("desirability") field | ✅ | Band model in `src/sim/appeal.ts`; housing is a source, gates apply from the third tier up |
 | Build cost + treasury | 🟡 | Wages and taxes are in; trade and debt are not |
 | Save/load | 🟡 | `src/sim/save.ts` |
@@ -203,7 +203,9 @@ fish/urchins, meat, cheese, oranges — max **4 food types in an entire adventur
 fleece, olive oil, wine, bronze, armor, sculpture, marble, wood, horses, orichalc,
 black marble. Chariots cannot be imported or exported.
 
-⬜ All of it. Currently only wheat → granary exists.
+🟡 Two chains: wheat farm → granary, and growers' lodge → olive press → oil, with goods
+carted by producers and pulled by the agora. Husbandry, the rest of industry, harvest
+months and distance-to-storage effects are not modelled.
 
 ---
 

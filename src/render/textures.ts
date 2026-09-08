@@ -65,6 +65,8 @@ const FOOTPRINT_INSET: Record<BuildingKind, number> = {
   statue: 1,
   taxOffice: 0.88,
   agora: 0.94,
+  growersLodge: 1,
+  olivePress: 0.88,
 };
 
 export class TextureCache {

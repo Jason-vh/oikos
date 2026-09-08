@@ -31,18 +31,19 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
 - **Roads**: the only network. Everything social flows along it. A roadblock turns
   roaming walkers back without stopping anyone walking to a destination, so a block
   can be sealed off from wandering vendors while carts still reach it.
-- **Distribution**: farms cart wheat to a granary in cartloads; an agora sends
-  deliverymen to fetch a cartload (100 units) and peddlers to sell it door to door.
-  A granary on its own feeds nobody. An agora runs three stalls, so three walkers at
-  once; every other building sends one.
+- **Goods**: two chains. Wheat farm → granary; growers' lodge → olive press → oil.
+  Producers cart their output to whoever accepts it, and an agora sends deliverymen to
+  fetch a cartload (100 units) from whoever supplies it. A granary on its own feeds
+  nobody. An agora runs three stalls — three walkers at once, one peddler per good;
+  every other building sends one walker.
 - **Walkers**: they leave and re-enter their building by its *exit point* — the first
   road found clockwise from north of the footprint — except a fountain's carrier,
   which comes home to the tile due north. Roamers walk out their range (water carrier
   27 tiles, vendor 44) serving houses beside the road, then take the shortest road
   home. Everyone moves at a citizen's 54.4 tiles a month. Cart pushers route with BFS
   to a granary.
-- **Housing**: Shack → Hovel → Tenement → Homestead, gated on supplied services
-  and, from Tenement up, on local appeal. Houses devolve when their tier's needs
+- **Housing**: Shack → Hovel → Tenement → Homestead → Apartment, gated on supplied
+  services — water, then food, then olive oil — and, from Tenement up, on local appeal. Houses devolve when their tier's needs
   lapse or their surroundings decay.
 - **Appeal**: Zeus's band model. Every building carries `INI, SZE, STP, RNG` and
   contributes `INI + STP * floor((d - 1) / SZE)` to each tile within `RNG` rings of
@@ -153,8 +154,9 @@ renders drop into the game's metric with no fudging. Anchors are derived
 analytically from that camera rather than eyeballed. A Cycles shadow-catcher plane
 becomes the shadow sprite, framed wide enough for the shadow the sun actually casts.
 
-Models live in `pipeline/iso_render.py`: the four housing tiers, wheat farm, granary,
-agora, tax office, fountain and statue, each rendered as a body and a shadow. Sprites are keyed by
+Models live in `pipeline/iso_render.py`: the five housing tiers, wheat farm, growers'
+lodge, olive press, granary, agora, tax office, fountain and statue, each rendered as
+a body and a shadow. Sprites are keyed by
 `kind:variant:layer` — housing uses the tier as its variant.
 
 To add a building: write a builder, register it in `MODELS`, re-run the two commands.
@@ -165,9 +167,8 @@ The game picks it up with no client changes.
 The full inventory lives in [docs/roadmap.md](docs/roadmap.md). Next up:
 
 1. **Palace** — required before taxes or any military, as in the original.
-2. **Second production chain** — olives → olive press → a second agora stall.
-3. **Culture and gods** — sanctuaries, gods that visit and bless or curse.
-4. **Campaign scaffolding** — scenario definitions, goals, ratings.
+2. **Culture and gods** — sanctuaries, gods that visit and bless or curse.
+3. **Campaign scaffolding** — scenario definitions, goals, ratings.
 
 ## Art licence
 

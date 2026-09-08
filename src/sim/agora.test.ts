@@ -29,17 +29,17 @@ function marketTown(): { world: World; granary: Building; agora: Building; house
 describe('agora', () => {
   test('sends a deliveryman who empties a cartload into its stalls', () => {
     const { world, granary, agora } = marketTown();
-    granary.stock = 6;
+    granary.stock.food = 6;
 
-    for (let tick = 0; tick < 2000 && agora.stock === 0; tick++) world.update();
+    for (let tick = 0; tick < 2000 && agora.stock.food === 0; tick++) world.update();
 
-    expect(agora.stock).toBe(UNITS_PER_CARTLOAD);
-    expect(granary.stock).toBe(5);
+    expect(agora.stock.food).toBe(UNITS_PER_CARTLOAD);
+    expect(granary.stock.food).toBe(5);
   });
 
   test('sends peddlers who feed the houses they pass', () => {
     const { world, granary, houses } = marketTown();
-    granary.stock = 20;
+    granary.stock.food = 20;
 
     for (let tick = 0; tick < 6000 && houses.some((house) => house.supply.food === 0); tick++) {
       world.update();
@@ -50,12 +50,12 @@ describe('agora', () => {
 
   test('a granary on its own feeds nobody', () => {
     const { world, granary, agora, houses } = marketTown();
-    granary.stock = 20;
+    granary.stock.food = 20;
     world.demolish(agora.x, agora.y);
 
     for (let tick = 0; tick < 4000; tick++) world.update();
 
     expect(houses.every((house) => house.supply.food === 0)).toBe(true);
-    expect(granary.stock).toBe(20);
+    expect(granary.stock.food).toBe(20);
   });
 });

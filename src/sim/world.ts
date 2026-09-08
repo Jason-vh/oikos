@@ -15,7 +15,7 @@ import { hasRoadAccess, roadAccessTiles } from './pathing';
 import { DEFAULT_TAX_RATE, collectTax, type TaxReport } from './taxation';
 import { TICKS_PER_MONTH } from './time';
 import { createBuilding } from './types';
-import type { Building, BuildingKind, Walker } from './types';
+import type { Building, BuildingKind, Good, Walker } from './types';
 import { PEDDLER_LOAD, spawnCartPusher, spawnDeliveryman, spawnRoamer } from './walkers';
 import { updateWalkers } from './walkers';
 
@@ -24,11 +24,9 @@ const MONTH_NAMES = [
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
 ];
 
-const FARM_TICKS_PER_LOAD = 150;
-const FARM_CAPACITY = 4;
-const GRANARY_CAPACITY = 24;
-const AGORA_CAPACITY = 4 * UNITS_PER_CARTLOAD;
+const TICKS_PER_LOAD = 150;
 const AGORA_SPAWN_INTERVAL = 90;
+const AGORA_GOODS: Good[] = ['food', 'oil'];
 const FOUNTAIN_SPAWN_INTERVAL = 70;
 const TAX_OFFICE_SPAWN_INTERVAL = 70;
 
@@ -46,8 +44,7 @@ export class World {
   readonly grid: Grid;
   readonly buildings = new Map<number, Building>();
   readonly walkers = new Map<number, Walker>();
-  readonly granaryCapacity = GRANARY_CAPACITY;
-  readonly agoraCapacity = AGORA_CAPACITY;
+
 
   treasury = 2000;
   wageLevel = DEFAULT_WAGE_LEVEL;
@@ -248,10 +245,9 @@ export class World {
 
   private updateProduction(): void {
     for (const building of this.buildings.values()) {
+      if (BUILDINGS[building.kind].produces) this.updateProducer(building);
+
       switch (building.kind) {
-        case 'wheatFarm':
-          this.updateFarm(building);
-          break;
         case 'agora':
           this.updateAgora(building);
           break;
@@ -267,26 +263,42 @@ export class World {
     }
   }
 
-  private updateFarm(farm: Building): void {
-    if (farm.stock < FARM_CAPACITY) {
-      farm.productionProgress += staffing(farm);
-      if (farm.productionProgress >= FARM_TICKS_PER_LOAD) {
-        farm.productionProgress = 0;
-        farm.stock += 1;
+  private updateProducer(producer: Building): void {
+    const def = BUILDINGS[producer.kind];
+    const good = def.produces as Good;
+    const hasInput = def.consumes === null || producer.stock[def.consumes] > 0;
+
+    if (producer.stock[good] < def.capacity && hasInput) {
+      producer.productionProgress += staffing(producer);
+      if (producer.productionProgress >= TICKS_PER_LOAD) {
+        producer.productionProgress = 0;
+        producer.stock[good] += 1;
+        if (def.consumes) producer.stock[def.consumes] -= 1;
       }
     }
 
-    if (farm.stock === 0 || atWalkerLimit(farm)) return;
+    if (producer.stock[good] === 0 || atWalkerLimit(producer)) return;
 
-    const destinations = this.granaryAccessTiles();
+    const destinations = this.tilesAccepting(good);
     if (destinations.size === 0) return;
-    if (spawnCartPusher(this, farm, destinations, farm.stock)) farm.stock = 0;
+    if (spawnCartPusher(this, producer, destinations, producer.stock[good], good)) producer.stock[good] = 0;
   }
 
-  private granaryAccessTiles(): Set<number> {
+  private tilesAccepting(good: Good): Set<number> {
+    return this.accessTiles((building) => {
+      const def = BUILDINGS[building.kind];
+      return def.accepts === good && building.stock[good] < def.capacity;
+    });
+  }
+
+  private tilesSupplying(good: Good): Set<number> {
+    return this.accessTiles((building) => BUILDINGS[building.kind].supplies === good && building.stock[good] > 0);
+  }
+
+  private accessTiles(matches: (building: Building) => boolean): Set<number> {
     const tiles = new Set<number>();
     for (const building of this.buildings.values()) {
-      if (building.kind !== 'granary' || building.stock >= GRANARY_CAPACITY) continue;
+      if (!matches(building)) continue;
       for (const tile of roadAccessTiles(this.grid, building)) tiles.add(tile);
     }
     return tiles;
@@ -296,25 +308,32 @@ export class World {
     agora.spawnTimer += staffing(agora);
     if (atWalkerLimit(agora) || !hasRoadAccess(this.grid, agora)) return;
 
-    if (agora.stock <= AGORA_CAPACITY - UNITS_PER_CARTLOAD) {
-      const sources = this.stockedGranaryTiles();
-      if (sources.size > 0 && spawnDeliveryman(this, agora, sources)) return;
+    const capacity = BUILDINGS.agora.capacity;
+    for (const good of AGORA_GOODS) {
+      if (agora.stock[good] > capacity - UNITS_PER_CARTLOAD) continue;
+      const sources = this.tilesSupplying(good);
+      if (sources.size > 0 && spawnDeliveryman(this, agora, sources, good)) return;
     }
 
-    if (agora.stock < PEDDLER_LOAD || agora.spawnTimer < AGORA_SPAWN_INTERVAL) return;
-    if (spawnRoamer(this, agora, 'peddler', PEDDLER_LOAD)) {
+    if (agora.spawnTimer < AGORA_SPAWN_INTERVAL) return;
+
+    const onSale = this.goodsOnSaleFrom(agora.id);
+    const good = AGORA_GOODS.find(
+      (candidate) => !onSale.has(candidate) && agora.stock[candidate] >= PEDDLER_LOAD,
+    );
+    if (!good) return;
+    if (spawnRoamer(this, agora, 'peddler', PEDDLER_LOAD, good)) {
       agora.spawnTimer = 0;
-      agora.stock -= PEDDLER_LOAD;
+      agora.stock[good] -= PEDDLER_LOAD;
     }
   }
 
-  private stockedGranaryTiles(): Set<number> {
-    const tiles = new Set<number>();
-    for (const building of this.buildings.values()) {
-      if (building.kind !== 'granary' || building.stock <= 0) continue;
-      for (const tile of roadAccessTiles(this.grid, building)) tiles.add(tile);
+  private goodsOnSaleFrom(agoraId: number): Set<Good> {
+    const goods = new Set<Good>();
+    for (const walker of this.walkers.values()) {
+      if (walker.kind === 'peddler' && walker.homeId === agoraId) goods.add(walker.good);
     }
-    return tiles;
+    return goods;
   }
 
   private updateFountain(fountain: Building): void {

@@ -7,6 +7,7 @@ import type { World } from './world';
 const SUPPLY_DECAY_PER_TICK: Record<ServiceKind, number> = {
   food: 0.05,
   water: 0.05,
+  oil: 0.05,
   tax: 0.05,
 };
 const EVOLUTION_INTERVAL = 25;

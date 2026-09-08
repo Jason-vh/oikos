@@ -1,5 +1,5 @@
 import type { AppealBands } from './appeal';
-import type { BuildingKind, ServiceKind } from './types';
+import type { BuildingKind, Good, ServiceKind } from './types';
 
 export interface BuildingDef {
   kind: BuildingKind;
@@ -14,6 +14,11 @@ export interface BuildingDef {
   appeal: AppealBands;
   requiresMeadow: boolean;
   needsRoad: boolean;
+  produces: Good | null;
+  consumes: Good | null;
+  accepts: Good | null;
+  supplies: Good | null;
+  capacity: number;
   description: string;
 }
 
@@ -81,6 +86,18 @@ export const HOUSE_TIERS: HouseTier[] = [
     roofColour: 0xb8502c,
     height: 24,
   },
+  {
+    name: 'Apartment',
+    capacity: 48,
+    taxMultiplier: 2,
+    evolveAppeal: 8,
+    devolveAppeal: 2,
+    needs: ['water', 'food', 'oil'],
+    appeal: { initial: 1, bandSize: 1, step: 0, range: 1 },
+    colour: 0xf1e6c6,
+    roofColour: 0xc0562d,
+    height: 30,
+  },
 ];
 
 export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
@@ -97,6 +114,11 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     appeal: HOUSE_TIERS[0].appeal,
     requiresMeadow: false,
     needsRoad: true,
+    produces: null,
+    consumes: null,
+    accepts: null,
+    supplies: null,
+    capacity: 0,
     description: 'Citizens settle here and evolve as their needs are met.',
   },
   wheatFarm: {
@@ -112,7 +134,52 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     appeal: { initial: -3, bandSize: 1, step: 1, range: 3 },
     requiresMeadow: true,
     needsRoad: true,
+    produces: 'food',
+    consumes: null,
+    accepts: null,
+    supplies: null,
+    capacity: 4,
     description: 'Grows wheat on meadow. Cart pushers carry it to a granary.',
+  },
+  growersLodge: {
+    kind: 'growersLodge',
+    name: "Growers' Lodge",
+    size: 2,
+    cost: 25,
+    colour: 0xcdbb84,
+    roofColour: 0x7d6a3a,
+    height: 14,
+    workers: 12,
+    maxWalkers: 1,
+    appeal: { initial: -2, bandSize: 1, step: 1, range: 2 },
+    requiresMeadow: true,
+    needsRoad: true,
+    produces: 'olives',
+    consumes: null,
+    accepts: null,
+    supplies: null,
+    capacity: 4,
+    description: 'Tends an olive grove on meadow and carts the harvest to a press.',
+  },
+  olivePress: {
+    kind: 'olivePress',
+    name: 'Olive Press',
+    size: 2,
+    cost: 45,
+    colour: 0xdccfae,
+    roofColour: 0x8a6b3a,
+    height: 17,
+    workers: 12,
+    maxWalkers: 0,
+    appeal: { initial: -4, bandSize: 1, step: 1, range: 3 },
+    requiresMeadow: false,
+    needsRoad: true,
+    produces: 'oil',
+    consumes: 'olives',
+    accepts: 'olives',
+    supplies: 'oil',
+    capacity: 4,
+    description: 'Presses olives into oil. Agora deliverymen collect the jars.',
   },
   granary: {
     kind: 'granary',
@@ -127,6 +194,11 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     appeal: { initial: -12, bandSize: 1, step: 2, range: 4 },
     requiresMeadow: false,
     needsRoad: true,
+    produces: null,
+    consumes: null,
+    accepts: 'food',
+    supplies: 'food',
+    capacity: 24,
     description: 'Holds the cartloads farms bring in. Agora deliverymen collect from here.',
   },
   agora: {
@@ -142,7 +214,12 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     appeal: { initial: 12, bandSize: 2, step: -2, range: 6 },
     requiresMeadow: false,
     needsRoad: true,
-    description: 'Deliverymen fetch food from a granary; peddlers sell it to houses.',
+    produces: null,
+    consumes: null,
+    accepts: null,
+    supplies: null,
+    capacity: 400,
+    description: 'Deliverymen fetch food and oil; peddlers sell them house to house.',
   },
   fountain: {
     kind: 'fountain',
@@ -157,6 +234,11 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     appeal: { initial: 4, bandSize: 2, step: -2, range: 4 },
     requiresMeadow: false,
     needsRoad: true,
+    produces: null,
+    consumes: null,
+    accepts: null,
+    supplies: null,
+    capacity: 0,
     description: 'Sends water carriers along the roads.',
   },
   statue: {
@@ -172,6 +254,11 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     appeal: { initial: 8, bandSize: 1, step: -1, range: 3 },
     requiresMeadow: false,
     needsRoad: false,
+    produces: null,
+    consumes: null,
+    accepts: null,
+    supplies: null,
+    capacity: 0,
     description: 'Beautifies the surrounding area.',
   },
   taxOffice: {
@@ -187,6 +274,11 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     appeal: { initial: -4, bandSize: 1, step: 1, range: 2 },
     requiresMeadow: false,
     needsRoad: true,
+    produces: null,
+    consumes: null,
+    accepts: null,
+    supplies: null,
+    capacity: 0,
     description: 'Sends a clerk to collect tax from the houses he passes.',
   },
 };
@@ -195,6 +287,8 @@ export const PLACEABLE: BuildingKind[] = [
   'house',
   'wheatFarm',
   'granary',
+  'growersLodge',
+  'olivePress',
   'agora',
   'fountain',
   'taxOffice',
@@ -204,6 +298,8 @@ export const PLACEABLE: BuildingKind[] = [
 export const LABOUR_PRIORITY: BuildingKind[] = [
   'wheatFarm',
   'granary',
+  'growersLodge',
+  'olivePress',
   'agora',
   'fountain',
   'taxOffice',

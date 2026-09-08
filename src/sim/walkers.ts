@@ -1,7 +1,7 @@
-import { UNITS_PER_CARTLOAD } from './buildings';
+import { BUILDINGS, UNITS_PER_CARTLOAD } from './buildings';
 import { bfsRoute, exitTile, nextRoamTile, northOf } from './pathing';
 import { TICKS_PER_MONTH } from './time';
-import type { Building, ServiceKind, Walker, WalkerKind } from './types';
+import type { Building, Good, ServiceKind, Walker, WalkerKind } from './types';
 import type { World } from './world';
 
 const CITIZEN_TILES_PER_MONTH = 54.4;
@@ -26,14 +26,25 @@ export const PEDDLER_LOAD = UNITS_PER_CARTLOAD;
 const SALE_PER_HOUSE = 4;
 
 export const WALKER_SERVICE: Partial<Record<WalkerKind, ServiceKind>> = {
-  peddler: 'food',
   waterCarrier: 'water',
   clerk: 'tax',
 };
 
+const SOLD_AS: Record<Good, ServiceKind | null> = {
+  food: 'food',
+  oil: 'oil',
+  olives: null,
+};
+
 const SUPPLY_FULL = 100;
 
-export function spawnRoamer(world: World, home: Building, kind: WalkerKind, cargo = 0): boolean {
+export function spawnRoamer(
+  world: World,
+  home: Building,
+  kind: WalkerKind,
+  cargo = 0,
+  good: Good = 'food',
+): boolean {
   const start = exitTile(world.grid, home);
   if (start === -1) return false;
 
@@ -50,16 +61,23 @@ export function spawnRoamer(world: World, home: Building, kind: WalkerKind, carg
     routeIndex: 0,
     stepsLeft: ROAM_RANGE[kind],
     cargo,
+    good,
   });
   return true;
 }
 
-export function spawnDeliveryman(world: World, agora: Building, sources: Set<number>): boolean {
-  return spawnCarrier(world, 'deliveryman', agora, sources, 0);
+export function spawnDeliveryman(world: World, agora: Building, sources: Set<number>, good: Good): boolean {
+  return spawnCarrier(world, 'deliveryman', agora, sources, 0, good);
 }
 
-export function spawnCartPusher(world: World, farm: Building, destinations: Set<number>, cargo: number): boolean {
-  return spawnCarrier(world, 'cartPusher', farm, destinations, cargo);
+export function spawnCartPusher(
+  world: World,
+  producer: Building,
+  destinations: Set<number>,
+  cargo: number,
+  good: Good,
+): boolean {
+  return spawnCarrier(world, 'cartPusher', producer, destinations, cargo, good);
 }
 
 function spawnCarrier(
@@ -68,6 +86,7 @@ function spawnCarrier(
   home: Building,
   destinations: Set<number>,
   cargo: number,
+  good: Good,
 ): boolean {
   const start = exitTile(world.grid, home);
   if (start === -1) return false;
@@ -88,6 +107,7 @@ function spawnCarrier(
     routeIndex: 0,
     stepsLeft: route.length * 2,
     cargo,
+    good,
   });
   return true;
 }
@@ -118,7 +138,7 @@ function advance(world: World, walker: Walker): void {
 }
 
 function onTileEntered(world: World, walker: Walker): void {
-  const service = WALKER_SERVICE[walker.kind];
+  const service = walker.kind === 'peddler' ? SOLD_AS[walker.good] : WALKER_SERVICE[walker.kind];
   if (service) {
     serve(world, walker, service);
     return;
@@ -154,9 +174,9 @@ function serveAdjacentHouses(world: World, tile: number, service: ServiceKind): 
 
 function collectCargo(world: World, walker: Walker): void {
   for (const neighbour of world.grid.neighbours(walker.from)) {
-    const granary = world.buildingAt(neighbour);
-    if (granary?.kind !== 'granary' || granary.stock <= 0) continue;
-    granary.stock -= 1;
+    const source = world.buildingAt(neighbour);
+    if (!source || BUILDINGS[source.kind].supplies !== walker.good || source.stock[walker.good] <= 0) continue;
+    source.stock[walker.good] -= 1;
     walker.cargo = UNITS_PER_CARTLOAD;
     break;
   }
@@ -166,15 +186,16 @@ function collectCargo(world: World, walker: Walker): void {
 function stockHome(world: World, walker: Walker): void {
   const home = world.buildings.get(walker.homeId);
   if (!home) return;
-  home.stock = Math.min(world.agoraCapacity, home.stock + walker.cargo);
+  const capacity = BUILDINGS[home.kind].capacity;
+  home.stock[walker.good] = Math.min(capacity, home.stock[walker.good] + walker.cargo);
   walker.cargo = 0;
 }
 
 function deliverCargo(world: World, walker: Walker): void {
   for (const neighbour of world.grid.neighbours(walker.from)) {
-    const building = world.buildingAt(neighbour);
-    if (building?.kind !== 'granary') continue;
-    building.stock = Math.min(world.granaryCapacity, building.stock + walker.cargo);
+    const store = world.buildingAt(neighbour);
+    if (!store || BUILDINGS[store.kind].accepts !== walker.good) continue;
+    store.stock[walker.good] = Math.min(BUILDINGS[store.kind].capacity, store.stock[walker.good] + walker.cargo);
     walker.cargo = 0;
     break;
   }

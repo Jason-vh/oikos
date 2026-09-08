@@ -1,11 +1,19 @@
-export type ServiceKind = 'food' | 'water' | 'tax';
+export type ServiceKind = 'food' | 'water' | 'oil' | 'tax';
 
-export const SERVICE_KINDS: ServiceKind[] = ['food', 'water', 'tax'];
+export const SERVICE_KINDS: ServiceKind[] = ['food', 'water', 'oil', 'tax'];
+
+export type Good = 'food' | 'olives' | 'oil';
+
+export const GOODS: Good[] = ['food', 'olives', 'oil'];
+
+export type GoodStock = Record<Good, number>;
 
 export type BuildingKind =
   | 'house'
   | 'wheatFarm'
   | 'granary'
+  | 'growersLodge'
+  | 'olivePress'
   | 'agora'
   | 'fountain'
   | 'statue'
@@ -23,7 +31,7 @@ export interface Building {
   population: number;
   staff: number;
   supply: ServiceSupply;
-  stock: number;
+  stock: GoodStock;
   productionProgress: number;
   spawnTimer: number;
   walkersOut: number;
@@ -47,9 +55,12 @@ export interface Walker {
   routeIndex: number;
   stepsLeft: number;
   cargo: number;
+  good: Good;
 }
 
-export const emptySupply = (): ServiceSupply => ({ food: 0, water: 0, tax: 0 });
+export const emptySupply = (): ServiceSupply => ({ food: 0, water: 0, oil: 0, tax: 0 });
+
+export const emptyStock = (): GoodStock => ({ food: 0, olives: 0, oil: 0 });
 
 export function createBuilding(id: number, kind: BuildingKind, x: number, y: number, size: number): Building {
   return {
@@ -62,7 +73,7 @@ export function createBuilding(id: number, kind: BuildingKind, x: number, y: num
     population: kind === 'house' ? 4 : 0,
     staff: 0,
     supply: emptySupply(),
-    stock: 0,
+    stock: emptyStock(),
     productionProgress: 0,
     spawnTimer: 0,
     walkersOut: 0,
