@@ -119,6 +119,10 @@ export class TileAtlas {
     return this.lookup(`water:${frame % WATER_FRAMES}`);
   }
 
+  shore(direction: BlendDirection): Texture {
+    return this.lookup(`shore:${direction}`);
+  }
+
   cliff(face: 'left' | 'right'): Texture {
     return this.lookup(`cliff:${face}`);
   }
@@ -161,6 +165,10 @@ function defineCells(): Cell[] {
 
   for (let frame = 0; frame < WATER_FRAMES; frame++) {
     tile(`water:${frame}`, (ctx, x, y, w, h) => drawWater(ctx, x, y, w, h, frame));
+  }
+
+  for (const direction of DIRECTIONS) {
+    tile(`shore:${direction}`, (ctx, x, y, w, h) => drawShore(ctx, x, y, w, h, direction));
   }
 
   tile('marker', (ctx, x, y, w, h) => drawMarker(ctx, x, y, w, h));
@@ -507,6 +515,61 @@ function drawWater(
   ctx.restore();
 }
 
+const EDGE_NORMALS: Record<BlendDirection, [number, number]> = {
+  east: [HALF_W / 2, HALF_H / 2],
+  south: [-HALF_W / 2, HALF_H / 2],
+  west: [-HALF_W / 2, -HALF_H / 2],
+  north: [HALF_W / 2, -HALF_H / 2],
+};
+
+function drawShore(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  direction: BlendDirection,
+): void {
+  const cx = x + width / 2;
+  const cy = y + height / 2;
+  const [ex, ey] = EDGE_NORMALS[direction];
+  const random = createRandom(direction.length * 17 + direction.charCodeAt(0));
+  const edgeMid = { x: cx + ex, y: cy + ey };
+  const normalLength = Math.hypot(ex, ey);
+  const inward = { x: -ex / normalLength, y: -ey / normalLength };
+  const alongLength = Math.hypot(ey * 2, ex / 2);
+  const along = { x: (-ey * 2) / alongLength, y: ex / 2 / alongLength };
+  const halfEdge = Math.hypot(HALF_W, HALF_H) / 2;
+
+  ctx.save();
+  diamondPath(ctx, cx, cy, HALF_W, HALF_H);
+  ctx.clip();
+
+  const shallows = ctx.createLinearGradient(edgeMid.x, edgeMid.y, cx + ex * 0.35, cy + ey * 0.35);
+  shallows.addColorStop(0, 'rgba(160, 222, 214, 0.7)');
+  shallows.addColorStop(0.45, 'rgba(120, 198, 196, 0.3)');
+  shallows.addColorStop(1, 'rgba(90, 170, 175, 0)');
+  ctx.fillStyle = shallows;
+  ctx.fillRect(x, y, width, height);
+
+  ctx.lineWidth = 1.4;
+  for (let line = 0; line < 2; line++) {
+    const inset = 3 + line * 4.5;
+    ctx.strokeStyle = `rgba(238, 251, 248, ${line === 0 ? 0.6 : 0.3})`;
+    ctx.beginPath();
+    for (let step = -halfEdge; step <= halfEdge; step += 3) {
+      const wobble = Math.sin(step * 0.3 + line * 1.9) * 1.3 + (random() - 0.5) * 0.8;
+      const px = edgeMid.x + along.x * step + inward.x * (inset + wobble);
+      const py = edgeMid.y + along.y * step + inward.y * (inset + wobble);
+      if (step === -halfEdge) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
 function maskEdge(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -517,14 +580,7 @@ function maskEdge(
 ): void {
   const cx = x + width / 2;
   const cy = y + height / 2;
-  const edges: Record<BlendDirection, [number, number]> = {
-    east: [HALF_W / 2, HALF_H / 2],
-    south: [-HALF_W / 2, HALF_H / 2],
-    west: [-HALF_W / 2, -HALF_H / 2],
-    north: [HALF_W / 2, -HALF_H / 2],
-  };
-
-  const [ex, ey] = edges[direction];
+  const [ex, ey] = EDGE_NORMALS[direction];
   const gradient = ctx.createLinearGradient(cx + ex * 1.6, cy + ey * 1.6, cx - ex * 1.4, cy - ey * 1.4);
   gradient.addColorStop(0, 'rgba(0,0,0,1)');
   gradient.addColorStop(0.45, 'rgba(0,0,0,0.6)');

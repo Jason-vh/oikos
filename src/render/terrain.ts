@@ -83,6 +83,7 @@ export class TerrainLayer {
 
     if (terrain === TERRAIN_WATER) {
       this.waterSprites.push({ sprite: base, offset: variantOf(x, y, WATER_FRAMES) });
+      this.addShores(x, y, screen, depth, sprites);
     } else if (grid.road[index] === 0) {
       this.addBlends(x, y, height, terrain, screen, depth, tint, sprites);
     }
@@ -129,6 +130,23 @@ export class TerrainLayer {
       blend.zIndex = depth + 1;
       blend.tint = tint;
       sprites.push(blend);
+    }
+  }
+
+  private addShores(x: number, y: number, screen: { x: number; y: number }, depth: number, sprites: Sprite[]): void {
+    const { grid } = this.world;
+
+    for (const edge of EDGES) {
+      const nx = x + edge.dx;
+      const ny = y + edge.dy;
+      if (!grid.contains(nx, ny)) continue;
+      if (grid.terrain[grid.index(nx, ny)] === TERRAIN_WATER) continue;
+
+      const shore = new Sprite(this.atlas.shore(edge.direction));
+      shore.anchor.set(0.5);
+      shore.position.set(screen.x, screen.y);
+      shore.zIndex = depth + 1;
+      sprites.push(shore);
     }
   }
 
