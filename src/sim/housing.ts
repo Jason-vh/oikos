@@ -1,9 +1,14 @@
 import { HOUSE_TIERS } from './buildings';
 import type { HouseTier } from './buildings';
-import type { Building } from './types';
+import { SERVICE_KINDS } from './types';
+import type { Building, ServiceKind } from './types';
 import type { World } from './world';
 
-const SUPPLY_DECAY_PER_TICK = 0.12;
+const SUPPLY_DECAY_PER_TICK: Record<ServiceKind, number> = {
+  food: 0.12,
+  water: 0.12,
+  tax: 0.05,
+};
 const EVOLUTION_INTERVAL = 25;
 
 export function updateHouses(world: World): void {
@@ -12,8 +17,9 @@ export function updateHouses(world: World): void {
   for (const building of world.buildings.values()) {
     if (building.kind !== 'house') continue;
 
-    building.supply.food = Math.max(0, building.supply.food - SUPPLY_DECAY_PER_TICK);
-    building.supply.water = Math.max(0, building.supply.water - SUPPLY_DECAY_PER_TICK);
+    for (const service of SERVICE_KINDS) {
+      building.supply[service] = Math.max(0, building.supply[service] - SUPPLY_DECAY_PER_TICK[service]);
+    }
 
     if (evaluating) evaluate(world, building);
   }

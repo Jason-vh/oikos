@@ -9,7 +9,7 @@ import { TextureCache } from './render/textures';
 import { BUILDINGS, HOUSE_TIERS, ROAD_COST } from './sim/buildings';
 import { MAX_HEIGHT, TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_SAND, TERRAIN_WATER } from './sim/grid';
 import type { View } from './sim/save';
-import type { Building, BuildingKind } from './sim/types';
+import type { Building, BuildingKind, ServiceSupply } from './sim/types';
 import { TICKS_PER_SECOND } from './sim/time';
 import { World } from './sim/world';
 
@@ -286,12 +286,10 @@ function describeStaff(building: Building): string {
   return ` · ${building.staff}/${needed} workers`;
 }
 
-function describeBuildingState(
-  kind: BuildingKind,
-  stock: number,
-  supply: { food: number; water: number },
-): string {
+function describeBuildingState(kind: BuildingKind, stock: number, supply: ServiceSupply): string {
   if (kind === 'granary' || kind === 'wheatFarm') return ` · food ${stock}`;
-  if (kind === 'house') return ` · water ${Math.round(supply.water)} · food ${Math.round(supply.food)}`;
-  return '';
+  if (kind !== 'house') return '';
+
+  const taxed = supply.tax > 0 ? 'taxed' : 'untaxed';
+  return ` · water ${Math.round(supply.water)} · food ${Math.round(supply.food)} · ${taxed}`;
 }

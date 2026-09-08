@@ -12,6 +12,7 @@ import {
 } from './labour';
 import { generateMap } from './mapgen';
 import { hasRoadAccess, roadAccessTiles } from './pathing';
+import { DEFAULT_TAX_RATE, collectTax, type TaxReport } from './taxation';
 import { TICKS_PER_MONTH } from './time';
 import { createBuilding } from './types';
 import type { Building, BuildingKind, Walker } from './types';
@@ -28,7 +29,7 @@ const FARM_CAPACITY = 4;
 const GRANARY_CAPACITY = 24;
 const GRANARY_SPAWN_INTERVAL = 80;
 const FOUNTAIN_SPAWN_INTERVAL = 70;
-const TAX_PER_CITIZEN = 0.35;
+const TAX_OFFICE_SPAWN_INTERVAL = 70;
 
 export interface PlacementCheck {
   ok: boolean;
@@ -44,7 +45,9 @@ export class World {
 
   treasury = 2000;
   wageLevel = DEFAULT_WAGE_LEVEL;
+  taxRate = DEFAULT_TAX_RATE;
   labour: LabourReport = { workforce: 0, employed: 0, required: 0 };
+  taxes: TaxReport = { collected: 0, taxedPeople: 0, untaxedPeople: 0 };
   tick = 0;
   month = 0;
   year = -500;
@@ -229,7 +232,8 @@ export class World {
       this.year += 1;
     }
     this.hireWorkers();
-    this.treasury += this.population * TAX_PER_CITIZEN;
+    this.taxes = collectTax(this.buildings.values(), this.taxRate);
+    this.treasury += this.taxes.collected;
     this.treasury -= monthlyWages(this.labour.employed, this.wageLevel);
 
     if (this.treasury < 0) this.log('The treasury is in debt, Archon.');
@@ -247,6 +251,9 @@ export class World {
           break;
         case 'fountain':
           this.updateFountain(building);
+          break;
+        case 'taxOffice':
+          this.updateTaxOffice(building);
           break;
         default:
           break;
@@ -296,6 +303,14 @@ export class World {
     if (fountain.walkerOut || !hasRoadAccess(this.grid, fountain)) return;
 
     if (spawnRoamer(this, fountain, 'waterCarrier')) fountain.spawnTimer = 0;
+  }
+
+  private updateTaxOffice(office: Building): void {
+    office.spawnTimer += staffing(office);
+    if (office.spawnTimer < TAX_OFFICE_SPAWN_INTERVAL) return;
+    if (office.walkerOut || !hasRoadAccess(this.grid, office)) return;
+
+    if (spawnRoamer(this, office, 'clerk')) office.spawnTimer = 0;
   }
 
   consumeChangedTiles(): number[] {

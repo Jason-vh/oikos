@@ -1,6 +1,7 @@
 import type { Game, Tool } from '../game';
 import { BUILDINGS, PLACEABLE, ROADBLOCK_COST, ROAD_COST } from '../sim/buildings';
 import { WAGE_LEVELS, type LabourReport } from '../sim/labour';
+import { TAX_RATES } from '../sim/taxation';
 import { abandonCity } from '../sim/save';
 
 interface ToolButton {
@@ -26,6 +27,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
         <span class="cartouche" data-field="population"></span>
         <span class="cartouche" data-field="labour"></span>
         <button class="cartouche" data-wages data-field="wages"></button>
+        <button class="cartouche" data-taxes data-field="taxes"></button>
         <span class="spacer"></span>
         <span class="speeds">
           ${[0, 1, 2, 4].map((speed) => `<button class="medallion" data-speed="${speed}">${speedLabel(speed)}</button>`).join('')}
@@ -62,6 +64,9 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
     game.world.wageLevel = (game.world.wageLevel + 1) % WAGE_LEVELS.length;
     game.world.hireWorkers();
   });
+  hud.querySelector('[data-taxes]')?.addEventListener('click', () => {
+    game.world.taxRate = (game.world.taxRate + 1) % TAX_RATES.length;
+  });
   hud.querySelector('[data-new-city]')?.addEventListener('click', () => {
     if (!confirm('Abandon this city and found a new one?')) return;
     abandonCity();
@@ -92,6 +97,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       field('population').textContent = `${game.world.population} citizens`;
       field('labour').textContent = labourLabel(game.world.labour);
       field('wages').textContent = `Wages: ${WAGE_LEVELS[game.world.wageLevel].name}`;
+      field('taxes').textContent = taxLabel(game.world);
       field('hover').textContent = game.describeHover();
       field('messages').textContent = game.world.messages[0] ?? '';
 
@@ -138,6 +144,12 @@ function groupFor(kind: string): string {
   if (kind === 'house') return 'Housing';
   if (kind === 'wheatFarm' || kind === 'granary') return 'Food';
   return 'Services';
+}
+
+function taxLabel(world: Game['world']): string {
+  const { taxedPeople, untaxedPeople, collected } = world.taxes;
+  const covered = taxedPeople + untaxedPeople === 0 ? 0 : Math.round((100 * taxedPeople) / (taxedPeople + untaxedPeople));
+  return `Tax: ${TAX_RATES[world.taxRate].name} · ${covered}% · ${Math.round(collected)} dr`;
 }
 
 function renderPanel(buttons: ToolButton[]): string {

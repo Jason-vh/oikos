@@ -50,6 +50,7 @@ PATINA = (0.33, 0.52, 0.44)
 CYPRESS = (0.13, 0.30, 0.18)
 WATER_LIGHT = (0.40, 0.74, 0.77)
 SOIL = (0.36, 0.27, 0.17)
+SLATE = (0.30, 0.36, 0.40)
 
 
 def parse_args():
@@ -485,6 +486,42 @@ def build_granary():
     return {"kind": "granary", "variant": 0, "footprint": 2, "height": roof_z + roof_h + 0.1}
 
 
+def build_tax_office():
+    """Civic hall on a stone plinth: portico, slate roof, strongbox and record jars."""
+    stone = plaster_material("stone", STONE, roughness=0.8, variation=0.06, scale=10.0)
+    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.85, variation=0.05, scale=6.0)
+    slate = roof_material("slate", SLATE, rows_per_unit=16.0)
+    marble = material("marble", MARBLE, roughness=0.35)
+    wood = material("wood", WOOD, roughness=0.8)
+    bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
+    clay = material("clay", CLAY, roughness=0.8)
+
+    half = 0.58
+    wall_h = 0.62
+    add_box("plinth", (0, 0, 0.05), (1.7, 1.7, 0.1), stone)
+    add_box("walls", (0, 0, 0.1 + wall_h / 2), (half * 2, half * 2, wall_h), whitewash)
+    add_box("cornice", (0, 0, 0.1 + wall_h + 0.02), (half * 2 + 0.07, half * 2 + 0.07, 0.04), marble)
+    add_door(half, 0.36, wood)
+    add_window_row(half, 0.34, (0.13, 0.16))
+
+    roof_z = 0.1 + wall_h + 0.04
+    roof_h = 0.26
+    add_eaves("eaves", half + 0.09, roof_z, marble)
+    add_hip_roof("roof", (0, 0, roof_z + roof_h / 2), half + 0.09, roof_h, slate, ridge_half=0.16)
+
+    porch_x = half + 0.13
+    for y in (-0.3, 0.0, 0.3):
+        add_cylinder("column", (porch_x, y, 0.1 + 0.23), 0.045, 0.46, marble, vertices=14)
+        add_box("capital", (porch_x, y, 0.1 + 0.47), (0.11, 0.11, 0.04), marble)
+    add_box("portico", (porch_x, 0, 0.1 + 0.52), (0.3, half * 2 + 0.12, 0.06), marble)
+
+    add_box("strongbox", (0.5, -half - 0.22, 0.22), (0.28, 0.22, 0.24), wood)
+    add_box("strongbox_bands", (0.5, -half - 0.22, 0.28), (0.3, 0.24, 0.05), bronze)
+    add_amphora("record_jar", (-half - 0.2, 0.44, 0.0), 0.3, clay)
+
+    return {"kind": "taxOffice", "variant": 0, "footprint": 2, "height": roof_z + roof_h + 0.1}
+
+
 def build_fountain():
     """Marble basin with a raised centre and a small bronze statue; light blue water."""
     marble = material("marble", MARBLE, roughness=0.3)
@@ -561,6 +598,7 @@ HOUSES = [build_house_0, build_house_1, build_house_2, build_house_3]
 
 MODELS = {
     "granary": build_granary,
+    "tax-office": build_tax_office,
     "wheat-farm": build_wheat_farm,
     "fountain": build_fountain,
     "statue": build_statue,

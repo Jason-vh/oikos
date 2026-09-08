@@ -21,6 +21,7 @@ const NO_APPEAL_GATE = Number.NEGATIVE_INFINITY;
 export interface HouseTier {
   name: string;
   capacity: number;
+  taxMultiplier: number;
   evolveAppeal: number;
   devolveAppeal: number;
   needs: ServiceKind[];
@@ -34,6 +35,7 @@ export const HOUSE_TIERS: HouseTier[] = [
   {
     name: 'Shack',
     capacity: 16,
+    taxMultiplier: 1,
     evolveAppeal: NO_APPEAL_GATE,
     devolveAppeal: NO_APPEAL_GATE,
     needs: [],
@@ -45,6 +47,7 @@ export const HOUSE_TIERS: HouseTier[] = [
   {
     name: 'Hovel',
     capacity: 24,
+    taxMultiplier: 1,
     evolveAppeal: NO_APPEAL_GATE,
     devolveAppeal: NO_APPEAL_GATE,
     needs: ['water'],
@@ -56,6 +59,7 @@ export const HOUSE_TIERS: HouseTier[] = [
   {
     name: 'Tenement',
     capacity: 32,
+    taxMultiplier: 2,
     evolveAppeal: -12,
     devolveAppeal: -20,
     needs: ['water', 'food'],
@@ -67,6 +71,7 @@ export const HOUSE_TIERS: HouseTier[] = [
   {
     name: 'Homestead',
     capacity: 40,
+    taxMultiplier: 2,
     evolveAppeal: 0,
     devolveAppeal: -8,
     needs: ['water', 'food'],
@@ -148,11 +153,32 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     needsRoad: false,
     description: 'Beautifies the surrounding area.',
   },
+  taxOffice: {
+    kind: 'taxOffice',
+    name: 'Tax Office',
+    size: 2,
+    cost: 25,
+    colour: 0xcfc0a2,
+    roofColour: 0x4f6f7a,
+    height: 18,
+    workers: 8,
+    appeal: { initial: -4, bandSize: 1, step: 1, range: 2 },
+    requiresMeadow: false,
+    needsRoad: true,
+    description: 'Sends a clerk to collect tax from the houses he passes.',
+  },
 };
 
-export const PLACEABLE: BuildingKind[] = ['house', 'wheatFarm', 'granary', 'fountain', 'statue'];
+export const PLACEABLE: BuildingKind[] = ['house', 'wheatFarm', 'granary', 'fountain', 'taxOffice', 'statue'];
 
-export const LABOUR_PRIORITY: BuildingKind[] = ['wheatFarm', 'granary', 'fountain', 'statue', 'house'];
+export const LABOUR_PRIORITY: BuildingKind[] = [
+  'wheatFarm',
+  'granary',
+  'fountain',
+  'taxOffice',
+  'statue',
+  'house',
+];
 
 export const ROAD_COST = 4;
 

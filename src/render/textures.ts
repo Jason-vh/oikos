@@ -43,6 +43,7 @@ const WALKER_PALETTES: Record<WalkerKind, { tunic: number; trim: number }> = {
   cartPusher: { tunic: 0xe3d3a8, trim: 0x9c6b35 },
   foodVendor: { tunic: 0xe08a45, trim: 0x7c3f1d },
   waterCarrier: { tunic: 0x6fb6de, trim: 0x2f6a8c },
+  clerk: { tunic: 0xd8d2c2, trim: 0x4f6f7a },
 };
 
 const CITIZEN_LOOKS = [
@@ -61,6 +62,7 @@ const FOOTPRINT_INSET: Record<BuildingKind, number> = {
   wheatFarm: 1,
   fountain: 1,
   statue: 1,
+  taxOffice: 0.88,
 };
 
 export class TextureCache {

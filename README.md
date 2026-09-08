@@ -46,7 +46,10 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
 - **Labour**: a share of the population works — 37% at no wages up to 52% at very
   high, as on Mortal difficulty. Buildings are staffed in priority order, and an
   understaffed one runs at the fraction it is staffed to; an empty one stands idle.
-- **Economy**: build costs, a monthly head tax and a monthly wage bill.
+- **Taxation**: a tax office sends a clerk roaming 35 tiles; only the houses he has
+  passed pay. The bill is Zeus's `TRM × people × rate`, where the multiplier is 1 for
+  a shack or hovel and 2 above, and the rate runs from none to outrageous.
+- **Economy**: build costs, monthly taxes and a monthly wage bill.
 
 ## Architecture
 
@@ -60,6 +63,7 @@ src/sim/      headless simulation — no Pixi imports
   housing.ts      evolution rules
   appeal.ts       band model field
   labour.ts       wage levels, workforce, staffing
+  taxation.ts     tax rates, tier multipliers, collection
   mapgen.ts       seeded terraced terrain
 src/render/
   iso.ts          tile metric (120x60, 22px per elevation step) and height-aware picking
@@ -142,7 +146,7 @@ analytically from that camera rather than eyeballed. A Cycles shadow-catcher pla
 becomes the shadow sprite, framed wide enough for the shadow the sun actually casts.
 
 Models live in `pipeline/iso_render.py`: the four housing tiers, wheat farm, granary,
-fountain and statue, each rendered as a body and a shadow. Sprites are keyed by
+tax office, fountain and statue, each rendered as a body and a shadow. Sprites are keyed by
 `kind:variant:layer` — housing uses the tier as its variant.
 
 To add a building: write a builder, register it in `MODELS`, re-run the two commands.
@@ -152,7 +156,7 @@ The game picks it up with no client changes.
 
 The full inventory lives in [docs/roadmap.md](docs/roadmap.md). Next up:
 
-1. **Taxation** — palace, tax office, clerks, and Zeus's TRM per housing tier.
+1. **Palace** — required before taxes or any military, as in the original.
 2. **Second production chain** — olives → olive press → agora stalls.
 3. **Agora** — vendors spawning from a market rather than the granary itself.
 4. **Culture and gods** — sanctuaries, gods that visit and bless or curse.

@@ -3,27 +3,26 @@ import { TICKS_PER_MONTH } from './time';
 import type { Building, ServiceKind, Walker, WalkerKind } from './types';
 import type { World } from './world';
 
-const TILES_PER_MONTH: Record<WalkerKind, number> = {
-  cartPusher: 54.4,
-  foodVendor: 54.4,
-  waterCarrier: 54.4,
-};
+const CITIZEN_TILES_PER_MONTH = 54.4;
 
 export const ROAM_RANGE: Record<WalkerKind, number> = {
   cartPusher: 0,
   foodVendor: 44,
   waterCarrier: 27,
+  clerk: 35,
 };
 
 export const WALKER_SPEED: Record<WalkerKind, number> = {
-  cartPusher: TILES_PER_MONTH.cartPusher / TICKS_PER_MONTH,
-  foodVendor: TILES_PER_MONTH.foodVendor / TICKS_PER_MONTH,
-  waterCarrier: TILES_PER_MONTH.waterCarrier / TICKS_PER_MONTH,
+  cartPusher: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
+  foodVendor: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
+  waterCarrier: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
+  clerk: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
 };
 
 export const WALKER_SERVICE: Partial<Record<WalkerKind, ServiceKind>> = {
   foodVendor: 'food',
   waterCarrier: 'water',
+  clerk: 'tax',
 };
 
 const SUPPLY_FULL = 100;

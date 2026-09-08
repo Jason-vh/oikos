@@ -2,7 +2,7 @@ import type { Building } from './types';
 import { World } from './world';
 
 const STORAGE_KEY = 'zeus.city';
-const SAVE_VERSION = 3;
+const SAVE_VERSION = 4;
 
 export interface View {
   x: number;
@@ -16,6 +16,7 @@ interface SavedCity {
   size: number;
   treasury: number;
   wageLevel: number;
+  taxRate: number;
   tick: number;
   month: number;
   year: number;
@@ -39,6 +40,7 @@ export function serialise(world: World, view: View): SavedCity {
     size: world.grid.size,
     treasury: world.treasury,
     wageLevel: world.wageLevel,
+    taxRate: world.taxRate,
     tick: world.tick,
     month: world.month,
     year: world.year,
@@ -53,6 +55,7 @@ export function deserialise(saved: SavedCity): World {
   const world = new World(saved.size, saved.seed);
   world.treasury = saved.treasury;
   world.wageLevel = saved.wageLevel;
+  world.taxRate = saved.taxRate;
   world.tick = saved.tick;
   world.month = saved.month;
   world.year = saved.year;

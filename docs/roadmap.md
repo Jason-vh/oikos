@@ -34,7 +34,7 @@ Status against this repo: ✅ shipped · 🟡 partial · ⬜ not started.
 | Roaming and destination walkers | ✅ | Ranges, exit points, out-and-back patrols and roadblocks |
 | Housing evolution | 🟡 | 4 tiers today; the game has 7 common + 4 elite |
 | Appeal ("desirability") field | ✅ | Band model in `src/sim/appeal.ts`; housing is a source, gates apply from the third tier up |
-| Build cost + treasury | 🟡 | Needs wages, taxes, trade, debt |
+| Build cost + treasury | 🟡 | Wages and taxes are in; trade and debt are not |
 | Save/load | 🟡 | `src/sim/save.ts` |
 | Time: 20 Hz tick, month/year clock | ✅ | Game year = 12 months; production and consumption are per-month/per-year |
 
@@ -253,7 +253,10 @@ economy: 100 people in estates on Mortal yield 1,944 dr/yr against 1,728 dr from
 800 townhouse dwellers. Tax rate also shifts sentiment (+7 to −7 depending on
 difficulty).
 
-⬜ All except a placeholder head tax.
+🟡 Tax office, clerk and the `TRM × people × rate` table are in `src/sim/taxation.ts`,
+with the seven rates and multiplier 1 below homestead, 2 above. The palace
+prerequisite, elite multipliers, fountain/infirmary/watchpost/maintenance risks and
+the whole risk model are not.
 
 ---
 
