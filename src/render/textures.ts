@@ -832,8 +832,8 @@ function drawBoulder(variant: number): { surface: DrawSurface; baseY: number } {
 
   groundShadow(ctx, cx, baseY, domeWidth, 4);
 
-  const highlight = shade(0xece4cc, light);
-  const base = shade(0xc7bfa6, light);
+  const highlight = shade(0xd9d0b6, light);
+  const base = shade(0xbab29a, light);
   const shadowSide = shade(0x8f8770, light * 0.75);
 
   const gradient = ctx.createLinearGradient(cx - domeWidth, domeCy - domeHeight, cx + domeWidth, domeCy + domeHeight);
