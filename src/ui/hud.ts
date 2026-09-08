@@ -6,6 +6,7 @@ interface ToolButton {
   hint: string;
   shortcut: string;
   tool: Tool;
+  group: string;
 }
 
 export function createHud(root: HTMLElement, game: Game): { update: () => void } {
@@ -15,22 +16,26 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
     'beforeend',
     `
     <div class="hud">
-      <header class="status">
+      <header class="topbar">
         <span class="brand">Zeus</span>
-        <span data-field="date"></span>
-        <span data-field="daylight"></span>
-        <span data-field="treasury"></span>
-        <span data-field="population"></span>
+        <span class="cartouche" data-field="date"></span>
+        <span class="cartouche" data-field="daylight"></span>
+        <span class="cartouche treasury" data-field="treasury"></span>
+        <span class="cartouche" data-field="population"></span>
         <span class="spacer"></span>
         <span class="speeds">
-          ${[0, 1, 2, 4].map((speed) => `<button data-speed="${speed}">${speed === 0 ? '❚❚' : `${speed}×`}</button>`).join('')}
+          ${[0, 1, 2, 4]
+            .map((speed) => `<button class="medallion" data-speed="${speed}">${speed === 0 ? '❚❚' : `${speed}×`}</button>`)
+            .join('')}
         </span>
-        <button data-overlay>Desirability (O)</button>
+        <button class="overlay-toggle" data-overlay>Desirability <kbd>O</kbd></button>
       </header>
-      <aside class="tools">
-        ${buttons.map((button, index) => renderButton(button, index)).join('')}
+      <aside class="panel">
+        <div class="panel-inner">
+          ${renderGroups(buttons)}
+        </div>
       </aside>
-      <footer class="readout">
+      <footer class="scroll">
         <span data-field="hover"></span>
         <span data-field="messages"></span>
       </footer>
@@ -96,18 +101,50 @@ function toolButtons(): ToolButton[] {
       hint: `${def.cost} dr — ${def.description}`,
       shortcut: String(index + 1),
       tool: { kind: 'build', building: kind } as Tool,
+      group: groupFor(kind),
     };
   });
 
   return [
-    { label: 'Road', hint: `${ROAD_COST} dr per tile`, shortcut: 'r', tool: { kind: 'road' } },
+    { label: 'Road', hint: `${ROAD_COST} dr per tile`, shortcut: 'r', tool: { kind: 'road' }, group: 'Road' },
     ...structures,
-    { label: 'Demolish', hint: 'Remove roads and buildings', shortcut: 'x', tool: { kind: 'demolish' } },
+    { label: 'Demolish', hint: 'Remove roads and buildings', shortcut: 'x', tool: { kind: 'demolish' }, group: 'Demolish' },
   ];
 }
 
+function groupFor(kind: string): string {
+  if (kind === 'house') return 'Housing';
+  if (kind === 'wheatFarm' || kind === 'granary') return 'Food';
+  return 'Services';
+}
+
+function renderGroups(buttons: ToolButton[]): string {
+  const groups: { name: string; items: { button: ToolButton; index: number }[] }[] = [];
+  buttons.forEach((button, index) => {
+    let group = groups.find((entry) => entry.name === button.group);
+    if (!group) {
+      group = { name: button.group, items: [] };
+      groups.push(group);
+    }
+    group.items.push({ button, index });
+  });
+
+  return groups
+    .map(
+      (group) => `
+      <section class="tool-group">
+        <h3>${group.name}</h3>
+        <div class="tool-group-buttons">
+          ${group.items.map(({ button, index }) => renderButton(button, index)).join('')}
+        </div>
+      </section>
+    `,
+    )
+    .join('');
+}
+
 function renderButton(button: ToolButton, index: number): string {
-  return `<button data-tool="${index}" title="${button.hint}">
+  return `<button class="tool" data-tool="${index}" title="${button.hint}">
     <span>${button.label}</span>
     <kbd>${button.shortcut.toUpperCase()}</kbd>
   </button>`;
