@@ -1,6 +1,6 @@
-export type ServiceKind = 'food' | 'water' | 'oil' | 'tax';
+export type ServiceKind = 'food' | 'water' | 'oil' | 'culture' | 'tax';
 
-export const SERVICE_KINDS: ServiceKind[] = ['food', 'water', 'oil', 'tax'];
+export const SERVICE_KINDS: ServiceKind[] = ['food', 'water', 'oil', 'culture', 'tax'];
 
 export type Good = 'food' | 'olives' | 'oil';
 
@@ -15,6 +15,8 @@ export type BuildingKind =
   | 'growersLodge'
   | 'olivePress'
   | 'agora'
+  | 'college'
+  | 'podium'
   | 'fountain'
   | 'statue'
   | 'taxOffice';
@@ -37,7 +39,13 @@ export interface Building {
   walkersOut: number;
 }
 
-export type WalkerKind = 'cartPusher' | 'deliveryman' | 'peddler' | 'waterCarrier' | 'clerk';
+export type WalkerKind =
+  | 'cartPusher'
+  | 'deliveryman'
+  | 'peddler'
+  | 'waterCarrier'
+  | 'philosopher'
+  | 'clerk';
 
 export type WalkerState = 'roaming' | 'delivering' | 'returning';
 
@@ -58,7 +66,7 @@ export interface Walker {
   good: Good;
 }
 
-export const emptySupply = (): ServiceSupply => ({ food: 0, water: 0, oil: 0, tax: 0 });
+export const emptySupply = (): ServiceSupply => ({ food: 0, water: 0, oil: 0, culture: 0, tax: 0 });
 
 export const emptyStock = (): GoodStock => ({ food: 0, olives: 0, oil: 0 });
 

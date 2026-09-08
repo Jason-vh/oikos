@@ -626,6 +626,64 @@ def build_agora():
     return {"kind": "agora", "variant": 0, "footprint": 3, "height": 0.9}
 
 
+def build_college():
+    """Teaching court: colonnaded hall around a paved yard with benches and a stele."""
+    paving = plaster_material("paving", STONE, roughness=0.9, variation=0.05, scale=14.0)
+    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.85, variation=0.05, scale=6.0)
+    marble = material("marble", MARBLE, roughness=0.32)
+    terracotta = roof_material("terracotta", TERRACOTTA)
+    wood = material("wood", WOOD, roughness=0.85)
+    cypress = material("cypress", CYPRESS, roughness=0.9)
+    clay = material("clay", CLAY, roughness=0.8)
+
+    half = 1.44
+    add_box("paving", (0, 0, 0.03), (half * 2, half * 2, 0.06), paving)
+    add_box("kerb", (0, 0, 0.02), (half * 2 + 0.06, half * 2 + 0.06, 0.04), marble)
+
+    hall_half = 0.62
+    wall_h = 0.72
+    hx, hy = -0.72, -0.72
+    add_box("hall", (hx, hy, 0.06 + wall_h / 2), (hall_half * 2, hall_half * 2, wall_h), whitewash)
+    add_box("hall_cornice", (hx, hy, 0.06 + wall_h + 0.02), (hall_half * 2 + 0.07, hall_half * 2 + 0.07, 0.04), marble)
+    add_hip_roof("hall_roof", (hx, hy, 0.06 + wall_h + 0.18), hall_half + 0.09, 0.28, terracotta, ridge_half=0.18)
+    add_door(hall_half, 0.34, wood, (hx, hy))
+    add_window_row(hall_half, 0.34, (0.12, 0.16), (hx, hy))
+
+    for y in (-0.9, -0.3, 0.3, 0.9):
+        add_cylinder("column", (half - 0.24, y, 0.06 + 0.32), 0.05, 0.64, marble, vertices=14)
+        add_box("capital", (half - 0.24, y, 0.06 + 0.66), (0.13, 0.13, 0.04), marble)
+    add_box("stoa_roof", (half - 0.24, 0, 0.06 + 0.72), (0.36, half * 2 - 0.1, 0.07), marble)
+
+    add_box("bench", (0.1, -half + 0.3, 0.06 + 0.09), (0.9, 0.18, 0.18), marble)
+    add_box("stele", (-0.1, 0.86, 0.06 + 0.3), (0.16, 0.16, 0.6), marble)
+    add_pyramid("stele_cap", (-0.1, 0.86, 0.06 + 0.66), 0.14, 0.12, marble, vertices=4)
+    add_cypress_pot("cypress", (0.9, 0.9, 0.06), 0.4, clay, cypress)
+
+    return {"kind": "college", "variant": 0, "footprint": 3, "height": 1.15}
+
+
+def build_podium():
+    """Speaker's platform: stepped marble dais, a lectern, two benches facing it."""
+    marble = material("marble", MARBLE, roughness=0.32)
+    stone = plaster_material("stone", STONE, roughness=0.85, variation=0.06, scale=10.0)
+    wood = material("wood", WOOD, roughness=0.85)
+    bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
+
+    add_box("paving", (0, 0, 0.03), (1.7, 1.7, 0.06), stone)
+    for step, (size, z) in enumerate(((1.0, 0.1), (0.8, 0.18), (0.6, 0.26))):
+        add_box(f"step_{step}", (-0.28, -0.28, z), (size, size, 0.09), marble)
+
+    add_cylinder("lectern", (-0.28, -0.28, 0.44), 0.09, 0.28, marble, vertices=14)
+    add_box("lectern_top", (-0.28, -0.28, 0.6), (0.26, 0.2, 0.04), wood)
+    add_cylinder("tripod", (0.52, 0.52, 0.24), 0.05, 0.36, bronze, vertices=10)
+    add_cylinder("tripod_bowl", (0.52, 0.52, 0.44), 0.12, 0.08, bronze, vertices=16)
+
+    for y in (-0.62, 0.5):
+        add_box("bench", (0.56, y, 0.15), (0.22, 0.7, 0.14), marble)
+
+    return {"kind": "podium", "variant": 0, "footprint": 2, "height": 0.7}
+
+
 def build_tax_office():
     """Civic hall on a stone plinth: portico, slate roof, strongbox and record jars."""
     stone = plaster_material("stone", STONE, roughness=0.8, variation=0.06, scale=10.0)
@@ -741,6 +799,8 @@ MODELS = {
     "tax-office": build_tax_office,
     "agora": build_agora,
     "growers-lodge": build_growers_lodge,
+    "college": build_college,
+    "podium": build_podium,
     "olive-press": build_olive_press,
     "wheat-farm": build_wheat_farm,
     "fountain": build_fountain,

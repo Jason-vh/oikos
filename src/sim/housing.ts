@@ -8,6 +8,7 @@ const SUPPLY_DECAY_PER_TICK: Record<ServiceKind, number> = {
   food: 0.05,
   water: 0.05,
   oil: 0.05,
+  culture: 0.04,
   tax: 0.05,
 };
 const EVOLUTION_INTERVAL = 25;

@@ -1,5 +1,5 @@
 import { BUILDINGS, UNITS_PER_CARTLOAD } from './buildings';
-import { bfsRoute, exitTile, nextRoamTile, northOf } from './pathing';
+import { bfsRoute, exitTile, nextRoamTile, northOf, roadAccessTiles } from './pathing';
 import { TICKS_PER_MONTH } from './time';
 import type { Building, Good, ServiceKind, Walker, WalkerKind } from './types';
 import type { World } from './world';
@@ -11,6 +11,7 @@ export const ROAM_RANGE: Record<WalkerKind, number> = {
   deliveryman: 0,
   peddler: 44,
   waterCarrier: 27,
+  philosopher: 35,
   clerk: 35,
 };
 
@@ -19,6 +20,7 @@ export const WALKER_SPEED: Record<WalkerKind, number> = {
   deliveryman: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
   peddler: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
   waterCarrier: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
+  philosopher: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
   clerk: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
 };
 
@@ -27,6 +29,7 @@ const SALE_PER_HOUSE = 4;
 
 export const WALKER_SERVICE: Partial<Record<WalkerKind, ServiceKind>> = {
   waterCarrier: 'water',
+  philosopher: 'culture',
   clerk: 'tax',
 };
 
@@ -70,6 +73,13 @@ export function spawnDeliveryman(world: World, agora: Building, sources: Set<num
   return spawnCarrier(world, 'deliveryman', agora, sources, 0, good);
 }
 
+export function spawnPhilosopher(world: World, college: Building, podium: Building): boolean {
+  const destinations = new Set(roadAccessTiles(world.grid, podium));
+  if (destinations.size === 0) return false;
+
+  return spawnCarrier(world, 'philosopher', college, destinations, 0, 'food', podium.id);
+}
+
 export function spawnCartPusher(
   world: World,
   producer: Building,
@@ -87,6 +97,7 @@ function spawnCarrier(
   destinations: Set<number>,
   cargo: number,
   good: Good,
+  targetId = -1,
 ): boolean {
   const start = exitTile(world.grid, home);
   if (start === -1) return false;
@@ -97,7 +108,7 @@ function spawnCarrier(
   world.addWalker({
     kind,
     homeId: home.id,
-    targetId: -1,
+    targetId,
     state: 'delivering',
     from: route[0],
     to: route[0],
@@ -138,9 +149,14 @@ function advance(world: World, walker: Walker): void {
 }
 
 function onTileEntered(world: World, walker: Walker): void {
+  if (walker.kind === 'philosopher' && walker.state === 'delivering' && atRouteEnd(walker)) {
+    takeTheStage(world, walker);
+    return;
+  }
+
   const service = walker.kind === 'peddler' ? SOLD_AS[walker.good] : WALKER_SERVICE[walker.kind];
   if (service) {
-    serve(world, walker, service);
+    if (walker.state === 'roaming' || walker.state === 'returning') serve(world, walker, service);
     return;
   }
   if (!atRouteEnd(walker)) return;
@@ -200,6 +216,14 @@ function deliverCargo(world: World, walker: Walker): void {
     break;
   }
   turnBack(walker);
+}
+
+function takeTheStage(world: World, walker: Walker): void {
+  world.rehouseWalker(walker, walker.targetId);
+  walker.state = 'roaming';
+  walker.route = [];
+  walker.routeIndex = 0;
+  walker.stepsLeft = ROAM_RANGE.philosopher;
 }
 
 function turnBack(walker: Walker): void {

@@ -43,7 +43,10 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
   home. Everyone moves at a citizen's 54.4 tiles a month. Cart pushers route with BFS
   to a granary.
 - **Housing**: Shack → Hovel → Tenement → Homestead → Apartment, gated on supplied
-  services — water, then food, then olive oil — and, from Tenement up, on local appeal. Houses devolve when their tier's needs
+  services — water, then food and culture, then olive oil — and, from Tenement up, on
+  local appeal.
+- **Culture**: a college trains a philosopher and walks him to a podium; from there he
+  roams 35 tiles teaching the houses he passes. A college with no podium sends nobody. Houses devolve when their tier's needs
   lapse or their surroundings decay.
 - **Appeal**: Zeus's band model. Every building carries `INI, SZE, STP, RNG` and
   contributes `INI + STP * floor((d - 1) / SZE)` to each tile within `RNG` rings of
@@ -155,8 +158,8 @@ analytically from that camera rather than eyeballed. A Cycles shadow-catcher pla
 becomes the shadow sprite, framed wide enough for the shadow the sun actually casts.
 
 Models live in `pipeline/iso_render.py`: the five housing tiers, wheat farm, growers'
-lodge, olive press, granary, agora, tax office, fountain and statue, each rendered as
-a body and a shadow. Sprites are keyed by
+lodge, olive press, granary, agora, college, podium, tax office, fountain and statue,
+each rendered as a body and a shadow. Sprites are keyed by
 `kind:variant:layer` — housing uses the tier as its variant.
 
 To add a building: write a builder, register it in `MODELS`, re-run the two commands.
@@ -167,7 +170,7 @@ The game picks it up with no client changes.
 The full inventory lives in [docs/roadmap.md](docs/roadmap.md). Next up:
 
 1. **Palace** — required before taxes or any military, as in the original.
-2. **Culture and gods** — sanctuaries, gods that visit and bless or curse.
+2. **Gods** — sanctuaries, gods that visit and bless or curse.
 3. **Campaign scaffolding** — scenario definitions, goals, ratings.
 
 ## Art licence

@@ -155,8 +155,8 @@ Rules worth reproducing exactly, because city layout is built on them:
 - Culture walkers switch mode: destination walker to their venue, roaming after.
 
 🟡 Ranges, the exit-point rule (with the fountain's due-north entry), shortest-road
-returns and roadblocks are in. Gatehouses, off-road walkers and culture walkers
-switching mode are not.
+returns, roadblocks and culture walkers switching mode are in. Gatehouses and
+off-road walkers are not.
 
 ---
 
@@ -302,7 +302,10 @@ segments at 30→100 dr, with 4×1 crosswalks (25→75) to cross it.
 | 100–198 | 12 | 200 |
 | 200+ | 24 | 500 (but popularity drops) |
 
-⬜ All.
+🟡 The Greek philosopher chain is in: a college walks him to a podium, he roams 35
+tiles from there, and housing needs him from the third tier up. Points-per-visit,
+the other three Greek walkers, the Atlantean science track, the games and the
+hippodrome are not.
 
 ---
 

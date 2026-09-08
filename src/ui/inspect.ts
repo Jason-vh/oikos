@@ -3,7 +3,7 @@ import { BUILDINGS, HOUSE_TIERS, ROADBLOCK_COST, ROAD_COST } from '../sim/buildi
 import type { BuildingDef } from '../sim/buildings';
 import { TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_SAND, TERRAIN_WATER } from '../sim/grid';
 import { ROAM_RANGE } from '../sim/walkers';
-import type { Building, BuildingKind, Good } from '../sim/types';
+import type { Building, BuildingKind, Good, WalkerKind } from '../sim/types';
 import type { World } from '../sim/world';
 
 export interface Inspection {
@@ -19,8 +19,9 @@ const GOOD_NAMES: Record<Good, string> = {
   oil: 'Oil',
 };
 
-const WALKER_OF: Partial<Record<BuildingKind, { name: string; kind: 'peddler' | 'waterCarrier' | 'clerk' }>> = {
+const WALKER_OF: Partial<Record<BuildingKind, { name: string; kind: WalkerKind }>> = {
   agora: { name: 'Peddler', kind: 'peddler' },
+  podium: { name: 'Philosopher', kind: 'philosopher' },
   fountain: { name: 'Water carrier', kind: 'waterCarrier' },
   taxOffice: { name: 'Clerk', kind: 'clerk' },
 };
@@ -128,6 +129,7 @@ function inspectHouse(world: World, house: Building, index: number): Inspection 
     ['Water', house.supply.water > 0 ? 'supplied' : 'none'],
     ['Food', house.supply.food > 0 ? 'supplied' : 'none'],
     ['Oil', house.supply.oil > 0 ? 'supplied' : 'none'],
+    ['Culture', house.supply.culture > 0 ? 'taught' : 'none'],
     ['Tax', house.supply.tax > 0 ? `paying, ×${tier.taxMultiplier}` : 'no clerk has called'],
     ['Appeal here', `${appeal}`],
   ];

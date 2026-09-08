@@ -16,7 +16,7 @@ import { DEFAULT_TAX_RATE, collectTax, type TaxReport } from './taxation';
 import { TICKS_PER_MONTH } from './time';
 import { createBuilding } from './types';
 import type { Building, BuildingKind, Good, Walker } from './types';
-import { PEDDLER_LOAD, spawnCartPusher, spawnDeliveryman, spawnRoamer } from './walkers';
+import { PEDDLER_LOAD, spawnCartPusher, spawnDeliveryman, spawnPhilosopher, spawnRoamer } from './walkers';
 import { updateWalkers } from './walkers';
 
 const MONTH_NAMES = [
@@ -27,6 +27,7 @@ const MONTH_NAMES = [
 const TICKS_PER_LOAD = 150;
 const AGORA_SPAWN_INTERVAL = 90;
 const AGORA_GOODS: Good[] = ['food', 'oil'];
+const COLLEGE_SPAWN_INTERVAL = 90;
 const FOUNTAIN_SPAWN_INTERVAL = 70;
 const TAX_OFFICE_SPAWN_INTERVAL = 70;
 
@@ -209,6 +210,15 @@ export class World {
     return created;
   }
 
+  rehouseWalker(walker: Walker, homeId: number): void {
+    const previous = this.buildings.get(walker.homeId);
+    if (previous) previous.walkersOut -= 1;
+
+    walker.homeId = homeId;
+    const home = this.buildings.get(homeId);
+    if (home) home.walkersOut += 1;
+  }
+
   removeWalker(walker: Walker): void {
     this.walkers.delete(walker.id);
     const home = this.buildings.get(walker.homeId);
@@ -253,6 +263,9 @@ export class World {
           break;
         case 'fountain':
           this.updateFountain(building);
+          break;
+        case 'college':
+          this.updateCollege(building);
           break;
         case 'taxOffice':
           this.updateTaxOffice(building);
@@ -342,6 +355,24 @@ export class World {
     if (atWalkerLimit(fountain) || !hasRoadAccess(this.grid, fountain)) return;
 
     if (spawnRoamer(this, fountain, 'waterCarrier')) fountain.spawnTimer = 0;
+  }
+
+  private updateCollege(college: Building): void {
+    college.spawnTimer += staffing(college);
+    if (college.spawnTimer < COLLEGE_SPAWN_INTERVAL) return;
+    if (atWalkerLimit(college) || !hasRoadAccess(this.grid, college)) return;
+
+    const podium = this.freePodium();
+    if (!podium) return;
+    if (spawnPhilosopher(this, college, podium)) college.spawnTimer = 0;
+  }
+
+  private freePodium(): Building | undefined {
+    for (const building of this.buildings.values()) {
+      if (building.kind !== 'podium' || atWalkerLimit(building)) continue;
+      if (hasRoadAccess(this.grid, building)) return building;
+    }
+    return undefined;
   }
 
   private updateTaxOffice(office: Building): void {
