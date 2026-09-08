@@ -3,31 +3,35 @@ import { Game } from './game';
 import { loadBakedStructures } from './render/baked';
 import { createHud } from './ui/hud';
 
-const root = document.getElementById('app') as HTMLElement;
+async function boot(): Promise<void> {
+  const root = document.getElementById('app') as HTMLElement;
 
-const app = new Application();
-await app.init({
-  background: 0x10120f,
-  resizeTo: window,
-  antialias: true,
-  resolution: window.devicePixelRatio,
-  autoDensity: true,
-});
+  const app = new Application();
+  await app.init({
+    background: 0x10120f,
+    resizeTo: window,
+    antialias: true,
+    resolution: window.devicePixelRatio,
+    autoDensity: true,
+  });
 
-root.appendChild(app.canvas);
+  root.appendChild(app.canvas);
 
-const game = new Game(app);
-const hud = createHud(document.body, game);
+  const game = new Game(app);
+  const hud = createHud(document.body, game);
 
-if (import.meta.env.DEV) Reflect.set(window, 'game', game);
+  if (import.meta.env.DEV) Reflect.set(window, 'game', game);
 
-window.addEventListener('resize', () => game.resize());
+  window.addEventListener('resize', () => game.resize());
 
-loadBakedStructures().then((baked) => {
-  if (baked) game.scene.setBakedStructures(baked);
-});
+  loadBakedStructures().then((baked) => {
+    if (baked) game.scene.setBakedStructures(baked);
+  });
 
-app.ticker.add((ticker) => {
-  game.update(ticker.deltaMS);
-  hud.update();
-});
+  app.ticker.add((ticker) => {
+    game.update(ticker.deltaMS);
+    hud.update();
+  });
+}
+
+void boot();
