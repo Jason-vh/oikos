@@ -363,7 +363,7 @@ function drawTrack(
   cx: number,
   cy: number,
 ): void {
-  fillGrain(ctx, x, y, width, height, { colours: [0xbfa45c, 0xcbb068, 0xd3b972, 0xdbc27c, 0xe2ca86], scale: 3, jitter: 0.5 }, 4242);
+  fillGrain(ctx, x, y, width, height, { colours: [0xcdb470, 0xd6be7a, 0xdec784, 0xe4ce8e, 0xead69a], scale: 3, jitter: 0.5 }, 4242);
 
   for (let stone = 0; stone < 18; stone++) {
     const [px, py] = isoCorner(cx, cy, random(), random());

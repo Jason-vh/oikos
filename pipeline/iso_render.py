@@ -20,10 +20,12 @@ from mathutils import Matrix, Vector
 
 TILE_WIDTH = 120
 TILE_HEIGHT = 60
-SUN_ALTITUDE = math.radians(58)
-SUN_AZIMUTH = math.radians(125)
+SUN_ALTITUDE = math.radians(50)
+SUN_AZIMUTH = math.radians(-25)
 SUPERSAMPLE = 2
 SAMPLES = 16
+PAINT_VARIATION = 0.16
+GRIME = 0.22
 PIXELS_PER_UNIT = TILE_WIDTH / math.sqrt(2)
 CAMERA_ELEVATION = math.radians(30)
 CAMERA_YAW = math.radians(45)
@@ -37,9 +39,9 @@ def shade_hex(code, factor):
     return tuple(min(1.0, channel * factor) for channel in hex_rgb(code))
 
 
-WHITEWASH = hex_rgb("efe6d2")
-TERRACOTTA = hex_rgb("c8642e")
-TERRACOTTA_LIGHT = hex_rgb("d97a3c")
+WHITEWASH = hex_rgb("f8e6b8")
+TERRACOTTA = hex_rgb("b4451c")
+TERRACOTTA_LIGHT = hex_rgb("cf5e2a")
 MARBLE = hex_rgb("e9e4d6")
 BRONZE = hex_rgb("8a6a34")
 STRAW = hex_rgb("c9a94f")
@@ -56,7 +58,7 @@ CYPRESS = (0.13, 0.30, 0.18)
 WATER_LIGHT = (0.40, 0.74, 0.77)
 SOIL = (0.36, 0.27, 0.17)
 SLATE = (0.30, 0.36, 0.40)
-EARTH = hex_rgb("c9b489")
+EARTH = hex_rgb("c4a94f")
 DAUB = hex_rgb("a4794c")
 DAUB_LIGHT = hex_rgb("b98d5c")
 THATCH = hex_rgb("d8c579")
@@ -120,26 +122,61 @@ def link_object_coords(mat, texture_node):
 
 
 def plaster_material(name, colour, roughness=0.85, variation=0.06, scale=6.0):
-    """Base material with a soft noise mottle so large flat walls do not read as plastic."""
+    """Base material with a painterly mottle: a broad blotch of noise for the wash of
+    the brush, a fine one for its grain, and a darker grime near the ground. The
+    original's walls are anything but flat."""
     mat = material(name, colour, roughness=roughness)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
     bsdf = nodes["Principled BSDF"]
-    noise = nodes.new("ShaderNodeTexNoise")
-    noise.inputs["Scale"].default_value = scale
-    noise.inputs["Detail"].default_value = 3.0
-    link_object_coords(mat, noise)
+    variation = max(variation, PAINT_VARIATION)
+
+    blotch = nodes.new("ShaderNodeTexNoise")
+    blotch.inputs["Scale"].default_value = scale
+    blotch.inputs["Detail"].default_value = 2.0
+    link_object_coords(mat, blotch)
+    grain = nodes.new("ShaderNodeTexNoise")
+    grain.inputs["Scale"].default_value = scale * 6
+    grain.inputs["Detail"].default_value = 1.0
+    link_object_coords(mat, grain)
+    mottle = nodes.new("ShaderNodeMath")
+    mottle.operation = "MULTIPLY_ADD"
+    mottle.inputs[1].default_value = 0.65
+    mottle.inputs[2].default_value = 0.0
+    links.new(blotch.outputs["Fac"], mottle.inputs[0])
+    fine = nodes.new("ShaderNodeMath")
+    fine.operation = "MULTIPLY_ADD"
+    fine.inputs[1].default_value = 0.35
+    links.new(grain.outputs["Fac"], fine.inputs[0])
+    links.new(mottle.outputs["Value"], fine.inputs[2])
+
     darker = tuple(to_linear(c) * (1 - variation * 2) for c in colour)
     mix = nodes.new("ShaderNodeMix")
     mix.data_type = "RGBA"
     mix.inputs["A"].default_value = (*darker, 1)
     mix.inputs["B"].default_value = bsdf.inputs["Base Color"].default_value
-    links.new(noise.outputs["Fac"], mix.inputs["Factor"])
-    links.new(mix.outputs["Result"], bsdf.inputs["Base Color"])
+    links.new(fine.outputs["Value"], mix.inputs["Factor"])
+
+    coords = nodes.new("ShaderNodeTexCoord")
+    separate = nodes.new("ShaderNodeSeparateXYZ")
+    links.new(coords.outputs["Object"], separate.inputs["Vector"])
+    grime = nodes.new("ShaderNodeMapRange")
+    grime.inputs["From Min"].default_value = -0.5
+    grime.inputs["From Max"].default_value = 0.1
+    grime.inputs["To Min"].default_value = 1 - GRIME
+    grime.inputs["To Max"].default_value = 1.0
+    links.new(separate.outputs["Z"], grime.inputs["Value"])
+    grimed = nodes.new("ShaderNodeMix")
+    grimed.data_type = "RGBA"
+    grimed.blend_type = "MULTIPLY"
+    grimed.inputs["Factor"].default_value = 1.0
+    links.new(mix.outputs["Result"], grimed.inputs["A"])
+    links.new(grime.outputs["Result"], grimed.inputs["B"])
+    links.new(grimed.outputs["Result"], bsdf.inputs["Base Color"])
     return mat
 
 
-def roof_material(name, colour, rows_per_unit=14.0, roughness=0.78):
+def roof_material(name, colour, rows_per_unit=5.0, roughness=0.78):
     """Terracotta with tile rows: a brick texture drives both bump and a slight colour shift."""
     mat = plaster_material(name, colour, roughness=roughness, variation=0.05, scale=4.0)
     nodes = mat.node_tree.nodes
@@ -151,13 +188,13 @@ def roof_material(name, colour, rows_per_unit=14.0, roughness=0.78):
     brick.inputs["Bias"].default_value = 0.0
     brick.inputs["Brick Width"].default_value = 0.5
     brick.inputs["Row Height"].default_value = 0.35
-    brick.inputs["Color1"].default_value = (1, 1, 1, 1)
-    brick.inputs["Color2"].default_value = (0.9, 0.9, 0.9, 1)
-    brick.inputs["Mortar"].default_value = (0.55, 0.55, 0.55, 1)
+    brick.inputs["Color1"].default_value = (1.05, 1.0, 0.95, 1)
+    brick.inputs["Color2"].default_value = (0.82, 0.8, 0.78, 1)
+    brick.inputs["Mortar"].default_value = (0.32, 0.3, 0.3, 1)
     link_object_coords(mat, brick)
     bump = nodes.new("ShaderNodeBump")
-    bump.inputs["Strength"].default_value = 0.35
-    bump.inputs["Distance"].default_value = 0.02
+    bump.inputs["Strength"].default_value = 0.7
+    bump.inputs["Distance"].default_value = 0.03
     links.new(brick.outputs["Fac"], bump.inputs["Height"])
     links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
     shade = nodes.new("ShaderNodeMix")
@@ -373,12 +410,12 @@ PLOT_HALF = 0.96
 
 
 def add_yard(mat, half=PLOT_HALF):
-    """The packed earth of a housing plot: every tier is built on one of these.
-
-    It casts no shadow, or every plot would sit in a dark square of its own making.
-    """
-    yard = add_box("yard", (0, 0, 0.02), (half * 2, half * 2, 0.04), mat)
+    """The ground of a housing plot. The tile beneath is drawn by the game, as in
+    the original, so the yard is not rendered: it only catches the light that keeps
+    the walls from floating."""
+    yard = add_box("yard", (0, 0, 0.0025), (half * 2, half * 2, 0.005), mat)
     yard.visible_shadow = False
+    yard.visible_camera = False
     return yard
 
 
@@ -2426,11 +2463,13 @@ def add_camera(footprint, height, resolution):
 
 
 def add_sun():
-    """High and near-white, with a bright sky: Zeus lights its city flat, not cinematically."""
+    """From the front-left and high, as the original's renders were lit: the face
+    the camera sees on the left is warm and bright, the one on the right falls into
+    a blue-grey sky shadow at roughly a third of the brightness."""
     bpy.ops.object.light_add(type="SUN", location=(0, 0, 12))
     sun = bpy.context.active_object
-    sun.data.energy = 2.6
-    sun.data.color = (1.0, 0.96, 0.9)
+    sun.data.energy = 3.1
+    sun.data.color = (1.0, 0.9, 0.72)
     sun.data.angle = math.radians(2.0)
     sun.rotation_euler = (math.pi / 2 - SUN_ALTITUDE, 0, SUN_AZIMUTH)
 
@@ -2438,8 +2477,8 @@ def add_sun():
     bpy.context.scene.world = world
     world.use_nodes = True
     background = world.node_tree.nodes["Background"]
-    background.inputs[0].default_value = (0.78, 0.8, 0.84, 1)
-    background.inputs[1].default_value = 1.05
+    background.inputs[0].default_value = (0.3, 0.45, 0.85, 1)
+    background.inputs[1].default_value = 0.32
     return sun
 
 

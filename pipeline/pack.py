@@ -10,13 +10,18 @@ import json
 import math
 import os
 
-from PIL import Image
+from PIL import Image, ImageChops, ImageEnhance, ImageFilter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 IN_DIR = os.path.join(ROOT, "pipeline", "out")
 OUT_DIR = os.path.join(ROOT, "public", "assets")
 ATLAS_PAD = 4
 SHADOW_FLOOR = 12
+PIXEL_GRAIN = 2
+CONTRAST = 1.18
+SATURATION = 1.22
+OUTLINE = (52, 38, 28)
+OUTLINE_STRENGTH = 0.55
 MAX_ATLAS_WIDTH = 4096
 
 YAW = math.radians(45)
@@ -51,6 +56,34 @@ def south_vertex_offset(footprint, height, pixels_per_unit):
 def load_manifest():
     with open(os.path.join(IN_DIR, "manifest.json")) as handle:
         return json.load(handle)
+
+
+def period_downsample(source, width, height):
+    """The original was drawn at 58 px a tile; we draw at 120. Resolve to the
+    original's density and step back up, so a sprite pixel is a 2x2 block, as the
+    terrain's is."""
+    coarse = source.resize((width // PIXEL_GRAIN, height // PIXEL_GRAIN), Image.LANCZOS)
+    return coarse.resize((coarse.width * PIXEL_GRAIN, coarse.height * PIXEL_GRAIN), Image.NEAREST)
+
+
+def paint(image):
+    """The original's sprites were renders touched up by hand: colour pushed, and a
+    dark line drawn round every silhouette. Push the colour and draw the line."""
+    alpha = image.getchannel("A")
+    colour = image.convert("RGB")
+    colour = ImageEnhance.Contrast(colour).enhance(CONTRAST)
+    colour = ImageEnhance.Color(colour).enhance(SATURATION)
+
+    solid = alpha.point(lambda value: 255 if value > 96 else 0)
+    massed = solid.filter(ImageFilter.MinFilter(5)).filter(ImageFilter.MaxFilter(5))
+    rim = ImageChops.subtract(massed.filter(ImageFilter.MaxFilter(3)), solid)
+    edge = ImageChops.subtract(massed, massed.filter(ImageFilter.MinFilter(3)))
+    inked = Image.new("RGB", image.size, OUTLINE)
+    colour = Image.composite(Image.blend(colour, inked, OUTLINE_STRENGTH), colour, edge)
+
+    result = Image.merge("RGBA", (*colour.split(), ImageChops.lighter(alpha, rim)))
+    inked_rim = Image.new("RGBA", image.size, (*OUTLINE, 255))
+    return Image.composite(inked_rim, result, rim)
 
 
 def drop_faint_alpha(image):
@@ -95,9 +128,11 @@ def main():
     prepared = []
     for sprite in manifest["sprites"]:
         source = Image.open(os.path.join(IN_DIR, sprite["file"])).convert("RGBA")
-        image = source.resize((sprite["width"], sprite["height"]), Image.LANCZOS)
+        image = period_downsample(source, sprite["width"], sprite["height"])
         if sprite.get("layer") == "shadow":
             image = drop_faint_alpha(image)
+        else:
+            image = paint(image)
 
         bbox = image.getbbox()
         if bbox is None:

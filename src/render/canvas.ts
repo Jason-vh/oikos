@@ -116,7 +116,7 @@ export function shadowVector(sun: Sun): { x: number; y: number; alpha: number } 
   };
 }
 
-export const SUN: Sun = { azimuth: Math.PI * 0.31, elevation: 1.01 };
+export const SUN: Sun = { azimuth: Math.PI * 0.69, elevation: 0.87 };
 
 function clampByte(value: number): number {
   return Math.max(0, Math.min(255, Math.round(value)));

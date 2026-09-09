@@ -1178,7 +1178,7 @@ function castShadow(ctx: CanvasRenderingContext2D, cx: number, baseY: number, le
   ctx.filter = 'blur(3px)';
   ctx.fillStyle = 'rgba(24, 19, 12, 0.22)';
   ctx.beginPath();
-  ctx.ellipse(cx - length * 0.5, baseY + length * 0.12, length * 0.55, girth, -0.35, 0, Math.PI * 2);
+  ctx.ellipse(cx + length * 0.5, baseY + length * 0.12, length * 0.55, girth, 0.35, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
@@ -1193,7 +1193,7 @@ function drawCypress(variant: number): { surface: DrawSurface; baseY: number } {
   const cx = width / 2;
   const baseY = height - 6;
   const trunkHeight = 10 + random() * 3;
-  const canopyTop = 9 + random() * 5;
+  const canopyTop = 4 + random() * 5;
   const canopyBottom = baseY - trunkHeight;
   const lean = (random() - 0.5) * 3;
 
@@ -1203,15 +1203,15 @@ function drawCypress(variant: number): { surface: DrawSurface; baseY: number } {
   ctx.fillStyle = css(shade(0x5a4630, light));
   ctx.fillRect(cx - 2, canopyBottom, 4, trunkHeight);
 
-  const dark = shade(0x3d6144, light * 0.9);
-  const base = shade(0x4a6d4b, light);
-  const lit = shade(0x648360, light * 1.14);
+  const dark = shade(0x1e3016, light * 0.9);
+  const base = shade(0x2f4a18, light);
+  const lit = shade(0x4f6e1e, light * 1.14);
 
   const segments = 10;
   for (let i = segments - 1; i >= 0; i--) {
     const t = i / (segments - 1);
     const y = canopyBottom - t * (canopyBottom - canopyTop);
-    const spread = (1 - t * 0.85) * (14.5 - random() * 2);
+    const spread = (1 - t * 0.85) * (17 - random() * 2);
     const shift = lean * t;
     ctx.fillStyle = css(i % 2 === 0 ? base : dark);
     ctx.beginPath();
@@ -1263,25 +1263,25 @@ function drawOlive(variant: number): { surface: DrawSurface; baseY: number } {
   ctx.quadraticCurveTo(cx + 11, trunkTop - 4, cx + 16, trunkTop - 16);
   ctx.stroke();
 
-  const dark = shade(0x7d8b5c, light * 0.92);
-  const mid = shade(0x9fae78, light);
-  const lit = shade(0xc2cc9c, light * 1.05);
+  const dark = shade(0x243a12, light * 0.92);
+  const mid = shade(0x445a12, light);
+  const lit = shade(0x7b9418, light * 1.05);
   const canopyCx = cx;
   const canopyCy = trunkTop - 13;
 
   ctx.fillStyle = css(mid);
   ctx.beginPath();
-  ctx.ellipse(canopyCx, canopyCy, 24, 17, 0, 0, Math.PI * 2);
+  ctx.ellipse(canopyCx, canopyCy, 30, 21, 0, 0, Math.PI * 2);
   ctx.fill();
 
   for (let i = 0; i < 16; i++) {
     const angle = (i / 16) * Math.PI * 2 + random();
-    const radius = 13 + random() * 7;
+    const radius = 17 + random() * 9;
     const px = canopyCx + Math.cos(angle) * radius * 1.15;
     const py = canopyCy + Math.sin(angle) * radius * 0.7;
     ctx.fillStyle = css(i % 3 === 0 ? dark : mid);
     ctx.beginPath();
-    ctx.ellipse(px, py, 7 + random() * 3, 5.6 + random() * 2, 0, 0, Math.PI * 2);
+    ctx.ellipse(px, py, 8 + random() * 4, 6.5 + random() * 2.5, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
