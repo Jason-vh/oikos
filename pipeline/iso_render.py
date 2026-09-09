@@ -1567,68 +1567,59 @@ def build_trading_post():
 
 
 def build_estate(tier):
-    """Elite housing on a 4-tile plot: a colonnaded villa around a court, growing
-    from a walled residence to an estate with gardens, stoa and stables."""
-    paving = plaster_material("paving", STONE, roughness=0.86, variation=0.05, scale=15.0)
-    garden = plaster_material("garden", hex_rgb("9aa861"), roughness=0.96, variation=0.1, scale=13.0)
-    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.84, variation=0.04, scale=7.0)
-    marble = material("marble", MARBLE, roughness=0.3)
-    tiles = roof_material("tiles", TERRACOTTA, rows_per_unit=20.0)
-    tiles_light = roof_material("tiles_light", TERRACOTTA_LIGHT, rows_per_unit=20.0)
-    wood = material("wood", WOOD, roughness=0.86)
-    clay = material("clay", CLAY, roughness=0.8)
+    """The elite ladder, after the original: a tall mansion of blue-grey stone under
+    tiled roofs, growing a storey and a colonnade with each tier, in a walled garden."""
+    m = house_materials()
+    grey = plaster_material("grey", hex_rgb("b8c2d4"), roughness=0.82, variation=0.16, scale=5.0)
+    cream = plaster_material("cream", hex_rgb("f2e4c0"), roughness=0.86, variation=0.14, scale=5.0)
+    marble = plaster_material("marble", hex_rgb("d8dde6"), roughness=0.5, variation=0.1, scale=8.0)
     cypress = material("cypress", CYPRESS, roughness=0.9)
-    water = material("water", hex_rgb("6fa8bd"), roughness=0.1)
+    hedge = plaster_material("hedge", hex_rgb("3a6a22"), roughness=0.95, variation=0.2, scale=12.0)
+    paving = plaster_material("paving", CREAM_STONE, roughness=0.85, variation=0.12, scale=14.0)
 
-    half = 1.92
-    yard = add_box("plot", (0, 0, 0.03), (half * 2, half * 2, 0.06), paving)
-    yard.visible_shadow = False
-    for side in (-1, 1):
-        add_box("plot_wall", (side * half, 0, 0.16), (0.1, half * 2, 0.2), whitewash)
-        add_box("plot_wall", (0, side * half, 0.16), (half * 2, 0.1, 0.2), whitewash)
+    plate = add_box("paving", (0, 0, 0.02), (3.9, 3.9, 0.04), paving)
+    plate.visible_camera = False
+    add_wall("garden_wall_s", (0.0, -1.9, 0.04 + 0.16), 3.9, 0.32, 0.1, m["stone"], along_x=True)
+    add_wall("garden_wall_w", (-1.9, 0.0, 0.04 + 0.16), 3.9, 0.32, 0.1, m["stone"], along_x=False)
+    add_box("court", (0.2, 0.2, 0.04 + 0.03), (3.0, 3.0, 0.06), paving)
 
-    villa_half = 0.8 + tier * 0.1
-    wall_h = 0.86 + tier * 0.08
-    vx, vy = -0.7, -0.7
-    add_box("stylobate", (vx, vy, 0.09), (villa_half * 2 + 0.3, villa_half * 2 + 0.3, 0.12), marble)
-    add_box("villa", (vx, vy, 0.15 + wall_h / 2), (villa_half * 2, villa_half * 2, wall_h), whitewash)
-    add_box("cornice", (vx, vy, 0.15 + wall_h + 0.03), (villa_half * 2 + 0.16, villa_half * 2 + 0.16, 0.07), marble)
-    add_doorway(villa_half, 0.54, (vx, vy), width=0.4)
-    add_window_row(villa_half, 0.15 + wall_h * 0.6, (0.16, 0.22), (vx, vy), on_door_face=True)
+    storeys = 1 + (tier >= 2)
+    mx, my = -0.4, 0.4
+    main_h = 1.1 * storeys + 0.3
+    add_box("main", (mx, my, 0.04 + main_h / 2), (1.8, 1.5, main_h), grey)
+    add_box("main_course", (mx, my, 0.04 + 0.12), (1.84, 1.54, 0.24), marble)
+    add_gable_roof("main_roof", (mx, my, 0.04 + main_h), 0.98, 0.85, 0.5, 0.07, m["terracotta"])
+    for level in range(storeys):
+        add_window_row(0.75, 0.04 + 0.55 + level * 1.1, (0.16, 0.22), (mx, my), on_door_face=True)
+        add_shutters(0.75, 0.04 + 0.55 + level * 1.1, (0.16, 0.22), m["blue"], (mx, my))
 
-    roof_z = 0.15 + wall_h + 0.07
-    roof_h = 0.34 + tier * 0.04
-    add_hip_roof("roof", (vx, vy, roof_z + roof_h / 2), villa_half + 0.16, roof_h, tiles, ridge_half=0.24)
+    wx, wy = 0.85, -0.6
+    add_box("wing", (wx, wy, 0.04 + 0.45), (1.2, 1.2, 0.9), cream)
+    add_shed_roof("wing_roof", (wx + 0.02, wy, 0.04 + 0.96), 0.66, 0.68, 0.07, m["terracotta"], pitch=0.34)
+    add_doorway(0.6, 0.6, (wx, wy), width=0.34)
+    add_box("door_frame", (wx + 0.61, wy, 0.04 + 0.64), (0.02, 0.44, 0.06), m["blue"])
 
     if tier >= 1:
-        for offset in (-0.5, 0.1, 0.7):
-            add_cylinder("column", (vx + villa_half + 0.26, vy + offset, 0.15 + wall_h / 2), 0.06, wall_h, marble, vertices=14)
-        add_box("porch", (vx + villa_half + 0.26, vy + 0.1, 0.15 + wall_h + 0.04), (0.5, 1.5, 0.08), marble)
-        add_cypress_pot("cypress1", (1.5, -1.5, 0.06), 0.5, clay, cypress)
-
+        for y in (wy - 0.8, wy - 0.45, wy - 0.1, wy + 0.25):
+            add_column("stoa_column", (wx + 0.72, y, 0.04), 0.8, 0.045, marble)
+        add_box("stoa_roof", (wx + 0.72, wy - 0.28, 0.04 + 0.88), (0.44, 1.3, 0.06), m["terracotta"])
     if tier >= 2:
-        wing_half = 0.5
-        add_box("wing", (1.1, 0.9, 0.06 + 0.36), (wing_half * 2, wing_half * 2, 0.72), whitewash)
-        add_hip_roof("wing_roof", (1.1, 0.9, 0.06 + 0.86), wing_half + 0.12, 0.26, tiles_light, ridge_half=0.14)
-        add_box("pool_kerb", (-1.2, 1.1, 0.06 + 0.05), (1.1, 0.8, 0.1), marble)
-        add_box("pool", (-1.2, 1.1, 0.06 + 0.09), (0.9, 0.6, 0.06), water)
-        add_pergola("pergola", 1.5, -0.4, 0.06, 0.22, 0.9, 0.5, wood)
-
+        add_box("balcony", (mx + 1.0, my, 0.04 + 1.2), (0.26, 1.0, 0.05), marble)
+        for y in (my - 0.4, my, my + 0.4):
+            add_cylinder("baluster", (mx + 1.1, y, 0.04 + 1.3), 0.015, 0.16, marble, vertices=6)
+        add_box("balcony_rail", (mx + 1.1, my, 0.04 + 1.4), (0.03, 1.0, 0.03), marble)
     if tier >= 3:
-        add_box("garden", (-1.3, -1.3, 0.07), (1.1, 1.1, 0.03), garden)
-        for gx, gy in ((-1.6, -1.6), (-1.0, -1.6), (-1.6, -1.0)):
-            add_cypress_pot("garden_tree", (gx, gy, 0.09), 0.42, clay, cypress)
-        for offset in (-0.6, 0.0, 0.6):
-            add_cylinder("stoa_column", (offset, 1.6, 0.06 + 0.36), 0.055, 0.72, marble, vertices=14)
-        add_box("stoa_roof", (0, 1.6, 0.06 + 0.76), (1.6, 0.42, 0.08), marble)
-        add_box("stable", (1.55, 0.0, 0.06 + 0.3), (0.5, 0.9, 0.6), whitewash)
-        add_shed_roof("stable_roof", (1.55, 0.0, 0.06 + 0.66), 0.32, 0.5, 0.06, tiles_light)
+        add_box("tower", (mx - 0.4, my + 0.3, 0.04 + main_h + 0.35), (0.5, 0.5, 0.7), grey)
+        add_hip_roof("tower_roof", (mx - 0.4, my + 0.3, 0.04 + main_h + 0.82), 0.32, 0.24, m["terracotta"], ridge_half=0.06)
 
-    add_amphora("jar", (0.4, -1.6, 0.06), 0.36, clay)
+    for index, (tx, ty) in enumerate(((-1.5, -1.4), (-1.5, 1.3), (1.4, 1.4), (1.5, -1.5))):
+        if index < 2 + tier:
+            add_cypress(f"cypress{index}", (tx, ty, 0.04), 1.0, cypress)
+    add_hedge("hedge1", (0.4, 1.4), (1.2, 0.3, 0.3), hedge)
+    add_hedge("hedge2", (-1.4, -0.2), (0.3, 1.2, 0.3), hedge)
+    add_amphora("jar", (1.5, 0.4, 0.04), 0.3, m["clay"])
 
-    return {"kind": "estate", "variant": tier, "footprint": 4, "height": roof_z + roof_h + 0.3}
-
-
+    return {"kind": "estate", "variant": tier, "footprint": 4, "height": main_h + 1.4}
 def build_infirmary():
     """The original's: a blue-tiled ward with a round tower at its corner, benches in the
     court, shrubs against the walls, on cream paving."""
