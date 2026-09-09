@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { BUILDINGS, ELITE_TIERS, HOUSE_TIERS } from './buildings';
 import { WALKER_SERVICE } from './walkers';
 import { TICKS_PER_MONTH } from './time';
+import { levelGround } from './testing';
 import { World } from './world';
 
 describe('the three kinds of culture', () => {
@@ -29,7 +30,7 @@ describe('the three kinds of culture', () => {
 
 describe('the stadium', () => {
   test('counts every house in the city as athletic while it is manned', () => {
-    const world = new World(28, 7);
+    const world = levelGround(new World(28, 7));
     for (let x = 1; x < 27; x++) world.grid.road[world.grid.index(x, 10)] = 1;
     world.treasury = 20000;
 

@@ -18,19 +18,117 @@ export function createRandom(seed: number): () => number {
   };
 }
 
-export function generateMap(grid: Grid, seed: number): void {
+export interface Landscape {
+  name: string;
+  hills: number;
+  rivers: number;
+  lakes: number;
+  shores: number;
+  meadow: number;
+  rock: number;
+  woods: number;
+}
+
+export const LANDSCAPES: Landscape[] = [
+  { name: 'a river valley', hills: 0.5, rivers: 1, lakes: 1, shores: 0, meadow: 200, rock: 500, woods: 1 },
+  { name: 'a coast of bays', hills: 0.35, rivers: 1, lakes: 0, shores: 1, meadow: 260, rock: 600, woods: 0.8 },
+  { name: 'the high country', hills: 0.85, rivers: 2, lakes: 2, shores: 0, meadow: 420, rock: 200, woods: 1.3 },
+  { name: 'a wide plain', hills: 0.18, rivers: 1, lakes: 2, shores: 0, meadow: 130, rock: 900, woods: 0.6 },
+  { name: 'a lakeland', hills: 0.45, rivers: 0, lakes: 7, shores: 0, meadow: 220, rock: 550, woods: 1.6 },
+  { name: 'a headland', hills: 0.55, rivers: 1, lakes: 1, shores: 2, meadow: 240, rock: 380, woods: 0.9 },
+];
+
+export function landscapeFor(seed: number): Landscape {
+  return LANDSCAPES[seed % LANDSCAPES.length];
+}
+
+export function generateMap(grid: Grid, seed: number): Landscape {
   const random = createRandom(seed);
+  const landscape = landscapeFor(seed);
   grid.terrain.fill(TERRAIN_GRASS);
 
-  const elevation = fractalNoise(grid.size, random);
-  applyTerraces(grid, elevation);
-  carveRiver(grid, random);
+  applyTerraces(grid, fractalNoise(grid.size, random), landscape.hills);
+  floodShores(grid, random, landscape.shores);
+  for (let river = 0; river < landscape.rivers; river++) carveRiver(grid, random);
+  poolLakes(grid, random, landscape.lakes);
+
   const blobs = (perTiles: number) => Math.max(3, Math.round((grid.size * grid.size) / perTiles));
-  scatterBlobs(grid, random, TERRAIN_MEADOW, blobs(200), 3, 7, (index) => grid.height[index] <= 1);
-  scatterBlobs(grid, random, TERRAIN_ROCK, blobs(500), 1.5, 3.5, (index) => grid.height[index] >= 2);
+  sowMeadows(grid, random, blobs(landscape.meadow));
+  layRidges(grid, random, blobs(landscape.rock));
+  makeGoodOnTheGround(grid, random);
   fringeWaterWithSand(grid);
-  scatterDecor(grid, random);
+  scatterDecor(grid, random, landscape.woods);
+  return landscape;
 }
+
+/** Meadow follows the water: the flats a river or a lake has watered, and the odd
+ * damp hollow away from it. */
+function sowMeadows(grid: Grid, random: () => number, count: number): void {
+  const banks = tilesWhere(grid, (index) => grid.height[index] <= 1 && nearWater(grid, index, 4));
+
+  for (let meadow = 0; meadow < count; meadow++) {
+    const bank = banks.length > 0 && random() < 0.75;
+    const seed = bank ? banks[Math.floor(random() * banks.length)] : Math.floor(random() * grid.terrain.length);
+    if (grid.height[seed] > 1) continue;
+
+    paintBlob(grid, random, TERRAIN_MEADOW, grid.tileX(seed), grid.tileY(seed), 3 + random() * 4, (index) => grid.height[index] <= 1);
+  }
+}
+
+/** Rock breaks out along the tops, in seams rather than spots. */
+function layRidges(grid: Grid, random: () => number, count: number): void {
+  const tops = tilesWhere(grid, (index) => grid.height[index] >= 2);
+  if (tops.length === 0) return;
+
+  for (let ridge = 0; ridge < count; ridge++) {
+    const start = tops[Math.floor(random() * tops.length)];
+    let x = grid.tileX(start);
+    let y = grid.tileY(start);
+    const angle = random() * Math.PI * 2;
+    const length = 4 + Math.floor(random() * 9);
+
+    for (let step = 0; step < length; step++) {
+      x += Math.cos(angle) + (random() - 0.5) * 0.8;
+      y += Math.sin(angle) + (random() - 0.5) * 0.8;
+      paintBlob(grid, random, TERRAIN_ROCK, Math.round(x), Math.round(y), 0.8 + random() * 1.6, (index) => grid.height[index] >= 2);
+    }
+  }
+}
+
+function tilesWhere(grid: Grid, accepts: (index: number) => boolean): number[] {
+  const tiles: number[] = [];
+  for (let index = 0; index < grid.terrain.length; index++) {
+    if (grid.terrain[index] === TERRAIN_GRASS && accepts(index)) tiles.push(index);
+  }
+  return tiles;
+}
+
+function nearWater(grid: Grid, index: number, range: number): boolean {
+  const x = grid.tileX(index);
+  const y = grid.tileY(index);
+  for (let dy = -range; dy <= range; dy++) {
+    for (let dx = -range; dx <= range; dx++) {
+      if (!grid.contains(x + dx, y + dy)) continue;
+      if (grid.terrain[grid.index(x + dx, y + dy)] === TERRAIN_WATER) return true;
+    }
+  }
+  return false;
+}
+
+/** No landscape may leave the city without fields to farm, rock to quarry or water to fish. */
+function makeGoodOnTheGround(grid: Grid, random: () => number): void {
+  const has = (terrain: number) => grid.terrain.some((tile) => tile === terrain);
+
+  if (!has(TERRAIN_MEADOW)) {
+    scatterBlobs(grid, random, TERRAIN_MEADOW, 6, 3, 6, (index) => grid.height[index] <= 1);
+  }
+  if (!has(TERRAIN_ROCK)) {
+    scatterBlobs(grid, random, TERRAIN_ROCK, 5, 2, 4, () => true);
+  }
+  if (!has(TERRAIN_WATER)) poolLakes(grid, random, 2);
+}
+
+const DRY_EDGES_KEPT = 2;
 
 type EdgeTile = (grid: Grid, step: number) => [number, number];
 
@@ -88,7 +186,7 @@ const CLUSTER_OFFSETS = [
   [1, 1], [1, -1], [-1, 1], [-1, -1],
 ];
 
-function scatterDecor(grid: Grid, random: () => number): void {
+function scatterDecor(grid: Grid, random: () => number, woods: number): void {
   for (let index = 0; index < grid.terrain.length; index++) {
     if (grid.decor[index] !== 0) continue;
 
@@ -96,7 +194,7 @@ function scatterDecor(grid: Grid, random: () => number): void {
     if (terrain === TERRAIN_WATER || terrain === TERRAIN_SAND) continue;
 
     const nearCliff = isNearCliff(grid, index);
-    if (random() >= seedDensity(terrain, nearCliff)) continue;
+    if (random() >= seedDensity(terrain, nearCliff) * woods) continue;
 
     placeCluster(grid, random, index, terrain, nearCliff);
   }
@@ -225,8 +323,9 @@ function addOctave(
   }
 }
 
-function applyTerraces(grid: Grid, elevation: Float32Array): void {
-  const thresholds = [0.46, 0.58, 0.68, 0.78];
+function applyTerraces(grid: Grid, elevation: Float32Array, hills: number): void {
+  const lowest = 0.72 - hills * 0.4;
+  const thresholds = [0, 1, 2, 3].map((step) => lowest + step * (0.12 - hills * 0.04));
 
   for (let i = 0; i < elevation.length; i++) {
     let height = 0;
@@ -238,23 +337,86 @@ function applyTerraces(grid: Grid, elevation: Float32Array): void {
 }
 
 function carveRiver(grid: Grid, random: () => number): void {
-  let centre = Math.floor(grid.size * (0.55 + random() * 0.3));
+  const downstream = random() < 0.5;
+  let centre = Math.floor(grid.size * (0.2 + random() * 0.6));
 
-  for (let y = 0; y < grid.size; y++) {
+  for (let along = 0; along < grid.size; along++) {
     centre += Math.round(random() * 2 - 1);
     centre = Math.min(grid.size - 4, Math.max(3, centre));
     const width = 2 + Math.floor(random() * 2);
 
-    for (let dx = -2; dx < width + 2; dx++) {
-      const x = centre + dx;
+    for (let across = -2; across < width + 2; across++) {
+      const x = downstream ? centre + across : along;
+      const y = downstream ? along : centre + across;
       if (!grid.contains(x, y)) continue;
-      const index = grid.index(x, y);
+      const tile = grid.index(x, y);
 
-      if (dx >= 0 && dx < width) {
-        grid.terrain[index] = TERRAIN_WATER;
-        grid.height[index] = 0;
+      if (across >= 0 && across < width) {
+        grid.terrain[tile] = TERRAIN_WATER;
+        grid.height[tile] = 0;
       } else {
-        grid.height[index] = Math.min(grid.height[index], 1);
+        grid.height[tile] = Math.min(grid.height[tile], 1);
+      }
+    }
+  }
+}
+
+/** The sea takes a ragged bite out of an edge or two, leaving bays and headlands. */
+function floodShores(grid: Grid, random: () => number, shores: number): void {
+  const last = grid.size - 1;
+  const reachOf = (step: number, seed: number) =>
+    9 + Math.round((Math.sin(step / 11 + seed) * 5 + Math.sin(step / 5 + seed * 2) * 3) * 1.4 + random() * 3);
+
+  for (let shore = 0; shore < Math.min(shores, DRY_EDGES_KEPT); shore++) {
+    const seed = random() * 10;
+    for (let step = 0; step <= last; step++) {
+      const reach = Math.max(0, reachOf(step, seed));
+      for (let depth = 0; depth < reach; depth++) {
+        const [x, y] = shore === 0 ? [step, depth] : shore === 1 ? [depth, step] : [step, last - depth];
+        if (!grid.contains(x, y)) continue;
+        const tile = grid.index(x, y);
+        grid.terrain[tile] = TERRAIN_WATER;
+        grid.height[tile] = 0;
+      }
+    }
+    strewIslands(grid, random, shore);
+  }
+}
+
+/** A rock or two left standing off the shore. */
+function strewIslands(grid: Grid, random: () => number, shore: number): void {
+  const last = grid.size - 1;
+  for (let island = 0; island < 2; island++) {
+    const along = 8 + Math.floor(random() * (grid.size - 16));
+    const depth = 2 + Math.floor(random() * 6);
+    const [cx, cy] = shore === 0 ? [along, depth] : shore === 1 ? [depth, along] : [along, last - depth];
+    const radius = 1.5 + random() * 2;
+
+    for (let y = Math.floor(cy - radius); y <= cy + radius; y++) {
+      for (let x = Math.floor(cx - radius); x <= cx + radius; x++) {
+        if (!grid.contains(x, y)) continue;
+        if (Math.hypot(x - cx, y - cy) > radius) continue;
+        if (grid.terrain[grid.index(x, y)] !== TERRAIN_WATER) continue;
+        grid.terrain[grid.index(x, y)] = TERRAIN_GRASS;
+      }
+    }
+  }
+}
+
+function poolLakes(grid: Grid, random: () => number, lakes: number): void {
+  for (let lake = 0; lake < lakes; lake++) {
+    const cx = 6 + Math.floor(random() * (grid.size - 12));
+    const cy = 6 + Math.floor(random() * (grid.size - 12));
+    const radius = 3 + random() * 5;
+
+    for (let y = Math.floor(cy - radius); y <= cy + radius; y++) {
+      for (let x = Math.floor(cx - radius); x <= cx + radius; x++) {
+        if (!grid.contains(x, y)) continue;
+        if (Math.hypot(x - cx, y - cy) + random() * 1.2 > radius) continue;
+
+        const tile = grid.index(x, y);
+        grid.terrain[tile] = TERRAIN_WATER;
+        grid.height[tile] = 0;
       }
     }
   }
@@ -289,18 +451,27 @@ function scatterBlobs(
   for (let blob = 0; blob < count; blob++) {
     const cx = Math.floor(random() * grid.size);
     const cy = Math.floor(random() * grid.size);
-    const radius = minRadius + random() * (maxRadius - minRadius);
+    paintBlob(grid, random, terrain, cx, cy, minRadius + random() * (maxRadius - minRadius), accepts);
+  }
+}
 
-    for (let y = Math.floor(cy - radius); y <= cy + radius; y++) {
-      for (let x = Math.floor(cx - radius); x <= cx + radius; x++) {
-        if (!grid.contains(x, y)) continue;
-        const distance = Math.hypot(x - cx, y - cy) + random() * 0.9;
-        if (distance > radius) continue;
+function paintBlob(
+  grid: Grid,
+  random: () => number,
+  terrain: number,
+  cx: number,
+  cy: number,
+  radius: number,
+  accepts: (index: number) => boolean,
+): void {
+  for (let y = Math.floor(cy - radius); y <= cy + radius; y++) {
+    for (let x = Math.floor(cx - radius); x <= cx + radius; x++) {
+      if (!grid.contains(x, y)) continue;
+      if (Math.hypot(x - cx, y - cy) + random() * 0.9 > radius) continue;
 
-        const index = grid.index(x, y);
-        if (grid.terrain[index] !== TERRAIN_GRASS || !accepts(index)) continue;
-        grid.terrain[index] = terrain;
-      }
+      const index = grid.index(x, y);
+      if (grid.terrain[index] !== TERRAIN_GRASS || !accepts(index)) continue;
+      grid.terrain[index] = terrain;
     }
   }
 }

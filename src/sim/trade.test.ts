@@ -3,6 +3,7 @@ import { TICKS_PER_MONTH } from './time';
 import { TRADE_ROUTES, newTradeOrders, trade } from './trade';
 import { createBuilding } from './types';
 import type { Building } from './types';
+import { levelGround } from './testing';
 import { World } from './world';
 
 function post(oil = 0, food = 0): Building {
@@ -56,7 +57,7 @@ describe('trade', () => {
 
 describe('a city that trades', () => {
   test('needs a manned post before an open route earns anything', () => {
-    const world = new World(24, 11);
+    const world = levelGround(new World(24, 11));
     for (let x = 1; x < 23; x++) world.grid.road[world.grid.index(x, 6)] = 1;
     world.treasury = 5000;
     world.tradeOrders.corinth = true;

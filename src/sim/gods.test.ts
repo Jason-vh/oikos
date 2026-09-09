@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { NEUTRAL_MOOD, actFor, moodAfterMonth, moodName, newPantheon } from './gods';
 import { TICKS_PER_MONTH } from './time';
 import { FINISHED, createBuilding } from './types';
+import { levelGround } from './testing';
 import { World } from './world';
 
 describe('divine mood', () => {
@@ -48,7 +49,7 @@ function finish(world: World, kind: string): void {
 
 describe('a city and its gods', () => {
   test('ignores gods until a sanctuary stands, then answers to them', () => {
-    const world = new World(24, 11);
+    const world = levelGround(new World(24, 11));
     for (let x = 1; x < 23; x++) world.grid.road[world.grid.index(x, 6)] = 1;
     world.treasury = 5000;
 

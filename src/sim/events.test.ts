@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { BROKEN_PROMISE_STANDING, REQUEST_STANDING, ageRequests, requestFrom } from './events';
 import { NEUTRAL_GOODWILL } from './cities';
 import { TICKS_PER_MONTH } from './time';
+import { levelGround } from './testing';
 import { World } from './world';
 
 const REQUEST = { city: 'Mycenae', good: 'food' as const, cartloads: 4, monthsLeft: 2, reward: 500 };
@@ -30,7 +31,7 @@ describe('requests', () => {
 
 describe('a city and the world', () => {
   function stocked(): World {
-    const world = new World(24, 11);
+    const world = levelGround(new World(24, 11));
     for (let x = 1; x < 23; x++) world.grid.road[world.grid.index(x, 6)] = 1;
     world.treasury = 5000;
     world.place('granary', 2, 7);

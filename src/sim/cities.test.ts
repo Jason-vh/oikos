@@ -11,6 +11,7 @@ import {
   tributeFrom,
 } from './cities';
 import { TICKS_PER_MONTH } from './time';
+import { levelGround } from './testing';
 import { World } from './world';
 
 describe('the world beyond the city', () => {
@@ -31,7 +32,7 @@ describe('the world beyond the city', () => {
 
 describe('a city and its neighbours', () => {
   function city(): World {
-    const world = new World(24, 11);
+    const world = levelGround(new World(24, 11));
     world.treasury = 5000;
     return world;
   }

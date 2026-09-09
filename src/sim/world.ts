@@ -34,7 +34,7 @@ import {
   workforceOf,
   type LabourReport,
 } from './labour';
-import { entryPoint, generateMap } from './mapgen';
+import { entryPoint, generateMap, type Landscape } from './mapgen';
 import { gateTiles, hasRoadAccess, roadAccessTiles } from './pathing';
 import { aOrAn, accrueRisk, nameOf } from './hazards';
 import { accrueAfflictions, plagueToll, tendHouse, theftLoss } from './unrest';
@@ -182,6 +182,7 @@ export class World {
   readonly seed: number;
   readonly grid: Grid;
   readonly entry: number;
+  readonly landscape: Landscape;
   readonly buildings = new Map<number, Building>();
   readonly walkers = new Map<number, Walker>();
 
@@ -242,9 +243,9 @@ export class World {
   constructor(size: number, seed: number) {
     this.seed = seed;
     this.grid = new Grid(size);
-    generateMap(this.grid, seed);
+    this.landscape = generateMap(this.grid, seed);
     this.entry = entryPoint(this.grid, seed);
-    this.log('Found your city, Archon. Lay a road from the flag, then housing.');
+    this.log(`Zeus grants you ${this.landscape.name}, Archon. Lay a road from the flag, then housing.`);
   }
 
   get population(): number {

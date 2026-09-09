@@ -28,9 +28,13 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
 
 ## What is simulated
 
-- **Terrain**: a 120×120 valley of grass, meadow (farms only), sand, rock and water,
-  over 5 elevation levels. The view opens on the ground behind the entry flag, where
-  the city has to start.
+- **Terrain**: a 120×120 map drawn from one of six landscapes, chosen by the seed — a
+  river valley, a coast of bays, the high country, a wide plain, a lakeland, a
+  headland — each with its own hills, rivers, lakes and shoreline. Meadow follows the
+  water, gathering on the banks a river or lake has watered; rock breaks out in seams
+  along the tops. Whatever the seed, the map is guaranteed fields to farm, rock to
+  quarry, water to fish and a dry edge for the settlers to walk in by. The view opens
+  on the ground behind the entry flag, where the city has to start.
 - **Roads**: the only network, and they answer to appeal: a bare track where nothing
   stands, cobbles once the ground is worth two, marble slabs at twelve. A road repaves
   itself as the block around it improves. Everything social flows along it. A roadblock turns
