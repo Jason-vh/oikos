@@ -15,7 +15,7 @@ import { TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_SAND, TERRAIN_WATER } from '../si
 import { GODS, GOD_KINDS, moodName } from '../sim/gods';
 import { costAt } from '../sim/difficulty';
 import { workersFor } from '../sim/labour';
-import { describeRisk } from '../sim/hazards';
+import { aOrAn, describeRisk } from '../sim/hazards';
 import { TRADE_ROUTES } from '../sim/trade';
 import { describeAffliction } from '../sim/unrest';
 import { ROAM_RANGE } from '../sim/walkers';
@@ -288,7 +288,7 @@ function inspectHouse(world: World, house: Building, index: number): Inspection 
   if (next) {
     const needs = next.needs.length > 0 ? next.needs.join(' and ') : 'nothing';
     const gate = Number.isFinite(next.evolveAppeal) ? ` and appeal ${next.evolveAppeal}` : '';
-    facts.push([`Becomes a ${next.name.toLowerCase()}`, `with ${needs}${gate}`]);
+    facts.push([`Becomes ${aOrAn(next.name.toLowerCase())}`, `with ${needs}${gate}`]);
   }
 
   return {

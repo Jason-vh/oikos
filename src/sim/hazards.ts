@@ -52,6 +52,10 @@ export function riskOf(building: Building): number {
   return Math.min(RISK_LIMIT, Math.max(building.fireRisk, building.damageRisk));
 }
 
+export function aOrAn(name: string): string {
+  return /^[aeiou]/i.test(name) ? `an ${name}` : `a ${name}`;
+}
+
 export function nameOf(building: Building): string {
   if (isVacantPlot(building)) return 'Housing plot';
   if (building.kind === 'house') return HOUSE_TIERS[building.tier].name;

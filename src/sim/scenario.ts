@@ -1,3 +1,4 @@
+import { aOrAn } from './hazards';
 import { HOUSE_TIERS } from './buildings';
 import type { CityEvent } from './events';
 import type { GodKind } from './gods';
@@ -165,5 +166,5 @@ function labelOf(goal: Goal): string {
   if (goal.kind === 'army') return 'Companies';
   if (goal.kind === 'trade') return 'Trading partners';
   if (goal.kind === 'pyramid') return 'Pyramids raised';
-  return `Citizens in a ${HOUSE_TIERS[goal.tier].name.toLowerCase()} or better`;
+  return `Citizens in ${aOrAn(HOUSE_TIERS[goal.tier].name.toLowerCase())} or better`;
 }

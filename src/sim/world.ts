@@ -36,7 +36,7 @@ import {
 } from './labour';
 import { entryPoint, generateMap } from './mapgen';
 import { gateTiles, hasRoadAccess, roadAccessTiles } from './pathing';
-import { accrueRisk, nameOf } from './hazards';
+import { aOrAn, accrueRisk, nameOf } from './hazards';
 import { accrueAfflictions, plagueToll, tendHouse, theftLoss } from './unrest';
 import {
   GODS,
@@ -146,6 +146,12 @@ const PLUNDER_PER_COMPANY = 250;
 const MONTHS_PER_YEAR = 12;
 
 const sum = (values: number[]): number => values.reduce((total, value) => total + value, 0);
+
+function countBy(goods: Good[]): Map<Good, number> {
+  const counts = new Map<Good, number>();
+  for (const good of goods) counts.set(good, (counts.get(good) ?? 0) + 1);
+  return counts;
+}
 const FOUNTAIN_SPAWN_INTERVAL = 70;
 const TAX_OFFICE_SPAWN_INTERVAL = 70;
 const INFIRMARY_SPAWN_INTERVAL = 80;
@@ -153,6 +159,7 @@ const WATCHPOST_SPAWN_INTERVAL = 70;
 const GYMNASIUM_SPAWN_INTERVAL = 80;
 const GUILD_SPAWN_INTERVAL = 60;
 const IMMIGRATION_INTERVAL = 20;
+const MONTHS_BETWEEN_COMPLAINTS = 6;
 const TRAVELLING_PARTY = 8;
 const BUILD_PER_VISIT = 6;
 const STADIUM_CULTURE = 10;
@@ -223,6 +230,7 @@ export class World {
   private nextId = 1;
   private appealDirty = false;
   private immigrantsStranded = false;
+  private readonly nagged = new Map<string, number>();
   private readonly outputByMonth = Object.fromEntries(
     GOODS.map((good) => [good, new Array(MONTHS_PER_YEAR).fill(0)]),
   ) as Record<Good, number[]>;
@@ -283,7 +291,7 @@ export class World {
       return { ok: false, reason: 'That god does not attend this city' };
     }
     if (def.requires && !this.has(def.requires)) {
-      return { ok: false, reason: `Not until a ${BUILDINGS[def.requires].name.toLowerCase()} stands` };
+      return { ok: false, reason: `Not until ${aOrAn(BUILDINGS[def.requires].name.toLowerCase())} stands` };
     }
 
     for (const tile of plotTiles(plot)) {
@@ -598,8 +606,8 @@ export class World {
     this.reviewGoals();
     for (const counts of Object.values(this.outputByMonth)) counts[this.month] = 0;
 
-    if (this.labour.employed < this.labour.required) this.log('Buildings stand short of workers.');
-    else if (this.sentiment.complaint) this.log(this.sentiment.complaint);
+    const short = this.labour.employed < this.labour.required;
+    this.nag(short ? 'Buildings stand short of workers.' : this.sentiment.complaint);
   }
 
   private fedShare(): number {
@@ -1024,13 +1032,13 @@ export class World {
       if (affliction === 'plague') {
         house.population = Math.max(0, house.population - plagueToll(house));
         house.disease = 0;
-        this.log('Plague empties houses that no doctor visits.');
+        this.nag('Plague empties houses that no doctor visits.');
         continue;
       }
 
       this.treasury -= Math.min(this.treasury, theftLoss(house));
       house.crime = 0;
-      this.log('Thieves rob the treasury where no watchman walks.');
+      this.nag('Thieves rob the treasury where no watchman walks.');
     }
   }
 
@@ -1081,12 +1089,12 @@ export class World {
 
   private sufferMishaps(): void {
     for (const { building, disaster } of accrueRisk(this.buildings.values(), this.difficulty)) {
-      const name = nameOf(building);
+      const name = aOrAn(nameOf(building).toLowerCase());
       this.demolish(building.x, building.y);
       this.log(
         disaster === 'fire'
-          ? `Fire has destroyed a ${name.toLowerCase()}, Archon.`
-          : `A ${name.toLowerCase()} has collapsed, Archon.`,
+          ? `Fire has destroyed ${name}, Archon.`
+          : `${name[0].toUpperCase()}${name.slice(1)} has collapsed, Archon.`,
       );
     }
   }
@@ -1102,8 +1110,19 @@ export class World {
     this.arrivals = Math.min(this.arrivals, Math.max(0, rooms - this.peopleOnTheRoad));
 
     if (this.arrivals > 0 && this.immigrantsStranded) {
-      this.log('Immigrants wait at the edge of the map, Archon: no road reaches them.');
+      this.nag('Immigrants wait at the edge of the map, Archon: no road reaches them.');
     }
+  }
+
+  private nag(grievance: string | null): void {
+    if (!grievance) return;
+
+    const month = this.year * MONTHS_PER_YEAR + this.month;
+    const told = this.nagged.get(grievance);
+    if (told !== undefined && month - told < MONTHS_BETWEEN_COMPLAINTS) return;
+
+    this.nagged.set(grievance, month);
+    this.log(grievance);
   }
 
   private dwellings(): Building[] {
@@ -1289,18 +1308,24 @@ export class World {
     agora.spawnTimer += staffing(agora);
     if (atWalkerLimit(agora) || !hasRoadAccess(this.grid, agora)) return;
 
+    const stalls = countBy(goods);
     const capacity = BUILDINGS[agora.kind].capacity;
-    const fetching = this.goodsCarriedTo(agora.id);
+    const fetching = this.walkersFrom(agora.id, 'deliveryman');
     for (const good of goods) {
-      if (fetching.has(good) || agora.stock[good] > capacity - UNITS_PER_CARTLOAD) continue;
+      if ((fetching.get(good) ?? 0) >= (stalls.get(good) ?? 0)) continue;
+      if (agora.stock[good] > capacity - UNITS_PER_CARTLOAD) continue;
       const sources = this.tilesSupplying(good);
       if (sources.size > 0 && spawnDeliveryman(this, agora, sources, good)) return;
     }
 
     if (agora.spawnTimer < AGORA_SPAWN_INTERVAL) return;
 
-    const onSale = this.goodsOnSaleFrom(agora.id);
-    const good = goods.find((candidate) => !onSale.has(candidate) && agora.stock[candidate] >= PEDDLER_LOAD);
+    const selling = this.walkersFrom(agora.id, 'peddler');
+    const good = goods.find(
+      (candidate) =>
+        (selling.get(candidate) ?? 0) < (stalls.get(candidate) ?? 0) &&
+        agora.stock[candidate] >= PEDDLER_LOAD,
+    );
     if (!good) return;
     if (spawnRoamer(this, agora, 'peddler', PEDDLER_LOAD, good)) {
       agora.spawnTimer = 0;
@@ -1308,20 +1333,12 @@ export class World {
     }
   }
 
-  private goodsCarriedTo(agoraId: number): Set<Good> {
-    const goods = new Set<Good>();
+  private walkersFrom(agoraId: number, kind: WalkerKind): Map<Good, number> {
+    const carried: Good[] = [];
     for (const walker of this.walkers.values()) {
-      if (walker.kind === 'deliveryman' && walker.homeId === agoraId) goods.add(walker.good);
+      if (walker.kind === kind && walker.homeId === agoraId) carried.push(walker.good);
     }
-    return goods;
-  }
-
-  private goodsOnSaleFrom(agoraId: number): Set<Good> {
-    const goods = new Set<Good>();
-    for (const walker of this.walkers.values()) {
-      if (walker.kind === 'peddler' && walker.homeId === agoraId) goods.add(walker.good);
-    }
-    return goods;
+    return countBy(carried);
   }
 
   private updateFountain(fountain: Building): void {
