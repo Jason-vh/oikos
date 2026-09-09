@@ -8,6 +8,7 @@ export type BlendDirection = 'east' | 'south' | 'west' | 'north';
 
 export const TERRAIN_VARIANTS = 6;
 export const ROAD_VARIANTS = 3;
+export const ROAD_GRADES = 3;
 export const WATER_FRAMES = 8;
 
 const CELL_PAD = 6;
@@ -113,8 +114,8 @@ export class TileAtlas {
     return this.lookup(`blend:${kind}:${direction}`);
   }
 
-  road(variant: number): Texture {
-    return this.lookup(`road:${variant % ROAD_VARIANTS}`);
+  road(grade: number, variant: number): Texture {
+    return this.lookup(`road:${grade % ROAD_GRADES}:${variant % ROAD_VARIANTS}`);
   }
 
   water(frame: number): Texture {
@@ -165,8 +166,10 @@ function defineCells(): Cell[] {
     }
   }
 
-  for (let variant = 0; variant < ROAD_VARIANTS; variant++) {
-    tile(`road:${variant}`, (ctx, x, y, w, h) => drawRoad(ctx, x, y, w, h, variant));
+  for (let grade = 0; grade < ROAD_GRADES; grade++) {
+    for (let variant = 0; variant < ROAD_VARIANTS; variant++) {
+      tile(`road:${grade}:${variant}`, (ctx, x, y, w, h) => drawRoad(ctx, x, y, w, h, grade, variant));
+    }
   }
 
   for (let frame = 0; frame < WATER_FRAMES; frame++) {
@@ -364,9 +367,10 @@ function drawRoad(
   y: number,
   width: number,
   height: number,
+  grade: number,
   variant: number,
 ): void {
-  const random = createRandom(4242 + variant * 977);
+  const random = createRandom(4242 + variant * 977 + grade * 5153);
   const cx = x + width / 2;
   const cy = y + height / 2;
 
@@ -374,93 +378,136 @@ function drawRoad(
   diamondPath(ctx, cx, cy, HALF_W, HALF_H);
   ctx.clip();
 
-  ctx.fillStyle = css(0xdccba6);
-  ctx.fillRect(x, y, width, height);
-  speckle(ctx, random, { x, y, width, height }, 140, [0xcfbc98, 0xe8dcc0, 0xc2ae8a], 2, 0.32);
-
-  drawFlagstones(ctx, random, x, y, width, height);
-
-  const north = { x: cx, y: cy - HALF_H };
-  const east = { x: cx + HALF_W, y: cy };
-  const south = { x: cx, y: cy + HALF_H };
-  const west = { x: cx - HALF_W, y: cy };
-  drawEdgingStones(ctx, random, north, east);
-  drawEdgingStones(ctx, random, south, west);
+  if (grade === 0) drawTrack(ctx, random, x, y, width, height, cx, cy);
+  if (grade === 1) drawCobbles(ctx, random, x, y, width, height, cx, cy);
+  if (grade === 2) drawSlabs(ctx, random, x, y, width, height, cx, cy);
 
   const rut = ctx.createLinearGradient(0, cy - HALF_H, 0, cy + HALF_H);
-  rut.addColorStop(0, 'rgba(0,0,0,0.14)');
+  rut.addColorStop(0, 'rgba(0,0,0,0.12)');
   rut.addColorStop(0.5, 'rgba(0,0,0,0)');
-  rut.addColorStop(1, 'rgba(0,0,0,0.16)');
+  rut.addColorStop(1, 'rgba(0,0,0,0.14)');
   ctx.fillStyle = rut;
   ctx.fillRect(x, y, width, height);
   ctx.restore();
 }
 
-function drawFlagstones(
+function isoCorner(cx: number, cy: number, u: number, v: number): [number, number] {
+  return [cx + (u - v) * HALF_W, cy + (u + v - 1) * HALF_H];
+}
+
+function isoCell(
+  cx: number,
+  cy: number,
+  u: number,
+  v: number,
+  step: number,
+  inset: number,
+): number[] {
+  const near = inset * step;
+  const far = step - near;
+  return [
+    ...isoCorner(cx, cy, u + near, v + near),
+    ...isoCorner(cx, cy, u + far, v + near),
+    ...isoCorner(cx, cy, u + far, v + far),
+    ...isoCorner(cx, cy, u + near, v + far),
+  ];
+}
+
+function drawTrack(
   ctx: CanvasRenderingContext2D,
   random: () => number,
   x: number,
   y: number,
   width: number,
   height: number,
+  cx: number,
+  cy: number,
 ): void {
-  const cols = 4;
-  const rows = 4;
-  const cellW = width / cols;
-  const cellH = height / rows;
+  ctx.fillStyle = css(0xc6ad81);
+  ctx.fillRect(x, y, width, height);
+  speckle(ctx, random, { x, y, width, height }, 220, [0xb59a6e, 0xd8c298, 0xa88f66], 2.2, 0.4);
 
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      const jitter = 0.28;
-      const sx = x + (col + 0.5 + (random() - 0.5) * jitter) * cellW;
-      const sy = y + (row + 0.5 + (random() - 0.5) * jitter) * cellH;
-      const sw = cellW * (0.62 + random() * 0.24);
-      const sh = cellH * (0.62 + random() * 0.24);
-      const rot = (random() - 0.5) * 0.3;
-      const tone = 0.92 + random() * 0.16;
+  for (let stone = 0; stone < 26; stone++) {
+    const [px, py] = isoCorner(cx, cy, random(), random());
+    ctx.fillStyle = css(0xd6c39c, 0.6);
+    ctx.beginPath();
+    ctx.ellipse(px, py, 1.4 + random() * 1.8, 1 + random() * 1.2, random() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
-      ctx.save();
-      ctx.translate(sx, sy);
-      ctx.rotate(rot);
-      polygonPath(ctx, [
-        -sw / 2, -sh / 2,
-        sw / 2, -sh / 2 + sh * 0.08,
-        sw / 2 - sw * 0.06, sh / 2,
-        -sw / 2 + sw * 0.05, sh / 2 - sh * 0.05,
-      ]);
-      ctx.fillStyle = css(shade(0xdccba6, tone), 0.45);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(94, 78, 54, 0.4)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      ctx.restore();
-    }
+  for (const offset of [-0.16, 0.16]) {
+    ctx.strokeStyle = 'rgba(122, 100, 68, 0.35)';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(...(isoCorner(cx, cy, 0, 0.5 + offset) as [number, number]));
+    ctx.lineTo(...(isoCorner(cx, cy, 1, 0.5 + offset) as [number, number]));
+    ctx.stroke();
   }
 }
 
-function drawEdgingStones(
+function drawCobbles(
   ctx: CanvasRenderingContext2D,
   random: () => number,
-  from: { x: number; y: number },
-  to: { x: number; y: number },
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  cx: number,
+  cy: number,
 ): void {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const length = Math.hypot(dx, dy);
-  const nx = -dy / length;
-  const ny = dx / length;
-  const steps = 9;
+  ctx.fillStyle = css(0x8b7c5e);
+  ctx.fillRect(x, y, width, height);
 
-  for (let i = 1; i < steps; i++) {
-    const t = i / steps;
-    const inward = 3 + random() * 2;
-    const px = from.x + dx * t + nx * inward;
-    const py = from.y + dy * t + ny * inward;
-    const size = 1.6 + random() * 1.4;
-    ctx.fillStyle = css(0xa89876, 0.55);
-    ctx.beginPath();
-    ctx.ellipse(px, py, size, size * 0.7, 0, 0, Math.PI * 2);
-    ctx.fill();
+  const rows = 6;
+  const step = 1 / rows;
+  for (let row = 0; row < rows; row++) {
+    const shift = row % 2 === 0 ? 0 : step / 2;
+    for (let column = -1; column <= rows; column++) {
+      const u = column * step + shift + (random() - 0.5) * step * 0.16;
+      const v = row * step + (random() - 0.5) * step * 0.16;
+      const tone = 0.9 + random() * 0.22;
+
+      polygonPath(ctx, isoCell(cx, cy, u, v, step, 0.14 + random() * 0.06));
+      ctx.fillStyle = css(shade(0xcdb894, tone));
+      ctx.fill();
+    }
+  }
+  speckle(ctx, random, { x, y, width, height }, 90, [0xbda882, 0xdccbaa], 1.2, 0.3);
+}
+
+function drawSlabs(
+  ctx: CanvasRenderingContext2D,
+  random: () => number,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  cx: number,
+  cy: number,
+): void {
+  ctx.fillStyle = css(0xb3a98c);
+  ctx.fillRect(x, y, width, height);
+
+  const rows = 2;
+  const step = 1 / rows;
+  for (let row = 0; row < rows; row++) {
+    for (let column = 0; column < rows; column++) {
+      const tone = 0.96 + random() * 0.09;
+      polygonPath(ctx, isoCell(cx, cy, column * step, row * step, step, 0.035));
+      ctx.fillStyle = css(shade(0xe2dac2, tone));
+      ctx.fill();
+
+      for (let vein = 0; vein < 2; vein++) {
+        const start = isoCorner(cx, cy, (column + random() * 0.8) * step, (row + random() * 0.2) * step);
+        const end = isoCorner(cx, cy, (column + random() * 0.9) * step, (row + 0.6 + random() * 0.4) * step);
+        ctx.strokeStyle = 'rgba(146, 136, 112, 0.28)';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(start[0], start[1]);
+        ctx.lineTo(end[0], end[1]);
+        ctx.stroke();
+      }
+    }
   }
 }
 

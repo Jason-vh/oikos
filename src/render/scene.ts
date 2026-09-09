@@ -151,6 +151,7 @@ export class Scene {
 
     if (this.syncedVersion !== this.world.structureVersion) {
       this.syncedVersion = this.world.structureVersion;
+      this.terrain.repaveRoads();
       if (this.overlayMode === 'appeal') this.refreshOverlay();
     }
 

@@ -2,6 +2,7 @@ import { Container, Matrix, Sprite } from 'pixi.js';
 import { TERRAIN_WATER } from '../sim/grid';
 import type { World } from '../sim/world';
 import { CLIFF_VARIANTS, TERRAIN_PRIORITY, TERRAIN_VARIANTS, ROAD_VARIANTS, WATER_FRAMES, TileAtlas } from './atlas';
+import { roadGradeAt } from './roads';
 import type { BlendDirection } from './atlas';
 import { shade } from './canvas';
 import { ELEVATION_STEP, TILE_HEIGHT, TILE_WIDTH, tileToScreen } from './iso';
@@ -32,6 +33,7 @@ export class TerrainLayer {
   private readonly atlas: TileAtlas;
   private readonly tileSprites: Sprite[][];
   private readonly waterSprites: { sprite: Sprite; offset: number }[] = [];
+  private readonly roadGrades: Int8Array;
   private elapsed = 0;
   private frame = 0;
 
@@ -40,6 +42,7 @@ export class TerrainLayer {
     this.atlas = atlas;
     this.container.sortableChildren = true;
     this.tileSprites = new Array(world.grid.size * world.grid.size).fill(null).map(() => []);
+    this.roadGrades = new Int8Array(world.grid.size * world.grid.size).fill(-1);
     this.rebuildAll();
   }
 
@@ -97,8 +100,20 @@ export class TerrainLayer {
   private baseTexture(index: number, x: number, y: number, terrain: number) {
     const { grid } = this.world;
     if (terrain === TERRAIN_WATER) return this.atlas.water(variantOf(x, y, WATER_FRAMES));
-    if (grid.road[index] === 1) return this.atlas.road(variantOf(x, y, ROAD_VARIANTS));
+    if (grid.road[index] === 1) {
+      this.roadGrades[index] = roadGradeAt(grid.appeal[index]);
+      return this.atlas.road(this.roadGrades[index], variantOf(x, y, ROAD_VARIANTS));
+    }
     return this.atlas.terrain(terrain, variantOf(x, y, TERRAIN_VARIANTS));
+  }
+
+  repaveRoads(): void {
+    const { grid } = this.world;
+    for (let index = 0; index < grid.road.length; index++) {
+      if (grid.road[index] !== 1) continue;
+      if (roadGradeAt(grid.appeal[index]) === this.roadGrades[index]) continue;
+      this.buildTile(index);
+    }
   }
 
   private addBlends(

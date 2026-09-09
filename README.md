@@ -29,7 +29,9 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
 ## What is simulated
 
 - **Terrain**: grass, meadow (farms only), sand, rock, water, over 5 elevation levels.
-- **Roads**: the only network. Everything social flows along it. A roadblock turns
+- **Roads**: the only network, and they answer to appeal: a bare track where nothing
+  stands, cobbles once the ground is worth two, marble slabs at twelve. A road repaves
+  itself as the block around it improves. Everything social flows along it. A roadblock turns
   roaming walkers back without stopping anyone walking to a destination, so a block
   can be sealed off from wandering vendors while carts still reach it.
 - **Goods**: two chains. Wheat farm → granary; growers' lodge → olive press → oil.
