@@ -10,7 +10,7 @@ export interface Request {
 
 export interface CityEvent {
   year: number;
-  kind: 'request' | 'gift' | 'earthquake' | 'monster';
+  kind: 'request' | 'gift' | 'earthquake' | 'flood' | 'landslide' | 'lava' | 'monster';
   city: string;
   good?: Good;
   cartloads?: number;

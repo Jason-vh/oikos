@@ -63,6 +63,7 @@ import {
   tributeFrom,
 } from './cities';
 import { BLESSINGS, WRATHS } from './divine';
+import { drown, floodTiles, landslideTiles, lavaTiles, scorch } from './disasters';
 import { GAME_GOODWILL, HOSTING_REVENUE, culturedShare, gameOfYear, winsTheGames } from './games';
 import { OFFER_MOOD, QUESTS, type QuestCity, type QuestState } from './quests';
 import { NO_TRADE, TRADE_ROUTES, newTradeOrders, trade, type TradeReport } from './trade';
@@ -100,6 +101,11 @@ const INVASION_MONTH = 6;
 const EVENT_MONTH = 2;
 const RESOURCE_RANGE = 4;
 const MINT_YIELD = 55;
+const DISASTER_NEWS: Record<'flood' | 'landslide' | 'lava', string> = {
+  flood: 'The sea has come inland, Archon, and stayed.',
+  landslide: 'A landslide has carried away the high ground.',
+  lava: 'Lava has burnt a path through the city.',
+};
 const EARTHQUAKE_BUILDINGS = 5;
 const TOWER_STRENGTH = 2;
 const WALL_STRENGTH = 1;
@@ -685,6 +691,9 @@ export class World {
         this.log(`${event.city} sends a gift of ${event.reward} drachmas.`);
       }
       if (event.kind === 'earthquake') this.shakeTheGround();
+      if (event.kind === 'flood') this.strike('flood');
+      if (event.kind === 'landslide') this.strike('landslide');
+      if (event.kind === 'lava') this.strike('lava');
       if (event.kind === 'monster' && !this.monster) {
         const name = event.monster ?? 'Medusa';
         this.monster = { name, slayer: MONSTERS[name], monthsHere: 0 };
@@ -757,6 +766,27 @@ export class World {
   heroCall(): HeroCall {
     const eliteHouses = [...this.buildings.values()].filter((building) => building.kind === 'estate').length;
     return callFor(this.citySnapshot(), this.standing, eliteHouses);
+  }
+
+  private strike(disaster: 'flood' | 'landslide' | 'lava'): void {
+    const tiles =
+      disaster === 'flood'
+        ? floodTiles(this.grid, Math.random)
+        : disaster === 'landslide'
+          ? landslideTiles(this.grid, Math.random)
+          : lavaTiles(this.grid, Math.random);
+
+    for (const index of tiles) {
+      const building = this.buildingAt(index);
+      if (building) this.demolish(building.x, building.y);
+    }
+
+    if (disaster === 'flood') drown(this.grid, tiles);
+    else scorch(this.grid, tiles);
+
+    this.markChanged(tiles);
+    this.structureVersion += 1;
+    this.log(DISASTER_NEWS[disaster]);
   }
 
   private shakeTheGround(): void {

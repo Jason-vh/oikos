@@ -205,7 +205,7 @@ The full inventory lives in [docs/roadmap.md](docs/roadmap.md). Next up:
 
 1. **The rest of the goods** — timber, marble, bronze, armour, sculpture, horses.
 2. **Battles on the map** — unit movement, gatehouses, sieges, morale.
-3. **Disasters** — floods, lava, landslides and sinking coast.
+3. **The Poseidon layer** — science track, hippodrome, orichalc, pyramids.
 
 ## Art licence
 

@@ -542,8 +542,11 @@ map itself are not started.
 wave (temporary) vs flood (permanent), lava (destroys land forever), landslide,
 sink land (up to 5 tiles of coast).
 
-🟡 An earthquake event razes five buildings. Crevices, floods, lava, landslides and
-sinking coast are not started.
+🟡 Four disasters are scheduled by year like any other event, in `src/sim/disasters.ts`:
+an earthquake razes five buildings, a flood turns the low ground around a shore to
+water for good, a landslide carries away ground that has a drop beside it, and lava
+burns a path and leaves rock nothing can be built on. Crevices bridgeable by road and
+temporary tidal waves are not started.
 
 ---
 

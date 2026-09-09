@@ -77,6 +77,7 @@ export const CAMPAIGN: Scenario[] = [
       { year: -495, kind: 'request', city: 'Knossos', good: 'oil', cartloads: 10, reward: 900, months: 12 },
       { year: -489, kind: 'earthquake', city: 'Corinth' },
       { year: -486, kind: 'monster', city: 'Corinth', monster: 'Medusa' },
+      { year: -484, kind: 'flood', city: 'Corinth' },
     ],
   },
   {
@@ -96,6 +97,7 @@ export const CAMPAIGN: Scenario[] = [
       { year: -494, kind: 'request', city: 'Troy', good: 'oil', cartloads: 14, reward: 1200, months: 10 },
       { year: -488, kind: 'gift', city: 'Delphi', reward: 1500 },
       { year: -485, kind: 'monster', city: 'Delphi', monster: 'Cerberus' },
+      { year: -483, kind: 'landslide', city: 'Delphi' },
     ],
   },
   {
@@ -118,6 +120,7 @@ export const CAMPAIGN: Scenario[] = [
       { year: -491, kind: 'earthquake', city: 'Mycenae' },
       { year: -486, kind: 'gift', city: 'Knossos', reward: 2000 },
       { year: -483, kind: 'monster', city: 'Mycenae', monster: 'Hector' },
+      { year: -481, kind: 'lava', city: 'Mycenae' },
     ],
   },
 ];
