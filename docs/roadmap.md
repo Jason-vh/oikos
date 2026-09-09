@@ -435,8 +435,12 @@ conditions each asks of the city — Achilles three companies and a sanctuary, H
 1500 citizens and two, Perseus two and 3000 dr, Odysseus standing of 70 and eight
 elite houses. A summoned hero stays two years and fights as four hoplite companies,
 and a monster loose in the city razes a building a month until the one hero who can
-kill it arrives. Sanctuary sizes, artisans, gods fighting each other, the other four
-heroes, the remaining monsters and the quests are not started.
+kill it arrives. Each god carries one quest in `src/sim/quests.ts`, offered once their
+mood passes 70 and paid when the city meets it — citizens, companies, allies, stores
+or a monster slain — and any quest fulfilled unlocks the monument, a marble column on
+a stepped court worth 20 appeal. Sanctuary sizes, artisans, gods fighting each other,
+the other four heroes, the remaining monsters and the second quest per god are not
+started.
 
 ---
 

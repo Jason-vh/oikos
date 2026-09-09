@@ -60,6 +60,7 @@ export type BuildingKind =
   | 'stadium'
   | 'timberMill'
   | 'masonryShop'
+  | 'monument'
   | 'sanctuaryZeus'
   | 'sanctuaryPoseidon'
   | 'sanctuaryDemeter'

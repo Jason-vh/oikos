@@ -63,6 +63,7 @@ import {
   tributeFrom,
 } from './cities';
 import { BLESSINGS, WRATHS } from './divine';
+import { OFFER_MOOD, QUESTS, type QuestCity, type QuestState } from './quests';
 import { NO_TRADE, TRADE_ROUTES, newTradeOrders, trade, type TradeReport } from './trade';
 import { NO_ARMY, companiesIn, fightInvasion, musterArmy, type Army, type Battle } from './military';
 import {
@@ -149,6 +150,10 @@ export class World {
   hero: { kind: HeroKind; monthsLeft: number } | null = null;
   divineFavourMonths = 0;
   monster: Monster | null = null;
+  monstersSlain = 0;
+  quests: Record<GodKind, QuestState> = Object.fromEntries(
+    GOD_KINDS.map((kind) => [kind, 'unoffered' as QuestState]),
+  ) as Record<GodKind, QuestState>;
   lastBattle: Battle | null = null;
   scenario: Scenario = DEFAULT_SCENARIO;
   episode = 0;
@@ -224,6 +229,9 @@ export class World {
     }
     if (def.needsNear && !this.grid.hasNear(def.needsNear, x, y, def.size, RESOURCE_RANGE)) {
       return { ok: false, reason: def.needsNear === 'woods' ? 'Must stand among trees' : 'Must stand beside rock' };
+    }
+    if (kind === 'monument' && this.questsDone === 0) {
+      return { ok: false, reason: 'Fulfil a quest first' };
     }
     if (def.marbleCost && this.stockOf('marble') < def.marbleCost) {
       return { ok: false, reason: `Needs ${def.marbleCost} marble in store` };
@@ -446,6 +454,7 @@ export class World {
     if (this.hero) this.army.hoplite += HERO_COMPANIES;
     this.answerTheWorld();
     this.keepTheHero();
+    this.pursueQuests();
     this.defendCity();
     this.sufferAfflictions();
     this.attendGods();
@@ -556,6 +565,49 @@ export class World {
     }
   }
 
+  private pursueQuests(): void {
+    const city = this.questCity();
+
+    for (const kind of this.scenario.gods) {
+      const quest = QUESTS[kind];
+      if (this.quests[kind] === 'done') continue;
+
+      if (this.quests[kind] === 'unoffered') {
+        if (this.gods[kind].mood < OFFER_MOOD) continue;
+        this.quests[kind] = 'offered';
+        this.log(`${GODS[kind].name} asks for ${quest.demand}.`);
+        continue;
+      }
+
+      if (!quest.met(city)) continue;
+      this.quests[kind] = 'done';
+      this.treasury += quest.reward;
+      this.gods[kind].mood = Math.min(100, this.gods[kind].mood + 10);
+      this.log(`${quest.name} is fulfilled. ${GODS[kind].name} is pleased.`);
+    }
+  }
+
+  questCity(): QuestCity {
+    const snapshot = this.citySnapshot();
+    return {
+      population: snapshot.population,
+      companies: snapshot.companies,
+      sanctuaries: snapshot.sanctuaries,
+      treasury: this.treasury,
+      marble: this.stockOf('marble'),
+      wine: this.stockOf('wine'),
+      oil: this.stockOf('oil'),
+      fleece: this.stockOf('fleece'),
+      allies: CITIES.filter((city) => tradesWithYou(this.goodwill[city.id] ?? 0)).length,
+      heroes: this.hero ? 1 : 0,
+      monstersSlain: this.monstersSlain,
+    };
+  }
+
+  get questsDone(): number {
+    return Object.values(this.quests).filter((state) => state === 'done').length;
+  }
+
   private answerTheWorld(): void {
     const { live, expired } = ageRequests(this.requests);
     this.requests = live;
@@ -598,6 +650,7 @@ export class World {
     if (this.hero && slays(this.hero.kind, this.monster)) {
       this.log(`${HEROES[this.hero.kind].name} has slain ${this.monster.name}.`);
       this.monster = null;
+      this.monstersSlain += 1;
       return;
     }
 

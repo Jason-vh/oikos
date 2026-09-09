@@ -8,6 +8,7 @@ import { UNITS, type UnitKind } from '../sim/military';
 import { DIFFICULTIES } from '../sim/difficulty';
 import { describeRequest } from '../sim/events';
 import { HEROES, HERO_KINDS, summonable, type HeroKind } from '../sim/heroes';
+import { QUESTS } from '../sim/quests';
 import { CAMPAIGN } from '../sim/scenario';
 import { adviseCity } from './advisors';
 import type { BuildingKind } from '../sim/types';
@@ -445,7 +446,7 @@ function groupFor(kind: string): string {
   if (kind === 'infirmary' || kind === 'watchpost') return 'Services';
   if (kind === 'palace' || kind === 'taxOffice' || kind === 'tradingPost') return 'Government';
   if (kind === 'tower') return 'Defence';
-  if (kind.startsWith('sanctuary') || kind === 'heroHall') return 'Mythology';
+  if (kind.startsWith('sanctuary') || kind === 'heroHall' || kind === 'monument') return 'Mythology';
   return 'Services';
 }
 
@@ -462,10 +463,18 @@ function renderHeroes(hud: HTMLElement, game: Game): void {
     return `<button class="choice${here ? ' chosen' : ''}" data-hero="${kind}"><span>${hero.name}</span><b>${state}</b></button>`;
   }).join('');
 
+  const quests = world.scenario.gods
+    .filter((god) => world.quests[god] !== 'unoffered')
+    .map(
+      (god) =>
+        `<div class="dropdown-row"><span>${QUESTS[god].name}</span><b>${world.quests[god] === 'done' ? 'done' : QUESTS[god].demand}</b></div>`,
+    )
+    .join('');
   const note = world.monster
     ? `<p class="dropdown-note">${world.monster.name} is loose. Only ${HEROES[world.monster.slayer].name} can kill it.</p>`
     : '<p class="dropdown-note">A hero hall and what he asks of the city bring him in.</p>';
-  const markup = rows + note;
+  const questBlock = quests === '' ? '' : `<div class="dropdown-rule"></div>${quests}`;
+  const markup = rows + note + questBlock;
 
   if (host.innerHTML === markup) return;
   host.innerHTML = markup;

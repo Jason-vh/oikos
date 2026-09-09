@@ -205,7 +205,7 @@ The full inventory lives in [docs/roadmap.md](docs/roadmap.md). Next up:
 
 1. **The rest of the goods** — timber, marble, bronze, armour, sculpture, horses.
 2. **Battles on the map** — unit movement, gatehouses, sieges, morale.
-3. **Quests and monuments** — two per god, and something to raise when they are done.
+3. **The Pan-Hellenic games** — four games on a four-year cycle, and hosting them.
 
 ## Art licence
 

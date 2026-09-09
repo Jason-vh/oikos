@@ -1733,6 +1733,35 @@ def build_masonry_shop():
     return {"kind": "masonryShop", "variant": 0, "footprint": 2, "height": 0.95}
 
 
+def build_monument():
+    """Commemorative monument: a fluted column on a stepped base, crowned in gilt bronze."""
+    paving = plaster_material("paving", STONE, roughness=0.86, variation=0.05, scale=14.0)
+    marble = material("marble", MARBLE, roughness=0.28)
+    gilt = material("gilt", hex_rgb("d8c06a"), roughness=0.3, metallic=1.0)
+    clay = material("clay", CLAY, roughness=0.8)
+    cypress = material("cypress", CYPRESS, roughness=0.9)
+
+    half = 1.44
+    yard = add_box("court", (0, 0, 0.03), (half * 2, half * 2, 0.06), paving)
+    yard.visible_shadow = False
+
+    for step, (size, z) in enumerate(((1.7, 0.12), (1.4, 0.24), (1.1, 0.36))):
+        add_box(f"step_{step}", (0, 0, z), (size, size, 0.12), marble)
+
+    add_box("plinth", (0, 0, 0.42 + 0.24), (0.8, 0.8, 0.48), marble)
+    add_box("plinth_cap", (0, 0, 0.42 + 0.5), (0.94, 0.94, 0.08), marble)
+    add_cylinder("column", (0, 0, 0.98 + 0.72), 0.24, 1.44, marble, vertices=20)
+    add_box("capital", (0, 0, 0.98 + 1.5), (0.62, 0.62, 0.14), marble)
+    add_cylinder("figure", (0, 0, 0.98 + 1.72), 0.13, 0.34, gilt, vertices=14)
+    add_cylinder("wreath", (0, 0, 0.98 + 1.94), 0.17, 0.06, gilt, vertices=18)
+
+    for cx, cy in ((1.1, -1.1), (-1.1, 1.1)):
+        add_cypress_pot("cypress", (cx, cy, 0.06), 0.5, clay, cypress)
+    add_amphora("jar", (1.12, 1.0, 0.06), 0.34, clay)
+
+    return {"kind": "monument", "variant": 0, "footprint": 3, "height": 3.1}
+
+
 def build_fountain():
     """Marble basin with a raised centre and a small bronze statue; light blue water."""
     marble = material("marble", MARBLE, roughness=0.3)
@@ -1839,6 +1868,7 @@ MODELS = {
     "maintenance-office": build_maintenance_office,
     "infirmary": build_infirmary,
     "hero-hall": build_hero_hall,
+    "monument": build_monument,
     "tower": build_tower,
     "watchpost": build_watchpost,
     "olive-press": build_olive_press,
