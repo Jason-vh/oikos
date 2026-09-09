@@ -67,7 +67,8 @@ import { drown, floodTiles, landslideTiles, lavaTiles, scorch } from './disaster
 import { GAME_GOODWILL, HOSTING_REVENUE, culturedShare, gameOfYear, winsTheGames } from './games';
 import { OFFER_MOOD, QUESTS, type QuestCity, type QuestState } from './quests';
 import { NO_TRADE, TRADE_ROUTES, newTradeOrders, trade, type TradeReport } from './trade';
-import { NO_ARMY, companiesIn, fightInvasion, musterArmy, type Army, type Battle } from './military';
+import { NO_ARMY, companiesIn, musterArmy, type Army, type Battle, type Invasion } from './military';
+import { landInvaders, musterDefenders, reachedPalace, stepBattle, type Unit } from './battle';
 import {
   HEROES,
   HERO_STAY_MONTHS,
@@ -172,6 +173,8 @@ export class World {
     GOD_KINDS.map((kind) => [kind, 'unoffered' as QuestState]),
   ) as Record<GodKind, QuestState>;
   lastBattle: Battle | null = null;
+  invasion: Invasion | null = null;
+  units: Unit[] = [];
   scenario: Scenario = DEFAULT_SCENARIO;
   episode = 0;
   goals: GoalProgress[] = [];
@@ -438,6 +441,7 @@ export class World {
   update(): void {
     this.tick += 1;
     this.updateProduction();
+    this.fightTheBattle();
     updateWalkers(this);
     updateHouses(this);
     if (this.appealDirty) {
@@ -833,22 +837,53 @@ export class World {
     const invasion = this.scenario.invasions.find(
       (candidate) => candidate.year === this.year && this.month === INVASION_MONTH,
     );
-    if (!invasion) return;
+    if (!invasion || this.invasion) return;
 
-    const battle = fightInvasion(this.army, invasion, this.fortification());
-    this.lastBattle = battle;
+    const nextId = () => this.nextId++;
+    this.invasion = invasion;
+    this.units = [
+      ...landInvaders(this.grid, invasion.companies, nextId),
+      ...musterDefenders(this.army, this.palaceTile().x, this.palaceTile().y, nextId),
+    ];
+    this.log(`The ${invasion.nation} are landing, Archon.`);
+  }
 
-    if (battle.won) {
-      this.log(`The ${invasion.nation} are thrown back from the walls.`);
+  private fightTheBattle(): void {
+    if (!this.invasion) return;
+
+    this.units = stepBattle(this.units, this.palaceTile(), this.grid);
+    const invaders = this.units.filter((unit) => unit.side === 'invader');
+
+    if (reachedPalace(this.units, this.palaceTile())) {
+      this.loseTheBattle(this.invasion);
       return;
     }
+    if (invaders.length > 0) return;
 
+    this.lastBattle = { won: true, invasion: this.invasion };
+    this.log(`The ${this.invasion.nation} are thrown back from the walls.`);
+    this.invasion = null;
+    this.units = [];
+  }
+
+  private loseTheBattle(invasion: Invasion): void {
+    this.lastBattle = { won: false, invasion };
     this.treasury -= Math.min(this.treasury, invasion.companies * PLUNDER_PER_COMPANY);
     for (let razed = 0; razed < invasion.companies; razed++) {
       const victim = this.randomBuilding();
       if (victim) this.demolish(victim.x, victim.y);
     }
     this.log(`The ${invasion.nation} sack the city, Archon.`);
+    this.invasion = null;
+    this.units = [];
+  }
+
+  private palaceTile(): { x: number; y: number } {
+    for (const building of this.buildings.values()) {
+      if (building.kind === 'palace') return { x: building.x, y: building.y };
+    }
+    const middle = Math.floor(this.grid.size / 2);
+    return { x: middle, y: middle };
   }
 
   fortification(): number {

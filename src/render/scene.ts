@@ -67,6 +67,7 @@ export class Scene {
   private readonly structures = new Container();
   private readonly buildingSprites = new Map<number, BuildingEntry>();
   private readonly walkerSprites = new Map<number, Sprite>();
+  private readonly unitSprites = new Map<number, Sprite>();
   private readonly overlaySprites: Sprite[] = [];
   private readonly emissionSchedule = new Map<number, number>();
 
@@ -137,6 +138,7 @@ export class Scene {
     this.syncBuildings();
     if (this.overlayMode !== 'none' && this.overlayMode !== 'appeal') this.refreshOverlay();
     this.syncWalkers();
+    this.syncUnits();
     this.emitParticles();
     this.particles.update(deltaMs);
     this.gulls.update(deltaMs);
@@ -282,6 +284,42 @@ export class Scene {
       const position = tileToScreen(x, y, height);
       sprite.position.set(position.x, position.y);
       sprite.zIndex = x + y + 0.5;
+    }
+  }
+
+  private syncUnits(): void {
+    const live = new Set(this.world.units.map((unit) => unit.id));
+    for (const [id, sprite] of this.unitSprites) {
+      if (live.has(id)) continue;
+      sprite.destroy();
+      this.unitSprites.delete(id);
+    }
+
+    const { grid } = this.world;
+    const baseFrame = Math.floor(this.clock / WALKER_FRAME_MS);
+
+    for (const unit of this.world.units) {
+      const x = unit.fromX + (unit.x - unit.fromX) * unit.progress;
+      const y = unit.fromY + (unit.y - unit.fromY) * unit.progress;
+
+      let sprite = this.unitSprites.get(unit.id);
+      if (!sprite) {
+        sprite = new Sprite();
+        sprite.anchor.set(0.5, 0.92);
+        this.structures.addChild(sprite);
+        this.unitSprites.set(unit.id, sprite);
+      }
+
+      sprite.texture = this.textures.walker(
+        unit.side === 'city' ? 'soldier' : 'invader',
+        unit.id % WALKER_LOOKS,
+        directionOf(unit.x - unit.fromX, unit.y - unit.fromY),
+        (baseFrame + unit.id) % WALKER_FRAMES,
+      );
+
+      const position = tileToScreen(x, y, grid.heightAt(unit.x, unit.y));
+      sprite.position.set(position.x, position.y);
+      sprite.zIndex = x + y + 0.6;
     }
   }
 

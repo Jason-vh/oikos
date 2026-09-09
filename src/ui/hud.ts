@@ -274,6 +274,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
         world.scenario.gods.some((kind) => world.gods[kind].honoured && world.gods[kind].mood <= 20),
       );
       alert(hud, 'heroes', world.monster !== null);
+      alert(hud, 'army', world.invasion !== null);
       renderRequests(hud, world, game);
       field('army').textContent = 'Army';
       for (const kind of Object.keys(UNITS) as UnitKind[]) {
@@ -552,6 +553,10 @@ function renderRequests(hud: HTMLElement, world: Game['world'], game: Game): voi
 
 
 function armyNote(world: Game['world']): string {
+  if (world.invasion) {
+    const invaders = world.units.filter((unit) => unit.side === 'invader').length;
+    return `The ${world.invasion.nation} are in the fields — ${invaders} companies still standing.`;
+  }
   if (!world.has('palace')) return 'Without a palace nobody musters.';
   const battle = world.lastBattle;
   if (!battle) return 'Housing raises the companies; the better the house, the better the soldier.';

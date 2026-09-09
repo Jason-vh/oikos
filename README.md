@@ -203,9 +203,9 @@ The game picks it up with no client changes.
 
 The full inventory lives in [docs/roadmap.md](docs/roadmap.md). Next up:
 
-1. **The rest of the goods** — timber, marble, bronze, armour, sculpture, horses.
-2. **Battles on the map** — unit movement, gatehouses, sieges, morale.
-3. **The Poseidon layer** — science track, hippodrome, orichalc, pyramids.
+1. **Artisans** — sanctuaries raised stone by stone, rather than paid for at placement.
+2. **The Poseidon layer** — science track, hippodrome, orichalc, pyramids.
+3. **Odds and ends** — ratings, colonies, city rotation, undo, message archives.
 
 ## Art licence
 

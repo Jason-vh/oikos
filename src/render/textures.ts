@@ -47,6 +47,8 @@ const WALKER_PALETTES: Record<WalkerKind, { tunic: number; trim: number }> = {
   deliveryman: { tunic: 0xc7b48b, trim: 0x6d5230 },
   philosopher: { tunic: 0xf0ece0, trim: 0x8a7a52 },
   athlete: { tunic: 0xe8d9a8, trim: 0xb8763a },
+  soldier: { tunic: 0xc94b32, trim: 0xd8c06a },
+  invader: { tunic: 0x3f4a63, trim: 0x8a2f2f },
   actor: { tunic: 0xd9c2e0, trim: 0x6b4a7a },
   doctor: { tunic: 0xf2efe4, trim: 0x9c5a4a },
   watchman: { tunic: 0x8d6b3f, trim: 0x4a3a24 },

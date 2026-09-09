@@ -145,7 +145,9 @@ export type WalkerKind =
   | 'doctor'
   | 'watchman'
   | 'athlete'
-  | 'actor';
+  | 'actor'
+  | 'soldier'
+  | 'invader';
 
 export type WalkerState = 'roaming' | 'delivering' | 'returning';
 

@@ -19,6 +19,8 @@ export const ROAM_RANGE: Record<WalkerKind, number> = {
   watchman: 30,
   athlete: 30,
   actor: 30,
+  soldier: 0,
+  invader: 0,
 };
 
 export const WALKER_SPEED: Record<WalkerKind, number> = {
@@ -33,6 +35,8 @@ export const WALKER_SPEED: Record<WalkerKind, number> = {
   watchman: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
   athlete: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
   actor: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
+  soldier: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
+  invader: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
 };
 
 export const PEDDLER_LOAD = UNITS_PER_CARTLOAD;
