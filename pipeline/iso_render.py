@@ -828,24 +828,47 @@ def build_granary():
 
 
 def build_agora(kind, across, along, variant):
-    """The agora itself is only its paving: flagstones with a kerb, laid along a road.
-    Everything else on it is a stall the player puts there."""
-    flags = plaster_material("flags", hex_rgb("cfc3a0"), roughness=0.93, variation=0.09, scale=18.0)
-    kerb = plaster_material("kerb", hex_rgb("b8ab88"), roughness=0.9, variation=0.06, scale=12.0)
-    grout = material("grout", hex_rgb("9d9070"), roughness=0.95)
+    """The agora itself is only its floor: marble flags in two tones inside a kerb,
+    with a dark inlay running round them. Everything on it is a stall the player puts
+    there."""
+    pale = plaster_material("marble_pale", hex_rgb("e4d8b8"), roughness=0.5, variation=0.06, scale=16.0)
+    warm = plaster_material("marble_warm", hex_rgb("d3c39c"), roughness=0.55, variation=0.07, scale=13.0)
+    kerb = plaster_material("kerb", hex_rgb("d9cdaa"), roughness=0.6, variation=0.05, scale=9.0)
+    inlay = plaster_material("inlay", hex_rgb("8a7248"), roughness=0.5, variation=0.06, scale=11.0)
+    bed = material("bed", hex_rgb("9d9174"), roughness=0.95)
 
     width = along if variant == 0 else across
     depth = across if variant == 0 else along
+    kerb_width = 0.34
+    field_x = width - kerb_width * 2
+    field_y = depth - kerb_width * 2
 
-    add_box("kerb", (0, 0, 0.02), (width, depth, 0.04), kerb)
-    add_box("flags", (0, 0, 0.035), (width - 0.16, depth - 0.16, 0.05), flags)
+    add_box("kerb", (0, 0, 0.03), (width, depth, 0.06), kerb)
+    add_box("kerb_lip", (0, 0, 0.062), (width - 0.1, depth - 0.1, 0.008), warm)
+    add_box("bed", (0, 0, 0.066), (field_x + 0.1, field_y + 0.1, 0.008), bed)
 
-    for step in range(1, int(round(width))):
-        add_box("joint", (-width / 2 + step, 0, 0.062), (0.04, depth - 0.2, 0.005), grout)
-    for step in range(1, int(round(depth))):
-        add_box("joint", (0, -depth / 2 + step, 0.062), (width - 0.2, 0.04, 0.005), grout)
+    for sign in (-1, 1):
+        add_box("inlay", (0, sign * (field_y / 2 + 0.11), 0.07), (field_x + 0.34, 0.07, 0.012), inlay)
+        add_box("inlay", (sign * (field_x / 2 + 0.11), 0, 0.07), (0.07, field_y + 0.34, 0.012), inlay)
+    for cx in (-1, 1):
+        for cy in (-1, 1):
+            add_box("stud", (cx * (field_x / 2 + 0.11), cy * (field_y / 2 + 0.11), 0.071), (0.16, 0.16, 0.014), inlay)
 
-    return {"kind": kind, "variant": variant, "footprint": [width, depth], "height": 0.07}
+    flags_x = int(round(field_x))
+    flags_y = int(round(field_y))
+    step_x = field_x / flags_x
+    step_y = field_y / flags_y
+    for ix in range(flags_x):
+        for iy in range(flags_y):
+            stone = pale if (ix + iy) % 2 == 0 else warm
+            add_box(
+                "flag",
+                (-field_x / 2 + (ix + 0.5) * step_x, -field_y / 2 + (iy + 0.5) * step_y, 0.076),
+                (step_x - 0.05, step_y - 0.05, 0.014),
+                stone,
+            )
+
+    return {"kind": kind, "variant": variant, "footprint": [width, depth], "height": 0.09}
 
 
 def build_college():
@@ -887,31 +910,51 @@ def build_college():
 STALL_AWNINGS = ["d9a441", "e8e2d2", "8fa354", "8e3f56", "6f7d8c", "8a5a34"]
 
 
+STALL_WARES = ["e0b451", "efe9dc", "b6cf6d", "7c2f45", "9aa4b2", "8a5a34"]
+
+
 def build_stall(variant):
-    """A trader's stall for an agora: a pitched awning in the colours of whatever the
-    vendor deals in, over a counter, crates and jars."""
-    canvas = plaster_material("canvas", hex_rgb(STALL_AWNINGS[variant]), roughness=0.92, variation=0.08, scale=9.0)
-    canvas_dark = plaster_material("canvas_dark", shade_hex(STALL_AWNINGS[variant], 0.82), roughness=0.92, variation=0.06, scale=9.0)
+    """A market stall: a striped canvas awning sloping towards the street, a counter of
+    wares beneath it, and crates and jars stacked behind."""
+    stripe = plaster_material("stripe", hex_rgb(STALL_AWNINGS[variant]), roughness=0.94, variation=0.07, scale=9.0)
+    cream = plaster_material("cream", hex_rgb("efe7d2"), roughness=0.94, variation=0.05, scale=9.0)
+    trim = material("trim", shade_hex(STALL_AWNINGS[variant], 0.78), roughness=0.94)
+    wares = material("wares", hex_rgb(STALL_WARES[variant]), roughness=0.85)
     wood = material("wood", hex_rgb("7a5730"), roughness=0.9)
+    dark_wood = material("dark_wood", hex_rgb("5b3f22"), roughness=0.9)
     crate = material("crate", hex_rgb("a37b45"), roughness=0.9)
     cloth = material("cloth", hex_rgb("d8cdae"), roughness=0.95)
 
-    half = 0.52
-    post_h = 0.46
+    half = 0.56
+    post_h = 0.72
+    pitch = 0.26
+
     for sx in (-1, 1):
         for sy in (-1, 1):
-            add_cylinder("post", (sx * half, sy * half, post_h / 2), 0.028, post_h, wood, vertices=8)
+            height = post_h if sy > 0 else post_h - 0.18
+            add_cylinder("post", (sx * half, sy * half, height / 2), 0.026, height, wood, vertices=8)
 
-    add_hip_roof("awning", (0, 0, post_h + 0.12), half + 0.14, 0.26, canvas, ridge_half=0.1)
-    add_box("valance", (0, half + 0.12, post_h + 0.02), (half * 2 + 0.28, 0.03, 0.1), canvas_dark)
+    strips = 7
+    span = 0.86
+    back = half + 0.12
+    for index in range(strips):
+        band = span / strips
+        y = back - (index + 0.5) * band
+        z = post_h - 0.08 - (back - y) * math.tan(pitch)
+        plank = add_box(f"stripe{index}", (0, y, z), (half * 2 + 0.24, band, 0.035), stripe if index % 2 == 0 else cream)
+        plank.rotation_euler[0] = pitch
+    add_box("eave", (0, back - span, post_h - 0.08 - span * math.tan(pitch)), (half * 2 + 0.3, 0.05, 0.11), trim)
 
-    add_box("counter", (0.06, -0.34, 0.16), (0.66, 0.3, 0.32), wood)
-    add_box("counter_top", (0.06, -0.34, 0.34), (0.78, 0.4, 0.05), cloth)
-    for index, (cx, cy) in enumerate(((-0.3, 0.3), (-0.08, 0.4), (-0.36, 0.06))):
-        add_box(f"crate{index}", (cx, cy, 0.1), (0.22, 0.22, 0.2), crate)
-    add_amphora("jar", (0.44, 0.34, 0.0), 0.26, crate)
+    add_box("counter", (0, -half + 0.02, 0.17), (half * 2 - 0.04, 0.3, 0.34), dark_wood)
+    add_box("counter_top", (0, -half + 0.02, 0.36), (half * 2 + 0.1, 0.4, 0.05), cloth)
+    for index, wx in enumerate((-0.32, 0.0, 0.32)):
+        add_box(f"ware{index}", (wx, -half + 0.02, 0.43), (0.24, 0.28, 0.09), wares)
 
-    return {"kind": "stall", "variant": variant, "footprint": 2, "height": 0.86}
+    for index, (cx, cy) in enumerate(((-0.34, 0.3), (-0.1, 0.42), (0.3, 0.34))):
+        add_box(f"crate{index}", (cx, cy, 0.11), (0.24, 0.24, 0.22), crate)
+    add_amphora("jar", (0.46, 0.04, 0.0), 0.3, crate)
+
+    return {"kind": "stall", "variant": variant, "footprint": 2, "height": 1.05}
 
 
 def build_podium():
