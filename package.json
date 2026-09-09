@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test src",
     "smoke": "bun scripts/smoke.mjs",
+    "pilot": "bun scripts/pilot.ts",
     "render": "blender --background --python pipeline/iso_render.py -- --out pipeline/out",
     "pack": "python3 pipeline/pack.py"
   },

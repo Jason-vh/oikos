@@ -4,3 +4,5 @@ scripts/shot-*.png
 scripts/atlas.png
 pipeline/out
 .DS_Store
+scripts/.pilot-profile
+scripts/pilot-shot.png
