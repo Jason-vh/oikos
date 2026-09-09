@@ -222,7 +222,10 @@ marble for export. A foundry beside rock smelts bronze, an armoury beats it into
 armour, a sculpture studio casts it into sculpture, a horse ranch turns grain into
 horses on the meadow, and a mint beside rock strikes silver into coin month after
 month. Mansions want armour, estates want horses as well, and a monument wants two
-sculptures with its marble. Carrots, onions, meat, cheese and fish are not started.
+sculptures with its marble. Carrot and onion farms work the meadow, a hunting lodge
+must stand among trees and a fishery beside water — all of them feeding the same food
+store rather than the original's separate types. Cheese, oranges and the Poseidon
+corral are not started.
 
 🟡 Earlier: wheat farm → granary, and growers' lodge → olive press → oil, with goods
 carted by producers and pulled by the agora. Husbandry, the rest of industry, harvest

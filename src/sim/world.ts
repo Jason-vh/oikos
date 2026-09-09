@@ -101,6 +101,11 @@ const INVASION_MONTH = 6;
 const EVENT_MONTH = 2;
 const RESOURCE_RANGE = 4;
 const MINT_YIELD = 55;
+const NEAR_REASON: Record<'woods' | 'rock' | 'water', string> = {
+  woods: 'Must stand among trees',
+  rock: 'Must stand beside rock',
+  water: 'Must stand beside water',
+};
 const DISASTER_NEWS: Record<'flood' | 'landslide' | 'lava', string> = {
   flood: 'The sea has come inland, Archon, and stayed.',
   landslide: 'A landslide has carried away the high ground.',
@@ -240,7 +245,7 @@ export class World {
       return { ok: false, reason: `Needs appeal of ${def.minAppeal} here` };
     }
     if (def.needsNear && !this.grid.hasNear(def.needsNear, x, y, def.size, RESOURCE_RANGE)) {
-      return { ok: false, reason: def.needsNear === 'woods' ? 'Must stand among trees' : 'Must stand beside rock' };
+      return { ok: false, reason: NEAR_REASON[def.needsNear] };
     }
     if (kind === 'monument' && this.questsDone === 0) {
       return { ok: false, reason: 'Fulfil a quest first' };

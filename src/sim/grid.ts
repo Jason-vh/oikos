@@ -87,7 +87,7 @@ export class Grid {
     return this.roadblock[index] === 1;
   }
 
-  hasNear(resource: 'woods' | 'rock', x: number, y: number, size: number, range: number): boolean {
+  hasNear(resource: 'woods' | 'rock' | 'water', x: number, y: number, size: number, range: number): boolean {
     for (let dy = -range; dy < size + range; dy++) {
       for (let dx = -range; dx < size + range; dx++) {
         const nx = x + dx;
@@ -96,6 +96,7 @@ export class Grid {
         const index = this.index(nx, ny);
         if (resource === 'rock' && this.terrain[index] === TERRAIN_ROCK) return true;
         if (resource === 'woods' && this.decor[index] !== 0 && this.terrain[index] !== TERRAIN_ROCK) return true;
+        if (resource === 'water' && this.terrain[index] === TERRAIN_WATER) return true;
       }
     }
     return false;

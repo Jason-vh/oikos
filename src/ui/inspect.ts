@@ -69,7 +69,7 @@ export function describeBuildingTool(kind: BuildingKind, difficulty: number): In
   if (def.needsRoad) facts.push(['Road', 'Must touch one']);
   if (def.requires) facts.push(['Requires', BUILDINGS[def.requires].name]);
   if (def.minAppeal > 0) facts.push(['Ground', `Appeal ${def.minAppeal} or better`]);
-  if (def.needsNear) facts.push(['Ground', def.needsNear === 'woods' ? 'Among trees' : 'Beside rock']);
+  if (def.needsNear) facts.push(['Ground', `Beside ${def.needsNear}`]);
   if (def.marbleCost) facts.push(['Marble', `${def.marbleCost} cartloads`]);
   if (def.sculptureCost) facts.push(['Sculpture', `${def.sculptureCost} cartloads`]);
   facts.push(['Appeal', appealSummary(def)]);

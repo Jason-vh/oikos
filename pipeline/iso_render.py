@@ -1880,6 +1880,87 @@ def build_horse_ranch():
     return {"kind": "horseRanch", "variant": 0, "footprint": 4, "height": 1.2}
 
 
+def build_field_farm(kind, crop_hex, row_count=5):
+    """A field of rows with a small hut, in the manner of the wheat farm."""
+    soil = plaster_material("soil", SOIL, roughness=0.98, variation=0.1, scale=12.0)
+    crop = plaster_material("crop", hex_rgb(crop_hex), roughness=0.94, variation=0.12, scale=14.0)
+    ochre = plaster_material("ochre", OCHRE, roughness=0.9, variation=0.08, scale=8.0)
+    terracotta = roof_material("terracotta", TERRACOTTA)
+    wood = material("wood", WOOD, roughness=0.85)
+
+    field = add_box("field", (-0.1, -0.1, 0.03), (1.74, 1.74, 0.06), soil)
+    field.visible_shadow = False
+    for row in range(row_count):
+        add_box(f"row_{row}", (-0.78 + row * 0.34, -0.1, 0.09), (0.2, 1.5, 0.1), crop)
+
+    hx, hy = 0.66, 0.66
+    half = 0.28
+    wall_h = 0.4
+    add_box("hut", (hx, hy, 0.06 + wall_h / 2), (half * 2, half * 2, wall_h), ochre)
+    add_hip_roof("hut_roof", (hx, hy, 0.06 + wall_h + 0.1), half + 0.06, 0.2, terracotta, ridge_half=0.07)
+    add_door(half, 0.24, wood, (hx, hy))
+
+    return {"kind": kind, "variant": 0, "footprint": 2, "height": 0.8}
+
+
+def build_hunting_lodge():
+    """Hunting lodge: a timber cabin with drying racks and a stack of pelts."""
+    earth = plaster_material("earth", EARTH, roughness=0.97, variation=0.09, scale=15.0)
+    daub = plaster_material("daub", DAUB, roughness=0.95, variation=0.12, scale=10.0)
+    thatch = plaster_material("thatch", THATCH, roughness=0.95, variation=0.1, scale=20.0)
+    wood = material("wood", WOOD, roughness=0.88)
+    hide = material("hide", hex_rgb("8a5a34"), roughness=0.92)
+
+    half = 0.94
+    yard = add_box("yard", (0, 0, 0.03), (half * 2, half * 2, 0.06), earth)
+    yard.visible_shadow = False
+
+    lodge_half = 0.42
+    wall_h = 0.46
+    lx, ly = -0.42, -0.4
+    add_box("lodge", (lx, ly, 0.06 + wall_h / 2), (lodge_half * 2, lodge_half * 2, wall_h), daub)
+    add_gable_roof("lodge_roof", (lx, ly, 0.06 + wall_h), lodge_half + 0.09, lodge_half + 0.08, 0.24, 0.05, thatch)
+    add_doorway(lodge_half, 0.32, (lx, ly))
+
+    add_rack("rack", (0.6, 0.3, 0.06), 0.6, 0.3, wood, hide)
+    for pelt_y in (-0.8, -0.6):
+        add_box("pelt", (0.6, pelt_y, 0.06 + 0.07), (0.4, 0.16, 0.14), hide)
+    add_stump("stump", (-0.8, 0.72, 0.06), wood)
+
+    return {"kind": "huntingLodge", "variant": 0, "footprint": 2, "height": 0.9}
+
+
+def build_fishery():
+    """Fishery: a jetty over the water with a boat, nets and drying fish."""
+    earth = plaster_material("earth", EARTH, roughness=0.97, variation=0.09, scale=15.0)
+    plaster = plaster_material("plaster", hex_rgb("bcd0d4"), roughness=0.88, variation=0.05, scale=9.0)
+    tiles = roof_material("tiles", hex_rgb("b8502c"), rows_per_unit=18.0)
+    wood = material("wood", WOOD, roughness=0.88)
+    net = material("net", hex_rgb("cbbf95"), roughness=0.95)
+
+    half = 0.94
+    yard = add_box("yard", (0, 0, 0.03), (half * 2, half * 2, 0.06), earth)
+    yard.visible_shadow = False
+
+    shed_half = 0.36
+    wall_h = 0.44
+    sx, sy = -0.5, -0.5
+    add_box("shed", (sx, sy, 0.06 + wall_h / 2), (shed_half * 2, shed_half * 2, wall_h), plaster)
+    add_hip_roof("shed_roof", (sx, sy, 0.06 + wall_h + 0.12), shed_half + 0.1, 0.24, tiles, ridge_half=0.1)
+    add_doorway(shed_half, 0.3, (sx, sy))
+
+    add_box("jetty", (0.42, -0.2, 0.09), (1.0, 0.3, 0.06), wood)
+    for post_x in (0.0, 0.42, 0.84):
+        add_cylinder("pile", (post_x, -0.2, 0.06), 0.04, 0.14, wood, vertices=6)
+    add_box("boat", (0.5, 0.62, 0.1), (0.8, 0.3, 0.14), wood)
+    add_box("boat_rim", (0.5, 0.62, 0.17), (0.86, 0.36, 0.04), wood)
+    add_box("net", (-0.3, 0.72, 0.06 + 0.16), (0.3, 0.5, 0.3), net)
+    for fish_y in (-0.72, -0.5):
+        add_box("fish", (-0.86, fish_y, 0.06 + 0.3), (0.1, 0.16, 0.08), material("fish", hex_rgb("9fb6bd"), roughness=0.6))
+
+    return {"kind": "fishery", "variant": 0, "footprint": 2, "height": 0.85}
+
+
 def build_fountain():
     """Marble basin with a raised centre and a small bronze statue; light blue water."""
     marble = material("marble", MARBLE, roughness=0.3)
@@ -2001,6 +2082,10 @@ MODELS = {
     "winery": build_winery,
     "carding-shed": build_carding_shed,
     "wheat-farm": build_wheat_farm,
+    "carrot-farm": lambda: build_field_farm("carrotFarm", "d8a45c"),
+    "onion-farm": lambda: build_field_farm("onionFarm", "cdbd8e", row_count=4),
+    "hunting-lodge": build_hunting_lodge,
+    "fishery": build_fishery,
     "fountain": build_fountain,
     "statue": build_statue,
 }

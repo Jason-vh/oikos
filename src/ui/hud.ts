@@ -444,7 +444,8 @@ function renderPopup(popup: HTMLElement, inspection: Inspection | null, closable
 
 function groupFor(kind: string): string {
   if (kind === 'house' || kind === 'estate') return 'Housing';
-  if (kind === 'wheatFarm' || kind === 'granary' || kind === 'growersLodge' || kind === 'agora') return 'Food';
+  const food = ['wheatFarm', 'carrotFarm', 'onionFarm', 'huntingLodge', 'fishery', 'granary', 'growersLodge', 'agora'];
+  if (food.includes(kind)) return 'Food';
   const industry = ['olivePress', 'winery', 'cardingShed', 'vineyard', 'timberMill', 'masonryShop', 'foundry', 'armoury', 'sculptureStudio', 'horseRanch', 'mint'];
   if (industry.includes(kind)) return 'Industry';
   if (['college', 'podium', 'gymnasium', 'dramaSchool', 'theatre', 'stadium'].includes(kind)) return 'Culture';
