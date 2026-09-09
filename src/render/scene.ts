@@ -1,6 +1,6 @@
 import { Container, Sprite } from 'pixi.js';
 import { BUILDINGS, isDwelling, tierOf } from '../sim/buildings';
-import type { ServiceKind } from '../sim/types';
+import { FINISHED, type ServiceKind } from '../sim/types';
 import { TERRAIN_WATER } from '../sim/grid';
 import { RISK_LIMIT, riskOf } from '../sim/hazards';
 import type { Building, BuildingKind } from '../sim/types';
@@ -183,7 +183,9 @@ export class Scene {
   }
 
   private clearBuildingTints(): void {
-    for (const entry of this.buildingSprites.values()) entry.body.tint = 0xffffff;
+    for (const [id, entry] of this.buildingSprites) {
+      entry.body.tint = unfinishedTint(this.world.buildings.get(id));
+    }
   }
 
   private syncBuildings(): void {
@@ -197,10 +199,15 @@ export class Scene {
     for (const building of this.world.buildings.values()) {
       const key = `${lookKey(building)}:${this.bakedVersion}`;
       const existing = this.buildingSprites.get(building.id);
-      if (existing && existing.key === key) continue;
+      if (existing && existing.key === key) {
+        if (this.overlayMode === 'none') existing.body.tint = unfinishedTint(building);
+        continue;
+      }
       if (existing) destroyBuilding(existing);
 
-      this.buildingSprites.set(building.id, this.createBuilding(building, key));
+      const entry = this.createBuilding(building, key);
+      entry.body.tint = unfinishedTint(building);
+      this.buildingSprites.set(building.id, entry);
     }
   }
 
@@ -411,6 +418,11 @@ function serviceColour(building: Building | undefined, service: ServiceKind): nu
   if (!building) return 0xffffff;
   if (!isDwelling(building.kind)) return 0xb9b9b9;
   return blend(0xff6b5a, 0x6fd08c, Math.min(1, building.supply[service] / SERVED_SUPPLY));
+}
+
+function unfinishedTint(building: Building | undefined): number {
+  if (!building || building.built >= FINISHED) return 0xffffff;
+  return blend(0x8a8478, 0xffffff, building.built / FINISHED);
 }
 
 function hazardColour(building: Building | undefined): number {

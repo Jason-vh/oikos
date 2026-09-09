@@ -361,6 +361,11 @@ Each sanctuary needs marble + drachmas to place, then marble, wood, sculptures
 (and orichalc for the Citadel) delivered to artisans from an artisans' guild
 (2×2, 25 workers, 35→125).
 
+🟡 The guild is in, and a sanctuary now goes up unfinished: it accepts marble and
+timber, cart pushers deliver them, and an artisan's visit turns a cartload of each
+into building. It counts for nothing — no mood, no goal, no quest — until it is
+finished, and it stands grey on the map until then.
+
 | Sanctuary | Size | Place: marble / dr | Finish: marble / wood / sculpture | Benefit |
 | --- | --- | --- | --- | --- |
 | Zeus' Stronghold | 24×16 | 48 / 2920 | 145 / 28 / 22 | oracle, blocks invading gods |

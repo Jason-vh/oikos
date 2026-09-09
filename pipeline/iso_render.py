@@ -1961,6 +1961,24 @@ def build_fishery():
     return {"kind": "fishery", "variant": 0, "footprint": 2, "height": 0.85}
 
 
+def build_artisans_guild():
+    """Artisans' guild: a working yard of half-cut stone, scaffolding poles and tool benches."""
+    def props():
+        marble = material("marble", MARBLE, roughness=0.34)
+        wood = material("wood", WOOD, roughness=0.88)
+        bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
+
+        add_box("block", (0.6, -0.5, 0.06 + 0.14), (0.4, 0.4, 0.28), marble)
+        add_box("half_cut", (0.62, 0.14, 0.06 + 0.1), (0.36, 0.3, 0.2), marble)
+        for pole_x, pole_y in ((0.3, 0.62), (0.94, 0.62), (0.3, 0.94), (0.94, 0.94)):
+            add_cylinder("scaffold", (pole_x, pole_y, 0.06 + 0.34), 0.03, 0.68, wood, vertices=6)
+        add_box("scaffold_deck", (0.62, 0.78, 0.06 + 0.66), (0.74, 0.42, 0.06), wood)
+        add_box("bench", (-0.86, 0.5, 0.06 + 0.14), (0.22, 0.7, 0.28), wood)
+        add_box("chisels", (-0.86, 0.5, 0.06 + 0.3), (0.14, 0.4, 0.04), bronze)
+
+    return build_industry_yard("artisansGuild", "8a6134", props, 1.1)
+
+
 def build_fountain():
     """Marble basin with a raised centre and a small bronze statue; light blue water."""
     marble = material("marble", MARBLE, roughness=0.3)
@@ -2077,6 +2095,7 @@ MODELS = {
     "armoury": build_armoury,
     "sculpture-studio": build_sculpture_studio,
     "mint": build_mint,
+    "artisans-guild": build_artisans_guild,
     "horse-ranch": build_horse_ranch,
     "vineyard": build_vineyard,
     "winery": build_winery,

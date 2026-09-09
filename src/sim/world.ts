@@ -82,9 +82,9 @@ import {
   type Monster,
 } from './heroes';
 import { TICKS_PER_MONTH } from './time';
-import { GOODS, createBuilding } from './types';
+import { FINISHED, GOODS, createBuilding } from './types';
 import type { Building, BuildingKind, Good, Walker, WalkerKind } from './types';
-import { PEDDLER_LOAD, spawnCartPusher, spawnDeliveryman, spawnPerformer, spawnRoamer } from './walkers';
+import { PEDDLER_LOAD, spawnArtisan, spawnCartPusher, spawnDeliveryman, spawnPerformer, spawnRoamer } from './walkers';
 import { updateWalkers } from './walkers';
 
 const MONTH_NAMES = [
@@ -126,6 +126,8 @@ const TAX_OFFICE_SPAWN_INTERVAL = 70;
 const INFIRMARY_SPAWN_INTERVAL = 80;
 const WATCHPOST_SPAWN_INTERVAL = 70;
 const GYMNASIUM_SPAWN_INTERVAL = 80;
+const GUILD_SPAWN_INTERVAL = 60;
+const BUILD_PER_VISIT = 6;
 const STADIUM_CULTURE = 10;
 
 function roomIn(house: Building): number {
@@ -517,7 +519,9 @@ export class World {
     }
 
     return {
-      sanctuaries: [...this.buildings.values()].filter((building) => SANCTUARY_KINDS.includes(building.kind)).length,
+      sanctuaries: [...this.buildings.values()].filter(
+        (building) => SANCTUARY_KINDS.includes(building.kind) && building.built >= FINISHED,
+      ).length,
       companies: companiesIn(this.army),
       tradePartners: TRADE_ROUTES.filter((route) => this.tradeOrders[route.id]).length,
       population: this.population,
@@ -915,7 +919,7 @@ export class World {
     for (const kind of GOD_KINDS) {
       const god = this.gods[kind];
       const sanctuaries = [...this.buildings.values()].filter(
-        (building) => building.kind === GODS[kind].sanctuary,
+        (building) => building.kind === GODS[kind].sanctuary && building.built >= FINISHED,
       );
       if (sanctuaries.length > 0) god.honoured = true;
       if (!god.honoured) continue;
@@ -1000,6 +1004,9 @@ export class World {
           break;
         case 'dramaSchool':
           this.updateSchool(building, 'actor', 'theatre');
+          break;
+        case 'artisansGuild':
+          this.updateGuild(building);
           break;
         case 'gymnasium':
           this.updateRoamingService(building, 'athlete', GYMNASIUM_SPAWN_INTERVAL);
@@ -1102,6 +1109,42 @@ export class World {
     if (atWalkerLimit(fountain) || !hasRoadAccess(this.grid, fountain)) return;
 
     if (spawnRoamer(this, fountain, 'waterCarrier')) fountain.spawnTimer = 0;
+  }
+
+  raiseSanctuary(id: number): void {
+    const site = this.buildings.get(id);
+    if (!site || site.built >= FINISHED) return;
+
+    const stone = Math.min(1, site.stock.marble);
+    const timber = Math.min(1, site.stock.wood);
+    if (stone === 0 && timber === 0) return;
+
+    site.stock.marble -= stone;
+    site.stock.wood -= timber;
+    site.built = Math.min(FINISHED, site.built + BUILD_PER_VISIT * (stone + timber));
+
+    if (site.built >= FINISHED) {
+      this.structureVersion += 1;
+      this.log(`${BUILDINGS[site.kind].name} is finished, Archon.`);
+    }
+  }
+
+  private unfinishedSite(): Building | undefined {
+    for (const building of this.buildings.values()) {
+      if (building.built >= FINISHED) continue;
+      if (hasRoadAccess(this.grid, building)) return building;
+    }
+    return undefined;
+  }
+
+  private updateGuild(guild: Building): void {
+    guild.spawnTimer += staffing(guild);
+    if (guild.spawnTimer < GUILD_SPAWN_INTERVAL) return;
+    if (atWalkerLimit(guild) || !hasRoadAccess(this.grid, guild)) return;
+
+    const site = this.unfinishedSite();
+    if (!site) return;
+    if (spawnArtisan(this, guild, site)) guild.spawnTimer = 0;
   }
 
   private updateSchool(school: Building, walker: WalkerKind, venueKind: BuildingKind): void {

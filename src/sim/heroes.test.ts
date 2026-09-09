@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { HEROES, HERO_STAY_MONTHS, slays, summonable, type HeroCall } from './heroes';
 import { TICKS_PER_MONTH } from './time';
-import { createBuilding } from './types';
+import { FINISHED, createBuilding } from './types';
 import { World } from './world';
 
 const call = (over: Partial<HeroCall> = {}): HeroCall => ({
@@ -54,6 +54,9 @@ describe('a city and its hero', () => {
     quarried.stock.marble = 100;
     world.restore(quarried);
     expect(world.place('sanctuaryDemeter', 14, 11)).toBe(true);
+    for (const building of world.buildings.values()) {
+      if (building.kind === 'sanctuaryDemeter') building.built = FINISHED;
+    }
     world.army.rabble = 3;
 
     expect(world.summon('achilles')).toBe(true);

@@ -21,6 +21,7 @@ export const ROAM_RANGE: Record<WalkerKind, number> = {
   actor: 30,
   soldier: 0,
   invader: 0,
+  artisan: 0,
 };
 
 export const WALKER_SPEED: Record<WalkerKind, number> = {
@@ -37,6 +38,7 @@ export const WALKER_SPEED: Record<WalkerKind, number> = {
   actor: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
   soldier: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
   invader: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
+  artisan: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
 };
 
 export const PEDDLER_LOAD = UNITS_PER_CARTLOAD;
@@ -101,6 +103,13 @@ export function spawnRoamer(
 
 export function spawnDeliveryman(world: World, agora: Building, sources: Set<number>, good: Good): boolean {
   return spawnCarrier(world, 'deliveryman', agora, sources, 0, good);
+}
+
+export function spawnArtisan(world: World, guild: Building, site: Building): boolean {
+  const destinations = new Set(roadAccessTiles(world.grid, site));
+  if (destinations.size === 0) return false;
+
+  return spawnCarrier(world, 'artisan', guild, destinations, 0, 'marble', site.id);
 }
 
 export function spawnPerformer(
@@ -184,6 +193,12 @@ function advance(world: World, walker: Walker): void {
 }
 
 function onTileEntered(world: World, walker: Walker): void {
+  if (walker.kind === 'artisan' && walker.state === 'delivering' && atRouteEnd(walker)) {
+    world.raiseSanctuary(walker.targetId);
+    turnBack(walker);
+    return;
+  }
+
   if (PERFORMERS.includes(walker.kind) && walker.state === 'delivering' && atRouteEnd(walker)) {
     takeTheStage(world, walker);
     return;

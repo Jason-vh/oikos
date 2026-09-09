@@ -98,6 +98,7 @@ export type BuildingKind =
   | 'sculptureStudio'
   | 'horseRanch'
   | 'mint'
+  | 'artisansGuild'
   | 'monument'
   | 'sanctuaryZeus'
   | 'sanctuaryPoseidon'
@@ -130,6 +131,7 @@ export interface Building {
   disease: number;
   crime: number;
   productionProgress: number;
+  built: number;
   spawnTimer: number;
   walkersOut: number;
 }
@@ -147,7 +149,8 @@ export type WalkerKind =
   | 'athlete'
   | 'actor'
   | 'soldier'
-  | 'invader';
+  | 'invader'
+  | 'artisan';
 
 export type WalkerState = 'roaming' | 'delivering' | 'returning';
 
@@ -170,6 +173,8 @@ export interface Walker {
 
 export const emptySupply = (): ServiceSupply => (Object.fromEntries(SERVICE_KINDS.map((service) => [service, 0])) as ServiceSupply);
 
+export const FINISHED = 100;
+
 export const emptyStock = (): GoodStock =>
   Object.fromEntries(GOODS.map((good) => [good, 0])) as GoodStock;
 
@@ -190,6 +195,7 @@ export function createBuilding(id: number, kind: BuildingKind, x: number, y: num
     disease: 0,
     crime: 0,
     productionProgress: 0,
+    built: kind.startsWith('sanctuary') ? 0 : FINISHED,
     spawnTimer: 0,
     walkersOut: 0,
   };
