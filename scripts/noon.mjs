@@ -15,10 +15,15 @@ await page.evaluate(({ tick: t, zoom: z }) => {
   for (let y = 10; y < grid.size - 20 && !spot; y++) for (let x = 10; x < grid.size - 20 && !spot; x++) if (clear(x - 8, y - 2, 20, 10)) spot = { x, y };
   const row = spot.y + 3;
   for (let x = spot.x - 8; x < spot.x + 12; x++) world.placeRoad(x, row);
+  for (let y = row - 6; y < row + 8; y++) world.placeRoad(spot.x + 2, y);
   world.place('wheatFarm', spot.x, spot.y);
   for (let x = spot.x + 11; x > spot.x - 8; x--) if (world.place('palace', x, row + 1)) break;
-  const kinds = ['granary', 'fountain', 'statue'];
+  const kinds = ['granary', 'fountain', 'maintenanceOffice', 'taxOffice', 'olivePress', 'college'];
   for (let x = spot.x - 7; x < spot.x + 11; x += 2) for (const y of [row - 2, row + 1]) {
+    if (kinds.length && world.place(kinds[0], x, y)) { kinds.shift(); continue; }
+    world.place('house', x, y);
+  }
+  for (const y of [row - 6, row - 4, row + 3, row + 5]) for (const x of [spot.x - 1, spot.x + 3]) {
     if (kinds.length && world.place(kinds[0], x, y)) { kinds.shift(); continue; }
     world.place('house', x, y);
   }

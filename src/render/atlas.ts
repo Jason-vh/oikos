@@ -1,7 +1,7 @@
 import { CanvasSource, Rectangle, Texture } from 'pixi.js';
 import { TERRAIN_GRASS, TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_SAND, TERRAIN_WATER } from '../sim/grid';
 import { createRandom } from '../sim/mapgen';
-import { TEXTURE_SCALE, createSurface, css, diamondPath, polygonPath, shade, speckle } from './canvas';
+import { TEXTURE_SCALE, createSurface, css, diamondPath, polygonPath, shade } from './canvas';
 import { GRAIN_CELL, type Ramp, type Tuft, fbm, fillGrain, scatterTufts } from './grain';
 import { TILE_HEIGHT, TILE_WIDTH } from './iso';
 
@@ -363,13 +363,7 @@ function drawTrack(
   cx: number,
   cy: number,
 ): void {
-  fillGrain(ctx, x, y, width, height, { colours: [0xcdb470, 0xd6be7a, 0xdec784, 0xe4ce8e, 0xead69a], scale: 3, jitter: 0.5 }, 4242);
-
-  for (let stone = 0; stone < 18; stone++) {
-    const [px, py] = isoCorner(cx, cy, random(), random());
-    ctx.fillStyle = css(random() < 0.5 ? 0xe8d9a8 : 0xb09a5a, 0.8);
-    ctx.fillRect(Math.round(px / 2) * 2, Math.round(py / 2) * 2, 2, 2);
-  }
+  drawFlagstones(ctx, random, x, y, width, height, cx, cy, 0xc8b06a, 0xdfcd97, 0.7);
 }
 
 function drawCobbles(
@@ -382,24 +376,43 @@ function drawCobbles(
   cx: number,
   cy: number,
 ): void {
-  ctx.fillStyle = css(0xb3a06a);
-  ctx.fillRect(x, y, width, height);
+  drawFlagstones(ctx, random, x, y, width, height, cx, cy, 0xd6c48a, 0xf0e4c0, 0.85);
+}
 
-  const rows = 5;
-  const step = 1 / rows;
-  for (let row = 0; row < rows; row++) {
-    const shift = row % 2 === 0 ? 0 : step / 2;
-    for (let column = -1; column <= rows; column++) {
-      const u = column * step + shift + (random() - 0.5) * step * 0.3;
-      const v = row * step + (random() - 0.5) * step * 0.3;
-      const tone = 0.92 + random() * 0.16;
+function drawFlagstones(
+  ctx: CanvasRenderingContext2D,
+  random: () => number,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  cx: number,
+  cy: number,
+  mortar: number,
+  stone: number,
+  cover: number,
+): void {
+  fillGrain(ctx, x, y, width, height, { colours: [shade(mortar, 0.9), mortar, shade(mortar, 1.08)], scale: 4, jitter: 0.4 }, 4242);
 
-      polygonPath(ctx, isoCell(cx, cy, u, v, step, 0.1 + random() * 0.06));
-      ctx.fillStyle = css(shade(0xdfcd97, tone));
+  const cells = 7;
+  const step = 1 / cells;
+  for (let row = 0; row < cells; row++) {
+    for (let column = 0; column < cells; column++) {
+      if (random() > cover) continue;
+      const u = column * step + (random() - 0.5) * step * 0.4;
+      const v = row * step + (random() - 0.5) * step * 0.4;
+      const tone = 0.9 + random() * 0.2;
+      polygonPath(ctx, isoCell(cx, cy, u, v, step * (0.9 + random() * 0.5), 0.12));
+      ctx.fillStyle = css(shade(stone, tone));
       ctx.fill();
     }
   }
-  speckle(ctx, random, { x, y, width, height }, 120, [0xcdb97e, 0xeadcaa, 0xf2e6bc], 1.4, 0.45);
+  const fringe = ctx.createLinearGradient(0, cy - HALF_H, 0, cy + HALF_H);
+  fringe.addColorStop(0, css(0xc9ab4c, 0.35));
+  fringe.addColorStop(0.5, css(0xc9ab4c, 0));
+  fringe.addColorStop(1, css(0xc9ab4c, 0.35));
+  ctx.fillStyle = fringe;
+  ctx.fillRect(x, y, width, height);
 }
 
 function drawSlabs(
