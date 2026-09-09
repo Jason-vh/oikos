@@ -15,17 +15,17 @@ describe('plague and crime', () => {
     const top = hut();
     top.tier = 6;
 
-    accrueAfflictions([bottom, top]);
+    accrueAfflictions([bottom, top], () => 1);
 
-    expect(bottom.disease).toBe(20);
-    expect(top.disease).toBe(4);
+    expect(bottom.disease).toBe(10);
+    expect(top.disease).toBe(2);
   });
 
   test('nobles suppress crime instead of breeding it', () => {
     const residence = createBuilding(2, 'estate', 0, 0, 4);
     residence.crime = 50;
 
-    accrueAfflictions([residence]);
+    accrueAfflictions([residence], () => 1);
 
     expect(residence.crime).toBe(30);
     expect(residence.disease).toBe(0);
@@ -46,9 +46,9 @@ describe('plague and crime', () => {
 
   test('an untended house breaks out, and the toll is a third of it', () => {
     const house = hut(9);
-    house.disease = AFFLICTION_LIMIT - 20;
+    house.disease = AFFLICTION_LIMIT - 5;
 
-    const outbreaks = accrueAfflictions([house]);
+    const outbreaks = accrueAfflictions([house], () => 0);
 
     expect(outbreaks).toEqual([{ house, affliction: 'plague' }]);
     expect(plagueToll(house)).toBe(3);

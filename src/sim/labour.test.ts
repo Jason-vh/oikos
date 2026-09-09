@@ -24,18 +24,20 @@ describe('allocation', () => {
     const granary = building('granary');
     const report = allocateLabour([farm, granary], 100);
 
+    const needed = BUILDINGS.wheatFarm.workers + BUILDINGS.granary.workers;
     expect(farm.staff).toBe(BUILDINGS.wheatFarm.workers);
     expect(granary.staff).toBe(BUILDINGS.granary.workers);
-    expect(report).toEqual({ workforce: 100, employed: 28, required: 28 });
+    expect(report).toEqual({ workforce: 100, employed: needed, required: needed });
   });
 
   test('scarcity fills buildings in priority order and starves the last', () => {
     const fountain = building('fountain');
     const farm = building('wheatFarm');
-    allocateLabour([fountain, farm], 12);
+    const shortfall = 2;
+    allocateLabour([fountain, farm], BUILDINGS.fountain.workers + BUILDINGS.wheatFarm.workers - shortfall);
 
-    expect(farm.staff).toBe(10);
-    expect(fountain.staff).toBe(2);
+    expect(fountain.staff).toBe(BUILDINGS.fountain.workers);
+    expect(farm.staff).toBe(BUILDINGS.wheatFarm.workers - shortfall);
   });
 
   test('an unstaffed building is idle and a half-staffed one runs at half rate', () => {
@@ -43,7 +45,7 @@ describe('allocation', () => {
     allocateLabour([farm], 0);
     expect(staffing(farm)).toBe(0);
 
-    allocateLabour([farm], 5);
+    allocateLabour([farm], BUILDINGS.wheatFarm.workers / 2);
     expect(staffing(farm)).toBe(0.5);
   });
 

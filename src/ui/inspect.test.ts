@@ -23,7 +23,8 @@ describe('inspecting the city', () => {
 
     expect(inspectTile(world, 4, 4)?.title).toBe('Granary');
     expect(facts.get('Wheat stored')).toBe('7 of 24 cartloads');
-    expect(facts.get('Workers')).toBe('0 of 18 — 18 short');
+    const { workers } = BUILDINGS.granary;
+    expect(facts.get('Workers')).toBe(`0 of ${workers} — ${workers} short`);
   });
 
   test('says what a house needs to grow', () => {

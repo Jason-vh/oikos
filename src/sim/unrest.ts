@@ -15,14 +15,24 @@ export interface Outbreak {
   affliction: Affliction;
 }
 
-export function accrueAfflictions(dwellings: Iterable<Building>): Outbreak[] {
+export const OUTBREAK_CHANCE = 0.25;
+const AFFLICTION_PACE = 0.5;
+
+export function accrueAfflictions(
+  dwellings: Iterable<Building>,
+  random: () => number = Math.random,
+): Outbreak[] {
   const outbreaks: Outbreak[] = [];
 
   for (const house of dwellings) {
     const elite = house.kind === 'estate';
-    house.disease = clamp(house.disease + (elite ? ELITE_DISEASE_PER_MONTH : DISEASE_PER_MONTH[house.tier]));
-    house.crime = clamp(house.crime + (elite ? ELITE_CRIME_PER_MONTH : CRIME_PER_MONTH[house.tier]));
+    const disease = elite ? ELITE_DISEASE_PER_MONTH : DISEASE_PER_MONTH[house.tier] * AFFLICTION_PACE;
+    const crime = elite ? ELITE_CRIME_PER_MONTH : CRIME_PER_MONTH[house.tier];
 
+    house.disease = clamp(house.disease + disease);
+    house.crime = clamp(house.crime + crime);
+
+    if (random() >= OUTBREAK_CHANCE) continue;
     if (house.disease >= AFFLICTION_LIMIT) outbreaks.push({ house, affliction: 'plague' });
     else if (house.crime >= AFFLICTION_LIMIT) outbreaks.push({ house, affliction: 'theft' });
   }

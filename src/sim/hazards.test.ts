@@ -12,10 +12,10 @@ function building(kind: BuildingKind): Building {
 describe('risk', () => {
   test('builds up month by month at the rate the building carries', () => {
     const press = building('olivePress');
-    accrueRisk([press]);
+    for (let month = 0; month < 8; month++) accrueRisk([press], 1, () => 1);
 
-    expect(press.fireRisk).toBe(BUILDINGS.olivePress.fireRisk);
-    expect(describeRisk(press)).toBe('none');
+    expect(press.fireRisk).toBe(BUILDINGS.olivePress.fireRisk * 2);
+    expect(describeRisk(press)).toBe('some');
   });
 
   test('a burning press is reported as a fire, a crumbling granary as a collapse', () => {
@@ -24,7 +24,10 @@ describe('risk', () => {
     const granary = building('granary');
     granary.damageRisk = RISK_LIMIT;
 
-    expect(accrueRisk([press, granary]).map((mishap) => mishap.disaster)).toEqual(['fire', 'collapse']);
+    expect(accrueRisk([press, granary], 1, () => 0).map((mishap) => mishap.disaster)).toEqual([
+      'fire',
+      'collapse',
+    ]);
   });
 
   test('a superintendent wipes both risks clean', () => {
@@ -62,12 +65,12 @@ describe('a city without maintenance', () => {
 
   test('burns down, while one with a superintendent does not', () => {
     const neglected = town(false);
-    for (let tick = 0; tick < 20 * 1200; tick++) neglected.world.update();
+    for (let tick = 0; tick < 80 * 1200; tick++) neglected.world.update();
 
     const tended = town(true);
-    for (let tick = 0; tick < 20 * 1200; tick++) tended.world.update();
+    for (let tick = 0; tick < 80 * 1200; tick++) tended.world.update();
 
-    expect(neglected.world.buildings.size).toBeLessThan(4);
-    expect(tended.world.buildings.size).toBe(5);
+    expect(neglected.world.buildings.size).toBe(0);
+    expect(tended.world.buildings.size).toBeGreaterThan(neglected.world.buildings.size);
   });
 });

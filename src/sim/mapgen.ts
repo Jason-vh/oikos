@@ -25,8 +25,9 @@ export function generateMap(grid: Grid, seed: number): void {
   const elevation = fractalNoise(grid.size, random);
   applyTerraces(grid, elevation);
   carveRiver(grid, random);
-  scatterBlobs(grid, random, TERRAIN_MEADOW, 8, 2.5, 5, (index) => grid.height[index] <= 1);
-  scatterBlobs(grid, random, TERRAIN_ROCK, 6, 1.5, 3, (index) => grid.height[index] >= 2);
+  const blobs = (perTiles: number) => Math.max(3, Math.round((grid.size * grid.size) / perTiles));
+  scatterBlobs(grid, random, TERRAIN_MEADOW, blobs(200), 3, 7, (index) => grid.height[index] <= 1);
+  scatterBlobs(grid, random, TERRAIN_ROCK, blobs(500), 1.5, 3.5, (index) => grid.height[index] >= 2);
   fringeWaterWithSand(grid);
   scatterDecor(grid, random);
 }

@@ -16,6 +16,7 @@ export interface Sentiment {
 
 const NEUTRAL = 50;
 const TOLERATED_UNEMPLOYMENT = 0.15;
+const IDLE_PENALTY_CAP = 25;
 const SETTLING_POPULARITY = 55;
 const LEAVING_POPULARITY = 35;
 
@@ -23,7 +24,7 @@ export function judgeCity(mood: CityMood): Sentiment {
   const wages = (mood.wageLevel - middle(WAGE_LEVELS.length)) * 6;
   const taxes = (middle(TAX_RATES.length) - mood.taxRate) * 2.3;
   const food = -25 + 40 * mood.fedShare;
-  const idle = -Math.max(0, mood.unemployment - TOLERATED_UNEMPLOYMENT) * 60;
+  const idle = -Math.min(IDLE_PENALTY_CAP, Math.max(0, mood.unemployment - TOLERATED_UNEMPLOYMENT) * 40);
   const debt = mood.inDebt ? -20 : 0;
 
   const popularity = clamp(NEUTRAL + wages + taxes + food + idle + debt);
