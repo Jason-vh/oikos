@@ -33,14 +33,9 @@ const SERVICE_OF_OVERLAY: Partial<Record<OverlayMode, ServiceKind>> = {
 };
 
 const WALKER_FRAME_MS = 130;
-const SMOKE_INTERVAL_MS = 700;
 const SPRAY_INTERVAL_MS = 60;
 const FOUNTAIN_SPOUT_Z = 0.92;
 const PIXELS_PER_MODEL_UNIT_UP = (TILE_WIDTH / Math.SQRT2) * Math.cos(Math.PI / 6);
-const CHIMNEYS: Record<number, { x: number; y: number; z: number }> = {
-  2: { x: -0.16, y: 0.16, z: 1.0 },
-  3: { x: -0.2, y: 0.2, z: 1.2 },
-};
 const DUST_INTERVAL_MS = 320;
 const APPEAL_COLOUR_SCALE = 20;
 const GROUND_DEPTH = -0.5;
@@ -475,16 +470,6 @@ export class Scene {
   }
 
   private emitParticles(): void {
-    for (const building of this.world.buildings.values()) {
-      if (building.kind !== 'house' || building.tier < 2) continue;
-      if (!this.isDue(building.id, SMOKE_INTERVAL_MS)) continue;
-
-      const height = this.world.grid.heightAt(building.x, building.y);
-      const chimney = CHIMNEYS[building.tier];
-      const position = tileToScreen(building.x + chimney.x, building.y + chimney.y, height);
-      this.particles.smoke(position.x, position.y - chimney.z * PIXELS_PER_MODEL_UNIT_UP);
-    }
-
     for (const building of this.world.buildings.values()) {
       if (building.kind !== 'fountain') continue;
       if (!this.isDue(building.id, SPRAY_INTERVAL_MS)) continue;
