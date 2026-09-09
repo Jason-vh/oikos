@@ -11,6 +11,7 @@ import {
   polygonPath,
   shade,
   shadowVector,
+  ink,
   speckle,
   SUN,
   toTexture,
@@ -140,6 +141,8 @@ export class TextureCache {
     return this.cache(`walker:${kind}:${look}:${direction}:${frame}`, () => {
       const surface = createSurface(40, 56);
       drawWalker(surface, kind, look, direction, frame);
+      ink(surface);
+      drawWalkerShadow(surface);
       return surface;
     });
   }
@@ -679,13 +682,6 @@ function drawWalker(surface: DrawSurface, kind: WalkerKind, look: number, direct
   const swing = Math.sin((frame / WALKER_FRAMES) * Math.PI * 2);
   const bob = Math.abs(Math.cos((frame / WALKER_FRAMES) * Math.PI * 2)) * 1.5;
 
-  ctx.filter = 'blur(2px)';
-  ctx.fillStyle = 'rgba(20,16,10,0.32)';
-  ctx.beginPath();
-  ctx.ellipse(cx, feet + 3, 9, 3.6, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.filter = 'none';
-
   ctx.translate(0, -bob);
 
   if (kind === 'cartPusher' && facingAway) drawCart(ctx, cx, feet, direction);
@@ -776,6 +772,17 @@ function drawWalker(surface: DrawSurface, kind: WalkerKind, look: number, direct
   if (kind === 'cartPusher' && !facingAway) drawCart(ctx, cx, feet, direction);
   if (kind === 'waterCarrier') drawShoulderedAmphora(ctx, facingLeft ? cx - 7 : cx + 7, feet - 30);
   if (kind === 'peddler' || kind === 'deliveryman') drawHeadBasket(ctx, cx, feet - 41);
+}
+
+function drawWalkerShadow(surface: DrawSurface): void {
+  const { ctx, width, height } = surface;
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-over';
+  ctx.fillStyle = 'rgba(20,16,10,0.45)';
+  ctx.beginPath();
+  ctx.ellipse(width / 2 + 5, height - 5, 10, 3, 0.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 }
 
 function drawBundle(ctx: CanvasRenderingContext2D, x: number, y: number, cord: number): void {

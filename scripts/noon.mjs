@@ -27,6 +27,10 @@ await page.evaluate(({ tick: t, zoom: z }) => {
     if (kinds.length && world.place(kinds[0], x, y)) { kinds.shift(); continue; }
     world.place('house', x, y);
   }
+  const ex = grid.tileX(world.entry);
+  const ey = grid.tileY(world.entry);
+  for (let x = Math.min(ex, spot.x + 2); x <= Math.max(ex, spot.x + 2); x++) world.placeRoad(x, ey);
+  for (let y = Math.min(ey, row); y <= Math.max(ey, row); y++) world.placeRoad(spot.x + 2, y);
   game.camera.scale = Number(z);
   game.camera.centreOnTile(spot.x, row, 1440, 900);
   game.speed = 0;

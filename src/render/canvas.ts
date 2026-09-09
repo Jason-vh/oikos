@@ -24,6 +24,76 @@ export function createSurface(width: number, height: number): DrawSurface {
   return { canvas, ctx, width, height };
 }
 
+const INK = [52, 38, 28] as const;
+const INK_STRENGTH = 0.55;
+const GRAIN = 2;
+
+export function ink(surface: DrawSurface): void {
+  const { canvas } = surface;
+  const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+  const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { data, width, height } = image;
+  const cells = Math.ceil(width / GRAIN) * Math.ceil(height / GRAIN);
+  const solid = new Uint8Array(cells);
+  const columns = Math.ceil(width / GRAIN);
+
+  for (let cy = 0; cy < height; cy += GRAIN) {
+    for (let cx = 0; cx < width; cx += GRAIN) {
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      let a = 0;
+      let n = 0;
+      for (let y = cy; y < Math.min(cy + GRAIN, height); y++) {
+        for (let x = cx; x < Math.min(cx + GRAIN, width); x++) {
+          const i = (y * width + x) * 4;
+          r += data[i] * data[i + 3];
+          g += data[i + 1] * data[i + 3];
+          b += data[i + 2] * data[i + 3];
+          a += data[i + 3];
+          n++;
+        }
+      }
+      const cell = (cy / GRAIN) * columns + cx / GRAIN;
+      const alpha = a / n;
+      solid[cell] = alpha > 96 ? 1 : 0;
+      const [pr, pg, pb] = a > 0 ? [r / a, g / a, b / a] : [0, 0, 0];
+      for (let y = cy; y < Math.min(cy + GRAIN, height); y++) {
+        for (let x = cx; x < Math.min(cx + GRAIN, width); x++) {
+          const i = (y * width + x) * 4;
+          data[i] = pr;
+          data[i + 1] = pg;
+          data[i + 2] = pb;
+          data[i + 3] = alpha > 96 ? 255 : 0;
+        }
+      }
+    }
+  }
+
+  const rows = Math.ceil(height / GRAIN);
+  const at = (c: number, r: number) => (c < 0 || r < 0 || c >= columns || r >= rows ? 0 : solid[r * columns + c]);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < columns; c++) {
+      const here = at(c, r);
+      const neighbours = at(c - 1, r) + at(c + 1, r) + at(c, r - 1) + at(c, r + 1);
+      const rim = !here && neighbours > 0;
+      const edge = here && neighbours < 4;
+      if (!rim && !edge) continue;
+      for (let y = r * GRAIN; y < Math.min((r + 1) * GRAIN, height); y++) {
+        for (let x = c * GRAIN; x < Math.min((c + 1) * GRAIN, width); x++) {
+          const i = (y * width + x) * 4;
+          const mix = rim ? 1 : INK_STRENGTH;
+          data[i] = data[i] * (1 - mix) + INK[0] * mix;
+          data[i + 1] = data[i + 1] * (1 - mix) + INK[1] * mix;
+          data[i + 2] = data[i + 2] * (1 - mix) + INK[2] * mix;
+          data[i + 3] = 255;
+        }
+      }
+    }
+  }
+  ctx.putImageData(image, 0, 0);
+}
+
 export function toTexture(surface: DrawSurface): Texture {
   const source = new CanvasSource({
     resource: surface.canvas,
