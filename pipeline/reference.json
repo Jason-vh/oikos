@@ -180,9 +180,12 @@
     "granary:0": {
       "group": "Zeus_General/Zeus_StorNDist",
       "indices": [
-        238
+        238,
+        239,
+        240,
+        241
       ],
-      "name": "granary"
+      "name": "granary, empty to full"
     },
     "storehouse:0": {
       "group": "Zeus_General/Zeus_StorNDist",
@@ -200,55 +203,57 @@
     },
     "timberMill:0": {
       "group": "Zeus_General/Zeus_Industry",
-      "indices": [],
-      "name": "timber mill: not yet found"
+      "indices": [
+        421
+      ],
+      "name": "timber mill, tentative"
     },
     "masonryShop:0": {
       "group": "Zeus_General/Zeus_Industry",
-      "indices": [
-        384
-      ],
-      "name": "masonry shop, tentative"
+      "indices": [],
+      "name": "masonry shop: not yet found"
     },
     "foundry:0": {
       "group": "Zeus_General/Zeus_Industry",
       "indices": [
-        396
+        393
       ],
-      "name": "foundry, tentative"
+      "name": "foundry"
     },
     "armoury:0": {
       "group": "Zeus_General/Zeus_Industry",
       "indices": [
-        409
+        408
       ],
-      "name": "armoury, tentative"
+      "name": "armoury"
     },
     "olivePress:0": {
       "group": "Zeus_General/Zeus_Industry",
       "indices": [
-        421
+        432
       ],
       "name": "olive press"
     },
     "winery:0": {
       "group": "Zeus_General/Zeus_Industry",
       "indices": [
-        433
+        445
       ],
       "name": "winery"
     },
     "sculptureStudio:0": {
       "group": "Zeus_General/Zeus_Industry",
       "indices": [
-        458
+        384
       ],
       "name": "sculpture studio, tentative"
     },
     "mint:0": {
       "group": "Zeus_General/Zeus_Industry",
-      "indices": [],
-      "name": "mint: not yet found"
+      "indices": [
+        458
+      ],
+      "name": "mint, tentative"
     },
     "maintenanceOffice:0": {
       "group": "Zeus_General/Zeus_Municipal",
@@ -260,16 +265,16 @@
     "taxOffice:0": {
       "group": "Zeus_General/Zeus_Municipal",
       "indices": [
-        883
+        895
       ],
       "name": "tax office"
     },
     "watchpost:0": {
       "group": "Zeus_General/Zeus_Municipal",
       "indices": [
-        902
+        914
       ],
-      "name": "watchpost, tentative"
+      "name": "watchpost"
     },
     "palace:0": {
       "group": "Zeus_General/Zeus_Mun-Palace",
@@ -291,7 +296,7 @@
     "podium:0": {
       "group": "Zeus_General/Zeus_Culture",
       "indices": [
-        120
+        190
       ],
       "name": "podium"
     },
@@ -305,27 +310,24 @@
     "dramaSchool:0": {
       "group": "Zeus_General/Zeus_Culture",
       "indices": [
-        153,
-        154
+        165
       ],
       "name": "drama school"
     },
     "theatre:0": {
       "group": "Zeus_General/Zeus_Culture",
       "indices": [
-        165
+        215
       ],
       "name": "theatre"
     },
     "stadium:0": {
       "group": "Zeus_General/Zeus_Culture",
       "indices": [
-        215,
         216,
-        217,
-        218
+        217
       ],
-      "name": "stadium halves"
+      "name": "stadium halves, tentative"
     },
     "monument:0": {
       "group": "Zeus_General/Zeus_Beautification2",
@@ -338,10 +340,9 @@
       "name": "commemorative monument"
     },
     "fountain:0": {
-      "group": "Zeus_General/Zeus_Beautification2",
+      "group": "Zeus_General/Zeus_HealthNSan",
       "indices": [
-        96,
-        97
+        830
       ],
       "name": "fountain"
     },
@@ -358,7 +359,7 @@
     "infirmary:0": {
       "group": "Zeus_General/Zeus_HealthNSan",
       "indices": [
-        830
+        837
       ],
       "name": "infirmary"
     },
@@ -366,6 +367,48 @@
       "group": "Zeus_General/Zeus_Religion",
       "indices": [],
       "name": "see Zeus_Religion sheet"
+    },
+    "stall:0": {
+      "group": "Zeus_General/Zeus_StorNDist",
+      "indices": [
+        220
+      ],
+      "name": "food stall"
+    },
+    "stall:1": {
+      "group": "Zeus_General/Zeus_StorNDist",
+      "indices": [
+        222
+      ],
+      "name": "fleece stall"
+    },
+    "stall:2": {
+      "group": "Zeus_General/Zeus_StorNDist",
+      "indices": [
+        224
+      ],
+      "name": "oil stall"
+    },
+    "stall:3": {
+      "group": "Zeus_General/Zeus_StorNDist",
+      "indices": [
+        226
+      ],
+      "name": "wine stall"
+    },
+    "stall:4": {
+      "group": "Zeus_General/Zeus_StorNDist",
+      "indices": [
+        228
+      ],
+      "name": "arms stall"
+    },
+    "stall:5": {
+      "group": "Zeus_General/Zeus_StorNDist",
+      "indices": [
+        230
+      ],
+      "name": "horse stall"
     }
   },
   "terrain": {

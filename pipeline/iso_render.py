@@ -1069,72 +1069,136 @@ def build_podium():
     return {"kind": "podium", "variant": 0, "footprint": 2, "height": 0.7}
 
 
+BLUE_TILE = hex_rgb("2f5e9c")
+BLUE_WALL = hex_rgb("4a6ea0")
+TEAL_TILE = hex_rgb("2e8a84")
+GOLD_TILE = hex_rgb("d9a020")
+CREAM_STONE = hex_rgb("e6dcc0")
+FLAG_RED = hex_rgb("c8402a")
+
+
+def civic_materials():
+    return {
+        "paving": plaster_material("paving", CREAM_STONE, roughness=0.85, variation=0.12, scale=14.0),
+        "marble": plaster_material("marble", hex_rgb("cfd6e0"), roughness=0.5, variation=0.1, scale=8.0),
+        "blue_wall": plaster_material("blue_wall", BLUE_WALL, roughness=0.8, variation=0.18, scale=6.0),
+        "blue_tile": roof_material("blue_tile", BLUE_TILE, rows_per_unit=6.0),
+        "teal_tile": roof_material("teal_tile", TEAL_TILE, rows_per_unit=6.0),
+        "gold_tile": roof_material("gold_tile", GOLD_TILE, rows_per_unit=6.0),
+        "whitewash": plaster_material("whitewash", WHITEWASH, roughness=0.86, variation=0.14, scale=5.0),
+        "stone": plaster_material("stone", STONE, roughness=0.88, variation=0.12, scale=11.0),
+        "wood": material("wood", WOOD, roughness=0.9),
+        "plank": plaster_material("plank", PLANK, roughness=0.92, variation=0.14, scale=14.0),
+        "clay": material("clay", CLAY, roughness=0.85),
+        "bronze": material("bronze", BRONZE, roughness=0.35, metallic=1.0),
+        "cypress": material("cypress", CYPRESS, roughness=0.9),
+        "hedge": plaster_material("hedge", hex_rgb("3a6a22"), roughness=0.95, variation=0.2, scale=12.0),
+        "water": material("water", hex_rgb("3c9aa6"), roughness=0.1),
+        "flag": material("flag", FLAG_RED, roughness=0.8),
+        "dark": material("dark", SHADOW_DARK, roughness=0.9),
+    }
+
+
+def add_barrel(name, centre, mat, radius=0.09, height=0.2):
+    cx, cy, cz = centre
+    return add_cylinder(name, (cx, cy, cz + height / 2), radius, height, mat, vertices=10)
+
+
+def add_ladder(name, foot, top, wood):
+    """Two rails and rungs leaning from a point on the ground to a point above."""
+    (ax, ay, az), (bx, by, bz) = foot, top
+    length = math.hypot(bx - ax, by - ay, bz - az)
+    yaw = math.atan2(by - ay, bx - ax)
+    pitch = math.atan2(math.hypot(bx - ax, by - ay), bz - az)
+    centre = ((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2)
+    for side in (-1, 1):
+        rail = add_box(f"{name}_rail", centre, (0.025, 0.025, length), wood)
+        rail.rotation_euler = (0, pitch, yaw)
+        rail.location = (centre[0] - math.sin(yaw) * side * 0.09, centre[1] + math.cos(yaw) * side * 0.09, centre[2])
+    rungs = max(2, int(length / 0.14))
+    for index in range(rungs):
+        t = (index + 0.5) / rungs
+        rung = add_box(f"{name}_rung", (ax + (bx - ax) * t, ay + (by - ay) * t, az + (bz - az) * t), (0.02, 0.2, 0.02), wood)
+        rung.rotation_euler[2] = yaw
+
+
+def add_column(name, centre, height, radius, mat, cap_mat=None):
+    cx, cy, cz = centre
+    add_cylinder(name, (cx, cy, cz + height / 2), radius, height, mat, vertices=12)
+    add_box(f"{name}_cap", (cx, cy, cz + height + 0.02), (radius * 2.6, radius * 2.6, 0.04), cap_mat or mat)
+    add_box(f"{name}_base", (cx, cy, cz + 0.015), (radius * 2.4, radius * 2.4, 0.03), cap_mat or mat)
+
+
+def add_flag(name, centre, height, wood, cloth):
+    cx, cy, cz = centre
+    add_cylinder(f"{name}_pole", (cx, cy, cz + height / 2), 0.015, height, wood, vertices=6)
+    add_box(f"{name}_cloth", (cx + 0.08, cy, cz + height - 0.08), (0.16, 0.01, 0.12), cloth)
+
+
+def add_hedge(name, centre, size, mat):
+    return add_box(name, (centre[0], centre[1], size[2] / 2), size, mat)
+
+
+def add_cypress(name, centre, height, mat):
+    cx, cy, cz = centre
+    bpy.ops.mesh.primitive_cone_add(radius1=height * 0.17, radius2=0.01, depth=height, location=(cx, cy, cz + height / 2), vertices=8)
+    tree = bpy.context.active_object
+    tree.name = name
+    tree.data.materials.append(mat)
+    return tree
+
+
 def build_maintenance_office():
-    """Working yard: tiled shed, water butt, ladder against the wall, buckets and timber."""
-    stone = plaster_material("stone", STONE, roughness=0.85, variation=0.06, scale=10.0)
-    ochre = plaster_material("ochre", OCHRE, roughness=0.9, variation=0.08, scale=8.0)
-    terracotta = roof_material("terracotta", TERRACOTTA)
-    wood = material("wood", WOOD, roughness=0.85)
-    clay = material("clay", CLAY, roughness=0.8)
-    water = material("water", WATER_LIGHT, roughness=0.08)
+    """The original's: a blue-tiled hut, water butts stacked round it, a ladder up to a lookout."""
+    m = civic_materials()
+    barrel = plaster_material("barrel", hex_rgb("2c3f6e"), roughness=0.8, variation=0.16, scale=10.0)
 
-    add_box("yard", (0, 0, 0.03), (1.7, 1.7, 0.06), stone)
+    hx, hy = 0.1, 0.1
+    add_box("hut", (hx, hy, 0.3), (0.9, 0.8, 0.6), m["whitewash"])
+    add_box("hut_course", (hx, hy, 0.08), (0.92, 0.82, 0.16), m["stone"])
+    add_gable_roof("roof", (hx, hy, 0.6), 0.6, 0.54, 0.5, 0.07, m["blue_tile"])
+    add_box("eave", (hx, hy - 0.52, 0.58), (1.16, 0.04, 0.05), m["wood"])
+    add_doorway(0.45, 0.34, (hx, hy), width=0.2)
+    add_window_row(0.4, 0.4, (0.1, 0.12), (hx, hy))
 
-    half = 0.42
-    wall_h = 0.5
-    hx, hy = -0.3, -0.3
-    add_box("shed", (hx, hy, 0.06 + wall_h / 2), (half * 2, half * 2, wall_h), ochre)
-    add_hip_roof("shed_roof", (hx, hy, 0.06 + wall_h + 0.11), half + 0.07, 0.22, terracotta, ridge_half=0.1)
-    add_door(half, 0.3, wood, (hx, hy))
+    for index, (bx, by) in enumerate(((0.72, -0.3), (0.72, -0.56), (0.5, -0.7), (-0.5, -0.66), (-0.72, -0.4), (0.78, 0.5))):
+        add_barrel(f"butt{index}", (bx, by, 0.0), barrel, radius=0.1, height=0.22)
+        add_box(f"hoop{index}", (bx, by, 0.11), (0.21, 0.21, 0.02), m["wood"])
 
-    for index, offset in enumerate((-0.12, 0.12)):
-        add_box(f"ladder_rail_{index}", (hx + half + 0.04, hy + offset, 0.06 + 0.34), (0.04, 0.04, 0.68), wood)
-    for step in range(4):
-        add_box(f"ladder_rung_{step}", (hx + half + 0.04, hy, 0.14 + step * 0.16), (0.03, 0.24, 0.03), wood)
+    tx, ty = -0.62, 0.58
+    for px, py in ((tx - 0.12, ty - 0.12), (tx + 0.12, ty - 0.12), (tx - 0.12, ty + 0.12), (tx + 0.12, ty + 0.12)):
+        add_cylinder("tower_post", (px, py, 0.6), 0.02, 1.2, m["wood"], vertices=6)
+    add_box("platform", (tx, ty, 1.2), (0.36, 0.36, 0.04), m["plank"])
+    add_box("lookout_roof", (tx, ty, 1.5), (0.4, 0.4, 0.04), m["plank"])
+    for px, py in ((tx - 0.16, ty - 0.16), (tx + 0.16, ty + 0.16)):
+        add_cylinder("lookout_post", (px, py, 1.36), 0.012, 0.28, m["wood"], vertices=6)
+    add_ladder("ladder", (tx + 0.5, ty - 0.5, 0.0), (tx + 0.16, ty - 0.14, 1.18), m["wood"])
 
-    add_cylinder("butt", (0.56, 0.5, 0.06 + 0.16), 0.22, 0.32, wood, vertices=18)
-    add_cylinder("butt_water", (0.56, 0.5, 0.06 + 0.3), 0.19, 0.04, water, vertices=18)
-    add_amphora("bucket", (0.2, 0.74, 0.06), 0.2, clay)
-    add_box("timber", (0.5, -0.6, 0.12), (0.9, 0.22, 0.12), wood)
-
-    return {"kind": "maintenanceOffice", "variant": 0, "footprint": 2, "height": 0.95}
-
+    return {"kind": "maintenanceOffice", "variant": 0, "footprint": 2, "height": 1.6}
 
 def build_tax_office():
-    """Civic hall on a stone plinth: portico, slate roof, strongbox and record jars."""
-    stone = plaster_material("stone", STONE, roughness=0.8, variation=0.06, scale=10.0)
-    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.85, variation=0.05, scale=6.0)
-    slate = roof_material("slate", SLATE, rows_per_unit=16.0)
-    marble = material("marble", MARBLE, roughness=0.35)
-    wood = material("wood", WOOD, roughness=0.8)
-    bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
-    clay = material("clay", CLAY, roughness=0.8)
+    """The original's: a blue-walled hall under a gold roof, its emblem over the door, on cream paving."""
+    m = civic_materials()
 
-    half = 0.58
-    wall_h = 0.62
-    add_box("plinth", (0, 0, 0.05), (1.7, 1.7, 0.1), stone)
-    add_box("walls", (0, 0, 0.1 + wall_h / 2), (half * 2, half * 2, wall_h), whitewash)
-    add_box("cornice", (0, 0, 0.1 + wall_h + 0.02), (half * 2 + 0.07, half * 2 + 0.07, 0.04), marble)
-    add_door(half, 0.36, wood)
-    add_window_row(half, 0.34, (0.13, 0.16))
+    add_box("paving", (0, 0, 0.02), (1.9, 1.9, 0.04), m["paving"])
+    hx, hy = 0.0, 0.08
+    add_box("hall", (hx, hy, 0.04 + 0.7), (0.9, 0.8, 1.4), m["blue_wall"])
+    add_box("plinth", (hx, hy, 0.04 + 0.1), (0.98, 0.88, 0.2), m["marble"])
+    add_box("cornice", (hx, hy, 0.04 + 1.42), (1.04, 0.94, 0.06), m["marble"])
+    add_gable_roof("roof", (hx, hy, 0.04 + 1.45), 0.62, 0.56, 0.42, 0.07, m["gold_tile"])
+    add_doorway(0.45, 0.7, (hx, hy), width=0.3)
+    add_box("door_frame", (hx + 0.46, hy, 0.04 + 0.72), (0.02, 0.4, 0.06), m["marble"])
+    for y in (hy - 0.3, hy + 0.3):
+        add_box("pilaster", (hx + 0.46, y, 0.04 + 0.7), (0.03, 0.08, 1.4), m["marble"])
+    add_cylinder("emblem", (hx + 0.465, hy, 0.04 + 1.1), 0.12, 0.02, m["bronze"], vertices=16)
+    emblem = bpy.context.active_object
+    emblem.rotation_euler[1] = math.pi / 2
+    add_window_row(0.4, 0.04 + 0.9, (0.12, 0.2), (hx, hy))
 
-    roof_z = 0.1 + wall_h + 0.04
-    roof_h = 0.26
-    add_eaves("eaves", half + 0.09, roof_z, marble)
-    add_hip_roof("roof", (0, 0, roof_z + roof_h / 2), half + 0.09, roof_h, slate, ridge_half=0.16)
+    add_amphora("jar", (0.7, -0.66, 0.04), 0.22, m["clay"])
+    add_box("strongbox", (-0.7, -0.62, 0.04 + 0.1), (0.24, 0.18, 0.2), m["wood"])
 
-    porch_x = half + 0.13
-    for y in (-0.3, 0.0, 0.3):
-        add_cylinder("column", (porch_x, y, 0.1 + 0.23), 0.045, 0.46, marble, vertices=14)
-        add_box("capital", (porch_x, y, 0.1 + 0.47), (0.11, 0.11, 0.04), marble)
-    add_box("portico", (porch_x, 0, 0.1 + 0.52), (0.3, half * 2 + 0.12, 0.06), marble)
-
-    add_box("strongbox", (0.5, -half - 0.22, 0.22), (0.28, 0.22, 0.24), wood)
-    add_box("strongbox_bands", (0.5, -half - 0.22, 0.28), (0.3, 0.24, 0.05), bronze)
-    add_amphora("record_jar", (-half - 0.2, 0.44, 0.0), 0.3, clay)
-
-    return {"kind": "taxOffice", "variant": 0, "footprint": 2, "height": roof_z + roof_h + 0.1}
-
+    return {"kind": "taxOffice", "variant": 0, "footprint": 2, "height": 2.0}
 
 def build_palace():
     """Palace: a colonnaded hall on a stepped marble terrace, flanked by wings and statues.
@@ -1487,72 +1551,63 @@ def build_estate(tier):
 
 
 def build_infirmary():
-    """Infirmary: a colonnaded ward round a herb court, with beds under an awning."""
-    paving = plaster_material("paving", STONE, roughness=0.88, variation=0.05, scale=14.0)
-    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.84, variation=0.04, scale=7.0)
-    marble = material("marble", MARBLE, roughness=0.3)
-    tiles = roof_material("tiles", TERRACOTTA, rows_per_unit=20.0)
-    canvas = plaster_material("canvas", hex_rgb("efe7d2"), roughness=0.95, variation=0.06, scale=9.0)
-    herb = material("herb", hex_rgb("6f8a4a"), roughness=0.9)
-    wood = material("wood", WOOD, roughness=0.86)
-    clay = material("clay", CLAY, roughness=0.8)
+    """The original's: a blue-tiled ward with a round tower at its corner, benches in the
+    court, shrubs against the walls, on cream paving."""
+    m = civic_materials()
 
-    half = 1.44
-    yard = add_box("yard", (0, 0, 0.03), (half * 2, half * 2, 0.06), paving)
-    yard.visible_shadow = False
+    add_box("paving", (0, 0, 0.02), (2.9, 2.9, 0.04), m["paving"])
+    wx, wy = -0.3, 0.5
+    add_box("ward", (wx, wy, 0.04 + 0.5), (2.0, 1.0, 1.0), m["blue_wall"])
+    add_box("ward_trim", (wx, wy, 0.04 + 0.12), (2.04, 1.04, 0.06), m["teal_tile"])
+    add_gable_roof("ward_roof", (wx, wy, 0.04 + 1.0), 0.6, 1.04, 0.36, 0.07, m["blue_tile"])
+    for x in (wx - 0.6, wx - 0.2, wx + 0.2, wx + 0.6):
+        add_box("ward_window", (x, wy - 0.5, 0.04 + 0.6), (0.18, 0.04, 0.3), m["dark"])
 
-    ward_half = 0.68
-    wall_h = 0.7
-    wx, wy = -0.6, -0.6
-    add_box("ward", (wx, wy, 0.06 + wall_h / 2), (ward_half * 2, ward_half * 2, wall_h), whitewash)
-    add_box("cornice", (wx, wy, 0.06 + wall_h + 0.03), (ward_half * 2 + 0.12, ward_half * 2 + 0.12, 0.06), marble)
-    add_hip_roof("roof", (wx, wy, 0.06 + wall_h + 0.2), ward_half + 0.14, 0.3, tiles, ridge_half=0.18)
-    add_doorway(ward_half, 0.42, (wx, wy))
-    add_window_row(ward_half, 0.52, (0.14, 0.2), (wx, wy), on_door_face=True)
+    ex, ey = 0.9, -0.2
+    add_box("wing", (ex, ey, 0.04 + 0.45), (0.8, 1.2, 0.9), m["blue_wall"])
+    add_box("wing_trim", (ex, ey, 0.04 + 0.12), (0.84, 1.24, 0.06), m["teal_tile"])
+    add_gable_roof("wing_roof", (ex, ey, 0.04 + 0.9), 0.5, 0.64, 0.3, 0.07, m["blue_tile"])
+    add_doorway(0.4, 0.46, (ex, ey), width=0.24)
 
-    add_box("awning", (0.68, 0.3, 0.06 + 0.5), (0.9, 1.2, 0.04), canvas)
-    for cx, cy in ((0.28, -0.24), (1.08, -0.24), (0.28, 0.84), (1.08, 0.84)):
-        add_cylinder("awning_post", (cx, cy, 0.06 + 0.25), 0.022, 0.5, wood, vertices=6)
-    for by in (-0.02, 0.5):
-        add_box("bed", (0.68, by, 0.06 + 0.09), (0.62, 0.28, 0.18), whitewash)
+    tx, ty = -1.0, -0.1
+    add_cylinder("tower", (tx, ty, 0.04 + 0.7), 0.42, 1.4, m["blue_wall"], vertices=16)
+    add_cylinder("tower_band", (tx, ty, 0.04 + 1.05), 0.44, 0.06, m["marble"], vertices=16)
+    for angle in (0.5, 1.5, 2.5):
+        add_box("tower_window", (tx + math.cos(angle) * 0.41, ty - math.sin(angle) * 0.41, 0.04 + 1.2), (0.1, 0.1, 0.2), m["dark"])
+    bpy.ops.mesh.primitive_cone_add(radius1=0.5, radius2=0.04, depth=0.36, location=(tx, ty, 0.04 + 1.58), vertices=16)
+    cap = bpy.context.active_object
+    cap.name = "tower_roof"
+    cap.data.materials.append(m["blue_tile"])
 
-    add_box("herb_bed", (-1.0, 1.0, 0.07), (0.72, 0.72, 0.04), herb)
-    add_amphora("jar", (0.9, -1.0, 0.06), 0.32, clay)
-    add_box("basin", (-1.06, -0.2, 0.06 + 0.14), (0.36, 0.36, 0.28), marble)
+    for bx, by in ((0.1, -0.9), (-0.4, -1.0)):
+        add_box("bench", (bx, by, 0.04 + 0.14), (0.5, 0.18, 0.04), m["plank"])
+        for sx in (-0.2, 0.2):
+            add_box("bench_leg", (bx + sx, by, 0.04 + 0.06), (0.03, 0.14, 0.12), m["wood"])
+    add_hedge("shrub1", (-1.2, 1.2), (0.3, 0.3, 0.3), m["hedge"])
+    add_hedge("shrub2", (1.25, 0.6), (0.25, 0.25, 0.28), m["hedge"])
 
-    return {"kind": "infirmary", "variant": 0, "footprint": 3, "height": 1.1}
-
+    return {"kind": "infirmary", "variant": 0, "footprint": 3, "height": 2.0}
 
 def build_watchpost():
-    """Watchpost: a squat tower with a brazier and a rack of spears."""
-    earth = plaster_material("earth", EARTH, roughness=0.96, variation=0.08, scale=15.0)
-    plaster = plaster_material("plaster", hex_rgb("d8cdb4"), roughness=0.86, variation=0.05, scale=8.0)
-    stone = plaster_material("stone", STONE, roughness=0.88, variation=0.06, scale=11.0)
-    tiles = roof_material("tiles", hex_rgb("8f4526"), rows_per_unit=18.0)
-    wood = material("wood", WOOD, roughness=0.86)
-    bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
+    """The original's: a tall blue tower with a sand-floored lookout, stairs up its flank."""
+    m = civic_materials()
 
-    half = 0.94
-    yard = add_box("yard", (0, 0, 0.03), (half * 2, half * 2, 0.06), earth)
-    yard.visible_shadow = False
+    add_box("paving", (0, 0, 0.02), (1.9, 1.9, 0.04), m["paving"])
+    tx, ty = -0.1, 0.1
+    add_box("tower", (tx, ty, 0.04 + 0.7), (0.9, 0.9, 1.4), m["blue_wall"])
+    add_box("tower_base", (tx, ty, 0.04 + 0.12), (0.98, 0.98, 0.24), m["marble"])
+    add_box("flare", (tx, ty, 0.04 + 1.38), (1.16, 1.16, 0.08), m["marble"])
+    add_box("parapet", (tx, ty, 0.04 + 1.5), (1.24, 1.24, 0.16), m["blue_wall"])
+    add_box("parapet_cap", (tx, ty, 0.04 + 1.59), (1.28, 1.28, 0.03), m["marble"])
+    add_box("lookout_floor", (tx, ty, 0.04 + 1.5), (1.1, 1.1, 0.02), m["paving"])
+    add_doorway(0.45, 0.5, (tx, ty), width=0.26)
+    add_box("arch", (tx + 0.46, ty, 0.04 + 0.56), (0.02, 0.36, 0.12), m["marble"])
+    add_window_row(0.45, 0.04 + 1.0, (0.1, 0.16), (tx, ty), on_door_face=True)
+    for index in range(6):
+        add_box("step", (0.62, -0.64 + index * 0.16, 0.04 + 0.04 + index * 0.08), (0.3, 0.16, 0.08 + index * 0.16), m["marble"])
+    add_flag("flag", (tx - 0.35, ty + 0.35, 0.04 + 1.5), 0.5, m["wood"], m["flag"])
 
-    tower_half = 0.4
-    tower_h = 1.0
-    tx, ty = -0.32, -0.32
-    add_box("base", (tx, ty, 0.11), (tower_half * 2 + 0.16, tower_half * 2 + 0.16, 0.1), stone)
-    add_box("tower", (tx, ty, 0.16 + tower_h / 2), (tower_half * 2, tower_half * 2, tower_h), plaster)
-    add_doorway(tower_half, 0.4, (tx, ty))
-    add_box("gallery", (tx, ty, 0.16 + tower_h + 0.05), (tower_half * 2 + 0.24, tower_half * 2 + 0.24, 0.1), wood)
-    add_hip_roof("roof", (tx, ty, 0.16 + tower_h + 0.24), tower_half + 0.18, 0.28, tiles, ridge_half=0.1)
-
-    add_cylinder("brazier", (0.62, 0.5, 0.06 + 0.18), 0.08, 0.36, bronze, vertices=10)
-    add_cylinder("brazier_bowl", (0.62, 0.5, 0.06 + 0.38), 0.16, 0.1, bronze, vertices=14)
-    for offset in (-0.1, 0.0, 0.1):
-        add_cylinder("spear", (0.66 + offset, -0.5, 0.06 + 0.34), 0.018, 0.68, wood, vertices=6)
-    add_box("rack", (0.66, -0.5, 0.06 + 0.2), (0.34, 0.08, 0.06), wood)
-
-    return {"kind": "watchpost", "variant": 0, "footprint": 2, "height": 1.5}
-
+    return {"kind": "watchpost", "variant": 0, "footprint": 2, "height": 2.1}
 
 def build_hero_hall():
     """Hero hall: a peripteral hall on a stepped terrace, with a trophy of arms and a
@@ -2269,27 +2324,24 @@ def build_hippodrome():
 
 
 def build_fountain():
-    """Marble basin with a raised centre and a small bronze statue; light blue water."""
-    marble = material("marble", MARBLE, roughness=0.3)
-    bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
-    water = material("water", WATER_LIGHT, roughness=0.06)
-    water.node_tree.nodes["Principled BSDF"].inputs["IOR"].default_value = 1.33
+    """The original's, at a single tile: a blue-rimmed basin, a canopied spout on
+    four columns, a fringe of flowers."""
+    m = civic_materials()
+    flower = material("flower", hex_rgb("d84a3a"), roughness=0.9)
 
-    add_cylinder("basin", (0, 0, 0.11), 0.44, 0.22, marble, vertices=32)
-    add_cylinder("water", (0, 0, 0.19), 0.37, 0.08, water, vertices=32)
-    add_cylinder("pedestal", (0, 0, 0.32), 0.09, 0.28, marble, vertices=16)
-    add_cylinder("pedestal_cap", (0, 0, 0.47), 0.14, 0.04, marble, vertices=16)
-
-    add_cylinder("statue_legs", (0, 0, 0.56), 0.045, 0.18, bronze, vertices=12)
-    add_cylinder("statue_torso", (0, 0, 0.7), 0.06, 0.12, bronze, vertices=12)
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.045, location=(0, 0, 0.79), segments=12, ring_count=8)
-    head = bpy.context.active_object
-    head.name = "statue_head"
-    head.data.materials.append(bronze)
-    bpy.ops.object.shade_smooth()
+    add_cylinder("basin", (0, 0, 0.09), 0.44, 0.18, m["blue_wall"], vertices=24)
+    add_cylinder("rim", (0, 0, 0.19), 0.46, 0.03, m["marble"], vertices=24)
+    add_cylinder("water", (0, 0, 0.17), 0.4, 0.02, m["water"], vertices=24)
+    for angle in (0.8, 2.35, 3.9, 5.5):
+        add_column("column", (math.cos(angle) * 0.2, math.sin(angle) * 0.2, 0.19), 0.42, 0.028, m["marble"])
+    add_box("canopy", (0, 0, 0.66), (0.5, 0.5, 0.05), m["blue_wall"])
+    add_pyramid("canopy_roof", (0, 0, 0.76), 0.36, 0.16, m["blue_tile"], vertices=4)
+    add_cylinder("spout", (0, 0, 0.32), 0.05, 0.26, m["bronze"], vertices=8)
+    for angle in (0.4, 1.6, 2.8, 4.0, 5.2):
+        add_hedge("flowers", (math.cos(angle) * 0.42, math.sin(angle) * 0.42), (0.08, 0.08, 0.06), m["hedge"])
+        add_box("bloom", (math.cos(angle) * 0.42, math.sin(angle) * 0.42, 0.07), (0.04, 0.04, 0.03), flower)
 
     return {"kind": "fountain", "variant": 0, "footprint": 1, "height": 0.9}
-
 
 def build_statue():
     """Marble on a stepped plinth, a bronze figure with green patina accents."""
