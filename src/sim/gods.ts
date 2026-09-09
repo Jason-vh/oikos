@@ -1,6 +1,19 @@
 import type { BuildingKind } from './types';
 
-export const GOD_KINDS = ['demeter', 'hephaestus', 'hermes', 'hades'] as const;
+export const GOD_KINDS = [
+  'zeus',
+  'poseidon',
+  'demeter',
+  'athena',
+  'artemis',
+  'apollo',
+  'ares',
+  'hephaestus',
+  'aphrodite',
+  'hermes',
+  'dionysus',
+  'hades',
+] as const;
 export type GodKind = (typeof GOD_KINDS)[number];
 
 export interface GodDef {
@@ -12,42 +25,32 @@ export interface GodDef {
   wrath: string;
 }
 
-export const GODS: Record<GodKind, GodDef> = {
-  demeter: {
-    kind: 'demeter',
-    name: 'Demeter',
-    domain: 'Harvest',
-    sanctuary: 'sanctuaryDemeter',
-    blessing: 'Demeter fills the granaries.',
-    wrath: 'Demeter blights the fields.',
-  },
-  hephaestus: {
-    kind: 'hephaestus',
-    name: 'Hephaestus',
-    domain: 'The forge',
-    sanctuary: 'sanctuaryHephaestus',
-    blessing: 'Hephaestus damps every hearth in the city.',
-    wrath: 'Hephaestus sets a building alight.',
-  },
-  hermes: {
-    kind: 'hermes',
-    name: 'Hermes',
-    domain: 'Roads and trade',
-    sanctuary: 'sanctuaryHermes',
-    blessing: 'Hermes speeds the carts and fills their loads.',
-    wrath: 'Hermes empties a storehouse onto the road.',
-  },
-  hades: {
-    kind: 'hades',
-    name: 'Hades',
-    domain: 'The underworld',
-    sanctuary: 'sanctuaryHades',
-    blessing: 'Hades sends up buried silver.',
-    wrath: 'Hades claims his tribute from the treasury.',
-  },
-};
+function god(kind: GodKind, domain: string, blessing: string, wrath: string): GodDef {
+  const name = kind[0].toUpperCase() + kind.slice(1);
+  return {
+    kind,
+    name,
+    domain,
+    sanctuary: `sanctuary${name}` as BuildingKind,
+    blessing: `${name} ${blessing}`,
+    wrath: `${name} ${wrath}`,
+  };
+}
 
-export const SANCTUARY_KINDS = GOD_KINDS.map((kind) => GODS[kind].sanctuary);
+export const GODS: Record<GodKind, GodDef> = {
+  zeus: god('zeus', 'Sky and rule', 'blesses the whole city.', 'strikes a building with lightning.'),
+  poseidon: god('poseidon', 'Sea and trade', 'sends a fair wind to the traders.', 'wrecks the ships and the goods aboard.'),
+  demeter: god('demeter', 'Harvest', 'fills the granaries.', 'blights the fields.'),
+  athena: god('athena', 'War and craft', 'drills the companies to twice their worth.', 'takes the heart out of the army.'),
+  artemis: god('artemis', 'The hunt', 'sends game to every granary.', 'looses beasts on the outlying houses.'),
+  apollo: god('apollo', 'Healing and light', 'lifts every sickness in the city.', 'sends plague through the streets.'),
+  ares: god('ares', 'Battle', 'raises companies of his own.', 'throws down the walls and towers.'),
+  hephaestus: god('hephaestus', 'The forge', 'damps every hearth in the city.', 'sets a building alight.'),
+  aphrodite: god('aphrodite', 'Love', 'makes the city beloved, and nobody leaves.', 'carries citizens away with her.'),
+  hermes: god('hermes', 'Roads and trade', 'speeds the carts and fills their loads.', 'empties a storehouse onto the road.'),
+  dionysus: god('dionysus', 'Wine and revels', 'fills the wine stores.', 'sets the city drinking and quarrelling.'),
+  hades: god('hades', 'The underworld', 'sends up buried silver.', 'claims his tribute from the treasury.'),
+};
 
 export interface GodState {
   mood: number;

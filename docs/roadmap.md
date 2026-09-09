@@ -418,13 +418,22 @@ in place of the original's marble-and-sculpture construction). From then the moo
 climbs while the sanctuary is staffed and falls when it is neglected, and at the ends
 of the scale the god acts: Demeter fills or empties the granaries, Hephaestus damps
 every hearth or lights one, Hermes tops up or spills the stores, Hades pays or takes.
+All twelve Greek gods are in, each with a 3×3 sanctuary of their own (320–620 dr) and
+a pair of acts in `src/sim/divine.ts`: Zeus keeps the city clean of plague and crime
+for a year or strikes a building with lightning; Poseidon doubles a month's trade or
+wrecks the cargo; Athena doubles the hoplites or breaks the army; Artemis sends game
+or looses beasts; Apollo heals or sickens; Ares raises companies or throws down the
+walls; Aphrodite makes the city beloved or carries citizens off; Dionysus fills the
+wine stores or sets the city quarrelling. An adventure invites four to six of them,
+and only their sanctuaries appear in the build panel.
+
 Four heroes are in `src/sim/heroes.ts`: a hero hall (4×4, behind the palace) and the
 conditions each asks of the city — Achilles three companies and a sanctuary, Hercules
 1500 citizens and two, Perseus two and 3000 dr, Odysseus standing of 70 and eight
 elite houses. A summoned hero stays two years and fights as four hoplite companies,
 and a monster loose in the city razes a building a month until the one hero who can
-kill it arrives. Sanctuary sizes, artisans, the other ten gods, the other four heroes,
-the remaining monsters and the quests are not started.
+kill it arrives. Sanctuary sizes, artisans, gods fighting each other, the other four
+heroes, the remaining monsters and the quests are not started.
 
 ---
 

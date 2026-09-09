@@ -1,6 +1,7 @@
 import { recomputeAppeal } from './appeal';
 import {
   BUILDINGS,
+  SANCTUARY_KINDS,
   HOUSE_TIERS,
   ROADBLOCK_COST,
   ROAD_COST,
@@ -21,12 +22,11 @@ import {
 } from './labour';
 import { generateMap } from './mapgen';
 import { hasRoadAccess, roadAccessTiles } from './pathing';
-import { RISK_LIMIT, accrueRisk, nameOf } from './hazards';
+import { accrueRisk, nameOf } from './hazards';
 import { accrueAfflictions, plagueToll, tendHouse, theftLoss } from './unrest';
 import {
   GODS,
   GOD_KINDS,
-  SANCTUARY_KINDS,
   actFor,
   moodAfterMonth,
   newPantheon,
@@ -52,6 +52,7 @@ import {
   requestFrom,
   type Request,
 } from './events';
+import { BLESSINGS, WRATHS } from './divine';
 import { NO_TRADE, TRADE_ROUTES, newTradeOrders, trade, type TradeReport } from './trade';
 import { NO_ARMY, companiesIn, fightInvasion, musterArmy, type Army, type Battle } from './military';
 import {
@@ -91,8 +92,6 @@ const WALL_STRENGTH = 1;
 const WALL_TILES_PER_COMPANY = 12;
 const MONTHS_OF_DEBT_ALLOWED = 24;
 const PLUNDER_PER_COMPANY = 250;
-const HADES_GIFT = 600;
-const HADES_TRIBUTE = 400;
 const MONTHS_PER_YEAR = 12;
 
 const sum = (values: number[]): number => values.reduce((total, value) => total + value, 0);
@@ -137,6 +136,7 @@ export class World {
   requests: Request[] = [];
   standing = 50;
   hero: { kind: HeroKind; monthsLeft: number } | null = null;
+  divineFavourMonths = 0;
   monster: Monster | null = null;
   lastBattle: Battle | null = null;
   scenario: Scenario = DEFAULT_SCENARIO;
@@ -191,6 +191,9 @@ export class World {
   canPlace(kind: BuildingKind, x: number, y: number): PlacementCheck {
     const def = BUILDINGS[kind];
     if (this.treasury < this.costOf(kind)) return { ok: false, reason: 'Not enough drachmas' };
+    if (SANCTUARY_KINDS.includes(kind) && !this.scenarioGods().includes(kind)) {
+      return { ok: false, reason: 'That god does not attend this city' };
+    }
     if (def.requires && !this.has(def.requires)) {
       return { ok: false, reason: `Not until a ${BUILDINGS[def.requires].name.toLowerCase()} stands` };
     }
@@ -209,6 +212,10 @@ export class World {
       return { ok: false, reason: `Needs appeal of ${def.minAppeal} here` };
     }
     return { ok: true, reason: def.description };
+  }
+
+  scenarioGods(): BuildingKind[] {
+    return this.scenario.gods.map((god) => GODS[god].sanctuary);
   }
 
   costOf(kind: BuildingKind): number {
@@ -399,6 +406,7 @@ export class World {
     });
     this.migrate();
     this.holdGames();
+    this.keepDivineFavour();
     this.army = musterArmy(this.buildings.values(), this.has('palace'));
     if (this.hero) this.army.hoplite += HERO_COMPANIES;
     this.answerTheWorld();
@@ -486,6 +494,16 @@ export class World {
 
     this.trade = posts.length === 0 ? NO_TRADE : trade(posts, this.tradeOrders, this.treasury);
     this.treasury += this.trade.earned - this.trade.spent;
+  }
+
+  private keepDivineFavour(): void {
+    if (this.divineFavourMonths === 0) return;
+    this.divineFavourMonths -= 1;
+    for (const building of this.buildings.values()) {
+      if (!isDwelling(building.kind)) continue;
+      building.disease = 0;
+      building.crime = 0;
+    }
   }
 
   private holdGames(): void {
@@ -666,46 +684,24 @@ export class World {
   }
 
   private receiveBlessing(kind: GodKind): void {
-    if (kind === 'demeter') {
-      for (const building of this.buildings.values()) {
-        if (building.kind !== 'granary') continue;
-        building.stock.food = BUILDINGS.granary.capacity;
-      }
-    }
-    if (kind === 'hephaestus') {
-      for (const building of this.buildings.values()) building.fireRisk = 0;
-    }
-    if (kind === 'hermes') {
-      for (const building of this.buildings.values()) {
-        const def = BUILDINGS[building.kind];
-        if (def.produces) building.stock[def.produces] += UNITS_PER_CARTLOAD;
-      }
-    }
-    if (kind === 'hades') this.treasury += HADES_GIFT;
-
+    BLESSINGS[kind](this);
     this.gods[kind].lastAct = GODS[kind].blessing;
     this.log(GODS[kind].blessing);
   }
 
   private sufferWrath(kind: GodKind): void {
-    if (kind === 'demeter') {
-      for (const building of this.buildings.values()) {
-        if (BUILDINGS[building.kind].produces === 'food') building.stock.food = 0;
-      }
-    }
-    if (kind === 'hephaestus') {
-      const victim = this.randomBuilding();
-      if (victim) victim.fireRisk = RISK_LIMIT;
-    }
-    if (kind === 'hermes') {
-      for (const building of this.buildings.values()) {
-        if (building.kind === 'granary' || building.kind === 'agora') building.stock.food = 0;
-      }
-    }
-    if (kind === 'hades') this.treasury -= Math.min(this.treasury, HADES_TRIBUTE);
-
+    WRATHS[kind](this);
     this.gods[kind].lastAct = GODS[kind].wrath;
     this.log(GODS[kind].wrath);
+  }
+
+  anyBuilding(): Building | null {
+    return this.randomBuilding();
+  }
+
+  razeOne(): void {
+    const victim = this.randomBuilding();
+    if (victim) this.demolish(victim.x, victim.y);
   }
 
   private randomBuilding(): Building | null {

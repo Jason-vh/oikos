@@ -1,5 +1,6 @@
 import { HOUSE_TIERS } from './buildings';
 import type { CityEvent } from './events';
+import type { GodKind } from './gods';
 import type { Invasion } from './military';
 import type { Good } from './types';
 
@@ -18,6 +19,7 @@ export interface Scenario {
   goals: Goal[];
   invasions: Invasion[];
   events: CityEvent[];
+  gods: GodKind[];
 }
 
 export interface CitySnapshot {
@@ -50,6 +52,7 @@ export const CAMPAIGN: Scenario[] = [
       { kind: 'production', good: 'oil', target: 6 },
       { kind: 'treasury', target: 3000 },
     ],
+    gods: ['demeter', 'hermes', 'artemis', 'hephaestus'],
     invasions: [{ year: -494, nation: 'Thessalians', companies: 2 }],
     events: [
       { year: -497, kind: 'gift', city: 'Corinth', reward: 500 },
@@ -65,6 +68,7 @@ export const CAMPAIGN: Scenario[] = [
       { kind: 'trade', target: 2 },
       { kind: 'treasury', target: 8000 },
     ],
+    gods: ['poseidon', 'hermes', 'dionysus', 'demeter', 'hades'],
     invasions: [
       { year: -492, nation: 'Thessalians', companies: 3 },
       { year: -487, nation: 'Trojans', companies: 6 },
@@ -83,6 +87,7 @@ export const CAMPAIGN: Scenario[] = [
       { kind: 'sanctuary', target: 3 },
       { kind: 'housing', tier: townhouse, target: 200 },
     ],
+    gods: ['apollo', 'athena', 'zeus', 'aphrodite', 'demeter', 'hades'],
     invasions: [
       { year: -490, nation: 'Persians', companies: 5 },
       { year: -486, nation: 'Persians', companies: 9 },
@@ -102,6 +107,7 @@ export const CAMPAIGN: Scenario[] = [
       { kind: 'housing', tier: townhouse, target: 400 },
       { kind: 'treasury', target: 15000 },
     ],
+    gods: ['ares', 'athena', 'zeus', 'hephaestus', 'demeter', 'hermes'],
     invasions: [
       { year: -493, nation: 'Trojans', companies: 6 },
       { year: -489, nation: 'Persians', companies: 12 },

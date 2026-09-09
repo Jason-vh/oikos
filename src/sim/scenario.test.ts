@@ -26,6 +26,7 @@ const scenario: Scenario = {
   ],
   invasions: [],
   events: [],
+  gods: [],
 };
 
 describe('goals', () => {

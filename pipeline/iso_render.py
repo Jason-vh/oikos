@@ -1028,6 +1028,74 @@ def build_sanctuary(kind, god):
     return {"kind": kind, "variant": 0, "footprint": 3, "height": roof_z + 0.6}
 
 
+def zeus_emblem(marble, bronze, wood, clay, cypress):
+    add_box("altar_stone", (1.0, -0.9, 0.06 + 0.24), (0.5, 0.5, 0.48), marble)
+    add_cylinder("thunderbolt", (1.0, -0.9, 0.06 + 0.62), 0.07, 0.28, bronze, vertices=8)
+    add_box("bolt_wing", (1.0, -0.9, 0.06 + 0.66), (0.42, 0.08, 0.06), bronze)
+    add_cypress_pot("cypress", (-1.06, 1.06, 0.06), 0.46, clay, cypress)
+
+
+def poseidon_emblem(marble, bronze, wood, clay, cypress):
+    add_cylinder("trident_shaft", (1.0, -0.9, 0.06 + 0.45), 0.05, 0.9, bronze, vertices=8)
+    add_box("trident_head", (1.0, -0.9, 0.06 + 0.88), (0.06, 0.34, 0.06), bronze)
+    for prong in (-0.14, 0.0, 0.14):
+        add_cylinder("prong", (1.0, -0.9 + prong, 0.06 + 1.0), 0.025, 0.22, bronze, vertices=6)
+    add_box("basin", (-1.04, 1.0, 0.06 + 0.08), (0.7, 0.7, 0.16), marble)
+    add_box("water", (-1.04, 1.0, 0.06 + 0.15), (0.56, 0.56, 0.04), material("sea", hex_rgb("6fa8bd"), roughness=0.15))
+
+
+def athena_emblem(marble, bronze, wood, clay, cypress):
+    add_cylinder("olive_trunk", (1.02, -0.94, 0.06 + 0.22), 0.07, 0.44, wood, vertices=8)
+    add_pyramid("olive_crown", (1.02, -0.94, 0.06 + 0.62), 0.36, 0.42, material("olive", (0.36, 0.44, 0.26), roughness=0.9), vertices=7)
+    add_cylinder("shield", (-1.02, 1.0, 0.06 + 0.3), 0.26, 0.07, bronze, vertices=18)
+    add_cylinder("shield_post", (-1.02, 1.0, 0.06 + 0.14), 0.05, 0.28, wood, vertices=6)
+
+
+def artemis_emblem(marble, bronze, wood, clay, cypress):
+    for post_x, post_y in ((0.72, -1.16), (1.3, -1.16), (0.72, -0.6), (1.3, -0.6)):
+        add_cylinder("pen_post", (post_x, post_y, 0.06 + 0.16), 0.03, 0.32, wood, vertices=6)
+    add_box("pen_rail", (1.01, -1.16, 0.06 + 0.26), (0.62, 0.04, 0.05), wood)
+    add_box("pen_rail", (1.01, -0.6, 0.06 + 0.26), (0.62, 0.04, 0.05), wood)
+    add_box("deer", (1.0, -0.86, 0.06 + 0.16), (0.3, 0.14, 0.2), material("hide", hex_rgb("a97a4c"), roughness=0.9))
+    add_cypress_pot("cypress", (-1.04, 1.02, 0.06), 0.5, clay, cypress)
+
+
+def apollo_emblem(marble, bronze, wood, clay, cypress):
+    add_box("tripod_base", (1.0, -0.92, 0.06 + 0.06), (0.44, 0.44, 0.12), marble)
+    for leg in ((-0.12, -0.12), (0.12, -0.12), (0.0, 0.14)):
+        add_cylinder("tripod_leg", (1.0 + leg[0], -0.92 + leg[1], 0.06 + 0.32), 0.03, 0.4, bronze, vertices=8)
+    add_cylinder("omphalos", (1.0, -0.92, 0.06 + 0.6), 0.18, 0.24, marble, vertices=16)
+    add_cylinder("laurel", (-1.02, 1.0, 0.06 + 0.24), 0.06, 0.48, wood, vertices=6)
+    add_pyramid("laurel_crown", (-1.02, 1.0, 0.06 + 0.6), 0.3, 0.34, material("laurel", (0.34, 0.46, 0.28), roughness=0.9), vertices=7)
+
+
+def ares_emblem(marble, bronze, wood, clay, cypress):
+    add_box("trophy_post", (1.0, -0.94, 0.06 + 0.44), (0.1, 0.1, 0.88), wood)
+    add_box("trophy_arms", (1.0, -0.94, 0.06 + 0.74), (0.56, 0.12, 0.12), bronze)
+    add_cylinder("trophy_helm", (1.0, -0.94, 0.06 + 0.94), 0.13, 0.18, bronze, vertices=14)
+    for spear_x in (-1.08, -0.96):
+        add_cylinder("spear", (spear_x, 1.0, 0.06 + 0.42), 0.022, 0.84, wood, vertices=6)
+
+
+def aphrodite_emblem(marble, bronze, wood, clay, cypress):
+    add_box("pool_kerb", (1.0, -0.9, 0.06 + 0.06), (0.86, 0.7, 0.12), marble)
+    add_box("pool", (1.0, -0.9, 0.06 + 0.12), (0.7, 0.54, 0.05), material("water", hex_rgb("7fb6c8"), roughness=0.12))
+    add_cylinder("statue_plinth", (-1.02, 1.0, 0.06 + 0.18), 0.16, 0.36, marble, vertices=12)
+    add_cylinder("statue", (-1.02, 1.0, 0.06 + 0.54), 0.09, 0.36, marble, vertices=12)
+    add_cypress_pot("myrtle", (0.2, 1.06, 0.06), 0.42, clay, cypress)
+
+
+def dionysus_emblem(marble, bronze, wood, clay, cypress):
+    vine = material("vine", (0.28, 0.4, 0.2), roughness=0.9)
+    grape = material("grape", hex_rgb("6b3a63"), roughness=0.75)
+    add_pergola("arbour", 1.0, -0.9, 0.06, 0.24, 0.8, 0.5, wood)
+    for leaf_y in (-1.2, -0.9, -0.6):
+        add_box("vine_leaf", (1.0, leaf_y, 0.06 + 0.54), (0.5, 0.24, 0.12), vine)
+        add_cylinder("bunch", (1.0, leaf_y, 0.06 + 0.44), 0.06, 0.12, grape, vertices=8)
+    add_amphora("wine_jar", (-1.0, 1.0, 0.06), 0.42, clay)
+    add_amphora("wine_jar2", (-0.6, 1.1, 0.06), 0.34, clay)
+
+
 def demeter_emblem(marble, bronze, wood, clay, cypress):
     for x, y in ((1.0, -0.6), (0.6, -1.0), (1.1, -1.1)):
         add_cylinder("sheaf", (x, y, 0.06 + 0.18), 0.09, 0.36, material("wheat", STRAW, roughness=0.9), vertices=8)
@@ -1057,6 +1125,14 @@ def hades_emblem(marble, bronze, wood, clay, cypress):
 
 
 SANCTUARIES = {
+    "sanctuary-zeus": {"roof": hex_rgb("c8642e"), "emblem": zeus_emblem},
+    "sanctuary-poseidon": {"roof": hex_rgb("a8552f"), "emblem": poseidon_emblem},
+    "sanctuary-athena": {"roof": hex_rgb("c45f34"), "emblem": athena_emblem},
+    "sanctuary-artemis": {"roof": hex_rgb("a85a30"), "emblem": artemis_emblem},
+    "sanctuary-apollo": {"roof": hex_rgb("d0703a"), "emblem": apollo_emblem},
+    "sanctuary-ares": {"roof": hex_rgb("9c3f28"), "emblem": ares_emblem},
+    "sanctuary-aphrodite": {"roof": hex_rgb("d07a4a"), "emblem": aphrodite_emblem},
+    "sanctuary-dionysus": {"roof": hex_rgb("a04a3a"), "emblem": dionysus_emblem},
     "sanctuary-demeter": {"roof": hex_rgb("b8502c"), "emblem": demeter_emblem},
     "sanctuary-hephaestus": {"roof": hex_rgb("8f4526"), "emblem": hephaestus_emblem},
     "sanctuary-hermes": {"roof": hex_rgb("c0603a"), "emblem": hermes_emblem},

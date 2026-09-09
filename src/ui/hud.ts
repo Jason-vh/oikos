@@ -1,6 +1,6 @@
 import type { Game, Tool } from '../game';
 import type { OverlayMode } from '../render/scene';
-import { BUILDINGS, PLACEABLE, ROADBLOCK_COST, ROAD_COST, WALL_COST } from '../sim/buildings';
+import { BUILDINGS, PLACEABLE, ROADBLOCK_COST, ROAD_COST, SANCTUARY_KINDS, WALL_COST } from '../sim/buildings';
 import { monthlyWages, WAGE_LEVELS, type LabourReport } from '../sim/labour';
 import { TAX_RATES } from '../sim/taxation';
 import { GODS, GOD_KINDS, moodName } from '../sim/gods';
@@ -63,9 +63,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
         <button class="overlay-toggle" data-overlay="hazard">Hazards <kbd>H</kbd></button>
       </header>
       <aside class="panel">
-        <div class="panel-inner">
-          ${renderPanel(buttons)}
-        </div>
+        <div class="panel-inner" data-panel></div>
       </aside>
       <section class="goals" data-goals>
         <button class="goals-header" data-goals-toggle>
@@ -100,21 +98,31 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
   );
 
   const hud = root.querySelector('.hud') as HTMLElement;
+  const panel = hud.querySelector('[data-panel]') as HTMLElement;
+  let panelKey = '';
   const field = (name: string) => hud.querySelector(`[data-field="${name}"]`) as HTMLElement;
 
   const popup = hud.querySelector('[data-popup]') as HTMLElement;
   let balloon: Inspection | null = null;
 
-  hud.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((element) => {
-    const button = buttons[Number(element.dataset.tool)];
-    element.addEventListener('click', () => selectTool(Number(element.dataset.tool)));
-    element.addEventListener('mouseenter', () => {
-      balloon = button.describe();
+  const refreshPanel = () => {
+    const gods = game.world.scenarioGods();
+    const key = gods.join(',');
+    if (key === panelKey) return;
+
+    panelKey = key;
+    panel.innerHTML = renderPanel(buttons, gods);
+    panel.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((element) => {
+      const button = buttons[Number(element.dataset.tool)];
+      element.addEventListener('click', () => selectTool(Number(element.dataset.tool)));
+      element.addEventListener('mouseenter', () => {
+        balloon = button.describe();
+      });
+      element.addEventListener('mouseleave', () => {
+        balloon = null;
+      });
     });
-    element.addEventListener('mouseleave', () => {
-      balloon = null;
-    });
-  });
+  };
   hud.querySelector('[data-popup-close]')?.addEventListener('click', () => game.clearSelection());
   hud.querySelectorAll<HTMLButtonElement>('[data-overlay]').forEach((element) => {
     element.addEventListener('click', () => game.toggleOverlay(element.dataset.overlay as OverlayMode));
@@ -228,7 +236,11 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       renderHeroes(hud, game);
       field('requests').textContent = 'World';
       alert(hud, 'requests', world.requests.length > 0);
-      alert(hud, 'gods', GOD_KINDS.some((kind) => world.gods[kind].honoured && world.gods[kind].mood <= 20));
+      alert(
+        hud,
+        'gods',
+        world.scenario.gods.some((kind) => world.gods[kind].honoured && world.gods[kind].mood <= 20),
+      );
       alert(hud, 'heroes', world.monster !== null);
       renderRequests(hud, world, game);
       field('army').textContent = 'Army';
@@ -241,6 +253,8 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       field('gods').textContent = 'Gods';
       for (const kind of GOD_KINDS) {
         const god = world.gods[kind];
+        const row = hud.querySelector(`[data-god="${kind}"]`) as HTMLElement;
+        row.hidden = !world.scenario.gods.includes(kind);
         field(`mood-${kind}`).textContent = `${moodName(god.mood, god.honoured)}${god.honoured ? ` · ${god.mood}` : ''}`;
       }
       field('godsNote').textContent = godsNote(world);
@@ -272,6 +286,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       hud.querySelectorAll<HTMLButtonElement>('[data-difficulty]').forEach((element) => {
         element.classList.toggle('chosen', Number(element.dataset.difficulty) === world.difficulty);
       });
+      refreshPanel();
       hud.querySelectorAll<HTMLElement>('[data-cost]').forEach((element) => {
         element.innerHTML = money(world.costOf(element.dataset.cost as BuildingKind));
       });
@@ -530,14 +545,17 @@ function clampIndex(index: number, length: number): number {
   return Math.min(length - 1, Math.max(0, index));
 }
 
-function renderPanel(buttons: ToolButton[]): string {
+function renderPanel(buttons: ToolButton[], gods: BuildingKind[]): string {
   const headed = ['Housing', 'Food', 'Industry', 'Culture', 'Services', 'Government', 'Defence', 'Mythology'];
-  const roads = buttons.map((button, index) => ({ button, index })).filter(({ button }) => button.group === 'Road');
+  const shown = buttons
+    .map((button, index) => ({ button, index }))
+    .filter(({ button }) => !SANCTUARY_KINDS.includes(button.costOf as BuildingKind) || gods.includes(button.costOf as BuildingKind));
+  const roads = shown.filter(({ button }) => button.group === 'Road');
   const demolish = buttons.findIndex((button) => button.group === 'Demolish');
 
   const sections = headed
     .map((name) => {
-      const items = buttons.map((button, index) => ({ button, index })).filter(({ button }) => button.group === name);
+      const items = shown.filter(({ button }) => button.group === name);
       return `
         <section class="tool-group">
           <h3>${name}</h3>
@@ -589,7 +607,7 @@ function tradeMenu(): string {
 function godsMenu(): string {
   const rows = GOD_KINDS.map(
     (kind) => `
-      <div class="dropdown-row">
+      <div class="dropdown-row" data-god="${kind}">
         <span>${GODS[kind].name}</span>
         <b data-field="mood-${kind}"></b>
       </div>`,

@@ -58,9 +58,17 @@ export type BuildingKind =
   | 'dramaSchool'
   | 'theatre'
   | 'stadium'
+  | 'sanctuaryZeus'
+  | 'sanctuaryPoseidon'
   | 'sanctuaryDemeter'
+  | 'sanctuaryAthena'
+  | 'sanctuaryArtemis'
+  | 'sanctuaryApollo'
+  | 'sanctuaryAres'
   | 'sanctuaryHephaestus'
+  | 'sanctuaryAphrodite'
   | 'sanctuaryHermes'
+  | 'sanctuaryDionysus'
   | 'sanctuaryHades';
 
 export type ServiceSupply = Record<ServiceKind, number>;

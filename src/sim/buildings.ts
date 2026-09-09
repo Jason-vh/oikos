@@ -1,4 +1,5 @@
 import type { AppealBands } from './appeal';
+import { GODS, GOD_KINDS, type GodKind } from './gods';
 import type { BuildingKind, Good, ServiceKind } from './types';
 
 export interface BuildingDef {
@@ -192,6 +193,88 @@ export function tiersOf(kind: BuildingKind): HouseTier[] {
 
 export function tierOf(building: { kind: BuildingKind; tier: number }): HouseTier {
   return tiersOf(building.kind)[building.tier];
+}
+
+
+const SANCTUARY_COSTS: Record<GodKind, number> = {
+  zeus: 620,
+  poseidon: 540,
+  demeter: 420,
+  athena: 480,
+  artemis: 400,
+  apollo: 440,
+  ares: 380,
+  hephaestus: 380,
+  aphrodite: 360,
+  hermes: 340,
+  dionysus: 320,
+  hades: 460,
+};
+
+const SANCTUARY_ROOFS: Record<GodKind, number> = {
+  zeus: 0xc8642e,
+  poseidon: 0xa8552f,
+  demeter: 0xb8502c,
+  athena: 0xc45f34,
+  artemis: 0xa85a30,
+  apollo: 0xd0703a,
+  ares: 0x9c3f28,
+  hephaestus: 0x8f4526,
+  aphrodite: 0xd07a4a,
+  hermes: 0xc0603a,
+  dionysus: 0xa04a3a,
+  hades: 0x7c4030,
+};
+
+const SANCTUARY_NAMES: Record<GodKind, string> = {
+  zeus: 'Stronghold of Zeus',
+  poseidon: 'Promontory of Poseidon',
+  demeter: 'Garden of Demeter',
+  athena: 'Arbor of Athena',
+  artemis: "Artemis' Menagerie",
+  apollo: 'Oracle of Apollo',
+  ares: "Ares' Fortress",
+  hephaestus: 'Forge of Hephaestus',
+  aphrodite: "Aphrodite's Haven",
+  hermes: "Hermes' Refuge",
+  dionysus: 'Grove of Dionysus',
+  hades: 'Gates of Hades',
+};
+
+type SanctuaryKind = Extract<BuildingKind, `sanctuary${string}`>;
+
+export const SANCTUARY_KINDS: BuildingKind[] = GOD_KINDS.map((kind) => GODS[kind].sanctuary);
+
+function sanctuaries(): Record<SanctuaryKind, BuildingDef> {
+  return Object.fromEntries(
+    GOD_KINDS.map((kind) => [
+      GODS[kind].sanctuary,
+      {
+        kind: GODS[kind].sanctuary,
+        name: SANCTUARY_NAMES[kind],
+        size: 3,
+        cost: SANCTUARY_COSTS[kind],
+        colour: 0xefe9d8,
+        roofColour: SANCTUARY_ROOFS[kind],
+        height: 34,
+        workers: 8,
+        maxWalkers: 0,
+        appeal: { initial: 14, bandSize: 2, step: -2, range: 6 },
+        requiresMeadow: false,
+        needsRoad: true,
+        requires: null,
+        minAppeal: 0,
+        produces: null,
+        consumes: null,
+        accepts: [],
+        supplies: null,
+        capacity: 0,
+        fireRisk: 0,
+        damageRisk: 2,
+        description: `Kept for ${GODS[kind].name}, whose domain is ${GODS[kind].domain.toLowerCase()}. Tend it and the god takes an interest.`,
+      } satisfies BuildingDef,
+    ]),
+  ) as unknown as Record<SanctuaryKind, BuildingDef>;
 }
 
 export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
@@ -819,102 +902,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     damageRisk: 2,
     description: 'A hall kept ready for a hero. Meet what he asks of the city and he will come.',
   },
-  sanctuaryDemeter: {
-    kind: 'sanctuaryDemeter',
-    name: 'Garden of Demeter',
-    size: 3,
-    cost: 420,
-    colour: 0xefe9d8,
-    roofColour: 0xb8502c,
-    height: 34,
-    workers: 8,
-    maxWalkers: 0,
-    appeal: { initial: 14, bandSize: 2, step: -2, range: 6 },
-    requiresMeadow: false,
-    needsRoad: true,
-    requires: null,
-    minAppeal: 0,
-    produces: null,
-    consumes: null,
-    accepts: [],
-    supplies: null,
-    capacity: 0,
-    fireRisk: 0,
-    damageRisk: 2,
-    description: 'A walled garden where Demeter is honoured. Tend it and the harvest is hers to give.',
-  },
-  sanctuaryHephaestus: {
-    kind: 'sanctuaryHephaestus',
-    name: 'Forge of Hephaestus',
-    size: 3,
-    cost: 380,
-    colour: 0xe6dcc8,
-    roofColour: 0x8f4526,
-    height: 34,
-    workers: 8,
-    maxWalkers: 0,
-    appeal: { initial: 12, bandSize: 2, step: -2, range: 6 },
-    requiresMeadow: false,
-    needsRoad: true,
-    requires: null,
-    minAppeal: 0,
-    produces: null,
-    consumes: null,
-    accepts: [],
-    supplies: null,
-    capacity: 0,
-    fireRisk: 0,
-    damageRisk: 2,
-    description: 'A smoking forge kept for Hephaestus, who spares a city its fires — or starts them.',
-  },
-  sanctuaryHermes: {
-    kind: 'sanctuaryHermes',
-    name: 'Refuge of Hermes',
-    size: 3,
-    cost: 340,
-    colour: 0xf0ecdd,
-    roofColour: 0xc0603a,
-    height: 34,
-    workers: 8,
-    maxWalkers: 0,
-    appeal: { initial: 12, bandSize: 2, step: -2, range: 6 },
-    requiresMeadow: false,
-    needsRoad: true,
-    requires: null,
-    minAppeal: 0,
-    produces: null,
-    consumes: null,
-    accepts: [],
-    supplies: null,
-    capacity: 0,
-    fireRisk: 0,
-    damageRisk: 2,
-    description: 'A wayside refuge for Hermes, who watches every road his messengers walk.',
-  },
-  sanctuaryHades: {
-    kind: 'sanctuaryHades',
-    name: 'Gates of Hades',
-    size: 3,
-    cost: 460,
-    colour: 0xdcd6c6,
-    roofColour: 0x7c4030,
-    height: 34,
-    workers: 8,
-    maxWalkers: 0,
-    appeal: { initial: 10, bandSize: 2, step: -2, range: 6 },
-    requiresMeadow: false,
-    needsRoad: true,
-    requires: null,
-    minAppeal: 0,
-    produces: null,
-    consumes: null,
-    accepts: [],
-    supplies: null,
-    capacity: 0,
-    fireRisk: 0,
-    damageRisk: 2,
-    description: 'A shaft cut down towards the underworld, where Hades is given his due.',
-  },
+  ...sanctuaries(),
 };
 
 export const PLACEABLE: BuildingKind[] = [
@@ -942,10 +930,7 @@ export const PLACEABLE: BuildingKind[] = [
   'taxOffice',
   'tradingPost',
   'statue',
-  'sanctuaryDemeter',
-  'sanctuaryHephaestus',
-  'sanctuaryHermes',
-  'sanctuaryHades',
+  ...SANCTUARY_KINDS,
   'heroHall',
   'tower',
 ];
@@ -968,10 +953,7 @@ export const LABOUR_PRIORITY: BuildingKind[] = [
   'fountain',
   'taxOffice',
   'statue',
-  'sanctuaryDemeter',
-  'sanctuaryHephaestus',
-  'sanctuaryHermes',
-  'sanctuaryHades',
+  ...SANCTUARY_KINDS,
   'heroHall',
   'tower',
   'house',
