@@ -7,6 +7,7 @@ import { Scene, structureLook, type OverlayMode } from './render/scene';
 import { TextureCache } from './render/textures';
 import { BUILDINGS, ROAD_COST, isDwelling } from './sim/buildings';
 import { MAX_HEIGHT } from './sim/grid';
+import { inlandFrom } from './sim/mapgen';
 import type { View } from './sim/save';
 import { inspectTile, type Inspection } from './ui/inspect';
 import { STALL_SIZE, stallAt, stallSlots } from './sim/agora';
@@ -23,10 +24,11 @@ export type Tool =
   | { kind: 'build'; building: BuildingKind }
   | { kind: 'vendor'; good: Good };
 
-const MAP_SIZE = 48;
+const MAP_SIZE = 120;
 const SEA_COLOUR = 0x2f8fa8;
 const MS_PER_TICK = 1000 / TICKS_PER_SECOND;
 const MAX_TICKS_PER_FRAME = 40;
+const OPENING_VIEW = 9;
 const ALLOWED = 0x8ce39a;
 const REFUSED = 0xe07070;
 const SELECTED = 0xf0d99b;
@@ -61,7 +63,8 @@ export class Game {
     app.stage.addChild(worldLayer);
 
     this.camera.scale = 0.7;
-    this.camera.centreOnTile(MAP_SIZE / 2, MAP_SIZE / 2, app.screen.width, app.screen.height);
+    const opening = this.groundBehindTheFlag();
+    this.camera.centreOnTile(opening.x, opening.y, app.screen.width, app.screen.height);
 
     attachPointerInput(app.canvas, this.camera, {
       hover: (tile) => {
@@ -114,6 +117,12 @@ export class Game {
 
   clearSelection(): void {
     this.selected = null;
+  }
+
+  private groundBehindTheFlag(): Point {
+    const { grid } = this.world;
+    const [x, y] = inlandFrom(grid, grid.tileX(this.world.entry), grid.tileY(this.world.entry), OPENING_VIEW);
+    return { x, y };
   }
 
   private resolveTile(world: Point): Point {

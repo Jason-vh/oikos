@@ -54,7 +54,7 @@ export function bfsRoute(
   grid: Grid,
   start: number,
   isGoal: (tile: number) => boolean,
-  maxTiles = 4096,
+  maxTiles = grid.size * grid.size,
 ): number[] | null {
   if (isGoal(start)) return [start];
 

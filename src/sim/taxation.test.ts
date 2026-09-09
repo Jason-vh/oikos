@@ -21,14 +21,19 @@ describe('taxation', () => {
     const shacks = collectTax([house(tierOf('Shack'), 100, true)], NORMAL);
     const tenements = collectTax([house(tierOf('Tenement'), 100, true)], NORMAL);
 
-    expect(shacks.collected).toBeCloseTo(9, 5);
-    expect(tenements.collected).toBeCloseTo(18, 5);
+    const rate = TAX_RATES[NORMAL].perPersonPerMonth;
+    expect(shacks.collected).toBeCloseTo(100 * rate, 5);
+    expect(tenements.collected).toBeCloseTo(200 * rate, 5);
   });
 
   test('reaches only the houses a clerk has visited', () => {
     const report = collectTax([house(0, 40, true), house(0, 60, false)], NORMAL);
 
-    expect(report).toEqual({ collected: 40 * 0.09, taxedPeople: 40, untaxedPeople: 60 });
+    expect(report).toEqual({
+      collected: 40 * TAX_RATES[NORMAL].perPersonPerMonth,
+      taxedPeople: 40,
+      untaxedPeople: 60,
+    });
   });
 
   test('collects nothing at all when the rate is none', () => {

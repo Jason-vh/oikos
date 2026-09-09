@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { recomputeAppeal } from './appeal';
 import { BUILDINGS, ELITE_TIERS } from './buildings';
-import { collectTax } from './taxation';
+import { TAX_RATES, collectTax } from './taxation';
 import { createBuilding } from './types';
 import { World } from './world';
 
@@ -43,7 +43,8 @@ describe('elite housing', () => {
     const report = collectTax([hut, residence], 3);
 
     expect(report.taxedPeople).toBe(20);
-    expect(report.collected).toBeCloseTo(10 * 0.09 + 18 * 10 * 0.09, 5);
+    const rate = TAX_RATES[3].perPersonPerMonth;
+    expect(report.collected).toBeCloseTo(10 * rate + 18 * 10 * rate, 5);
   });
 
   test('lifts appeal further than any common house drags it down', () => {

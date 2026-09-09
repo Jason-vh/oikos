@@ -9,12 +9,12 @@ export interface TaxRate {
 
 export const TAX_RATES: TaxRate[] = [
   { name: 'None', perPersonPerMonth: 0 },
-  { name: 'Very low', perPersonPerMonth: 0.03 },
-  { name: 'Low', perPersonPerMonth: 0.07 },
-  { name: 'Normal', perPersonPerMonth: 0.09 },
-  { name: 'High', perPersonPerMonth: 0.11 },
-  { name: 'Very high', perPersonPerMonth: 0.15 },
-  { name: 'Outrageous', perPersonPerMonth: 0.2 },
+  { name: 'Very low', perPersonPerMonth: 0.07 },
+  { name: 'Low', perPersonPerMonth: 0.15 },
+  { name: 'Normal', perPersonPerMonth: 0.2 },
+  { name: 'High', perPersonPerMonth: 0.25 },
+  { name: 'Very high', perPersonPerMonth: 0.33 },
+  { name: 'Outrageous', perPersonPerMonth: 0.45 },
 ];
 
 export const DEFAULT_TAX_RATE = 3;

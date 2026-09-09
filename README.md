@@ -28,7 +28,9 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
 
 ## What is simulated
 
-- **Terrain**: grass, meadow (farms only), sand, rock, water, over 5 elevation levels.
+- **Terrain**: a 120×120 valley of grass, meadow (farms only), sand, rock and water,
+  over 5 elevation levels. The view opens on the ground behind the entry flag, where
+  the city has to start.
 - **Roads**: the only network, and they answer to appeal: a bare track where nothing
   stands, cobbles once the ground is worth two, marble slabs at twelve. A road repaves
   itself as the block around it improves. Everything social flows along it. A roadblock turns
@@ -82,7 +84,9 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
 - **Taxation**: a tax office sends a clerk roaming 35 tiles; only the houses he has
   passed pay. The bill is Zeus's `TRM × people × rate`, where the multiplier is 1 for
   a shack or hovel and 2 above, and the rate runs from none to outrageous.
-- **Economy**: build costs, monthly taxes and a monthly wage bill.
+- **Economy**: build costs, monthly taxes and a monthly wage bill. A city taxed at the
+  normal rate covers its wages and a little more, so an ordinary city can pay its way
+  without trade.
 
 ## Architecture
 

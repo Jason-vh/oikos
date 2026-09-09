@@ -1166,10 +1166,13 @@ export class World {
     if (this.arrivals <= 0 || this.tick % IMMIGRATION_INTERVAL !== 0) return;
 
     const destination = this.nextToSettle();
-    if (!destination) return;
-
-    const party = Math.min(this.arrivals, TRAVELLING_PARTY, roomIn(destination) - this.expectedAt(destination));
-    if (party <= 0) return;
+    const party = destination
+      ? Math.min(this.arrivals, TRAVELLING_PARTY, roomIn(destination) - this.expectedAt(destination))
+      : 0;
+    if (!destination || party <= 0) {
+      this.immigrantsStranded = false;
+      return;
+    }
 
     this.immigrantsStranded = !spawnImmigrants(this, destination, party);
     if (this.immigrantsStranded) return;

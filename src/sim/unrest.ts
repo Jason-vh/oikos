@@ -16,7 +16,7 @@ export interface Outbreak {
 }
 
 export const OUTBREAK_CHANCE = 0.25;
-const AFFLICTION_PACE = 0.5;
+const AFFLICTION_PACE = 0.15;
 
 export function accrueAfflictions(
   dwellings: Iterable<Building>,
