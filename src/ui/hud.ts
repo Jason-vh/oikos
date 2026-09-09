@@ -9,6 +9,7 @@ import { DIFFICULTIES } from '../sim/difficulty';
 import { describeRequest } from '../sim/events';
 import { HEROES, HERO_KINDS, summonable, type HeroKind } from '../sim/heroes';
 import { CAMPAIGN } from '../sim/scenario';
+import { adviseCity } from './advisors';
 import type { BuildingKind } from '../sim/types';
 import { abandonCity } from '../sim/save';
 import { TRADE_ROUTES } from '../sim/trade';
@@ -22,6 +23,15 @@ import {
   describeWallTool,
   type Inspection,
 } from './inspect';
+
+const OVERLAYS: { mode: OverlayMode; name: string; short: string; key: string }[] = [
+  { mode: 'none', name: 'The city itself', short: 'City', key: 'n' },
+  { mode: 'appeal', name: 'Appeal', short: 'Appeal', key: 'o' },
+  { mode: 'hazard', name: 'Fire and collapse', short: 'Hazards', key: 'h' },
+  { mode: 'water', name: 'Water', short: 'Water', key: 'j' },
+  { mode: 'culture', name: 'Culture', short: 'Culture', key: 'k' },
+  { mode: 'safety', name: 'Crime', short: 'Crime', key: 'l' },
+];
 
 const SPEEDS = [
   { speed: 0, name: 'Paused' },
@@ -59,8 +69,8 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
         ${renderMenu('gods', '', godsMenu())}
         ${renderMenu('speed', '', speedMenu())}
         <span class="spacer"></span>
-        <button class="overlay-toggle" data-overlay="appeal">Appeal <kbd>O</kbd></button>
-        <button class="overlay-toggle" data-overlay="hazard">Hazards <kbd>H</kbd></button>
+        ${renderMenu('overlays', '', overlayMenu())}
+        <button class="overlay-toggle" data-advisors>Advisors <kbd>A</kbd></button>
       </header>
       <aside class="panel">
         <div class="panel-inner" data-panel></div>
@@ -73,6 +83,11 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
         <p class="goals-blurb" data-goals-blurb></p>
         <ul class="goals-list" data-goals-list></ul>
         <button class="goals-next" data-next-episode hidden></button>
+      </section>
+      <section class="advisors" data-advisors-panel hidden>
+        <button class="popup-close" data-advisors-close>×</button>
+        <h2>The city as your advisors see it</h2>
+        <div class="advisor-grid" data-advisor-grid></div>
       </section>
       <section class="popup" data-popup hidden>
         <button class="popup-close" data-popup-close>×</button>
@@ -125,8 +140,18 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
   };
   hud.querySelector('[data-popup-close]')?.addEventListener('click', () => game.clearSelection());
   hud.querySelectorAll<HTMLButtonElement>('[data-overlay]').forEach((element) => {
-    element.addEventListener('click', () => game.toggleOverlay(element.dataset.overlay as OverlayMode));
+    element.addEventListener('click', () => {
+      game.setOverlay(element.dataset.overlay as OverlayMode);
+      closeMenus();
+    });
   });
+
+  const advisors = hud.querySelector('[data-advisors-panel]') as HTMLElement;
+  const toggleAdvisors = () => {
+    advisors.hidden = !advisors.hidden;
+  };
+  hud.querySelector('[data-advisors]')?.addEventListener('click', toggleAdvisors);
+  hud.querySelector('[data-advisors-close]')?.addEventListener('click', toggleAdvisors);
 
   const menus = Array.from(hud.querySelectorAll<HTMLElement>('[data-menu]'));
   const closeMenus = () => menus.forEach((menu) => menu.classList.remove('open'));
@@ -218,8 +243,9 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
 
     const index = buttons.findIndex((button) => button.shortcut !== '' && button.shortcut === key);
     if (index >= 0) selectTool(index);
-    if (key === 'o') game.toggleOverlay('appeal');
-    if (key === 'h') game.toggleOverlay('hazard');
+    const overlay = OVERLAYS.find((candidate) => candidate.key === key);
+    if (overlay) game.setOverlay(overlay.mode);
+    if (key === 'a') toggleAdvisors();
     if (key === ' ') {
       event.preventDefault();
       game.speed = game.speed === 0 ? 1 : 0;
@@ -269,6 +295,8 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       field('popularity').textContent = `${world.sentiment.popularity} of 100`;
       field('migration').textContent = migrationLabel(world.migrants);
       field('complaint').textContent = world.sentiment.complaint ?? 'Nobody complains.';
+      field('overlays').textContent = OVERLAYS.find((overlay) => overlay.mode === game.overlayMode)?.short ?? 'City';
+      if (!advisors.hidden) renderAdvisors(hud, world);
       renderGoals(hud, world);
       renderPopup(popup, balloon ?? game.inspectSelection(), balloon === null);
       field('messages').textContent = world.messages[0] ?? '';
@@ -282,6 +310,9 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       });
       hud.querySelectorAll<HTMLButtonElement>('[data-route]').forEach((element) => {
         element.classList.toggle('chosen', world.tradeOrders[element.dataset.route!]);
+      });
+      hud.querySelectorAll<HTMLButtonElement>('[data-overlay]').forEach((element) => {
+        element.classList.toggle('chosen', element.dataset.overlay === game.overlayMode);
       });
       hud.querySelectorAll<HTMLButtonElement>('[data-difficulty]').forEach((element) => {
         element.classList.toggle('chosen', Number(element.dataset.difficulty) === world.difficulty);
@@ -341,6 +372,29 @@ function toolButtons(game: Game): ToolButton[] {
       describe: describeDemolishTool,
     },
   ];
+}
+
+function renderAdvisors(hud: HTMLElement, world: Game['world']): void {
+  const grid = hud.querySelector('[data-advisor-grid]') as HTMLElement;
+  const markup = adviseCity(world)
+    .map(
+      (report) => `
+      <section class="advisor">
+        <h3>${report.name}</h3>
+        <p>${report.verdict}</p>
+        <dl>
+          ${report.readings
+            .map(
+              (reading) =>
+                `<dt>${reading.label}</dt><dd class="${reading.concern ? 'concern' : ''}">${reading.value}</dd>`,
+            )
+            .join('')}
+        </dl>
+      </section>`,
+    )
+    .join('');
+
+  if (grid.innerHTML !== markup) grid.innerHTML = markup;
 }
 
 function renderGoals(hud: HTMLElement, world: Game['world']): void {
@@ -591,6 +645,13 @@ function armyMenu(): string {
     .map((kind) => `<div class="dropdown-row"><span>${UNITS[kind].name}</span><b data-field="army-${kind}"></b></div>`)
     .join('');
   return `${rows}<p class="dropdown-note" data-field="armyNote"></p>`;
+}
+
+function overlayMenu(): string {
+  return OVERLAYS.map(
+    ({ mode, name, key }) =>
+      `<button class="choice" data-overlay="${mode}"><span>${name}</span><b>${key.toUpperCase()}</b></button>`,
+  ).join('');
 }
 
 function tradeMenu(): string {

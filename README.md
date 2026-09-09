@@ -203,9 +203,9 @@ The game picks it up with no client changes.
 
 The full inventory lives in [docs/roadmap.md](docs/roadmap.md). Next up:
 
-1. **Advisors** — an overview panel for popularity, food, unrest and threats.
-2. **The world map** — cities as places, relationships, tribute, goodwill.
-3. **The rest of the goods** — timber, marble, bronze, armour, sculpture, horses.
+1. **The world map** — cities as places, relationships, tribute, goodwill.
+2. **The rest of the goods** — timber, marble, bronze, armour, sculpture, horses.
+3. **Battles on the map** — unit movement, gatehouses, sieges, morale.
 
 ## Art licence
 

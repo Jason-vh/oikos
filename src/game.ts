@@ -94,8 +94,12 @@ export class Game {
     this.camera.scale = view.scale;
   }
 
-  toggleOverlay(mode: OverlayMode): void {
+  setOverlay(mode: OverlayMode): void {
     this.scene.setOverlayMode(this.scene.currentOverlayMode === mode ? 'none' : mode);
+  }
+
+  get overlayMode(): OverlayMode {
+    return this.scene.currentOverlayMode;
   }
 
   inspectSelection(): Inspection | null {

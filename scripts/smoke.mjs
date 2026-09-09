@@ -84,7 +84,7 @@ const report = await page.evaluate(async () => {
 await page.waitForTimeout(1500);
 await page.screenshot({ path: new URL('./shot-day.png', import.meta.url).pathname });
 
-await page.evaluate(() => Reflect.get(window, 'game').toggleOverlay('appeal'));
+await page.evaluate(() => Reflect.get(window, 'game').setOverlay('appeal'));
 await page.waitForTimeout(400);
 await page.screenshot({ path: new URL('./shot-overlay.png', import.meta.url).pathname });
 

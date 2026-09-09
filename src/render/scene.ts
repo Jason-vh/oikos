@@ -1,5 +1,6 @@
 import { Container, Sprite } from 'pixi.js';
 import { BUILDINGS, isDwelling, tierOf } from '../sim/buildings';
+import type { ServiceKind } from '../sim/types';
 import { TERRAIN_WATER } from '../sim/grid';
 import { RISK_LIMIT, riskOf } from '../sim/hazards';
 import type { Building, BuildingKind } from '../sim/types';
@@ -21,7 +22,13 @@ import {
   type TextureCache,
 } from './textures';
 
-export type OverlayMode = 'none' | 'appeal' | 'hazard';
+export type OverlayMode = 'none' | 'appeal' | 'hazard' | 'water' | 'culture' | 'safety';
+
+const SERVICE_OF_OVERLAY: Partial<Record<OverlayMode, ServiceKind>> = {
+  water: 'water',
+  culture: 'culture',
+  safety: 'safety',
+};
 
 const WALKER_FRAME_MS = 130;
 const SMOKE_INTERVAL_MS = 700;
@@ -34,6 +41,7 @@ const CHIMNEYS: Record<number, { x: number; y: number; z: number }> = {
 };
 const DUST_INTERVAL_MS = 320;
 const APPEAL_COLOUR_SCALE = 20;
+const SERVED_SUPPLY = 40;
 const SHADOW_ALPHA = 0.45;
 
 interface BuildingEntry {
@@ -109,7 +117,7 @@ export class Scene {
   setOverlayMode(mode: OverlayMode): void {
     this.overlayMode = mode;
     this.overlayTiles.visible = mode === 'appeal';
-    if (mode !== 'hazard') this.clearBuildingTints();
+    if (mode === 'none') this.clearBuildingTints();
     if (mode !== 'none') this.refreshOverlay();
   }
 
@@ -127,7 +135,7 @@ export class Scene {
     }
 
     this.syncBuildings();
-    if (this.overlayMode === 'hazard') this.refreshOverlay();
+    if (this.overlayMode !== 'none' && this.overlayMode !== 'appeal') this.refreshOverlay();
     this.syncWalkers();
     this.emitParticles();
     this.particles.update(deltaMs);
@@ -154,6 +162,14 @@ export class Scene {
     if (this.overlayMode === 'hazard') {
       for (const [id, entry] of this.buildingSprites) {
         entry.body.tint = hazardColour(this.world.buildings.get(id));
+      }
+      return;
+    }
+
+    const service = SERVICE_OF_OVERLAY[this.overlayMode];
+    if (service) {
+      for (const [id, entry] of this.buildingSprites) {
+        entry.body.tint = serviceColour(this.world.buildings.get(id), service);
       }
       return;
     }
@@ -351,6 +367,12 @@ function lookOf(building: Building): StructureLook {
 export function structureLook(kind: BuildingKind): StructureLook {
   const def = BUILDINGS[kind];
   return { size: def.size, height: def.height, colour: def.colour, roofColour: def.roofColour };
+}
+
+function serviceColour(building: Building | undefined, service: ServiceKind): number {
+  if (!building) return 0xffffff;
+  if (!isDwelling(building.kind)) return 0xb9b9b9;
+  return blend(0xff6b5a, 0x6fd08c, Math.min(1, building.supply[service] / SERVED_SUPPLY));
 }
 
 function hazardColour(building: Building | undefined): number {
