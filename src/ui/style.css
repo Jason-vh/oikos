@@ -665,6 +665,25 @@ button.cartouche:hover {
   color: #8c3a24;
 }
 
+.archive-title {
+  margin: 16px 0 6px;
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--bronze-3);
+}
+
+.archive {
+  margin: 0;
+  padding: 0 0 0 18px;
+  max-height: 132px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
 /* ---------- goals ---------- */
 
 .goals {

@@ -604,10 +604,13 @@ messages and archives, undo of the last build, autosave every 6 months, help
 balloons, and a full adventure editor (map painting, city properties, events,
 per-episode text, MP3 briefings).
 
-🟡 Four advisors read the city out on A — the people, the treasury, the city and the
+🟡 Five advisors read the city out on A — the people, the treasury, the city and the
 gods — each with a verdict and readings that turn red when they should worry you.
 Overlays are a menu of six: the city itself, appeal, fire and collapse, water,
-culture and crime, the last three tinting houses by how well they are served.
+culture and crime, the last three tinting houses by how well they are served. The
+fifth advisor rates the city out of a hundred on population, culture, prosperity and
+monuments, the archives keep the last forty messages with their dates, and the last
+building can be taken back with its cost on ⌘Z.
 
 🟡 Four episodes run in sequence from `CAMPAIGN` in `src/sim/scenario.ts`: Thebes,
 Corinth, Delphi and Mycenae, each with its own goals, blurb and invasions. Goals now

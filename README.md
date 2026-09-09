@@ -204,7 +204,7 @@ The game picks it up with no client changes.
 The full inventory lives in [docs/roadmap.md](docs/roadmap.md). Next up:
 
 1. **The Poseidon layer** — science track, hippodrome, orichalc, pyramids.
-2. **Odds and ends** — ratings, colonies, city rotation, undo, message archives.
+2. **Odds and ends** — colonies, city rotation, "go to" event jumps.
 
 ## Art licence
 

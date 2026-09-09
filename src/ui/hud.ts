@@ -92,6 +92,8 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
         <button class="popup-close" data-advisors-close>×</button>
         <h2>The city as your advisors see it</h2>
         <div class="advisor-grid" data-advisor-grid></div>
+        <h3 class="archive-title">The archives</h3>
+        <ol class="archive" data-archive></ol>
       </section>
       <section class="popup" data-popup hidden>
         <button class="popup-close" data-popup-close>×</button>
@@ -250,6 +252,10 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
     const overlay = OVERLAYS.find((candidate) => candidate.key === key);
     if (overlay) game.setOverlay(overlay.mode);
     if (key === 'a') toggleAdvisors();
+    if (key === 'z' && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      if (!game.world.undoLastBuild()) game.world.log('Nothing to undo, Archon.');
+    }
     if (key === ' ') {
       event.preventDefault();
       game.speed = game.speed === 0 ? 1 : 0;
@@ -402,6 +408,10 @@ function renderAdvisors(hud: HTMLElement, world: Game['world']): void {
     .join('');
 
   if (grid.innerHTML !== markup) grid.innerHTML = markup;
+
+  const archive = hud.querySelector('[data-archive]') as HTMLElement;
+  const entries = world.messages.map((message) => `<li>${message}</li>`).join('');
+  if (archive.innerHTML !== entries) archive.innerHTML = entries;
 }
 
 function renderGoals(hud: HTMLElement, world: Game['world']): void {

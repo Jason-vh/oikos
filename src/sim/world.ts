@@ -102,6 +102,7 @@ const INVASION_MONTH = 6;
 const EVENT_MONTH = 2;
 const RESOURCE_RANGE = 4;
 const MINT_YIELD = 55;
+const ARCHIVE_LENGTH = 40;
 const NEAR_REASON: Record<'woods' | 'rock' | 'water', string> = {
   woods: 'Must stand among trees',
   rock: 'Must stand beside rock',
@@ -177,6 +178,7 @@ export class World {
   lastBattle: Battle | null = null;
   invasion: Invasion | null = null;
   units: Unit[] = [];
+  private lastBuild: { id: number; cost: number } | null = null;
   scenario: Scenario = DEFAULT_SCENARIO;
   episode = 0;
   goals: GoalProgress[] = [];
@@ -222,8 +224,23 @@ export class World {
   }
 
   log(message: string): void {
-    this.messages.unshift(message);
-    this.messages.length = Math.min(this.messages.length, 5);
+    this.messages.unshift(`${this.dateLabel} · ${message}`);
+    this.messages.length = Math.min(this.messages.length, ARCHIVE_LENGTH);
+  }
+
+  undoLastBuild(): boolean {
+    if (this.lastBuild === null) return false;
+
+    const building = this.buildings.get(this.lastBuild.id);
+    if (!building) {
+      this.lastBuild = null;
+      return false;
+    }
+
+    this.demolish(building.x, building.y);
+    this.treasury += this.lastBuild.cost;
+    this.lastBuild = null;
+    return true;
   }
 
   canPlace(kind: BuildingKind, x: number, y: number): PlacementCheck {
@@ -305,6 +322,7 @@ export class World {
     for (const tile of this.grid.footprint(x, y, def.size)) this.grid.occupant[tile] = building.id;
 
     this.treasury -= this.costOf(kind);
+    this.lastBuild = { id: building.id, cost: this.costOf(kind) };
     if (def.marbleCost) this.spendStock('marble', def.marbleCost);
     if (def.sculptureCost) this.spendStock('sculpture', def.sculptureCost);
     this.markChanged(this.grid.footprint(x, y, def.size));

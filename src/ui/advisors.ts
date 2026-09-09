@@ -18,7 +18,54 @@ export interface AdvisorReport {
 }
 
 export function adviseCity(world: World): AdvisorReport[] {
-  return [adviseOnPeople(world), adviseOnTrade(world), adviseOnRisk(world), adviseOnGods(world)];
+  return [adviseOnPeople(world), adviseOnTrade(world), adviseOnRisk(world), adviseOnGods(world), rateCity(world)];
+}
+
+export interface Ratings {
+  population: number;
+  culture: number;
+  prosperity: number;
+  monuments: number;
+}
+
+export function ratingsOf(world: World): Ratings {
+  const houses = dwellings(world);
+  const cultured = houses.filter(
+    (house) => house.supply.culture > 0 && house.supply.athletics > 0 && house.supply.drama > 0,
+  ).length;
+  const elite = houses.filter((house) => house.kind === 'estate').length;
+  const raised = [...world.buildings.values()].filter(
+    (building) => building.kind === 'monument' || building.kind.startsWith('pyramid'),
+  ).length;
+
+  return {
+    population: cap(world.population / 20),
+    culture: cap(houses.length === 0 ? 0 : (100 * cultured) / houses.length),
+    prosperity: cap(world.treasury / 200 + elite * 5),
+    monuments: cap(raised * 25 + world.questsDone * 10),
+  };
+}
+
+function rateCity(world: World): AdvisorReport {
+  const ratings = ratingsOf(world);
+  const overall = Math.round(
+    (ratings.population + ratings.culture + ratings.prosperity + ratings.monuments) / 4,
+  );
+
+  return {
+    name: 'The rating',
+    verdict: `The city rates ${overall} out of 100.`,
+    readings: [
+      { label: 'Population', value: `${ratings.population}`, concern: ratings.population < 25 },
+      { label: 'Culture', value: `${ratings.culture}`, concern: ratings.culture < 25 },
+      { label: 'Prosperity', value: `${ratings.prosperity}`, concern: ratings.prosperity < 25 },
+      { label: 'Monuments', value: `${ratings.monuments}`, concern: ratings.monuments === 0 },
+    ],
+  };
+}
+
+function cap(value: number): number {
+  return Math.max(0, Math.min(100, Math.round(value)));
 }
 
 function adviseOnPeople(world: World): AdvisorReport {
