@@ -1157,7 +1157,38 @@ function drawWall(): { surface: DrawSurface; baseY: number } {
   return { surface, baseY };
 }
 
+interface Shadow {
+  cx: number;
+  baseY: number;
+  radiusX: number;
+  radiusY: number;
+  offsetX: number;
+  offsetY: number;
+  tilt: number;
+  alpha: number;
+}
+
+let pendingShadows: Shadow[] = [];
+
 function drawDecorSurface(kind: DecorKind, variant: number): { surface: DrawSurface; baseY: number } {
+  pendingShadows = [];
+  const drawn = drawDecorBody(kind, variant);
+  ink(drawn.surface);
+  const { ctx } = drawn.surface;
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-over';
+  for (const shadow of pendingShadows) {
+    ctx.fillStyle = `rgba(24, 19, 12, ${shadow.alpha})`;
+    ctx.beginPath();
+    ctx.ellipse(shadow.cx + shadow.offsetX, shadow.baseY + shadow.offsetY, shadow.radiusX, shadow.radiusY, shadow.tilt, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+  pendingShadows = [];
+  return drawn;
+}
+
+function drawDecorBody(kind: DecorKind, variant: number): { surface: DrawSurface; baseY: number } {
   if (kind === 'cypress') return drawCypress(variant);
   if (kind === 'olive') return drawOlive(variant);
   if (kind === 'scrub') return drawScrub(variant);
@@ -1165,29 +1196,26 @@ function drawDecorSurface(kind: DecorKind, variant: number): { surface: DrawSurf
 }
 
 function groundShadow(
-  ctx: CanvasRenderingContext2D,
+  _ctx: CanvasRenderingContext2D,
   cx: number,
   baseY: number,
   radiusX: number,
   radiusY: number,
 ): void {
-  ctx.save();
-  ctx.filter = 'blur(2.5px)';
-  ctx.fillStyle = 'rgba(24, 19, 12, 0.3)';
-  ctx.beginPath();
-  ctx.ellipse(cx, baseY, radiusX, radiusY, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+  pendingShadows.push({ cx, baseY, radiusX, radiusY, offsetX: 0, offsetY: 0, tilt: 0, alpha: 0.4 });
 }
 
-function castShadow(ctx: CanvasRenderingContext2D, cx: number, baseY: number, length: number, girth: number): void {
-  ctx.save();
-  ctx.filter = 'blur(3px)';
-  ctx.fillStyle = 'rgba(24, 19, 12, 0.22)';
-  ctx.beginPath();
-  ctx.ellipse(cx + length * 0.5, baseY + length * 0.12, length * 0.55, girth, 0.35, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+function castShadow(_ctx: CanvasRenderingContext2D, cx: number, baseY: number, length: number, girth: number): void {
+  pendingShadows.push({
+    cx,
+    baseY,
+    radiusX: length * 0.55,
+    radiusY: girth,
+    offsetX: length * 0.5,
+    offsetY: length * 0.12,
+    tilt: 0.35,
+    alpha: 0.35,
+  });
 }
 
 function drawCypress(variant: number): { surface: DrawSurface; baseY: number } {

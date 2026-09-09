@@ -635,9 +635,9 @@ function drawRock(
   rise: number,
   light: number,
 ): void {
-  const lit = shade(0xfffbef, light);
-  const mid = shade(0xe4dcc2, light);
-  const dark = shade(0x9b8f74, light * 0.8);
+  const lit = shade(0xf2e8cc, light);
+  const mid = shade(0xcfc4a4, light);
+  const dark = shade(0x807560, light * 0.8);
 
   const corners = 6;
   const points: Array<[number, number]> = [];
