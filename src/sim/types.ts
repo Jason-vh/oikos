@@ -91,6 +91,7 @@ export type BuildingKind =
   | 'dramaSchool'
   | 'theatre'
   | 'stadium'
+  | 'hippodrome'
   | 'timberMill'
   | 'masonryShop'
   | 'foundry'

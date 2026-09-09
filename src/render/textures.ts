@@ -88,6 +88,7 @@ const FOOTPRINT_INSET: Record<BuildingKind, number> = {
   dramaSchool: 0.88,
   theatre: 0.9,
   stadium: 0.92,
+  hippodrome: 0.92,
   timberMill: 0.86,
   foundry: 0.86,
   armoury: 0.86,

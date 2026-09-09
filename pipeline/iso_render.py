@@ -2026,6 +2026,45 @@ def build_pyramid(kind, footprint, courses):
     return {"kind": kind, "variant": 0, "footprint": footprint, "height": 0.06 + rise * (courses + 1)}
 
 
+def build_hippodrome():
+    """Hippodrome: a long sanded track around a spina, banked seats on the far side."""
+    paving = plaster_material("paving", STONE, roughness=0.88, variation=0.05, scale=14.0)
+    track = plaster_material("track", hex_rgb("e0cf9f"), roughness=0.97, variation=0.07, scale=18.0)
+    marble = material("marble", MARBLE, roughness=0.3)
+    tiles = roof_material("tiles", TERRACOTTA, rows_per_unit=20.0)
+    bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
+    clay = material("clay", CLAY, roughness=0.8)
+    cypress = material("cypress", CYPRESS, roughness=0.9)
+
+    half = 2.4
+    ground = add_box("ground", (0, 0, 0.03), (half * 2, half * 2, 0.06), paving)
+    ground.visible_shadow = False
+    add_box("track", (0, 0, 0.07), (4.4, 2.6, 0.03), track)
+
+    add_box("spina", (0, 0, 0.06 + 0.16), (2.6, 0.4, 0.32), marble)
+    for post_x in (-1.1, 1.1):
+        add_cylinder("turning_post", (post_x, 0, 0.06 + 0.42), 0.09, 0.84, marble, vertices=12)
+        add_cylinder("post_cap", (post_x, 0, 0.06 + 0.86), 0.12, 0.08, bronze, vertices=12)
+    add_cylinder("egg_counter", (0, 0, 0.06 + 0.46), 0.14, 0.28, bronze, vertices=14)
+
+    for tier in range(3):
+        rise = 0.24 + tier * 0.34
+        add_box(
+            f"stand_{tier}",
+            (0, 1.55 + tier * 0.3, 0.06 + rise / 2),
+            (4.4, 0.32, rise),
+            marble,
+        )
+    add_box("box_seat", (1.4, 1.9, 0.06 + 1.0), (1.0, 0.7, 0.36), marble)
+    add_shed_roof("box_roof", (1.4, 1.9, 0.06 + 1.24), 0.55, 0.4, 0.08, tiles)
+
+    add_box("stalls", (-2.1, -1.4, 0.06 + 0.3), (0.5, 1.6, 0.6), marble)
+    add_cypress_pot("cypress", (2.1, -2.0, 0.06), 0.55, clay, cypress)
+    add_amphora("jar", (-2.1, 1.9, 0.06), 0.36, clay)
+
+    return {"kind": "hippodrome", "variant": 0, "footprint": 5, "height": 1.6}
+
+
 def build_fountain():
     """Marble basin with a raised centre and a small bronze statue; light blue water."""
     marble = material("marble", MARBLE, roughness=0.3)
@@ -2128,6 +2167,7 @@ MODELS = {
     "drama-school": build_drama_school,
     "theatre": build_theatre,
     "stadium": build_stadium,
+    "hippodrome": build_hippodrome,
     "podium": build_podium,
     "maintenance-office": build_maintenance_office,
     "infirmary": build_infirmary,

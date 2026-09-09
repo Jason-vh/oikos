@@ -102,6 +102,8 @@ const INVASION_MONTH = 6;
 const EVENT_MONTH = 2;
 const RESOURCE_RANGE = 4;
 const MINT_YIELD = 55;
+const RACE_TAKINGS = 320;
+const HORSES_PER_RACE = 1;
 const ARCHIVE_LENGTH = 40;
 const NEAR_REASON: Record<'woods' | 'rock' | 'water', string> = {
   woods: 'Must stand among trees',
@@ -486,6 +488,7 @@ export class World {
     this.treasury -= monthlyWages(this.labour.employed, this.wageLevel);
     this.runTrade();
     this.strikeCoin();
+    this.raceChariots();
 
     this.sentiment = judgeCity({
       wageLevel: this.wageLevel,
@@ -581,6 +584,15 @@ export class World {
 
   get hasNextEpisode(): boolean {
     return this.episode + 1 < CAMPAIGN.length;
+  }
+
+  private raceChariots(): void {
+    for (const building of this.buildings.values()) {
+      if (building.kind !== 'hippodrome' || building.stock.horses < HORSES_PER_RACE) continue;
+
+      building.stock.horses -= HORSES_PER_RACE;
+      this.treasury += RACE_TAKINGS * staffing(building);
+    }
   }
 
   private strikeCoin(): void {

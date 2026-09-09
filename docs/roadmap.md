@@ -329,6 +329,10 @@ second monument are not started.
 **Hippodrome** (Atlantean only): built stade by stade as any closed loop, 4×4
 segments at 30→100 dr, with 4×1 crosswalks (25→75) to cross it.
 
+🟡 A hippodrome stands as one 5×5 building behind the palace rather than a loop built
+stade by stade. Horses are carted to its stalls, and every month it races one of them
+for takings of 320 dr scaled by its staffing.
+
 | Stades | Horses needed | Income/month |
 | --- | --- | --- |
 | 4–10 | 4 | 10 |

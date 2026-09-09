@@ -25,7 +25,13 @@ describe('prerequisites', () => {
   test('only the works of rule wait on the palace', () => {
     const gated = Object.values(BUILDINGS).filter((def) => def.requires !== null);
 
-    expect(gated.map((def) => def.kind).sort()).toEqual(['heroHall', 'stadium', 'taxOffice', 'tower']);
+    expect(gated.map((def) => def.kind).sort()).toEqual([
+      'heroHall',
+      'hippodrome',
+      'stadium',
+      'taxOffice',
+      'tower',
+    ]);
     expect(gated.every((def) => def.requires === 'palace')).toBe(true);
   });
 

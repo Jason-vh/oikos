@@ -459,7 +459,8 @@ function groupFor(kind: string): string {
   if (food.includes(kind)) return 'Food';
   const industry = ['olivePress', 'winery', 'cardingShed', 'vineyard', 'timberMill', 'masonryShop', 'foundry', 'armoury', 'sculptureStudio', 'horseRanch', 'mint'];
   if (industry.includes(kind)) return 'Industry';
-  if (['college', 'podium', 'gymnasium', 'dramaSchool', 'theatre', 'stadium'].includes(kind)) return 'Culture';
+  const culture = ['college', 'podium', 'gymnasium', 'dramaSchool', 'theatre', 'stadium', 'hippodrome'];
+  if (culture.includes(kind)) return 'Culture';
   if (kind === 'infirmary' || kind === 'watchpost') return 'Services';
   if (kind === 'palace' || kind === 'taxOffice' || kind === 'tradingPost') return 'Government';
   if (kind === 'tower') return 'Defence';
