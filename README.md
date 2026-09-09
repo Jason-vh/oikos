@@ -43,9 +43,13 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
   27 tiles, vendor 44) serving houses beside the road, then take the shortest road
   home. Everyone moves at a citizen's 54.4 tiles a month. Cart pushers route with BFS
   to a granary.
-- **Housing**: a 2×2 plot evolving Hut → Shack → Hovel → Homestead → Tenement →
-  Apartment → Townhouse (8 to 60 citizens), gated on supplied services — food, then
-  water, then culture, then olive oil — and, from Homestead up, on local appeal.
+- **Housing**: a 2×2 plot, laid out by dragging the housing tool across the ground. A
+  fresh plot is nothing but a rough square of stakes and surveyor's string: it asks
+  nothing of the city, lends it no appeal and cannot catch fire until someone lives
+  there. Once settled it evolves Hut →
+  Shack → Hovel → Homestead → Tenement → Apartment → Townhouse (8 to 60 citizens),
+  gated on supplied services — food, then water, then culture, then olive oil — and,
+  from Homestead up, on local appeal. A house emptied of people is a plot again.
 - **Culture**: a college trains a philosopher and walks him to a podium; from there he
   roams 35 tiles teaching the houses he passes. A college with no podium sends nobody. Houses devolve when their tier's needs
   lapse or their surroundings decay.
@@ -61,10 +65,12 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
   an olive press far faster than a podium. At 100 it burns down or collapses. A
   maintenance office sends a superintendent 44 tiles, and he wipes both risks clean on
   everything he walks past. A city without one is gone within a few years.
-- **Popularity and migration**: citizens no longer appear from nowhere. Each month the
+- **Popularity and migration**: citizens never appear from nowhere. Each month the
   city is judged on wages, taxes, whether the houses that need food have it,
-  unemployment and debt; settlers move into empty rooms when it is liked and leave when
-  it is not. Build workplaces or the idle turn against you.
+  unemployment and debt. When it is liked, settlers gather at the entry point — a fixed
+  flag on the edge of the map — and walk in along the roads in parties of eight to fill
+  the nearest empty plot; when it is not, emigrants walk out the same way. Run no road
+  to the flag and nobody can reach you. Build workplaces or the idle turn against you.
 - **Labour**: a share of the population works — 37% at no wages up to 52% at very
   high, as on Mortal difficulty. Buildings are staffed in priority order, and an
   understaffed one runs at the fraction it is staffed to; an empty one stands idle.

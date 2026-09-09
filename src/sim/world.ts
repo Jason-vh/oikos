@@ -8,6 +8,7 @@ import {
   UNITS_PER_CARTLOAD,
   WALL_COST,
   isDwelling,
+  isVacantPlot,
   tierOf,
 } from './buildings';
 import { Grid, NO_BUILDING, TERRAIN_MEADOW } from './grid';
@@ -20,8 +21,8 @@ import {
   workforceOf,
   type LabourReport,
 } from './labour';
-import { generateMap } from './mapgen';
-import { hasRoadAccess, roadAccessTiles } from './pathing';
+import { entryPoint, generateMap } from './mapgen';
+import { gateTiles, hasRoadAccess, roadAccessTiles } from './pathing';
 import { accrueRisk, nameOf } from './hazards';
 import { accrueAfflictions, plagueToll, tendHouse, theftLoss } from './unrest';
 import {
@@ -84,7 +85,16 @@ import {
 import { TICKS_PER_MONTH } from './time';
 import { FINISHED, GOODS, createBuilding } from './types';
 import type { Building, BuildingKind, Good, Walker, WalkerKind } from './types';
-import { PEDDLER_LOAD, spawnArtisan, spawnCartPusher, spawnDeliveryman, spawnPerformer, spawnRoamer } from './walkers';
+import {
+  PEDDLER_LOAD,
+  spawnArtisan,
+  spawnCartPusher,
+  spawnDeliveryman,
+  spawnEmigrants,
+  spawnImmigrants,
+  spawnPerformer,
+  spawnRoamer,
+} from './walkers';
 import { updateWalkers } from './walkers';
 
 const MONTH_NAMES = [
@@ -130,6 +140,8 @@ const INFIRMARY_SPAWN_INTERVAL = 80;
 const WATCHPOST_SPAWN_INTERVAL = 70;
 const GYMNASIUM_SPAWN_INTERVAL = 80;
 const GUILD_SPAWN_INTERVAL = 60;
+const IMMIGRATION_INTERVAL = 20;
+const TRAVELLING_PARTY = 8;
 const BUILD_PER_VISIT = 6;
 const STADIUM_CULTURE = 10;
 
@@ -149,6 +161,7 @@ export interface PlacementCheck {
 export class World {
   readonly seed: number;
   readonly grid: Grid;
+  readonly entry: number;
   readonly buildings = new Map<number, Building>();
   readonly walkers = new Map<number, Walker>();
 
@@ -161,6 +174,7 @@ export class World {
   taxes: TaxReport = { collected: 0, taxedPeople: 0, untaxedPeople: 0 };
   sentiment: Sentiment = { popularity: 50, complaint: null };
   migrants = 0;
+  arrivals = 0;
   tradeOrders: Record<string, boolean> = newTradeOrders();
   trade: TradeReport = NO_TRADE;
   army: Army = { ...NO_ARMY };
@@ -196,6 +210,7 @@ export class World {
 
   private nextId = 1;
   private appealDirty = false;
+  private immigrantsStranded = false;
   private readonly outputByMonth = Object.fromEntries(
     GOODS.map((good) => [good, new Array(MONTHS_PER_YEAR).fill(0)]),
   ) as Record<Good, number[]>;
@@ -205,7 +220,8 @@ export class World {
     this.seed = seed;
     this.grid = new Grid(size);
     generateMap(this.grid, seed);
-    this.log('Found your city, Archon. Lay roads, then housing.');
+    this.entry = entryPoint(this.grid, seed);
+    this.log('Found your city, Archon. Lay a road from the flag, then housing.');
   }
 
   get population(): number {
@@ -480,6 +496,7 @@ export class World {
 
   update(): void {
     this.tick += 1;
+    this.admitImmigrants();
     this.updateProduction();
     this.fightTheBattle();
     updateWalkers(this);
@@ -1024,19 +1041,94 @@ export class World {
   }
 
   private migrate(): void {
-    const houses = [...this.buildings.values()].filter((building) => isDwelling(building.kind));
-    const freeCapacity = houses.reduce((free, house) => free + roomIn(house), 0);
+    const houses = this.dwellings();
+    const rooms = houses.reduce((free, house) => free + roomIn(house), 0);
+    const freeCapacity = Math.max(0, rooms - this.peopleOnTheRoad - this.arrivals);
 
     this.migrants = migrantsFor(this.sentiment.popularity, freeCapacity, this.population);
-    let remaining = Math.abs(this.migrants);
-    const settling = this.migrants > 0;
+    if (this.migrants > 0) this.arrivals += this.migrants;
+    if (this.migrants < 0) this.sendAway(-this.migrants, houses);
+    this.arrivals = Math.min(this.arrivals, Math.max(0, rooms - this.peopleOnTheRoad));
 
+    if (this.arrivals > 0 && this.immigrantsStranded) {
+      this.log('Immigrants wait at the edge of the map, Archon: no road reaches them.');
+    }
+  }
+
+  private dwellings(): Building[] {
+    return [...this.buildings.values()].filter((building) => isDwelling(building.kind));
+  }
+
+  private get peopleOnTheRoad(): number {
+    let people = 0;
+    for (const walker of this.walkers.values()) {
+      if (walker.kind === 'immigrant') people += walker.cargo;
+    }
+    return people;
+  }
+
+  private sendAway(people: number, houses: Building[]): void {
+    let remaining = people;
     for (const house of houses) {
       if (remaining === 0) break;
-      const moving = settling ? Math.min(remaining, roomIn(house)) : Math.min(remaining, house.population);
-      house.population += settling ? moving : -moving;
-      remaining -= moving;
+      const leaving = Math.min(remaining, house.population);
+      if (leaving === 0) continue;
+
+      house.population -= leaving;
+      remaining -= leaving;
+      spawnEmigrants(this, house, leaving);
+      if (house.population === 0) this.invalidateAppeal();
     }
+  }
+
+  private admitImmigrants(): void {
+    if (this.arrivals <= 0 || this.tick % IMMIGRATION_INTERVAL !== 0) return;
+
+    const destination = this.nextToSettle();
+    if (!destination) return;
+
+    const party = Math.min(this.arrivals, TRAVELLING_PARTY, roomIn(destination) - this.expectedAt(destination));
+    if (party <= 0) return;
+
+    this.immigrantsStranded = !spawnImmigrants(this, destination, party);
+    if (this.immigrantsStranded) return;
+    this.arrivals -= party;
+  }
+
+  private nextToSettle(): Building | undefined {
+    let best: Building | undefined;
+    let bestRoom = 0;
+    for (const house of this.dwellings()) {
+      const room = roomIn(house) - this.expectedAt(house);
+      if (room <= 0) continue;
+      if (isVacantPlot(house)) return house;
+      if (room <= bestRoom) continue;
+      best = house;
+      bestRoom = room;
+    }
+    return best;
+  }
+
+  private expectedAt(house: Building): number {
+    let people = 0;
+    for (const walker of this.walkers.values()) {
+      if (walker.kind === 'immigrant' && walker.targetId === house.id) people += walker.cargo;
+    }
+    return people;
+  }
+
+  moveIn(walker: Walker): void {
+    const house = this.buildings.get(walker.targetId);
+    const settling = house ? Math.min(walker.cargo, roomIn(house)) : 0;
+
+    if (house) house.population += settling;
+    this.arrivals += walker.cargo - settling;
+    walker.cargo = 0;
+    this.invalidateAppeal();
+  }
+
+  get entryConnected(): boolean {
+    return gateTiles(this.grid, this.entry).length > 0;
   }
 
   private updateProduction(): void {

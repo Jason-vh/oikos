@@ -39,6 +39,7 @@ describe('the stadium', () => {
 
     const house = [...world.buildings.values()].find((building) => building.kind === 'house')!;
     const stadium = [...world.buildings.values()].find((building) => building.kind === 'stadium')!;
+    house.population = 8;
     stadium.staff = 45;
 
     expect(house.supply.athletics).toBe(0);

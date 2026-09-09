@@ -1,5 +1,13 @@
 import { bandValues } from '../sim/appeal';
-import { BUILDINGS, ROADBLOCK_COST, ROAD_COST, WALL_COST, isDwelling, tiersOf } from '../sim/buildings';
+import {
+  BUILDINGS,
+  ROADBLOCK_COST,
+  ROAD_COST,
+  WALL_COST,
+  isDwelling,
+  isVacantPlot,
+  tiersOf,
+} from '../sim/buildings';
 import type { BuildingDef } from '../sim/buildings';
 import { TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_SAND, TERRAIN_WATER } from '../sim/grid';
 import { GODS, GOD_KINDS, moodName } from '../sim/gods';
@@ -53,6 +61,7 @@ export function inspectTile(world: World, x: number, y: number): Inspection | nu
   const building = world.buildingAt(index);
   if (building) return inspectBuilding(world, building, index);
   if (grid.isWall(index)) return describeWallTool();
+  if (index === world.entry) return inspectEntry(world);
   if (grid.isRoadblock(index)) return inspectRoadblock(world, index);
   if (grid.isRoad(index)) return inspectRoad(world, index);
   return inspectGround(world, index);
@@ -168,7 +177,28 @@ function inspectBuilding(world: World, building: Building, index: number): Inspe
   return { title: def.name, subtitle: 'Building', description: def.description, facts };
 }
 
+function inspectPlot(world: World, plot: Building, index: number): Inspection {
+  const arriving = [...world.walkers.values()].some(
+    (walker) => walker.kind === 'immigrant' && walker.targetId === plot.id,
+  );
+
+  return {
+    title: 'Housing plot',
+    subtitle: 'Housing',
+    description:
+      'Stakes mark out the plot. Immigrants walk in from the flag at the edge of the map and raise a hut here.',
+    facts: [
+      ['Settlers', arriving ? 'on their way' : 'none yet'],
+      ['Waiting at the edge', `${world.arrivals}`],
+      ['Road to the flag', world.entryConnected ? 'laid' : 'none'],
+      ['Appeal here', `${world.grid.appeal[index]}`],
+    ],
+  };
+}
+
 function inspectHouse(world: World, house: Building, index: number): Inspection {
+  if (isVacantPlot(house)) return inspectPlot(world, house, index);
+
   const tiers = tiersOf(house.kind);
   const tier = tiers[house.tier];
   const next = tiers[house.tier + 1];
@@ -211,6 +241,19 @@ function inspectRoadblock(world: World, index: number): Inspection {
 
 function inspectRoad(world: World, index: number): Inspection {
   return { ...describeRoadTool(), facts: [['Appeal here', `${world.grid.appeal[index]}`]] };
+}
+
+function inspectEntry(world: World): Inspection {
+  return {
+    title: 'Entry point',
+    subtitle: 'The road into the city',
+    description:
+      'Settlers arrive here and walk to whatever housing has room. Lay a road from this flag or none of them can reach you.',
+    facts: [
+      ['Road from here', world.entryConnected ? 'laid' : 'none'],
+      ['Waiting to come in', `${world.arrivals}`],
+    ],
+  };
 }
 
 function inspectGround(world: World, index: number): Inspection {

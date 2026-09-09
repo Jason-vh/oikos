@@ -25,6 +25,7 @@ const report = await page.evaluate(async () => {
 
   const row = farmSpot.y + 2;
   for (let x = farmSpot.x - 8; x < farmSpot.x + 12; x++) world.placeRoad(x, row);
+  roadToEntry(world, farmSpot.x, row);
 
   const farmPlaced = world.place('wheatFarm', farmSpot.x, farmSpot.y);
   const placed = { granary: false, fountain: false, statue: false, houses: 0 };
@@ -69,6 +70,19 @@ const report = await page.evaluate(async () => {
     }, {}),
     date: world.dateLabel,
   };
+
+  function roadToEntry(world, x, row) {
+    const { grid } = world;
+    const entryX = grid.tileX(world.entry);
+    const entryY = grid.tileY(world.entry);
+
+    for (let step = Math.min(entryX, x); step <= Math.max(entryX, x); step++) {
+      world.placeRoad(step, entryY);
+    }
+    for (let step = Math.min(entryY, row); step <= Math.max(entryY, row); step++) {
+      world.placeRoad(x, step);
+    }
+  }
 
   function findSpot(world, kind) {
     const { grid } = world;

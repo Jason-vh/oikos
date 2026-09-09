@@ -50,6 +50,7 @@ describe('elite housing', () => {
     const world = city();
     world.grid.appeal[world.grid.index(4, 11)] = 40;
     world.place('estate', 4, 11);
+    world.buildingAt(world.grid.index(4, 11))!.population = 4;
     recomputeAppeal(world.grid, world.buildings.values());
 
     expect(world.grid.appeal[world.grid.index(9, 12)]).toBe(ELITE_TIERS[0].appeal.initial);

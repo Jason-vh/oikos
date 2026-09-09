@@ -1,4 +1,4 @@
-import { BUILDINGS, isDwelling, tierOf } from './buildings';
+import { BUILDINGS, isDwelling, isVacantPlot, tierOf } from './buildings';
 import type { Grid } from './grid';
 import type { Building } from './types';
 
@@ -27,7 +27,10 @@ export function appealOf(building: Building): AppealBands {
 
 export function recomputeAppeal(grid: Grid, buildings: Iterable<Building>): void {
   grid.appeal.fill(0);
-  for (const building of buildings) applyBands(grid, building, appealOf(building));
+  for (const building of buildings) {
+    if (isVacantPlot(building)) continue;
+    applyBands(grid, building, appealOf(building));
+  }
 }
 
 function applyBands(grid: Grid, building: Building, bands: AppealBands): void {

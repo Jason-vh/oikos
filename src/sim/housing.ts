@@ -25,6 +25,11 @@ export function updateHouses(world: World): void {
 }
 
 function evaluate(world: World, house: Building): void {
+  if (house.population === 0) {
+    if (house.tier > 0) setTier(world, house, 0);
+    return;
+  }
+
   const appeal = world.grid.appeal[world.grid.index(house.x, house.y)];
   const tiers = tiersOf(house.kind);
   const next = tiers[house.tier + 1];

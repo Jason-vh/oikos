@@ -1,4 +1,4 @@
-import { BUILDINGS, HOUSE_TIERS } from './buildings';
+import { BUILDINGS, HOUSE_TIERS, isVacantPlot } from './buildings';
 import { DEFAULT_DIFFICULTY, DIFFICULTIES } from './difficulty';
 import type { Building } from './types';
 
@@ -23,6 +23,7 @@ export function accrueRisk(
   const mishaps: Mishap[] = [];
 
   for (const building of buildings) {
+    if (isVacantPlot(building)) continue;
     const def = BUILDINGS[building.kind];
     building.fireRisk = Math.min(RISK_LIMIT, building.fireRisk + def.fireRisk * scale);
     building.damageRisk = Math.min(RISK_LIMIT, building.damageRisk + def.damageRisk * scale);
@@ -52,6 +53,7 @@ export function riskOf(building: Building): number {
 }
 
 export function nameOf(building: Building): string {
+  if (isVacantPlot(building)) return 'Housing plot';
   if (building.kind === 'house') return HOUSE_TIERS[building.tier].name;
   return BUILDINGS[building.kind].name;
 }

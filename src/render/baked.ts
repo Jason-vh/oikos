@@ -1,6 +1,5 @@
 import { Assets, Rectangle, Texture } from 'pixi.js';
-import type { BuildingKind } from '../sim/types';
-import type { StructureSprite } from './textures';
+import type { StructureKind, StructureSprite } from './textures';
 
 type BakedLayer = 'body' | 'shadow';
 
@@ -39,15 +38,15 @@ export class BakedStructures {
     }
   }
 
-  get(kind: BuildingKind, variant: number): StructureSprite | undefined {
+  get(kind: StructureKind, variant: number): StructureSprite | undefined {
     return this.lookup(kind, variant, 'body');
   }
 
-  shadow(kind: BuildingKind, variant: number): StructureSprite | undefined {
+  shadow(kind: StructureKind, variant: number): StructureSprite | undefined {
     return this.lookup(kind, variant, 'shadow');
   }
 
-  private lookup(kind: BuildingKind, variant: number, layer: BakedLayer): StructureSprite | undefined {
+  private lookup(kind: StructureKind, variant: number, layer: BakedLayer): StructureSprite | undefined {
     return this.sprites.get(`${kind}:${variant}:${layer}`) ?? this.sprites.get(`${kind}:0:${layer}`);
   }
 

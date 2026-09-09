@@ -9,6 +9,14 @@ export function roadAccessTiles(grid: Grid, building: Building): number[] {
   return tiles;
 }
 
+export function gateTiles(grid: Grid, entry: number): number[] {
+  const tiles = grid.isRoad(entry) ? [entry] : [];
+  for (const neighbour of grid.neighbours(entry)) {
+    if (grid.isRoad(neighbour)) tiles.push(neighbour);
+  }
+  return tiles;
+}
+
 export function exitTile(grid: Grid, building: Building): number {
   for (const tile of clockwiseFromNorth(grid, building)) {
     if (grid.isRoad(tile)) return tile;

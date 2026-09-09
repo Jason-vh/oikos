@@ -156,7 +156,9 @@ export type WalkerKind =
   | 'actor'
   | 'soldier'
   | 'invader'
-  | 'artisan';
+  | 'artisan'
+  | 'immigrant'
+  | 'emigrant';
 
 export type WalkerState = 'roaming' | 'delivering' | 'returning';
 
@@ -192,7 +194,7 @@ export function createBuilding(id: number, kind: BuildingKind, x: number, y: num
     y,
     size,
     tier: 0,
-    population: kind === 'house' ? 4 : kind === 'estate' ? 2 : 0,
+    population: 0,
     staff: 0,
     supply: emptySupply(),
     stock: emptyStock(),

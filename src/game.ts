@@ -5,7 +5,7 @@ import { attachKeyboardPan, attachPointerInput } from './render/input';
 import { footprintAnchor, pickTile, tileToScreen, type Point } from './render/iso';
 import { Scene, structureLook, type OverlayMode } from './render/scene';
 import { TextureCache } from './render/textures';
-import { BUILDINGS, ROAD_COST } from './sim/buildings';
+import { BUILDINGS, ROAD_COST, isDwelling } from './sim/buildings';
 import { MAX_HEIGHT } from './sim/grid';
 import type { View } from './sim/save';
 import { inspectTile, type Inspection } from './ui/inspect';
@@ -25,6 +25,9 @@ const MAP_SIZE = 48;
 const SEA_COLOUR = 0x2f8fa8;
 const MS_PER_TICK = 1000 / TICKS_PER_SECOND;
 const MAX_TICKS_PER_FRAME = 40;
+const ALLOWED = 0x8ce39a;
+const REFUSED = 0xe07070;
+const SELECTED = 0xf0d99b;
 
 export class Game {
   readonly world: World;
@@ -144,10 +147,16 @@ export class Game {
     if (this.tool.kind === 'demolish') this.world.demolish(tile.x, tile.y);
     if (this.tool.kind === 'roadblock') this.world.placeRoadblock(tile.x, tile.y);
     if (this.tool.kind === 'wall') this.world.placeWall(tile.x, tile.y);
-    if (this.tool.kind === 'build' && BUILDINGS[this.tool.building].size === 1) this.tryBuild(tile);
+    if (this.tool.kind !== 'build' || draggable(this.tool.building)) return;
+    if (BUILDINGS[this.tool.building].size === 1) this.tryBuild(tile);
   }
 
   private onRelease(): void {
+    if (this.tool.kind === 'build' && draggable(this.tool.building) && this.dragOrigin) {
+      for (const plot of plotsBetween(this.dragOrigin, this.hovered, BUILDINGS[this.tool.building].size)) {
+        this.world.place(this.tool.building, plot.x, plot.y);
+      }
+    }
     if (this.tool.kind === 'wall' && this.dragOrigin) {
       for (const tile of roadPath(this.dragOrigin, this.hovered)) {
         this.world.placeWall(tile.x, tile.y);
@@ -193,52 +202,56 @@ export class Game {
     if (this.tool.kind === 'road') {
       const origin = this.dragOrigin ?? this.hovered;
       for (const tile of roadPath(origin, this.hovered)) {
-        this.addTileMarker(tile, this.world.canPlaceRoad(tile.x, tile.y) ? 0x8ce39a : 0xe07070);
+        this.addTileMarker(tile, this.world.canPlaceRoad(tile.x, tile.y) ? ALLOWED : REFUSED);
       }
       return;
     }
 
     if (this.tool.kind === 'demolish') {
-      this.addTileMarker(this.hovered, 0xe07070);
+      this.addTileMarker(this.hovered, REFUSED);
       return;
     }
 
     if (this.tool.kind === 'inspect') {
-      if (this.selected) this.addTileMarker(this.selected, 0xf0d99b);
+      if (this.selected) this.addTileMarker(this.selected, SELECTED);
       return;
     }
 
     if (this.tool.kind === 'roadblock') {
       const allowed = this.world.canPlaceRoadblock(this.hovered.x, this.hovered.y);
-      this.addTileMarker(this.hovered, allowed ? 0x8ce39a : 0xe07070);
+      this.addTileMarker(this.hovered, allowed ? ALLOWED : REFUSED);
       return;
     }
 
     if (this.tool.kind === 'wall') {
       const origin = this.dragOrigin ?? this.hovered;
       for (const tile of roadPath(origin, this.hovered)) {
-        this.addTileMarker(tile, this.world.canPlaceWall(tile.x, tile.y) ? 0x8ce39a : 0xe07070);
+        this.addTileMarker(tile, this.world.canPlaceWall(tile.x, tile.y) ? ALLOWED : REFUSED);
       }
       return;
     }
 
     if (this.tool.kind === 'build') {
-      const def = BUILDINGS[this.tool.building];
-      const check = this.world.canPlace(this.tool.building, this.hovered.x, this.hovered.y);
-      const tint = check.ok ? 0x8ce39a : 0xe07070;
+      const building = this.tool.building;
+      const def = BUILDINGS[building];
+      const plots = draggable(building)
+        ? plotsBetween(this.dragOrigin ?? this.hovered, this.hovered, def.size)
+        : [this.hovered];
+      const tints = plots.map((plot) =>
+        this.world.canPlace(building, plot.x, plot.y).ok ? ALLOWED : REFUSED,
+      );
 
-      for (let dy = 0; dy < def.size; dy++) {
-        for (let dx = 0; dx < def.size; dx++) {
-          this.addTileMarker({ x: this.hovered.x + dx, y: this.hovered.y + dy }, tint);
+      plots.forEach((plot, index) => {
+        for (let dy = 0; dy < def.size; dy++) {
+          for (let dx = 0; dx < def.size; dx++) {
+            this.addTileMarker({ x: plot.x + dx, y: plot.y + dy }, tints[index]);
+          }
         }
-      }
+      });
+      if (plots.length > 1) return;
 
       const structure = this.scene.structureFor(
-        {
-          ...structureLook(this.tool.building),
-          kind: this.tool.building,
-          variant: 0,
-        },
+        { ...structureLook(building), kind: building, variant: 0 },
         0,
       );
       const ghost = new Sprite(structure.texture);
@@ -247,7 +260,7 @@ export class Game {
       ghost.anchor.set(structure.anchorX, structure.anchorY);
       ghost.position.set(anchor.x, anchor.y);
       ghost.alpha = 0.6;
-      ghost.tint = tint;
+      ghost.tint = tints[0];
       this.scene.cursor.addChild(ghost);
     }
   }
@@ -267,6 +280,23 @@ export class Game {
 
 function randomSeed(): number {
   return Math.floor(Math.random() * 1e9);
+}
+
+function draggable(building: BuildingKind): boolean {
+  return isDwelling(building);
+}
+
+function plotsBetween(from: Point, to: Point, size: number): Point[] {
+  const plots: Point[] = [];
+  const stepX = to.x >= from.x ? size : -size;
+  const stepY = to.y >= from.y ? size : -size;
+  const withinX = (x: number) => (stepX > 0 ? x <= to.x : x >= to.x);
+  const withinY = (y: number) => (stepY > 0 ? y <= to.y : y >= to.y);
+
+  for (let y = from.y; withinY(y); y += stepY) {
+    for (let x = from.x; withinX(x); x += stepX) plots.push({ x, y });
+  }
+  return plots;
 }
 
 function roadPath(from: Point, to: Point): Point[] {

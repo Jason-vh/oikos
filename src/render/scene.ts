@@ -1,5 +1,5 @@
 import { Container, Sprite } from 'pixi.js';
-import { BUILDINGS, isDwelling, tierOf } from '../sim/buildings';
+import { BUILDINGS, isDwelling, isVacantPlot, tierOf } from '../sim/buildings';
 import { FINISHED, type ServiceKind } from '../sim/types';
 import { TERRAIN_WATER } from '../sim/grid';
 import { RISK_LIMIT, riskOf } from '../sim/hazards';
@@ -16,6 +16,7 @@ import { TerrainLayer } from './terrain';
 import {
   WALKER_FRAMES,
   WALKER_LOOKS,
+  type StructureKind,
   type StructureLook,
   type StructureRequest,
   type StructureSprite,
@@ -90,6 +91,7 @@ export class Scene {
     this.decor = new DecorLayer(world, textures, this.structures);
     this.barriers = new BarrierLayer(world, textures, this.structures);
     this.overlayTiles.visible = false;
+    this.markEntry();
     this.root.addChild(
       this.terrain.container,
       this.overlayTiles,
@@ -241,6 +243,10 @@ export class Scene {
   }
 
   private bodyFor(building: Building): StructureSprite {
+    if (isVacantPlot(building)) {
+      return this.baked?.get(plotKind(building), 0) ?? this.textures.plot(building.size);
+    }
+
     return this.structureFor(
       { ...lookOf(building), kind: building.kind, variant: variantOf(building.id) },
       bakedVariantOf(building),
@@ -248,9 +254,23 @@ export class Scene {
   }
 
   private shadowFor(building: Building): StructureSprite | undefined {
+    if (isVacantPlot(building)) return this.baked?.shadow(plotKind(building), 0);
     return this.baked?.shadow(building.kind, bakedVariantOf(building));
   }
 
+  private markEntry(): void {
+    const { grid } = this.world;
+    const x = grid.tileX(this.world.entry);
+    const y = grid.tileY(this.world.entry);
+    const flag = this.textures.entryFlag();
+
+    const sprite = new Sprite(flag.texture);
+    sprite.anchor.set(flag.anchorX, flag.anchorY);
+    const position = tileToScreen(x, y, grid.height[this.world.entry]);
+    sprite.position.set(position.x, position.y);
+    sprite.zIndex = x + y;
+    this.structures.addChild(sprite);
+  }
 
   private syncWalkers(): void {
     for (const [id, sprite] of this.walkerSprites) {
@@ -396,8 +416,13 @@ function bakedVariantOf(building: Building): number {
 }
 
 function lookKey(building: Building): string {
+  if (isVacantPlot(building)) return `${building.kind}:plot`;
   if (isDwelling(building.kind)) return `${building.kind}:${building.tier}`;
   return building.kind;
+}
+
+function plotKind(building: Building): StructureKind {
+  return building.kind === 'estate' ? 'estatePlot' : 'housePlot';
 }
 
 function lookOf(building: Building): StructureLook {

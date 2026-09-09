@@ -39,6 +39,8 @@ export interface StructureRequest extends StructureLook {
   variant: number;
 }
 
+export type StructureKind = BuildingKind | 'housePlot' | 'estatePlot';
+
 const WALKER_PALETTES: Record<WalkerKind, { tunic: number; trim: number }> = {
   cartPusher: { tunic: 0xe3d3a8, trim: 0x9c6b35 },
   peddler: { tunic: 0xe08a45, trim: 0x7c3f1d },
@@ -54,6 +56,8 @@ const WALKER_PALETTES: Record<WalkerKind, { tunic: number; trim: number }> = {
   doctor: { tunic: 0xf2efe4, trim: 0x9c5a4a },
   watchman: { tunic: 0x8d6b3f, trim: 0x4a3a24 },
   superintendent: { tunic: 0xb9c7a6, trim: 0x4d5c3a },
+  immigrant: { tunic: 0xcfae7a, trim: 0x7a4f2c },
+  emigrant: { tunic: 0x9c9384, trim: 0x5a5145 },
 };
 
 const CITIZEN_LOOKS = [
@@ -163,6 +167,20 @@ export class TextureCache {
 
   roadblock(): DecorSprite {
     return this.decorSprite('roadblock', drawRoadblock);
+  }
+
+  entryFlag(): DecorSprite {
+    return this.decorSprite('entryFlag', drawEntryFlag);
+  }
+
+  plot(size: number): StructureSprite {
+    const key = `plot:${size}`;
+    const existing = this.structures.get(key);
+    if (existing) return existing;
+
+    const sprite = buildPlot(size);
+    this.structures.set(key, sprite);
+    return sprite;
   }
 
   wall(): DecorSprite {
@@ -783,6 +801,135 @@ function drawCart(ctx: CanvasRenderingContext2D, cx: number, feet: number, direc
 }
 
 const DECOR_SUN = SUN;
+
+const STAKE_HEIGHT = 19;
+const STAKE_SHADOW = 15;
+const STAKE_SPACING = 0.85;
+const STRING_HEIGHT = 14;
+
+function buildPlot(size: number): StructureSprite {
+  const halfWidth = (size * TILE_WIDTH) / 2;
+  const halfHeight = (size * TILE_HEIGHT) / 2;
+  const margin = 24;
+  const width = halfWidth * 2 + margin * 2;
+  const centreY = margin + STAKE_HEIGHT + halfHeight;
+  const height = centreY + halfHeight + margin;
+
+  const surface = createSurface(width, height);
+  const { ctx } = surface;
+  const cx = width / 2;
+  const light = topLight(DECOR_SUN);
+  const random = createRandom(size * 7717);
+  const screenOf = ([u, v]: [number, number]) => ({
+    x: cx + (u - v) * (TILE_WIDTH / 2),
+    y: centreY + (u + v) * (TILE_HEIGHT / 2),
+  });
+
+  const boundary = plotBoundary(size, random);
+  ctx.strokeStyle = css(shade(0xe2d8b4, light), 0.85);
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  boundary.forEach((spot, index) => {
+    const { x, y } = screenOf(spot);
+    if (index === 0) ctx.moveTo(x, y - STRING_HEIGHT);
+    else ctx.lineTo(x, y - STRING_HEIGHT);
+  });
+  ctx.closePath();
+  ctx.stroke();
+
+  const centre: [number, number] = [(random() - 0.5) * 0.2, (random() - 0.5) * 0.2];
+  const stakes = [...boundary, centre].sort((a, b) => a[0] + a[1] - (b[0] + b[1]));
+  for (const spot of stakes) {
+    const { x, y } = screenOf(spot);
+    drawStake(ctx, x, y, light);
+  }
+
+  return { texture: toTexture(surface), anchorX: 0.5, anchorY: (centreY + halfHeight) / height };
+}
+
+function plotBoundary(size: number, random: () => number): [number, number][] {
+  const reach = size / 2 - 0.18;
+  const corners: [number, number][] = [
+    [-reach, -reach],
+    [reach, -reach],
+    [reach, reach],
+    [-reach, reach],
+  ];
+  const steps = Math.max(2, Math.round(size / STAKE_SPACING)) * 4;
+  const jitter = () => (random() - 0.5) * 0.14;
+
+  const spots: [number, number][] = [];
+  for (let step = 0; step < steps; step++) {
+    const walk = (step / steps) * 4;
+    const side = Math.floor(walk);
+    const along = walk - side;
+    const [ax, ay] = corners[side];
+    const [bx, by] = corners[(side + 1) % 4];
+    spots.push([ax + (bx - ax) * along + jitter(), ay + (by - ay) * along + jitter()]);
+  }
+  return spots;
+}
+
+function drawStake(ctx: CanvasRenderingContext2D, x: number, baseY: number, light: number): void {
+  const timber = shade(0x6b4a26, light);
+  const timberLit = shade(0x8f6635, light * 1.12);
+  const timberDark = shade(0x3f2a12, light * 0.85);
+  const cut = shade(0xcbb184, light * 1.1);
+
+  const cast = { x: x - STAKE_SHADOW, y: baseY + STAKE_SHADOW / 2 };
+  ctx.fillStyle = 'rgba(32, 26, 16, 0.35)';
+  polygonPath(ctx, [x + 1.4, baseY - 1.4, cast.x, cast.y - 1.4, cast.x, cast.y + 1.4, x + 1.4, baseY + 1.4]);
+  ctx.fill();
+
+  ctx.fillStyle = css(timber);
+  ctx.fillRect(x - 1.6, baseY - STAKE_HEIGHT, 3.2, STAKE_HEIGHT);
+  ctx.fillStyle = css(timberLit);
+  ctx.fillRect(x - 1.6, baseY - STAKE_HEIGHT, 1.2, STAKE_HEIGHT);
+  ctx.fillStyle = css(timberDark);
+  ctx.fillRect(x + 0.8, baseY - STAKE_HEIGHT, 0.8, STAKE_HEIGHT);
+
+  ctx.fillStyle = css(cut);
+  ctx.beginPath();
+  ctx.ellipse(x, baseY - STAKE_HEIGHT, 1.6, 0.8, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawEntryFlag(): { surface: DrawSurface; baseY: number } {
+  const width = 54;
+  const height = 92;
+  const surface = createSurface(width, height);
+  const { ctx } = surface;
+  const light = topLight(DECOR_SUN);
+  const cx = width / 2 - 6;
+  const baseY = height - 8;
+  const poleHeight = 62;
+  const poleTop = baseY - poleHeight;
+
+  groundShadow(ctx, cx, baseY, 13, 5);
+
+  ctx.fillStyle = css(shade(0xcfc3a2, light));
+  diamondPath(ctx, cx, baseY, 14, 7);
+  ctx.fill();
+
+  ctx.fillStyle = css(shade(0x8a6a34, light));
+  ctx.fillRect(cx - 1.6, poleTop, 3.2, poleHeight);
+  ctx.fillStyle = css(shade(0xc0a05c, light * 1.1));
+  ctx.fillRect(cx - 1.6, poleTop, 1.3, poleHeight);
+
+  ctx.fillStyle = css(shade(0xc03a2a, light));
+  polygonPath(ctx, [cx + 1.4, poleTop + 2, cx + 24, poleTop + 10, cx + 1.4, poleTop + 20]);
+  ctx.fill();
+  ctx.fillStyle = css(shade(0x8f2a1e, light * 0.9), 0.6);
+  polygonPath(ctx, [cx + 1.4, poleTop + 13, cx + 16, poleTop + 15.5, cx + 1.4, poleTop + 20]);
+  ctx.fill();
+
+  ctx.fillStyle = css(shade(0xe4d18a, light * 1.1));
+  ctx.beginPath();
+  ctx.arc(cx, poleTop - 1, 2.6, 0, Math.PI * 2);
+  ctx.fill();
+
+  return { surface, baseY };
+}
 
 function drawRoadblock(): { surface: DrawSurface; baseY: number } {
   const width = 84;

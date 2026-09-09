@@ -18,6 +18,10 @@ function building(kind: BuildingKind, x: number, y: number, tier = 0): Building 
   return { ...createBuilding(1, kind, x, y, BUILDINGS[kind].size), tier };
 }
 
+function home(x: number, y: number, tier: number): Building {
+  return { ...building('house', x, y, tier), population: 8 };
+}
+
 describe('band model', () => {
   test('flower garden 8,1,-1,3 falls one per ring', () => {
     expect(bandValues(bands(8, 1, -1, 3))).toEqual([8, 7, 6]);
@@ -63,10 +67,10 @@ describe('appeal field', () => {
     const grid = new Grid(16);
     const homestead = HOUSE_TIERS.findIndex((tier) => tier.name === 'Homestead');
 
-    recomputeAppeal(grid, [building('house', 4, 4, 0)]);
+    recomputeAppeal(grid, [home(4, 4, 0)]);
     expect(grid.appeal[grid.index(6, 4)]).toBe(HOUSE_TIERS[0].appeal.initial);
 
-    recomputeAppeal(grid, [building('house', 4, 4, homestead)]);
+    recomputeAppeal(grid, [home(4, 4, homestead)]);
     expect(grid.appeal[grid.index(6, 4)]).toBe(HOUSE_TIERS[homestead].appeal.initial);
   });
 });
@@ -78,6 +82,7 @@ describe('placement', () => {
     world.treasury = 1000;
 
     expect(world.place('house', 4, 4)).toBe(true);
+    world.buildingAt(world.grid.index(4, 4))!.population = 8;
     world.settle();
 
     expect(world.grid.appeal[world.grid.index(6, 4)]).toBe(-4);

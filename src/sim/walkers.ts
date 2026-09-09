@@ -1,6 +1,6 @@
 import { BUILDINGS, UNITS_PER_CARTLOAD, isDwelling } from './buildings';
 import { reassure } from './hazards';
-import { bfsRoute, exitTile, nextRoamTile, northOf, roadAccessTiles } from './pathing';
+import { bfsRoute, exitTile, gateTiles, nextRoamTile, northOf, roadAccessTiles } from './pathing';
 import { TICKS_PER_MONTH } from './time';
 import type { Building, Good, ServiceKind, Walker, WalkerKind } from './types';
 import type { World } from './world';
@@ -22,6 +22,8 @@ export const ROAM_RANGE: Record<WalkerKind, number> = {
   soldier: 0,
   invader: 0,
   artisan: 0,
+  immigrant: 0,
+  emigrant: 0,
 };
 
 export const WALKER_SPEED: Record<WalkerKind, number> = {
@@ -39,6 +41,8 @@ export const WALKER_SPEED: Record<WalkerKind, number> = {
   soldier: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
   invader: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
   artisan: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
+  immigrant: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
+  emigrant: CITIZEN_TILES_PER_MONTH / TICKS_PER_MONTH,
 };
 
 export const PEDDLER_LOAD = UNITS_PER_CARTLOAD;
@@ -124,6 +128,55 @@ export function spawnPerformer(
   return spawnCarrier(world, kind, school, destinations, 0, 'food', venue.id);
 }
 
+export function spawnImmigrants(world: World, house: Building, people: number): boolean {
+  const doorsteps = new Set(roadAccessTiles(world.grid, house));
+  if (doorsteps.size === 0) return false;
+
+  const route = bfsRoute(world.grid, world.entry, (tile) => doorsteps.has(tile));
+  if (!route) return false;
+
+  addTravellers(world, 'immigrant', route, people, house.id);
+  return true;
+}
+
+export function spawnEmigrants(world: World, house: Building, people: number): boolean {
+  const doorstep = exitTile(world.grid, house);
+  if (doorstep === -1) return false;
+
+  const gate = new Set(gateTiles(world.grid, world.entry));
+  if (gate.size === 0) return false;
+
+  const route = bfsRoute(world.grid, doorstep, (tile) => gate.has(tile));
+  if (!route) return false;
+
+  addTravellers(world, 'emigrant', route, people, -1);
+  return true;
+}
+
+function addTravellers(
+  world: World,
+  kind: WalkerKind,
+  route: number[],
+  people: number,
+  targetId: number,
+): void {
+  world.addWalker({
+    kind,
+    homeId: -1,
+    targetId,
+    state: 'delivering',
+    from: route[0],
+    to: route[0],
+    prev: -1,
+    progress: 1,
+    route,
+    routeIndex: 0,
+    stepsLeft: route.length * 2,
+    cargo: people,
+    good: 'food',
+  });
+}
+
 export function spawnCartPusher(
   world: World,
   producer: Building,
@@ -193,6 +246,13 @@ function advance(world: World, walker: Walker): void {
 }
 
 function onTileEntered(world: World, walker: Walker): void {
+  if (walker.kind === 'immigrant') {
+    if (atRouteEnd(walker)) world.moveIn(walker);
+    return;
+  }
+
+  if (walker.kind === 'emigrant') return;
+
   if (walker.kind === 'artisan' && walker.state === 'delivering' && atRouteEnd(walker)) {
     world.raiseSanctuary(walker.targetId);
     turnBack(walker);

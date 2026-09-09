@@ -12,6 +12,7 @@ import argparse
 import json
 import math
 import os
+import random
 import sys
 
 import bpy
@@ -361,6 +362,67 @@ def add_rack(name, centre, span, height, wood_mat, cover_mat):
 def add_stump(name, centre, mat):
     cx, cy, cz = centre
     return add_cylinder(name, (cx, cy, cz + 0.07), 0.09, 0.14, mat, vertices=10)
+
+
+STAKE_HEIGHT = 0.26
+STAKE_SPACING = 0.85
+STRING_HEIGHT = 0.2
+
+
+def add_survey_stake(name, centre, wood, cap):
+    """One marker: a peeled post driven in. What lies beside it is its own shadow."""
+    cx, cy, cz = centre
+    add_cylinder(f"{name}_post", (cx, cy, cz + STAKE_HEIGHT / 2), 0.03, STAKE_HEIGHT, wood, vertices=10)
+    add_cylinder(f"{name}_cap", (cx, cy, cz + STAKE_HEIGHT + 0.003), 0.031, 0.014, cap, vertices=10)
+
+
+def add_string(name, start, end, z, mat):
+    """Surveyor's twine run from stake to stake."""
+    (ax, ay), (bx, by) = start, end
+    cord = add_box(name, ((ax + bx) / 2, (ay + by) / 2, z), (math.hypot(bx - ax, by - ay), 0.016, 0.016), mat)
+    cord.rotation_euler[2] = math.atan2(by - ay, bx - ax)
+    cord.visible_shadow = False
+    return cord
+
+
+def plot_boundary(footprint, rng):
+    """Stake positions walked round the edge of the plot, each nudged off true."""
+    reach = footprint / 2 - 0.18
+    corners = [(-reach, -reach), (reach, -reach), (reach, reach), (-reach, reach)]
+    steps = max(2, round(footprint / STAKE_SPACING)) * 4
+
+    spots = []
+    for step in range(steps):
+        walk = step / steps * 4
+        side = int(walk)
+        along = walk - side
+        (ax, ay), (bx, by) = corners[side], corners[(side + 1) % 4]
+        spots.append(
+            (
+                ax + (bx - ax) * along + rng.uniform(-0.07, 0.07),
+                ay + (by - ay) * along + rng.uniform(-0.07, 0.07),
+            )
+        )
+    return spots
+
+
+def build_plot(kind, footprint):
+    """A plot pegged out and left: stakes stood about the trodden ground in no
+    particular order, and nothing else built yet."""
+    wood = material("wood", hex_rgb("6b4a26"), roughness=0.92)
+    cap = material("cap", hex_rgb("cbb184"), roughness=0.9)
+    twine = material("twine", hex_rgb("e2d8b4"), roughness=0.95)
+
+    rng = random.Random(footprint * 7717)
+    boundary = plot_boundary(footprint, rng)
+
+    for index, spot in enumerate(boundary):
+        add_string(f"string{index}", spot, boundary[(index + 1) % len(boundary)], STRING_HEIGHT, twine)
+
+    for index, (sx, sy) in enumerate(boundary + [(rng.uniform(-0.1, 0.1), rng.uniform(-0.1, 0.1))]):
+        add_survey_stake(f"stake{index}", (sx, sy, 0.0), wood, cap)
+
+    return {"kind": kind, "variant": 0, "footprint": footprint, "height": 0.3}
 
 
 def build_house_0():
@@ -2197,6 +2259,8 @@ MODELS = {
     "fishery": build_fishery,
     "fountain": build_fountain,
     "statue": build_statue,
+    "house-plot": lambda: build_plot("housePlot", 2),
+    "estate-plot": lambda: build_plot("estatePlot", 4),
 }
 for estate_tier in range(4):
     MODELS[f"estate-{estate_tier}"] = (lambda tier: lambda: build_estate(tier))(estate_tier)

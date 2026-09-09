@@ -190,6 +190,10 @@ export function isDwelling(kind: BuildingKind): boolean {
   return DWELLINGS.includes(kind);
 }
 
+export function isVacantPlot(building: { kind: BuildingKind; population: number }): boolean {
+  return isDwelling(building.kind) && building.population === 0;
+}
+
 export function tiersOf(kind: BuildingKind): HouseTier[] {
   return kind === 'estate' ? ELITE_TIERS : HOUSE_TIERS;
 }
@@ -327,7 +331,8 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     capacity: 0,
     fireRisk: 8,
     damageRisk: 5,
-    description: 'Citizens settle here and evolve as their needs are met.',
+    description:
+      'Stakes out a plot — drag to lay a whole row. Settlers walk in from the entry point and raise a hut, which grows as their needs are met.',
   },
   estate: {
     kind: 'estate',
@@ -351,7 +356,8 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     capacity: 0,
     fireRisk: 5,
     damageRisk: 4,
-    description: 'A house for the wealthy, placed rather than grown. Nobles pay tax like no one else.',
+    description:
+      'A plot for the wealthy, placed rather than grown. Nobles walk in like everyone else and pay tax like no one else.',
   },
   wheatFarm: {
     kind: 'wheatFarm',

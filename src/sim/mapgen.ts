@@ -32,6 +32,45 @@ export function generateMap(grid: Grid, seed: number): void {
   scatterDecor(grid, random);
 }
 
+type EdgeTile = (grid: Grid, step: number) => [number, number];
+
+const EDGES: EdgeTile[] = [
+  (_grid, step) => [step, 0],
+  (grid, step) => [grid.size - 1, step],
+  (grid, step) => [step, grid.size - 1],
+  (_grid, step) => [0, step],
+];
+
+export function entryPoint(grid: Grid, seed: number): number {
+  for (let turn = 0; turn < EDGES.length; turn++) {
+    const tile = nearestLandToMiddle(grid, EDGES[(seed + turn) % EDGES.length]);
+    if (tile !== -1) return tile;
+  }
+  return grid.index(0, 0);
+}
+
+function nearestLandToMiddle(grid: Grid, edge: EdgeTile): number {
+  const middle = (grid.size - 1) / 2;
+  const steps: number[] = [];
+  for (let step = 1; step < grid.size - 1; step++) steps.push(step);
+  steps.sort((a, b) => Math.abs(a - middle) - Math.abs(b - middle));
+
+  for (const step of steps) {
+    const [x, y] = edge(grid, step);
+    const [inwardX, inwardY] = towardsMiddle(grid, x, y);
+    if (grid.isLand(x, y) && grid.isLand(inwardX, inwardY)) return grid.index(x, y);
+  }
+  return -1;
+}
+
+function towardsMiddle(grid: Grid, x: number, y: number): [number, number] {
+  const last = grid.size - 1;
+  if (y === 0) return [x, 1];
+  if (y === last) return [x, last - 1];
+  if (x === 0) return [1, y];
+  return [last - 1, y];
+}
+
 export const DECOR_KINDS = ['cypress', 'olive', 'scrub', 'boulder'] as const;
 export type DecorKind = (typeof DECOR_KINDS)[number];
 export const DECOR_VARIANTS = 3;
