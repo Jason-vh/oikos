@@ -23,15 +23,21 @@ export function screenToTile(screenX: number, screenY: number): Point {
   };
 }
 
-export function footprintAnchor(tileX: number, tileY: number, size: number, height = 0): Point {
+export function footprintAnchor(
+  tileX: number,
+  tileY: number,
+  width: number,
+  depth: number,
+  height = 0,
+): Point {
   return {
-    x: (tileX - tileY) * (TILE_WIDTH / 2),
-    y: (tileX + tileY + 2 * size - 1) * (TILE_HEIGHT / 2) - height * ELEVATION_STEP,
+    x: (tileX - tileY + width - depth) * (TILE_WIDTH / 2),
+    y: (tileX + tileY + width + depth - 1) * (TILE_HEIGHT / 2) - height * ELEVATION_STEP,
   };
 }
 
-export function depthOf(tileX: number, tileY: number, size: number): number {
-  return tileX + tileY + 2 * (size - 1);
+export function depthOf(tileX: number, tileY: number, width: number, depth: number): number {
+  return tileX + tileY + (width - 1) + (depth - 1);
 }
 
 export function pickTile(

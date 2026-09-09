@@ -30,12 +30,22 @@ UP = (
 )
 
 
+def footprint_sides(footprint):
+    """A footprint is a square side, or a pair of sides for a building laid long."""
+    if isinstance(footprint, (list, tuple)):
+        return footprint[0], footprint[1]
+    return footprint, footprint
+
+
 def south_vertex_offset(footprint, height, pixels_per_unit):
-    """Pixels from image centre down to the footprint's south vertex."""
-    dx = footprint / 2
-    dy = -footprint / 2
+    """Pixels from the image centre to the footprint's south vertex, across and down."""
+    sides = footprint_sides(footprint)
+    dx = sides[0] / 2
+    dy = -sides[1] / 2
     dz = -height / 2
-    return -(dx * UP[0] + dy * UP[1] + dz * UP[2]) * pixels_per_unit
+    across = (dx * RIGHT[0] + dy * RIGHT[1] + dz * RIGHT[2]) * pixels_per_unit
+    down = -(dx * UP[0] + dy * UP[1] + dz * UP[2]) * pixels_per_unit
+    return across, down
 
 
 def load_manifest():
@@ -95,7 +105,9 @@ def main():
         trimmed = image.crop(bbox)
 
         height_units = sprite["heightUnits"]
-        anchor_y = image.height / 2 + south_vertex_offset(sprite["footprint"], height_units, pixels_per_unit)
+        across, down = south_vertex_offset(sprite["footprint"], height_units, pixels_per_unit)
+        anchor_x = image.width / 2 + across
+        anchor_y = image.height / 2 + down
 
         prepared.append(
             {
@@ -103,7 +115,7 @@ def main():
                 "variant": sprite.get("variant", 0),
                 "layer": sprite.get("layer", "body"),
                 "image": trimmed,
-                "anchorX": (image.width / 2 - bbox[0]) / trimmed.width,
+                "anchorX": (anchor_x - bbox[0]) / trimmed.width,
                 "anchorY": (anchor_y - bbox[1]) / trimmed.height,
             }
         )

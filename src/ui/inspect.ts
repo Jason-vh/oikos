@@ -1,3 +1,4 @@
+import { STALL_WORKERS, VENDOR_COST, freeStalls, isAgora, stallGoods } from '../sim/agora';
 import { bandValues } from '../sim/appeal';
 import {
   BUILDINGS,
@@ -12,6 +13,7 @@ import type { BuildingDef } from '../sim/buildings';
 import { TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_SAND, TERRAIN_WATER } from '../sim/grid';
 import { GODS, GOD_KINDS, moodName } from '../sim/gods';
 import { costAt } from '../sim/difficulty';
+import { workersFor } from '../sim/labour';
 import { describeRisk } from '../sim/hazards';
 import { TRADE_ROUTES } from '../sim/trade';
 import { describeAffliction } from '../sim/unrest';
@@ -27,7 +29,7 @@ export interface Inspection {
   facts: [string, string][];
 }
 
-const GOOD_NAMES: Record<Good, string> = {
+export const GOOD_NAMES: Record<Good, string> = {
   food: 'Wheat',
   olives: 'Olives',
   oil: 'Oil',
@@ -67,12 +69,28 @@ export function inspectTile(world: World, x: number, y: number): Inspection | nu
   return inspectGround(world, index);
 }
 
+export function describeVendorTool(good: Good): Inspection {
+  return {
+    title: `${GOOD_NAMES[good]} vendor`,
+    subtitle: 'Agora stall',
+    description: `Takes a free stall on an agora. He fetches ${GOOD_NAMES[
+      good
+    ].toLowerCase()} from the nearest store that has it, then sells it to every house he passes.`,
+    facts: [
+      ['Cost', money(VENDOR_COST)],
+      ['Workers', `${STALL_WORKERS}`],
+      ['Stall', 'Click a free one on an agora'],
+    ],
+  };
+}
+
 export function describeBuildingTool(kind: BuildingKind, difficulty: number): Inspection {
   const def = BUILDINGS[kind];
   const facts: [string, string][] = [
     ['Cost', money(costAt(def.cost, difficulty))],
-    ['Size', `${def.size}×${def.size} tiles`],
+    ['Size', sizeOf(def)],
   ];
+  if (def.stalls) facts.push(['Stalls', `${def.stalls} for vendors`]);
   if (def.workers > 0) facts.push(['Workers', `${def.workers}`]);
   if (def.requiresMeadow) facts.push(['Ground', 'Meadow only']);
   if (def.needsRoad) facts.push(['Road', 'Must touch one']);
@@ -138,9 +156,10 @@ function inspectBuilding(world: World, building: Building, index: number): Inspe
 
   if (isDwelling(building.kind)) return inspectHouse(world, building, index);
 
-  if (def.workers > 0) {
-    const short = def.workers - building.staff;
-    facts.push(['Workers', short > 0 ? `${building.staff} of ${def.workers} — ${short} short` : `${def.workers}, fully staffed`]);
+  const workers = workersFor(building);
+  if (workers > 0) {
+    const short = workers - building.staff;
+    facts.push(['Workers', short > 0 ? `${building.staff} of ${workers} — ${short} short` : `${workers}, fully staffed`]);
   }
   if (def.produces) facts.push([`${GOOD_NAMES[def.produces]} ready`, `${building.stock[def.produces]} cartloads`]);
   if (def.consumes) facts.push([`${GOOD_NAMES[def.consumes]} waiting`, `${building.stock[def.consumes]} cartloads`]);
@@ -148,8 +167,13 @@ function inspectBuilding(world: World, building: Building, index: number): Inspe
     if (good === def.consumes) continue;
     facts.push([`${GOOD_NAMES[good]} stored`, `${building.stock[good]} of ${def.capacity} cartloads`]);
   }
-  if (building.kind === 'agora') {
-    facts.push(['Stalls hold', `${Math.round(building.stock.food)} food, ${Math.round(building.stock.oil)} oil`]);
+  if (isAgora(building.kind)) {
+    const vendors = stallGoods(building).map((good) => GOOD_NAMES[good]);
+    facts.push(['Vendors', vendors.length > 0 ? vendors.join(', ') : 'none yet']);
+    facts.push(['Free stalls', `${freeStalls(building)} of ${building.stalls.length}`]);
+    for (const good of stallGoods(building)) {
+      facts.push([`${GOOD_NAMES[good]} in stall`, `${Math.round(building.stock[good] / 100)} cartloads`]);
+    }
   }
 
   if (building.kind === 'tradingPost') {
@@ -267,6 +291,11 @@ function inspectGround(world: World, index: number): Inspection {
       ['Elevation', `level ${world.grid.height[index]}`],
     ],
   };
+}
+
+function sizeOf(def: BuildingDef): string {
+  if (!def.alongRoad) return `${def.size}×${def.size} tiles`;
+  return `${def.alongRoad}×${def.size} tiles, laid along a road`;
 }
 
 function appealSummary(def: BuildingDef): string {

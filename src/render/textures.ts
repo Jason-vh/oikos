@@ -39,7 +39,7 @@ export interface StructureRequest extends StructureLook {
   variant: number;
 }
 
-export type StructureKind = BuildingKind | 'housePlot' | 'estatePlot';
+export type StructureKind = BuildingKind | 'housePlot' | 'estatePlot' | 'stall';
 
 const WALKER_PALETTES: Record<WalkerKind, { tunic: number; trim: number }> = {
   cartPusher: { tunic: 0xe3d3a8, trim: 0x9c6b35 },
@@ -123,6 +123,7 @@ const FOOTPRINT_INSET: Record<BuildingKind, number> = {
   sanctuaryHermes: 0.88,
   sanctuaryHades: 0.88,
   agora: 0.94,
+  grandAgora: 0.94,
   growersLodge: 1,
   olivePress: 0.88,
   college: 0.9,
@@ -171,6 +172,23 @@ export class TextureCache {
 
   entryFlag(): DecorSprite {
     return this.decorSprite('entryFlag', drawEntryFlag);
+  }
+
+  paving(width: number, depth: number): StructureSprite {
+    return this.shape(`paving:${width}:${depth}`, () => buildPaving(width, depth));
+  }
+
+  stall(): StructureSprite {
+    return this.shape('stall', buildStall);
+  }
+
+  private shape(key: string, build: () => StructureSprite): StructureSprite {
+    const existing = this.structures.get(key);
+    if (existing) return existing;
+
+    const sprite = build();
+    this.structures.set(key, sprite);
+    return sprite;
   }
 
   plot(size: number): StructureSprite {
@@ -801,6 +819,83 @@ function drawCart(ctx: CanvasRenderingContext2D, cx: number, feet: number, direc
 }
 
 const DECOR_SUN = SUN;
+
+function buildPaving(width: number, depth: number): StructureSprite {
+  const halfWidth = ((width + depth) * TILE_WIDTH) / 4;
+  const halfHeight = ((width + depth) * TILE_HEIGHT) / 4;
+  const margin = 8;
+  const surface = createSurface(halfWidth * 2 + margin * 2, halfHeight * 2 + margin * 2);
+  const { ctx } = surface;
+  const cx = surface.width / 2;
+  const cy = surface.height / 2;
+  const light = topLight(DECOR_SUN);
+  const random = createRandom(width * 131 + depth);
+
+  const corners = [
+    [0, 0],
+    [width, 0],
+    [width, depth],
+    [0, depth],
+  ].map(([u, v]) => [
+    cx + (u - v - (width - depth) / 2) * (TILE_WIDTH / 2),
+    cy + (u + v - (width + depth) / 2) * (TILE_HEIGHT / 2),
+  ]);
+
+  polygonPath(ctx, corners.flat());
+  ctx.fillStyle = css(shade(0xd9cba4, light));
+  ctx.fill();
+
+  ctx.save();
+  polygonPath(ctx, corners.flat());
+  ctx.clip();
+  speckle(
+    ctx,
+    random,
+    { x: cx - halfWidth, y: cy - halfHeight, width: halfWidth * 2, height: halfHeight * 2 },
+    120 * (width + depth),
+    [0xc4b48c, 0xeadec0, 0xb2a37c],
+    1.6,
+    0.5,
+  );
+  ctx.restore();
+
+  return {
+    texture: toTexture(surface),
+    anchorX: (cx + ((width - depth) * TILE_WIDTH) / 4) / surface.width,
+    anchorY: (cy + halfHeight) / surface.height,
+  };
+}
+
+function buildStall(): StructureSprite {
+  const surface = createSurface(TILE_WIDTH * 2, TILE_HEIGHT * 2 + 46);
+  const { ctx } = surface;
+  const cx = surface.width / 2;
+  const baseY = surface.height - 16;
+  const light = topLight(DECOR_SUN);
+  const spread = TILE_WIDTH * 0.62;
+  const drop = TILE_HEIGHT * 0.62;
+  const posts = 26;
+
+  ctx.fillStyle = css(shade(0x7a5730, light));
+  for (const [dx, dy] of [
+    [-spread, -drop],
+    [spread, -drop],
+    [0, 0],
+    [0, -drop * 2],
+  ]) {
+    ctx.fillRect(cx + dx - 1.5, baseY + dy - posts, 3, posts);
+  }
+
+  const roof = baseY - posts - drop;
+  polygonPath(ctx, [cx, roof - drop, cx + spread, roof, cx, roof + drop, cx - spread, roof]);
+  ctx.fillStyle = css(shade(0xffffff, light));
+  ctx.fill();
+  ctx.strokeStyle = css(shade(0xbdb192, light * 0.9), 0.7);
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  return { texture: toTexture(surface), anchorX: 0.5, anchorY: baseY / surface.height };
+}
 
 const STAKE_HEIGHT = 19;
 const STAKE_SHADOW = 15;

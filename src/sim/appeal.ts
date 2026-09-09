@@ -38,8 +38,8 @@ function applyBands(grid: Grid, building: Building, bands: AppealBands): void {
 
   const minX = building.x - bands.range;
   const minY = building.y - bands.range;
-  const maxX = building.x + building.size - 1 + bands.range;
-  const maxY = building.y + building.size - 1 + bands.range;
+  const maxX = building.x + building.width - 1 + bands.range;
+  const maxY = building.y + building.height - 1 + bands.range;
 
   for (let y = minY; y <= maxY; y++) {
     for (let x = minX; x <= maxX; x++) {
@@ -51,7 +51,7 @@ function applyBands(grid: Grid, building: Building, bands: AppealBands): void {
 }
 
 function ringDistance(building: Building, x: number, y: number): number {
-  const dx = Math.max(building.x - x, 0, x - (building.x + building.size - 1));
-  const dy = Math.max(building.y - y, 0, y - (building.y + building.size - 1));
+  const dx = Math.max(building.x - x, 0, x - (building.x + building.width - 1));
+  const dy = Math.max(building.y - y, 0, y - (building.y + building.height - 1));
   return Math.max(dx, dy);
 }

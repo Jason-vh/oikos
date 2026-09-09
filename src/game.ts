@@ -9,7 +9,8 @@ import { BUILDINGS, ROAD_COST, isDwelling } from './sim/buildings';
 import { MAX_HEIGHT } from './sim/grid';
 import type { View } from './sim/save';
 import { inspectTile, type Inspection } from './ui/inspect';
-import type { BuildingKind } from './sim/types';
+import { STALL_SIZE, stallAt, stallSlots } from './sim/agora';
+import type { BuildingKind, Good } from './sim/types';
 import { TICKS_PER_SECOND } from './sim/time';
 import { World } from './sim/world';
 
@@ -19,7 +20,8 @@ export type Tool =
   | { kind: 'roadblock' }
   | { kind: 'wall' }
   | { kind: 'demolish' }
-  | { kind: 'build'; building: BuildingKind };
+  | { kind: 'build'; building: BuildingKind }
+  | { kind: 'vendor'; good: Good };
 
 const MAP_SIZE = 48;
 const SEA_COLOUR = 0x2f8fa8;
@@ -139,6 +141,12 @@ export class Game {
       this.world.placeWall(tile.x, tile.y);
       return;
     }
+    if (this.tool.kind === 'vendor') {
+      if (!this.world.placeVendor(this.tool.good, tile.x, tile.y)) {
+        this.world.log('A vendor needs a free stall on an agora.');
+      }
+      return;
+    }
     if (this.tool.kind === 'build') this.tryBuild(tile);
   }
 
@@ -185,6 +193,7 @@ export class Game {
     const key = [
       this.tool.kind,
       this.tool.kind === 'build' ? this.tool.building : '',
+      this.tool.kind === 'vendor' ? this.tool.good : '',
       this.hovered.x,
       this.hovered.y,
       this.selected?.x ?? -1,
@@ -231,24 +240,30 @@ export class Game {
       return;
     }
 
+    if (this.tool.kind === 'vendor') {
+      this.markStall();
+      return;
+    }
+
     if (this.tool.kind === 'build') {
       const building = this.tool.building;
       const def = BUILDINGS[building];
-      const plots = draggable(building)
+      const origins = draggable(building)
         ? plotsBetween(this.dragOrigin ?? this.hovered, this.hovered, def.size)
         : [this.hovered];
-      const tints = plots.map((plot) =>
-        this.world.canPlace(building, plot.x, plot.y).ok ? ALLOWED : REFUSED,
+      const plots = origins.map((origin) => this.world.plotFor(building, origin.x, origin.y));
+      const tints = origins.map((origin) =>
+        this.world.canPlace(building, origin.x, origin.y).ok ? ALLOWED : REFUSED,
       );
 
       plots.forEach((plot, index) => {
-        for (let dy = 0; dy < def.size; dy++) {
-          for (let dx = 0; dx < def.size; dx++) {
+        for (let dy = 0; dy < plot.height; dy++) {
+          for (let dx = 0; dx < plot.width; dx++) {
             this.addTileMarker({ x: plot.x + dx, y: plot.y + dy }, tints[index]);
           }
         }
       });
-      if (plots.length > 1) return;
+      if (plots.length > 1 || def.alongRoad) return;
 
       const structure = this.scene.structureFor(
         { ...structureLook(building), kind: building, variant: 0 },
@@ -256,12 +271,29 @@ export class Game {
       );
       const ghost = new Sprite(structure.texture);
       const height = this.world.grid.heightAt(this.hovered.x, this.hovered.y);
-      const anchor = footprintAnchor(this.hovered.x, this.hovered.y, def.size, height);
+      const anchor = footprintAnchor(this.hovered.x, this.hovered.y, def.size, def.size, height);
       ghost.anchor.set(structure.anchorX, structure.anchorY);
       ghost.position.set(anchor.x, anchor.y);
       ghost.alpha = 0.6;
       ghost.tint = tints[0];
       this.scene.cursor.addChild(ghost);
+    }
+  }
+
+  private markStall(): void {
+    const agora = this.world.buildingAt(this.world.grid.index(this.hovered.x, this.hovered.y));
+    const stall = agora ? stallAt(agora, this.hovered.x, this.hovered.y) : -1;
+    if (!agora || stall === -1) {
+      this.addTileMarker(this.hovered, REFUSED);
+      return;
+    }
+
+    const slot = stallSlots(agora)[stall];
+    const tint = agora.stalls[stall] === null ? ALLOWED : REFUSED;
+    for (let dy = 0; dy < STALL_SIZE; dy++) {
+      for (let dx = 0; dx < STALL_SIZE; dx++) {
+        this.addTileMarker({ x: slot.x + dx, y: slot.y + dy }, tint);
+      }
     }
   }
 

@@ -1,9 +1,10 @@
 import { Container, Sprite } from 'pixi.js';
 import { BUILDINGS, isDwelling, isVacantPlot, tierOf } from '../sim/buildings';
+import { STALL_SIZE, VENDOR_GOODS, isAgora, stallSlots } from '../sim/agora';
 import { FINISHED, type ServiceKind } from '../sim/types';
 import { TERRAIN_WATER } from '../sim/grid';
 import { RISK_LIMIT, riskOf } from '../sim/hazards';
-import type { Building, BuildingKind } from '../sim/types';
+import type { Building, BuildingKind, Good } from '../sim/types';
 import type { World } from '../sim/world';
 import type { TileAtlas } from './atlas';
 import type { BakedStructures } from './baked';
@@ -42,6 +43,21 @@ const CHIMNEYS: Record<number, { x: number; y: number; z: number }> = {
 };
 const DUST_INTERVAL_MS = 320;
 const APPEAL_COLOUR_SCALE = 20;
+const GROUND_DEPTH = -0.5;
+const STALL_TINTS: Record<Good, number> = {
+  food: 0xe8c96a,
+  fleece: 0xe8e0d0,
+  oil: 0x9fbf5a,
+  wine: 0xa8567a,
+  armour: 0xa9b0bb,
+  horses: 0xc08a4e,
+  olives: 0x9fbf5a,
+  grapes: 0xa8567a,
+  wood: 0x9a7040,
+  marble: 0xf0ece0,
+  bronze: 0xb08040,
+  sculpture: 0xf0ece0,
+};
 const SERVED_SUPPLY = 40;
 const SHADOW_ALPHA = 0.45;
 
@@ -49,6 +65,7 @@ interface BuildingEntry {
   key: string;
   body: Sprite;
   shadow: Sprite | null;
+  stalls: Sprite[];
 }
 
 export class Scene {
@@ -214,11 +231,14 @@ export class Scene {
   }
 
   private createBuilding(building: Building, key: string): BuildingEntry {
-    const depth = depthOf(building.x, building.y, building.size);
+    const depth = isAgora(building.kind)
+      ? GROUND_DEPTH + building.x + building.y
+      : depthOf(building.x, building.y, building.width, building.height);
     const anchor = footprintAnchor(
       building.x,
       building.y,
-      building.size,
+      building.width,
+      building.height,
       this.world.grid.heightAt(building.x, building.y),
     );
 
@@ -239,12 +259,38 @@ export class Scene {
       key,
       shadow,
       body: place(this.bodyFor(building), this.structures),
+      stalls: this.raiseStalls(building),
     };
+  }
+
+  private raiseStalls(building: Building): Sprite[] {
+    const ground = this.world.grid.heightAt(building.x, building.y);
+
+    return stallSlots(building).flatMap((slot, index) => {
+      const good = building.stalls[index];
+      if (!good) return [];
+
+      const stall = this.baked?.get('stall', VENDOR_GOODS.indexOf(good)) ?? this.textures.stall();
+      const sprite = new Sprite(stall.texture);
+      const anchor = footprintAnchor(slot.x, slot.y, STALL_SIZE, STALL_SIZE, ground);
+      sprite.anchor.set(stall.anchorX, stall.anchorY);
+      sprite.position.set(anchor.x, anchor.y);
+      sprite.zIndex = depthOf(slot.x, slot.y, STALL_SIZE, STALL_SIZE);
+      if (!this.baked) sprite.tint = STALL_TINTS[good];
+      this.structures.addChild(sprite);
+      return [sprite];
+    });
   }
 
   private bodyFor(building: Building): StructureSprite {
     if (isVacantPlot(building)) {
-      return this.baked?.get(plotKind(building), 0) ?? this.textures.plot(building.size);
+      return this.baked?.get(plotKind(building), 0) ?? this.textures.plot(building.width);
+    }
+    if (isAgora(building.kind)) {
+      return (
+        this.baked?.get(building.kind, alongAxisOf(building)) ??
+        this.textures.paving(building.width, building.height)
+      );
     }
 
     return this.structureFor(
@@ -255,6 +301,7 @@ export class Scene {
 
   private shadowFor(building: Building): StructureSprite | undefined {
     if (isVacantPlot(building)) return this.baked?.shadow(plotKind(building), 0);
+    if (isAgora(building.kind)) return undefined;
     return this.baked?.shadow(building.kind, bakedVariantOf(building));
   }
 
@@ -407,6 +454,11 @@ function variantOf(id: number): number {
 function destroyBuilding(entry: BuildingEntry): void {
   entry.body.destroy();
   entry.shadow?.destroy();
+  for (const stall of entry.stalls) stall.destroy();
+}
+
+function alongAxisOf(building: Building): number {
+  return building.width >= building.height ? 0 : 1;
 }
 
 function bakedVariantOf(building: Building): number {
@@ -418,6 +470,7 @@ function bakedVariantOf(building: Building): number {
 function lookKey(building: Building): string {
   if (isVacantPlot(building)) return `${building.kind}:plot`;
   if (isDwelling(building.kind)) return `${building.kind}:${building.tier}`;
+  if (isAgora(building.kind)) return `${building.kind}:${alongAxisOf(building)}:${building.stalls.join()}`;
   return building.kind;
 }
 

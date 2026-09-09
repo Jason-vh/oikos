@@ -1,3 +1,4 @@
+import { isAgora } from './agora';
 import { BUILDINGS, UNITS_PER_CARTLOAD, isDwelling } from './buildings';
 import { RISK_LIMIT } from './hazards';
 import type { GodKind } from './gods';
@@ -99,7 +100,7 @@ export const WRATHS: Record<GodKind, Act> = {
   },
   hermes: (world) => {
     for (const building of world.buildings.values()) {
-      if (building.kind === 'granary' || building.kind === 'agora') building.stock.food = 0;
+      if (building.kind === 'granary' || isAgora(building.kind)) building.stock.food = 0;
     }
   },
   dionysus: (world) => {

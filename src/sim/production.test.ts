@@ -8,15 +8,16 @@ function oilTown(): { world: World; lodge: Building; press: Building; agora: Bui
   const world = new World(32, 4);
   for (let x = 2; x < 30; x++) world.grid.road[world.grid.index(x, 8)] = 1;
 
-  const place = (kind: BuildingKind, x: number, y: number): Building => {
-    const building = createBuilding(world.buildings.size + 1, kind, x, y, BUILDINGS[kind].size);
+  const place = (kind: BuildingKind, x: number, y: number, width = BUILDINGS[kind].size, height = width): Building => {
+    const building = createBuilding(world.buildings.size + 1, kind, x, y, width, height);
     world.restore(building);
     return building;
   };
 
   const lodge = place('growersLodge', 3, 9);
   const press = place('olivePress', 7, 9);
-  const agora = place('agora', 11, 9);
+  const agora = place('agora', 11, 9, 6, 3);
+  agora.stalls = ['food', 'oil', null];
   const house = place('house', 16, 7);
   house.population = 400;
 
@@ -54,7 +55,7 @@ describe('the olive chain', () => {
     expect(press.stock.oil).toBe(0);
   });
 
-  test('the agora keeps one peddler per good on the road', () => {
+  test('the agora keeps one peddler per vendor on the road', () => {
     const { world, agora } = oilTown();
     agora.stock.food = 400;
     agora.stock.oil = 400;

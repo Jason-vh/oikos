@@ -33,6 +33,10 @@ def hex_rgb(code):
     return tuple(int(code[i : i + 2], 16) / 255 for i in (0, 2, 4))
 
 
+def shade_hex(code, factor):
+    return tuple(min(1.0, channel * factor) for channel in hex_rgb(code))
+
+
 WHITEWASH = hex_rgb("efe6d2")
 TERRACOTTA = hex_rgb("c8642e")
 TERRACOTTA_LIGHT = hex_rgb("d97a3c")
@@ -823,38 +827,25 @@ def build_granary():
     return {"kind": "granary", "variant": 0, "footprint": 2, "height": roof_z + roof_h + 0.1}
 
 
-def build_agora():
-    """Paved market square: colonnade along two sides, three awninged stalls, jars."""
-    paving = plaster_material("paving", STONE, roughness=0.9, variation=0.05, scale=14.0)
-    marble = material("marble", MARBLE, roughness=0.35)
-    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.85, variation=0.05, scale=6.0)
-    terracotta = roof_material("terracotta", TERRACOTTA)
-    awning = plaster_material("awning", TERRACOTTA_LIGHT, roughness=0.9, variation=0.08, scale=8.0)
-    wood = material("wood", WOOD, roughness=0.85)
-    clay = material("clay", CLAY, roughness=0.8)
+def build_agora(kind, across, along, variant):
+    """The agora itself is only its paving: flagstones with a kerb, laid along a road.
+    Everything else on it is a stall the player puts there."""
+    flags = plaster_material("flags", hex_rgb("cfc3a0"), roughness=0.93, variation=0.09, scale=18.0)
+    kerb = plaster_material("kerb", hex_rgb("b8ab88"), roughness=0.9, variation=0.06, scale=12.0)
+    grout = material("grout", hex_rgb("9d9070"), roughness=0.95)
 
-    half = 1.44
-    add_box("paving", (0, 0, 0.03), (half * 2, half * 2, 0.06), paving)
-    add_box("kerb", (0, 0, 0.02), (half * 2 + 0.06, half * 2 + 0.06, 0.04), marble)
+    width = along if variant == 0 else across
+    depth = across if variant == 0 else along
 
-    for y in (-1.0, -0.34, 0.32, 0.98):
-        add_cylinder("colonnade", (-half + 0.18, y, 0.06 + 0.3), 0.05, 0.6, marble, vertices=14)
-        add_box("colonnade_cap", (-half + 0.18, y, 0.06 + 0.62), (0.13, 0.13, 0.04), marble)
-    add_box("colonnade_roof", (-half + 0.18, 0, 0.06 + 0.68), (0.34, half * 2, 0.06), marble)
+    add_box("kerb", (0, 0, 0.02), (width, depth, 0.04), kerb)
+    add_box("flags", (0, 0, 0.035), (width - 0.16, depth - 0.16, 0.05), flags)
 
-    stall_half = 0.3
-    for index, y in enumerate((-0.86, 0.0, 0.86)):
-        x = half - 0.52
-        add_box(f"stall_{index}", (x, y, 0.06 + 0.22), (stall_half * 2, stall_half * 2, 0.44), whitewash)
-        add_box(f"counter_{index}", (x - stall_half - 0.1, y, 0.06 + 0.2), (0.22, stall_half * 2, 0.1), wood)
-        add_hip_roof(f"awning_{index}", (x, y, 0.06 + 0.52), stall_half + 0.12, 0.16, awning, ridge_half=0.06)
+    for step in range(1, int(round(width))):
+        add_box("joint", (-width / 2 + step, 0, 0.062), (0.04, depth - 0.2, 0.005), grout)
+    for step in range(1, int(round(depth))):
+        add_box("joint", (0, -depth / 2 + step, 0.062), (width - 0.2, 0.04, 0.005), grout)
 
-    add_box("notice_board", (-0.2, -half + 0.16, 0.06 + 0.24), (0.4, 0.06, 0.36), wood)
-    add_hip_roof("gate_roof", (half - 1.5, half - 0.2, 0.06 + 0.5), 0.34, 0.2, terracotta, ridge_half=0.08)
-    add_amphora("jar1", (0.1, -0.9, 0.06), 0.34, clay)
-    add_amphora("jar2", (-0.5, 1.0, 0.06), 0.3, clay)
-
-    return {"kind": "agora", "variant": 0, "footprint": 3, "height": 0.9}
+    return {"kind": kind, "variant": variant, "footprint": [width, depth], "height": 0.07}
 
 
 def build_college():
@@ -891,6 +882,36 @@ def build_college():
     add_cypress_pot("cypress", (0.9, 0.9, 0.06), 0.4, clay, cypress)
 
     return {"kind": "college", "variant": 0, "footprint": 3, "height": 1.15}
+
+
+STALL_AWNINGS = ["d9a441", "e8e2d2", "8fa354", "8e3f56", "6f7d8c", "8a5a34"]
+
+
+def build_stall(variant):
+    """A trader's stall for an agora: a pitched awning in the colours of whatever the
+    vendor deals in, over a counter, crates and jars."""
+    canvas = plaster_material("canvas", hex_rgb(STALL_AWNINGS[variant]), roughness=0.92, variation=0.08, scale=9.0)
+    canvas_dark = plaster_material("canvas_dark", shade_hex(STALL_AWNINGS[variant], 0.82), roughness=0.92, variation=0.06, scale=9.0)
+    wood = material("wood", hex_rgb("7a5730"), roughness=0.9)
+    crate = material("crate", hex_rgb("a37b45"), roughness=0.9)
+    cloth = material("cloth", hex_rgb("d8cdae"), roughness=0.95)
+
+    half = 0.52
+    post_h = 0.46
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            add_cylinder("post", (sx * half, sy * half, post_h / 2), 0.028, post_h, wood, vertices=8)
+
+    add_hip_roof("awning", (0, 0, post_h + 0.12), half + 0.14, 0.26, canvas, ridge_half=0.1)
+    add_box("valance", (0, half + 0.12, post_h + 0.02), (half * 2 + 0.28, 0.03, 0.1), canvas_dark)
+
+    add_box("counter", (0.06, -0.34, 0.16), (0.66, 0.3, 0.32), wood)
+    add_box("counter_top", (0.06, -0.34, 0.34), (0.78, 0.4, 0.05), cloth)
+    for index, (cx, cy) in enumerate(((-0.3, 0.3), (-0.08, 0.4), (-0.36, 0.06))):
+        add_box(f"crate{index}", (cx, cy, 0.1), (0.22, 0.22, 0.2), crate)
+    add_amphora("jar", (0.44, 0.34, 0.0), 0.26, crate)
+
+    return {"kind": "stall", "variant": variant, "footprint": 2, "height": 0.86}
 
 
 def build_podium():
@@ -2222,7 +2243,10 @@ MODELS = {
     "granary": build_granary,
     "trading-post": build_trading_post,
     "tax-office": build_tax_office,
-    "agora": build_agora,
+    "agora": lambda: build_agora("agora", 3, 6, 0),
+    "agora-turned": lambda: build_agora("agora", 3, 6, 1),
+    "grand-agora": lambda: build_agora("grandAgora", 5, 6, 0),
+    "grand-agora-turned": lambda: build_agora("grandAgora", 5, 6, 1),
     "growers-lodge": build_growers_lodge,
     "college": build_college,
     "gymnasium": build_gymnasium,
@@ -2259,9 +2283,13 @@ MODELS = {
     "fishery": build_fishery,
     "fountain": build_fountain,
     "statue": build_statue,
+
     "house-plot": lambda: build_plot("housePlot", 2),
     "estate-plot": lambda: build_plot("estatePlot", 4),
 }
+for stall_variant in range(len(STALL_AWNINGS)):
+    MODELS[f"stall-{stall_variant}"] = (lambda variant: lambda: build_stall(variant))(stall_variant)
+
 for estate_tier in range(4):
     MODELS[f"estate-{estate_tier}"] = (lambda tier: lambda: build_estate(tier))(estate_tier)
 
@@ -2330,14 +2358,28 @@ def add_sun():
     return sun
 
 
+def footprint_sides(spec):
+    """A footprint is a square side, or a pair of sides for a building laid long."""
+    footprint = spec["footprint"]
+    if isinstance(footprint, (list, tuple)):
+        return footprint[0], footprint[1]
+    return footprint, footprint
+
+
+def diagonal_of(spec):
+    across, along = footprint_sides(spec)
+    return (across + along) / 2
+
+
 def render_model(name, spec, out_dir, ground):
     """Two passes: the body with no shadow catcher, then the shadow with no body,
     so the game can lay a shadow under its neighbours instead of over them."""
+    spread = diagonal_of(spec)
     resolution = (
-        int((spec["footprint"] * TILE_WIDTH + 120) * SUPERSAMPLE),
-        int((spec["footprint"] * TILE_HEIGHT + spec["height"] * 90 + 120) * SUPERSAMPLE),
+        int((spread * TILE_WIDTH + 120) * SUPERSAMPLE),
+        int((spread * TILE_HEIGHT + spec["height"] * 90 + 120) * SUPERSAMPLE),
     )
-    camera = add_camera(spec["footprint"], spec["height"], resolution)
+    camera = add_camera(spread, spec["height"], resolution)
     add_sun()
 
     scene = bpy.context.scene
@@ -2367,7 +2409,7 @@ def render_model(name, spec, out_dir, ground):
 
 def shadow_frame(spec, resolution):
     """Room for the shadow the sun casts across the ground."""
-    reach = (spec["height"] / math.tan(SUN_ALTITUDE) + spec["footprint"]) * PIXELS_PER_UNIT
+    reach = (spec["height"] / math.tan(SUN_ALTITUDE) + diagonal_of(spec)) * PIXELS_PER_UNIT
     pad = int(reach * SUPERSAMPLE)
     return (resolution[0] + 2 * pad, resolution[1] + 2 * pad)
 

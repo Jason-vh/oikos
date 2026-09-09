@@ -11,6 +11,19 @@ import {
   isVacantPlot,
   tierOf,
 } from './buildings';
+import {
+  VENDOR_COST,
+  isAgora,
+  plotTiles,
+  roadRowOffsets,
+  roadRowTiles,
+  stallAt,
+  stallCountOf,
+  stallGoods,
+  strip,
+  type Plot,
+  type Tile,
+} from './agora';
 import { Grid, NO_BUILDING, TERRAIN_MEADOW } from './grid';
 import { updateHouses } from './housing';
 import {
@@ -83,7 +96,7 @@ import {
   type Monster,
 } from './heroes';
 import { TICKS_PER_MONTH } from './time';
-import { FINISHED, GOODS, createBuilding } from './types';
+import { FINISHED, GOODS, NO_ROAD_ROW, createBuilding } from './types';
 import type { Building, BuildingKind, Good, Walker, WalkerKind } from './types';
 import {
   PEDDLER_LOAD,
@@ -104,7 +117,6 @@ const MONTH_NAMES = [
 
 const TICKS_PER_LOAD = 150;
 const AGORA_SPAWN_INTERVAL = 90;
-const AGORA_GOODS: Good[] = ['food', 'oil', 'wine', 'fleece', 'armour', 'horses'];
 const COLLEGE_SPAWN_INTERVAL = 90;
 const MAINTENANCE_SPAWN_INTERVAL = 70;
 const STAGGERED_RISK = 40;
@@ -263,6 +275,9 @@ export class World {
 
   canPlace(kind: BuildingKind, x: number, y: number): PlacementCheck {
     const def = BUILDINGS[kind];
+    const plot = this.plotFor(kind, x, y);
+    if (!plot) return { ok: false, reason: 'Must be laid along a road' };
+
     if (this.treasury < this.costOf(kind)) return { ok: false, reason: 'Not enough drachmas' };
     if (SANCTUARY_KINDS.includes(kind) && !this.scenarioGods().includes(kind)) {
       return { ok: false, reason: 'That god does not attend this city' };
@@ -271,24 +286,24 @@ export class World {
       return { ok: false, reason: `Not until a ${BUILDINGS[def.requires].name.toLowerCase()} stands` };
     }
 
-    for (let dy = 0; dy < def.size; dy++) {
-      for (let dx = 0; dx < def.size; dx++) {
-        if (!this.grid.contains(x + dx, y + dy)) return { ok: false, reason: 'Outside the map' };
-        if (!this.grid.isFree(x + dx, y + dy)) return { ok: false, reason: 'Blocked' };
-      }
+    for (const tile of plotTiles(plot)) {
+      if (!this.grid.contains(tile.x, tile.y)) return { ok: false, reason: 'Outside the map' };
+      if (!this.groundIsFree(plot, tile)) return { ok: false, reason: 'Blocked' };
     }
-    if (def.requiresMeadow && !this.standsOnMeadow(x, y, def.size)) {
+    if (def.requiresMeadow && !this.standsOnMeadow(plot)) {
       return { ok: false, reason: 'Must be built on meadow' };
     }
-    if (!this.grid.isFlat(x, y, def.size)) return { ok: false, reason: 'Ground must be level' };
-    if (def.needsRoad && !this.touchesRoad(x, y, def.size)) {
+    if (!this.grid.isFlat(plot.x, plot.y, plot.width, plot.height)) {
+      return { ok: false, reason: 'Ground must be level' };
+    }
+    if (def.needsRoad && !this.touchesRoad(plot)) {
       return { ok: false, reason: 'Must touch a road' };
     }
     const tileAppeal = this.grid.appeal[this.grid.index(x, y)];
     if (def.minAppeal > 0 && tileAppeal < def.minAppeal) {
       return { ok: false, reason: `Needs appeal of ${def.minAppeal}, this ground has ${tileAppeal}` };
     }
-    if (def.needsNear && !this.grid.hasNear(def.needsNear, x, y, def.size, RESOURCE_RANGE)) {
+    if (def.needsNear && !this.grid.hasNear(def.needsNear, plot.x, plot.y, plot.width, plot.height, RESOURCE_RANGE)) {
       return { ok: false, reason: NEAR_REASON[def.needsNear] };
     }
     if (kind === 'monument' && this.questsDone === 0) {
@@ -323,18 +338,51 @@ export class World {
     }
   }
 
-  private standsOnMeadow(x: number, y: number, size: number): boolean {
-    for (const tile of this.grid.footprint(x, y, size)) {
+  private standsOnMeadow(plot: Plot): boolean {
+    for (const tile of this.grid.footprint(plot.x, plot.y, plot.width, plot.height)) {
       if (this.grid.terrain[tile] === TERRAIN_MEADOW) return true;
     }
     return false;
   }
 
-  private touchesRoad(x: number, y: number, size: number): boolean {
-    for (const tile of this.grid.perimeter(x, y, size)) {
+  private touchesRoad(plot: Plot): boolean {
+    for (const tile of this.grid.perimeter(plot.x, plot.y, plot.width, plot.height)) {
       if (this.grid.isRoad(tile)) return true;
     }
     return false;
+  }
+
+  private groundIsFree(plot: Plot, tile: Tile): boolean {
+    if (this.grid.isFree(tile.x, tile.y)) return true;
+    if (plot.roadRow === NO_ROAD_ROW) return false;
+    return this.isBareRoad(tile);
+  }
+
+  private isBareRoad(tile: Tile): boolean {
+    if (!this.grid.contains(tile.x, tile.y)) return false;
+    const index = this.grid.index(tile.x, tile.y);
+    return this.grid.isRoad(index) && !this.grid.isRoadblock(index) && this.grid.occupant[index] === NO_BUILDING;
+  }
+
+  plotFor(kind: BuildingKind, x: number, y: number): Plot {
+    const def = BUILDINGS[kind];
+    if (!def.alongRoad) return { x, y, width: def.size, height: def.size, roadRow: NO_ROAD_ROW };
+
+    const alongX = this.roadRunsAlongX(x, y);
+    const candidates = roadRowOffsets(def).map((offset) => strip(def, x, y, alongX, offset));
+    return candidates.find((plot) => this.sitsOnRoad(plot)) ?? candidates[0];
+  }
+
+  private sitsOnRoad(plot: Plot): boolean {
+    if (!roadRowTiles(plot).every((tile) => this.isBareRoad(tile))) return false;
+    return plotTiles(plot).every((tile) => this.groundIsFree(plot, tile));
+  }
+
+  private roadRunsAlongX(x: number, y: number): boolean {
+    const roads = (tiles: Tile[]) => tiles.filter((tile) => this.isBareRoad(tile)).length;
+    const eastWest = roads([{ x: x - 1, y }, { x: x + 1, y }]);
+    const northSouth = roads([{ x, y: y - 1 }, { x, y: y + 1 }]);
+    return eastWest >= northSouth;
   }
 
   costOf(kind: BuildingKind): number {
@@ -350,24 +398,29 @@ export class World {
     if (!this.canPlace(kind, x, y).ok) return false;
 
     const def = BUILDINGS[kind];
-    const building = createBuilding(this.nextId++, kind, x, y, def.size);
+    const plot = this.plotFor(kind, x, y);
+    const building = createBuilding(this.nextId++, kind, plot.x, plot.y, plot.width, plot.height);
+    building.roadRow = plot.roadRow;
+    building.stalls = new Array(stallCountOf(kind)).fill(null);
     building.fireRisk = Math.random() * STAGGERED_RISK;
     building.damageRisk = Math.random() * STAGGERED_RISK;
 
     this.buildings.set(building.id, building);
-    for (const tile of this.grid.footprint(x, y, def.size)) this.grid.occupant[tile] = building.id;
+    for (const tile of this.grid.footprint(plot.x, plot.y, plot.width, plot.height)) {
+      this.grid.occupant[tile] = building.id;
+    }
 
     this.treasury -= this.costOf(kind);
     this.lastBuild = { id: building.id, cost: this.costOf(kind) };
     if (def.marbleCost) this.spendStock('marble', def.marbleCost);
     if (def.sculptureCost) this.spendStock('sculpture', def.sculptureCost);
-    this.markChanged(this.grid.footprint(x, y, def.size));
+    this.markChanged(this.grid.footprint(plot.x, plot.y, plot.width, plot.height));
     return true;
   }
 
   restore(building: Building): void {
     this.buildings.set(building.id, building);
-    for (const tile of this.grid.footprint(building.x, building.y, building.size)) {
+    for (const tile of this.grid.footprint(building.x, building.y, building.width, building.height)) {
       this.grid.occupant[tile] = building.id;
     }
     this.nextId = Math.max(this.nextId, building.id + 1);
@@ -451,23 +504,21 @@ export class World {
       return true;
     }
 
-    if (this.grid.road[tile] === 1) {
+    const building = this.buildingAt(tile);
+    if (!building) {
+      if (this.grid.road[tile] !== 1) return false;
       this.grid.road[tile] = 0;
       this.markChanged([tile]);
       return true;
     }
 
-    const building = this.buildingAt(tile);
-    if (!building) return false;
-
-    for (const footprintTile of this.grid.footprint(building.x, building.y, building.size)) {
-      this.grid.occupant[footprintTile] = NO_BUILDING;
-    }
+    const footprint = [...this.grid.footprint(building.x, building.y, building.width, building.height)];
+    for (const footprintTile of footprint) this.grid.occupant[footprintTile] = NO_BUILDING;
     this.buildings.delete(building.id);
     for (const walker of this.walkers.values()) {
       if (walker.homeId === building.id) this.walkers.delete(walker.id);
     }
-    this.markChanged(this.grid.footprint(building.x, building.y, building.size));
+    this.markChanged(footprint);
     return true;
   }
 
@@ -1137,6 +1188,7 @@ export class World {
 
       switch (building.kind) {
         case 'agora':
+        case 'grandAgora':
           this.updateAgora(building);
           break;
         case 'fountain':
@@ -1214,13 +1266,33 @@ export class World {
     return tiles;
   }
 
+  placeVendor(good: Good, x: number, y: number): boolean {
+    if (!this.grid.contains(x, y)) return false;
+
+    const agora = this.buildingAt(this.grid.index(x, y));
+    if (!agora || !isAgora(agora.kind)) return false;
+
+    const stall = stallAt(agora, x, y);
+    if (stall === -1 || agora.stalls[stall] !== null) return false;
+    if (this.treasury < VENDOR_COST) return false;
+
+    agora.stalls[stall] = good;
+    this.treasury -= VENDOR_COST;
+    this.markChanged(this.grid.footprint(agora.x, agora.y, agora.width, agora.height));
+    return true;
+  }
+
   private updateAgora(agora: Building): void {
+    const goods = stallGoods(agora);
+    if (goods.length === 0) return;
+
     agora.spawnTimer += staffing(agora);
     if (atWalkerLimit(agora) || !hasRoadAccess(this.grid, agora)) return;
 
-    const capacity = BUILDINGS.agora.capacity;
-    for (const good of AGORA_GOODS) {
-      if (agora.stock[good] > capacity - UNITS_PER_CARTLOAD) continue;
+    const capacity = BUILDINGS[agora.kind].capacity;
+    const fetching = this.goodsCarriedTo(agora.id);
+    for (const good of goods) {
+      if (fetching.has(good) || agora.stock[good] > capacity - UNITS_PER_CARTLOAD) continue;
       const sources = this.tilesSupplying(good);
       if (sources.size > 0 && spawnDeliveryman(this, agora, sources, good)) return;
     }
@@ -1228,14 +1300,20 @@ export class World {
     if (agora.spawnTimer < AGORA_SPAWN_INTERVAL) return;
 
     const onSale = this.goodsOnSaleFrom(agora.id);
-    const good = AGORA_GOODS.find(
-      (candidate) => !onSale.has(candidate) && agora.stock[candidate] >= PEDDLER_LOAD,
-    );
+    const good = goods.find((candidate) => !onSale.has(candidate) && agora.stock[candidate] >= PEDDLER_LOAD);
     if (!good) return;
     if (spawnRoamer(this, agora, 'peddler', PEDDLER_LOAD, good)) {
       agora.spawnTimer = 0;
       agora.stock[good] -= PEDDLER_LOAD;
     }
+  }
+
+  private goodsCarriedTo(agoraId: number): Set<Good> {
+    const goods = new Set<Good>();
+    for (const walker of this.walkers.values()) {
+      if (walker.kind === 'deliveryman' && walker.homeId === agoraId) goods.add(walker.good);
+    }
+    return goods;
   }
 
   private goodsOnSaleFrom(agoraId: number): Set<Good> {

@@ -6,6 +6,8 @@ export interface BuildingDef {
   kind: BuildingKind;
   name: string;
   size: number;
+  alongRoad?: number;
+  stalls?: number;
   cost: number;
   colour: number;
   roofColour: number;
@@ -188,6 +190,18 @@ export const DWELLINGS: BuildingKind[] = ['house', 'estate'];
 
 export function isDwelling(kind: BuildingKind): boolean {
   return DWELLINGS.includes(kind);
+}
+
+export interface Footprint {
+  width: number;
+  height: number;
+}
+
+export function footprintOf(kind: BuildingKind, alongX = true): Footprint {
+  const def = BUILDINGS[kind];
+  if (!def.alongRoad) return { width: def.size, height: def.size };
+  if (alongX) return { width: def.alongRoad, height: def.size };
+  return { width: def.size, height: def.alongRoad };
 }
 
 export function isVacantPlot(building: { kind: BuildingKind; population: number }): boolean {
@@ -801,12 +815,14 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     kind: 'agora',
     name: 'Agora',
     size: 3,
-    cost: 25,
+    alongRoad: 6,
+    stalls: 3,
+    cost: 50,
     colour: 0xe3d6b4,
     roofColour: 0xb4623a,
-    height: 16,
-    workers: 8,
-    maxWalkers: 3,
+    height: 4,
+    workers: 0,
+    maxWalkers: 6,
     appeal: { initial: 12, bandSize: 2, step: -2, range: 6 },
     requiresMeadow: false,
     needsRoad: true,
@@ -819,7 +835,35 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     capacity: 400,
     fireRisk: 8,
     damageRisk: 6,
-    description: 'Deliverymen fetch food and oil; peddlers sell them house to house.',
+    description:
+      'Paving laid along a road, with room for three stalls on one side of it. Put a vendor on a stall and he will fetch his goods and sell them house to house.',
+  },
+  grandAgora: {
+    kind: 'grandAgora',
+    name: 'Grand Agora',
+    size: 5,
+    alongRoad: 6,
+    stalls: 6,
+    cost: 100,
+    colour: 0xe3d6b4,
+    roofColour: 0xb4623a,
+    height: 4,
+    workers: 0,
+    maxWalkers: 12,
+    appeal: { initial: 14, bandSize: 2, step: -2, range: 7 },
+    requiresMeadow: false,
+    needsRoad: true,
+    requires: null,
+    minAppeal: 0,
+    produces: null,
+    consumes: null,
+    accepts: [],
+    supplies: null,
+    capacity: 800,
+    fireRisk: 8,
+    damageRisk: 6,
+    description:
+      'Paving laid across a road, with room for six stalls, three to a side — every good the city sells can be had in one place.',
   },
   college: {
     kind: 'college',
@@ -1379,6 +1423,7 @@ export const PLACEABLE: BuildingKind[] = [
   'winery',
   'cardingShed',
   'agora',
+  'grandAgora',
   'college',
   'podium',
   'gymnasium',
@@ -1414,6 +1459,7 @@ export const LABOUR_PRIORITY: BuildingKind[] = [
   'fishery',
   'granary',
   'agora',
+  'grandAgora',
   'infirmary',
   'watchpost',
   'growersLodge',

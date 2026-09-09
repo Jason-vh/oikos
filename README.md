@@ -33,10 +33,13 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
   roaming walkers back without stopping anyone walking to a destination, so a block
   can be sealed off from wandering vendors while carts still reach it.
 - **Goods**: two chains. Wheat farm → granary; growers' lodge → olive press → oil.
-  Producers cart their output to whoever accepts it, and an agora sends deliverymen to
-  fetch a cartload (100 units) from whoever supplies it. A granary on its own feeds
-  nobody. An agora runs three stalls — three walkers at once, one peddler per good;
-  every other building sends one walker.
+  Producers cart their output to whoever accepts it. A granary on its own feeds nobody.
+- **The agora**: paving laid *along* a road rather than beside it — the road under it
+  keeps working. An agora is 6×3 with three stalls on one side; a grand agora is 6×5
+  with three stalls each side. Empty, it does nothing: the player puts vendors on the
+  stalls — food, fleece, oil, wine, arms, horses — and each one costs four workers,
+  sends a deliveryman for a cartload (100 units) from the nearest store that supplies
+  it, then peddles it to the houses he passes. Every other building sends one walker.
 - **Walkers**: they leave and re-enter their building by its *exit point* — the first
   road found clockwise from north of the footprint — except a fountain's carrier,
   which comes home to the tile due north. Roamers walk out their range (water carrier

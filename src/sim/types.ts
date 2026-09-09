@@ -72,6 +72,7 @@ export type BuildingKind =
   | 'growersLodge'
   | 'olivePress'
   | 'agora'
+  | 'grandAgora'
   | 'college'
   | 'podium'
   | 'maintenanceOffice'
@@ -126,12 +127,15 @@ export interface Building {
   kind: BuildingKind;
   x: number;
   y: number;
-  size: number;
+  width: number;
+  height: number;
   tier: number;
   population: number;
   staff: number;
   supply: ServiceSupply;
   stock: GoodStock;
+  stalls: (Good | null)[];
+  roadRow: number;
   fireRisk: number;
   damageRisk: number;
   disease: number;
@@ -183,21 +187,33 @@ export const emptySupply = (): ServiceSupply => (Object.fromEntries(SERVICE_KIND
 
 export const FINISHED = 100;
 
+export const NO_ROAD_ROW = -1;
+
 export const emptyStock = (): GoodStock =>
   Object.fromEntries(GOODS.map((good) => [good, 0])) as GoodStock;
 
-export function createBuilding(id: number, kind: BuildingKind, x: number, y: number, size: number): Building {
+export function createBuilding(
+  id: number,
+  kind: BuildingKind,
+  x: number,
+  y: number,
+  width: number,
+  height = width,
+): Building {
   return {
     id,
     kind,
     x,
     y,
-    size,
+    width,
+    height,
     tier: 0,
     population: 0,
     staff: 0,
     supply: emptySupply(),
     stock: emptyStock(),
+    stalls: [],
+    roadRow: NO_ROAD_ROW,
     fireRisk: 0,
     damageRisk: 0,
     disease: 0,

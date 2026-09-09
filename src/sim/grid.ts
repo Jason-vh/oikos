@@ -36,10 +36,10 @@ export class Grid {
     return this.height[this.index(x, y)];
   }
 
-  isFlat(x: number, y: number, size: number): boolean {
+  isFlat(x: number, y: number, width: number, height = width): boolean {
     const reference = this.heightAt(x, y);
-    for (let dy = 0; dy < size; dy++) {
-      for (let dx = 0; dx < size; dx++) {
+    for (let dy = 0; dy < height; dy++) {
+      for (let dx = 0; dx < width; dx++) {
         if (this.heightAt(x + dx, y + dy) !== reference) return false;
       }
     }
@@ -87,9 +87,16 @@ export class Grid {
     return this.roadblock[index] === 1;
   }
 
-  hasNear(resource: 'woods' | 'rock' | 'water', x: number, y: number, size: number, range: number): boolean {
-    for (let dy = -range; dy < size + range; dy++) {
-      for (let dx = -range; dx < size + range; dx++) {
+  hasNear(
+    resource: 'woods' | 'rock' | 'water',
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    range: number,
+  ): boolean {
+    for (let dy = -range; dy < height + range; dy++) {
+      for (let dx = -range; dx < width + range; dx++) {
         const nx = x + dx;
         const ny = y + dy;
         if (!this.contains(nx, ny)) continue;
@@ -106,23 +113,28 @@ export class Grid {
     return this.wall[index] === 1;
   }
 
-  *footprint(x: number, y: number, size: number): Generator<number> {
-    for (let dy = 0; dy < size; dy++) {
-      for (let dx = 0; dx < size; dx++) {
+  *footprint(x: number, y: number, width: number, height = width): Generator<number> {
+    for (let dy = 0; dy < height; dy++) {
+      for (let dx = 0; dx < width; dx++) {
         yield this.index(x + dx, y + dy);
       }
     }
   }
 
-  *perimeter(x: number, y: number, size: number): Generator<number> {
-    for (let d = 0; d < size; d++) {
-      const ring = [
-        [x + d, y - 1],
-        [x + d, y + size],
-        [x - 1, y + d],
-        [x + size, y + d],
-      ];
-      for (const [nx, ny] of ring) {
+  *perimeter(x: number, y: number, width: number, height = width): Generator<number> {
+    for (let dx = 0; dx < width; dx++) {
+      for (const [nx, ny] of [
+        [x + dx, y - 1],
+        [x + dx, y + height],
+      ]) {
+        if (this.contains(nx, ny)) yield this.index(nx, ny);
+      }
+    }
+    for (let dy = 0; dy < height; dy++) {
+      for (const [nx, ny] of [
+        [x - 1, y + dy],
+        [x + width, y + dy],
+      ]) {
         if (this.contains(nx, ny)) yield this.index(nx, ny);
       }
     }

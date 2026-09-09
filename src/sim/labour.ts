@@ -1,4 +1,5 @@
 import { DEFAULT_DIFFICULTY, DIFFICULTIES } from './difficulty';
+import { STALL_WORKERS, stallGoods } from './agora';
 import { BUILDINGS, LABOUR_PRIORITY } from './buildings';
 import type { Building } from './types';
 
@@ -36,7 +37,7 @@ export function allocateLabour(buildings: Iterable<Building>, workforce: number)
   let required = 0;
 
   for (const building of queue) {
-    const needed = BUILDINGS[building.kind].workers;
+    const needed = workersFor(building);
     building.staff = Math.min(needed, available);
     available -= building.staff;
     employed += building.staff;
@@ -46,8 +47,12 @@ export function allocateLabour(buildings: Iterable<Building>, workforce: number)
   return { workforce, employed, required };
 }
 
+export function workersFor(building: Building): number {
+  return BUILDINGS[building.kind].workers + stallGoods(building).length * STALL_WORKERS;
+}
+
 export function staffing(building: Building): number {
-  const needed = BUILDINGS[building.kind].workers;
+  const needed = workersFor(building);
   if (needed === 0) return 1;
   return building.staff / needed;
 }

@@ -29,7 +29,7 @@ describe('elite housing', () => {
     expect(world.place('estate', 4, 11)).toBe(true);
     const estate = [...world.buildings.values()][0];
     expect(estate.tier).toBe(0);
-    expect(estate.size).toBe(4);
+    expect(estate.width).toBe(4);
   });
 
   test('a noble pays eighteen times what a hut dweller pays', () => {

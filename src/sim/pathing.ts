@@ -3,7 +3,7 @@ import type { Building } from './types';
 
 export function roadAccessTiles(grid: Grid, building: Building): number[] {
   const tiles: number[] = [];
-  for (const tile of grid.perimeter(building.x, building.y, building.size)) {
+  for (const tile of grid.perimeter(building.x, building.y, building.width, building.height)) {
     if (grid.isRoad(tile)) tiles.push(tile);
   }
   return tiles;
@@ -31,12 +31,12 @@ export function northOf(grid: Grid, building: Building): number {
 }
 
 function* clockwiseFromNorth(grid: Grid, building: Building): Generator<number> {
-  const { x, y, size } = building;
+  const { x, y, width, height } = building;
   const ring: [number, number][] = [];
-  for (let d = 0; d < size; d++) ring.push([x + d, y - 1]);
-  for (let d = 0; d < size; d++) ring.push([x + size, y + d]);
-  for (let d = size - 1; d >= 0; d--) ring.push([x + d, y + size]);
-  for (let d = size - 1; d >= 0; d--) ring.push([x - 1, y + d]);
+  for (let d = 0; d < width; d++) ring.push([x + d, y - 1]);
+  for (let d = 0; d < height; d++) ring.push([x + width, y + d]);
+  for (let d = width - 1; d >= 0; d--) ring.push([x + d, y + height]);
+  for (let d = height - 1; d >= 0; d--) ring.push([x - 1, y + d]);
 
   for (const [tileX, tileY] of ring) {
     if (grid.contains(tileX, tileY)) yield grid.index(tileX, tileY);
@@ -44,7 +44,7 @@ function* clockwiseFromNorth(grid: Grid, building: Building): Generator<number> 
 }
 
 export function hasRoadAccess(grid: Grid, building: Building): boolean {
-  for (const tile of grid.perimeter(building.x, building.y, building.size)) {
+  for (const tile of grid.perimeter(building.x, building.y, building.width, building.height)) {
     if (grid.isRoad(tile)) return true;
   }
   return false;

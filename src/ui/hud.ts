@@ -12,6 +12,7 @@ import { GAMES, gameOfYear } from '../sim/games';
 import { QUESTS } from '../sim/quests';
 import { CAMPAIGN } from '../sim/scenario';
 import { adviseCity } from './advisors';
+import { VENDOR_GOODS, VENDOR_COST } from '../sim/agora';
 import type { BuildingKind } from '../sim/types';
 import { abandonCity } from '../sim/save';
 import { CITIES, GIFT_COST, GIFT_GOODWILL, relationOf, tradesWithYou } from '../sim/cities';
@@ -20,6 +21,8 @@ import { COIN, money } from './money';
 import {
   describeBuildingTool,
   describeDemolishTool,
+  describeVendorTool,
+  GOOD_NAMES,
   describeInspectTool,
   describeRoadTool,
   describeRoadblockTool,
@@ -349,6 +352,15 @@ function toolButtons(game: Game): ToolButton[] {
     describe: () => describeBuildingTool(kind, game.world.difficulty),
   }));
 
+  const vendors = VENDOR_GOODS.map((good) => ({
+    label: `${GOOD_NAMES[good]} vendor`,
+    cost: VENDOR_COST,
+    shortcut: '',
+    tool: { kind: 'vendor', good } as Tool,
+    group: 'Agora',
+    describe: () => describeVendorTool(good),
+  }));
+
   return [
     {
       label: 'Inspect',
@@ -368,6 +380,7 @@ function toolButtons(game: Game): ToolButton[] {
       describe: describeRoadblockTool,
     },
     ...structures,
+    ...vendors,
     {
       label: 'Wall',
       cost: WALL_COST,
@@ -455,7 +468,8 @@ function renderPopup(popup: HTMLElement, inspection: Inspection | null, closable
 
 function groupFor(kind: string): string {
   if (kind === 'house' || kind === 'estate') return 'Housing';
-  const food = ['wheatFarm', 'carrotFarm', 'onionFarm', 'huntingLodge', 'fishery', 'granary', 'growersLodge', 'agora'];
+  const food = ['wheatFarm', 'carrotFarm', 'onionFarm', 'huntingLodge', 'fishery', 'granary', 'growersLodge'];
+  if (kind === 'agora' || kind === 'grandAgora') return 'Agora';
   if (food.includes(kind)) return 'Food';
   const industry = ['olivePress', 'winery', 'cardingShed', 'vineyard', 'timberMill', 'masonryShop', 'foundry', 'armoury', 'sculptureStudio', 'horseRanch', 'mint'];
   if (industry.includes(kind)) return 'Industry';
@@ -670,7 +684,7 @@ function clampIndex(index: number, length: number): number {
 }
 
 function renderPanel(buttons: ToolButton[], gods: BuildingKind[]): string {
-  const headed = ['Housing', 'Food', 'Industry', 'Culture', 'Services', 'Government', 'Defence', 'Mythology'];
+  const headed = ['Housing', 'Food', 'Agora', 'Industry', 'Culture', 'Services', 'Government', 'Defence', 'Mythology'];
   const shown = buttons
     .map((button, index) => ({ button, index }))
     .filter(({ button }) => !SANCTUARY_KINDS.includes(button.costOf as BuildingKind) || gods.includes(button.costOf as BuildingKind));
