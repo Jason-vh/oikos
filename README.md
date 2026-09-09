@@ -266,7 +266,17 @@ identified by eye from the contact sheets and may be off by one.
 
 **Before finishing any art change, run `compare.py` for the kinds touched and look at
 it.** Name three differences that remain. If the terrain changed, take a `noon.mjs`
-shot and measure it against `palette.json`.
+shot and measure it against `palette.json`. `?seed=7` on the URL pins the map, so
+shots are comparable run to run:
+
+```bash
+bun scripts/noon.mjs "http://localhost:5180/?seed=7" /tmp/city.png 400 1
+```
+
+What the reference settled so far: the common ground is the ochre scrub, not green;
+green grass gathers by the water; the sun is front-left and high, lit walls are a
+cream-yellow, roofs are five or six rows of tile, every silhouette is inked; a
+townhouse is two units tall on a two-unit plot; houses do not smoke.
 
 ## Art licence
 

@@ -941,7 +941,7 @@ def build_granary():
 def build_agora(kind, across, along, variant):
     """The agora itself is only its floor: cobbles inside a marble kerb, with a dark
     inlay running round them. Everything on it is a stall the player puts there."""
-    cobbles = cobble_material("cobbles", hex_rgb("cdbc98"), stones_per_unit=10.0, spread=0.26)
+    cobbles = cobble_material("cobbles", hex_rgb("ece2c2"), stones_per_unit=10.0, spread=0.22)
     kerb = plaster_material("kerb", hex_rgb("e0d6ba"), roughness=0.6, variation=0.04, scale=9.0)
     inlay = cobble_material("inlay", hex_rgb("947c4e"), stones_per_unit=14.0, spread=0.14)
 
@@ -1137,15 +1137,17 @@ def build_tax_office():
 
 
 def build_palace():
-    """Palace: a colonnaded hall on a stepped marble terrace, flanked by wings and statues."""
-    marble = material("marble", MARBLE, roughness=0.3)
-    paving = plaster_material("paving", MARBLE, roughness=0.6, variation=0.03, scale=18.0)
-    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.84, variation=0.04, scale=6.0)
-    terracotta = roof_material("terracotta", TERRACOTTA, rows_per_unit=18.0)
+    """Palace: a colonnaded hall on a stepped marble terrace, flanked by wings and statues.
+    Coloured as the original's: gold-glazed tile, blue-grey marble, red columns."""
+    marble = plaster_material("marble", hex_rgb("c9d0dc"), roughness=0.5, variation=0.1, scale=8.0)
+    paving = plaster_material("paving", hex_rgb("e8e2cc"), roughness=0.7, variation=0.08, scale=18.0)
+    whitewash = plaster_material("whitewash", hex_rgb("b9c2d2"), roughness=0.8, variation=0.14, scale=6.0)
+    terracotta = roof_material("gold_tile", hex_rgb("d9a020"), rows_per_unit=6.0)
     stone = plaster_material("stone", STONE, roughness=0.8, variation=0.05, scale=10.0)
     bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
     clay = material("clay", CLAY, roughness=0.8)
     cypress = material("cypress", CYPRESS, roughness=0.9)
+    column = material("column_red", hex_rgb("a83a2a"), roughness=0.7)
 
     terrace = add_box("terrace", (0, 0, 0.03), (3.9, 3.9, 0.06), paving)
     terrace.visible_shadow = False
@@ -1169,9 +1171,9 @@ def build_palace():
     add_cylinder("finial", (hx, hy, roof_z + roof_h + 0.12), 0.06, 0.2, bronze, vertices=10)
 
     for offset in (-0.72, -0.24, 0.24, 0.72):
-        add_cylinder("column_east", (hx + hall_half + 0.24, hy + offset, base_z + 0.1 + 0.6), 0.07, 1.2, marble, vertices=16)
+        add_cylinder("column_east", (hx + hall_half + 0.24, hy + offset, base_z + 0.1 + 0.6), 0.07, 1.2, column, vertices=16)
         add_box("capital_east", (hx + hall_half + 0.24, hy + offset, base_z + 0.1 + 1.22), (0.18, 0.18, 0.06), marble)
-        add_cylinder("column_south", (hx + offset, hy - hall_half - 0.24, base_z + 0.1 + 0.6), 0.07, 1.2, marble, vertices=16)
+        add_cylinder("column_south", (hx + offset, hy - hall_half - 0.24, base_z + 0.1 + 0.6), 0.07, 1.2, column, vertices=16)
         add_box("capital_south", (hx + offset, hy - hall_half - 0.24, base_z + 0.1 + 1.22), (0.18, 0.18, 0.06), marble)
     add_box("portico_east", (hx + hall_half + 0.24, hy, base_z + 1.36), (0.44, hall_half * 2 + 0.5, 0.1), marble)
     add_box("portico_south", (hx, hy - hall_half - 0.24, base_z + 1.36), (hall_half * 2 + 0.5, 0.44, 0.1), marble)
