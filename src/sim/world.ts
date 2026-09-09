@@ -142,6 +142,7 @@ const TOWER_STRENGTH = 2;
 const WALL_STRENGTH = 1;
 const WALL_TILES_PER_COMPANY = 12;
 const MONTHS_OF_DEBT_ALLOWED = 24;
+const MONTHS_OF_EMPTINESS = 12;
 const PLUNDER_PER_COMPANY = 250;
 const MONTHS_PER_YEAR = 12;
 
@@ -220,6 +221,7 @@ export class World {
   scenarioWon = false;
   scenarioLost = false;
   monthsInDebt = 0;
+  monthsEmpty = 0;
   tick = 0;
   month = 0;
   year = -500;
@@ -231,6 +233,7 @@ export class World {
   private appealDirty = false;
   private immigrantsStranded = false;
   private readonly nagged = new Map<string, number>();
+  private settled = false;
   private readonly outputByMonth = Object.fromEntries(
     GOODS.map((good) => [good, new Array(MONTHS_PER_YEAR).fill(0)]),
   ) as Record<Good, number[]>;
@@ -654,10 +657,18 @@ export class World {
   private reviewGoals(): void {
     this.goals = measureGoals(this.scenario, this.citySnapshot());
     this.monthsInDebt = this.treasury < 0 ? this.monthsInDebt + 1 : 0;
+    this.monthsEmpty = this.population === 0 && this.settled ? this.monthsEmpty + 1 : 0;
+    this.settled ||= this.population > 0;
 
     if (!this.scenarioLost && this.monthsInDebt >= MONTHS_OF_DEBT_ALLOWED) {
       this.scenarioLost = true;
       this.log('The city has been in debt for two years. Your rule is over, Archon.');
+      return;
+    }
+
+    if (!this.scenarioLost && this.monthsEmpty >= MONTHS_OF_EMPTINESS) {
+      this.scenarioLost = true;
+      this.log('Not a soul is left in the city, Archon. Your rule is over.');
       return;
     }
 
