@@ -43,12 +43,13 @@ export function trade(
   posts: Building[],
   orders: Record<string, boolean>,
   treasury: number,
+  willing: (routeId: string) => boolean = () => true,
 ): TradeReport {
   const report = { ...NO_TRADE };
   const capacity = BUILDINGS.tradingPost.capacity;
 
   for (const route of TRADE_ROUTES) {
-    if (!orders[route.id]) continue;
+    if (!orders[route.id] || !willing(route.id)) continue;
     let remaining = route.cartloadsPerMonth;
 
     for (const post of posts) {

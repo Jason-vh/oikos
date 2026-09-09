@@ -12,6 +12,7 @@ import { CAMPAIGN } from '../sim/scenario';
 import { adviseCity } from './advisors';
 import type { BuildingKind } from '../sim/types';
 import { abandonCity } from '../sim/save';
+import { CITIES, GIFT_COST, GIFT_GOODWILL, relationOf, tradesWithYou } from '../sim/cities';
 import { TRADE_ROUTES } from '../sim/trade';
 import { COIN, money } from './money';
 import {
@@ -480,15 +481,21 @@ function renderHeroes(hud: HTMLElement, game: Game): void {
 
 function renderRequests(hud: HTMLElement, world: Game['world'], game: Game): void {
   const host = hud.querySelector('[data-requests]') as HTMLElement;
-  const rows = world.requests
+  const requests = world.requests
     .map(
       (request, index) =>
         `<button class="choice" data-request="${index}"><span>${describeRequest(request)}</span><b>${request.reward} ${COIN}</b></button>`,
     )
     .join('');
-  const note = `<p class="dropdown-note">Standing with the world: ${world.standing} of 100.</p>`;
-  const empty = '<p class="dropdown-note">No city asks anything of you.</p>';
-  const markup = (rows === '' ? empty : rows) + note;
+
+  const cities = CITIES.map((city) => {
+    const goodwill = world.goodwill[city.id] ?? 0;
+    return `<button class="choice" data-gift="${city.id}" title="${city.blurb}">
+      <span>${city.name}</span><b>${relationOf(goodwill)} · ${goodwill}</b>
+    </button>`;
+  }).join('');
+
+  const markup = `${requests}<div class="dropdown-rule"></div>${cities}<p class="dropdown-note">A gift of ${GIFT_COST} ${COIN} buys ${GIFT_GOODWILL} goodwill. Allies trade; vassals pay tribute.</p>`;
 
   if (host.innerHTML === markup) return;
   host.innerHTML = markup;
@@ -497,6 +504,11 @@ function renderRequests(hud: HTMLElement, world: Game['world'], game: Game): voi
       if (!game.world.fulfilRequest(Number(element.dataset.request))) {
         game.world.log('The city has not the goods to send.');
       }
+    });
+  });
+  host.querySelectorAll<HTMLButtonElement>('[data-gift]').forEach((element) => {
+    element.addEventListener('click', () => {
+      if (!game.world.sendGift(element.dataset.gift!)) game.world.log('The treasury cannot afford a gift.');
     });
   });
 }
@@ -513,6 +525,10 @@ function armyNote(world: Game['world']): string {
 
 function tradeNote(world: Game['world']): string {
   const { earned, spent, exported, imported } = world.trade;
+  const shut = TRADE_ROUTES.filter(
+    (route) => world.tradeOrders[route.id] && !tradesWithYou(world.goodwill[route.id] ?? 0),
+  );
+  if (shut.length > 0) return `${shut[0].city} will not trade until it counts you a friend.`;
   if (earned === 0 && spent === 0) return 'A staffed trading post carries the orders you open.';
   return `Last month: ${exported} out for ${money(earned)}, ${imported} in for ${money(spent)}.`;
 }

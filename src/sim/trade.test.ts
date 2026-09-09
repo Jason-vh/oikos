@@ -60,6 +60,7 @@ describe('a city that trades', () => {
     for (let x = 1; x < 23; x++) world.grid.road[world.grid.index(x, 6)] = 1;
     world.treasury = 5000;
     world.tradeOrders.corinth = true;
+    world.goodwill.corinth = 70;
 
     for (let tick = 0; tick < TICKS_PER_MONTH; tick++) world.update();
     expect(world.trade.earned).toBe(0);

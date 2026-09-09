@@ -1,4 +1,5 @@
 import { isDwelling, tierOf } from '../sim/buildings';
+import { CITIES, tradesWithYou } from '../sim/cities';
 import { GODS, moodName } from '../sim/gods';
 import { HEROES } from '../sim/heroes';
 import { companiesIn } from '../sim/military';
@@ -52,6 +53,7 @@ function adviseOnTrade(world: World): AdvisorReport {
       { label: 'Tax last month', value: `${Math.round(world.taxes.collected)}`, concern: world.taxes.collected === 0 },
       { label: 'Trade last month', value: `${earned} in, ${spent} out`, concern: false },
       { label: 'Standing abroad', value: `${world.standing} of 100`, concern: world.standing < 35 },
+      { label: 'Allies', value: `${allies(world)} of ${CITIES.length}`, concern: allies(world) === 0 },
       { label: 'Requests waiting', value: `${world.requests.length}`, concern: world.requests.length > 0 },
       { label: 'Untaxed people', value: `${world.taxes.untaxedPeople}`, concern: wages < 0 },
     ],
@@ -104,6 +106,10 @@ function migration(migrants: number): string {
   if (migrants > 0) return `${migrants} settling`;
   if (migrants < 0) return `${-migrants} leaving`;
   return 'steady';
+}
+
+function allies(world: World): number {
+  return CITIES.filter((city) => tradesWithYou(world.goodwill[city.id] ?? 0)).length;
 }
 
 function dwellings(world: World) {

@@ -39,7 +39,7 @@ describe('a city and its hero', () => {
 
   test('needs a hall before anyone answers', () => {
     const world = city();
-    world.standing = 100;
+    for (const city of Object.keys(world.goodwill)) world.goodwill[city] = 100;
     world.army.hoplite = 5;
 
     expect(world.summon('achilles')).toBe(false);

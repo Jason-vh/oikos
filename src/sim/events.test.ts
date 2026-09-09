@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { BROKEN_PROMISE_STANDING, REQUEST_STANDING, ageRequests, requestFrom } from './events';
+import { NEUTRAL_GOODWILL } from './cities';
 import { TICKS_PER_MONTH } from './time';
 import { World } from './world';
 
@@ -46,7 +47,7 @@ describe('a city and the world', () => {
     expect(world.fulfilRequest(0)).toBe(true);
     expect(world.requests).toEqual([]);
     expect(world.treasury).toBe(before + REQUEST.reward);
-    expect(world.standing).toBe(50 + REQUEST_STANDING);
+    expect(world.goodwill.mycenae).toBe(NEUTRAL_GOODWILL + REQUEST_STANDING);
     expect([...world.buildings.values()][0].stock.food).toBe(6);
   });
 
@@ -65,6 +66,6 @@ describe('a city and the world', () => {
     for (let tick = 0; tick < TICKS_PER_MONTH; tick++) world.update();
 
     expect(world.requests).toEqual([]);
-    expect(world.standing).toBe(50 - BROKEN_PROMISE_STANDING);
+    expect(world.goodwill.mycenae).toBe(NEUTRAL_GOODWILL - BROKEN_PROMISE_STANDING);
   });
 });

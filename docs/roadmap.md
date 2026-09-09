@@ -514,10 +514,13 @@ Sustained debt loses the episode.
 good price for a small quota and a poor one for a large; Mycenae and Troy sell grain.
 A route is an order the player opens, and a manned trading post carries it out each
 month — oil carted in leaves, bought grain lands there and the agora fetches it like
-a granary. A scenario also carries events: a city may ask for a number of cartloads
-within a deadline, paying a reward and raising your standing when the goods go out,
-and taking standing when the months run out; another may simply send a gift. Cities
-as places, relationships, tribute, travel time and the world map are not started.
+a granary. Six cities in `src/sim/cities.ts` each keep their own goodwill, which reads
+as a relationship: rival below 20, distant, ally at 55, vassal at 85. Only an ally or
+a vassal will trade with you, however many routes you open; a vassal sends 400 dr of
+tribute a year. A gift of 500 dr buys twelve goodwill, fulfilling a request buys six,
+and letting one expire costs ten. A scenario also carries events: requests with
+deadlines, gifts and earthquakes. Travel time, demands, military aid, colonies and the
+map itself are not started.
 
 **Natural disasters**: earthquake (permanent crevices, bridgeable by road), tidal
 wave (temporary) vs flood (permanent), lava (destroys land forever), landslide,

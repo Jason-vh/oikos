@@ -52,6 +52,16 @@ import {
   requestFrom,
   type Request,
 } from './events';
+import {
+  CITIES,
+  GIFT_COST,
+  GIFT_GOODWILL,
+  NEUTRAL_GOODWILL,
+  newGoodwill,
+  shiftGoodwill,
+  tradesWithYou,
+  tributeFrom,
+} from './cities';
 import { BLESSINGS, WRATHS } from './divine';
 import { NO_TRADE, TRADE_ROUTES, newTradeOrders, trade, type TradeReport } from './trade';
 import { NO_ARMY, companiesIn, fightInvasion, musterArmy, type Army, type Battle } from './military';
@@ -134,7 +144,7 @@ export class World {
   trade: TradeReport = NO_TRADE;
   army: Army = { ...NO_ARMY };
   requests: Request[] = [];
-  standing = 50;
+  goodwill: Record<string, number> = newGoodwill();
   hero: { kind: HeroKind; monthsLeft: number } | null = null;
   divineFavourMonths = 0;
   monster: Monster | null = null;
@@ -390,6 +400,7 @@ export class World {
     if (this.month >= 12) {
       this.month = 0;
       this.year += 1;
+      this.collectTribute();
     }
     this.hireWorkers();
     this.taxes = collectTax(this.buildings.values(), this.taxRate, this.difficulty);
@@ -492,7 +503,10 @@ export class World {
       (building) => building.kind === 'tradingPost' && building.staff > 0,
     );
 
-    this.trade = posts.length === 0 ? NO_TRADE : trade(posts, this.tradeOrders, this.treasury);
+    this.trade =
+      posts.length === 0
+        ? NO_TRADE
+        : trade(posts, this.tradeOrders, this.treasury, (route) => tradesWithYou(this.goodwill[route] ?? 0));
     this.treasury += this.trade.earned - this.trade.spent;
   }
 
@@ -523,7 +537,7 @@ export class World {
     this.requests = live;
 
     for (const request of expired) {
-      this.standing = Math.max(0, this.standing - BROKEN_PROMISE_STANDING);
+      this.shiftGoodwill(request.city, -BROKEN_PROMISE_STANDING);
       this.log(`${request.city} waited in vain for ${request.good}.`);
     }
 
@@ -578,6 +592,35 @@ export class World {
     return true;
   }
 
+  shiftGoodwill(cityName: string, amount: number): void {
+    const city = CITIES.find((candidate) => candidate.name === cityName || candidate.id === cityName);
+    if (!city) return;
+    this.goodwill[city.id] = shiftGoodwill(this.goodwill[city.id] ?? NEUTRAL_GOODWILL, amount);
+  }
+
+  sendGift(cityId: string): boolean {
+    if (this.treasury < GIFT_COST || !(cityId in this.goodwill)) return false;
+
+    this.treasury -= GIFT_COST;
+    this.shiftGoodwill(cityId, GIFT_GOODWILL);
+    this.log(`A gift goes out to ${CITIES.find((city) => city.id === cityId)?.name}.`);
+    return true;
+  }
+
+  get standing(): number {
+    const values = Object.values(this.goodwill);
+    return Math.round(values.reduce((total, value) => total + value, 0) / values.length);
+  }
+
+  private collectTribute(): void {
+    for (const city of CITIES) {
+      const tribute = tributeFrom(this.goodwill[city.id] ?? 0);
+      if (tribute === 0) continue;
+      this.treasury += tribute;
+      this.log(`${city.name} sends its yearly tribute.`);
+    }
+  }
+
   heroCall(): HeroCall {
     const eliteHouses = [...this.buildings.values()].filter((building) => building.kind === 'estate').length;
     return callFor(this.citySnapshot(), this.standing, eliteHouses);
@@ -612,7 +655,7 @@ export class World {
     }
 
     this.treasury += request.reward;
-    this.standing = Math.min(100, this.standing + REQUEST_STANDING);
+    this.shiftGoodwill(request.city, REQUEST_STANDING);
     this.requests.splice(index, 1);
     this.log(`${request.city} thanks you, and sends ${request.reward} drachmas.`);
     return true;
