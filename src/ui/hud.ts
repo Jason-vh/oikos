@@ -8,6 +8,7 @@ import { UNITS, type UnitKind } from '../sim/military';
 import { DIFFICULTIES } from '../sim/difficulty';
 import { describeRequest } from '../sim/events';
 import { HEROES, HERO_KINDS, summonable, type HeroKind } from '../sim/heroes';
+import { GAMES, gameOfYear } from '../sim/games';
 import { QUESTS } from '../sim/quests';
 import { CAMPAIGN } from '../sim/scenario';
 import { adviseCity } from './advisors';
@@ -64,6 +65,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
         <span class="cartouche" data-field="date"></span>
         ${renderMenu('treasury', 'treasury', financeMenu())}
         ${renderMenu('people', '', peopleMenu())}
+        ${renderMenu('games', '', '<div data-games></div>')}
         ${renderMenu('heroes', '', '<div data-heroes></div>')}
         ${renderMenu('requests', '', '<div data-requests></div>')}
         ${renderMenu('army', '', armyMenu())}
@@ -260,6 +262,8 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       field('date').textContent = world.dateLabel;
       field('treasury').innerHTML = money(world.treasury);
       field('speed').textContent = speedLabel(game.speed);
+      field('games').textContent = 'Games';
+      renderGames(hud, game);
       field('heroes').textContent = 'Heroes';
       renderHeroes(hud, game);
       field('requests').textContent = 'World';
@@ -450,6 +454,28 @@ function groupFor(kind: string): string {
   return 'Services';
 }
 
+
+function renderGames(hud: HTMLElement, game: Game): void {
+  const host = hud.querySelector('[data-games]') as HTMLElement;
+  const { world } = game;
+  const next = gameOfYear(world.year);
+
+  const rows = GAMES.map(
+    (candidate) =>
+      `<div class="dropdown-row${candidate.name === next.name ? ' chosen' : ''}"><span>${candidate.name}</span><b>${candidate.contest}</b></div>`,
+  ).join('');
+  const entry = world.gamesEntered
+    ? '<p class="dropdown-note">The city is entered for this year.</p>'
+    : `<button class="choice" data-enter-games><span>Enter the ${next.name}</span><b>${next.entryCost} ${COIN}</b></button>`;
+  const record = `<p class="dropdown-note">${world.lastGames ?? 'Six in ten houses must know the art to win.'} Won ${world.gamesWon}.</p>`;
+  const markup = rows + entry + record;
+
+  if (host.innerHTML === markup) return;
+  host.innerHTML = markup;
+  host.querySelector('[data-enter-games]')?.addEventListener('click', () => {
+    if (!game.world.enterGames()) game.world.log('The city cannot pay the entry.');
+  });
+}
 
 function renderHeroes(hud: HTMLElement, game: Game): void {
   const host = hud.querySelector('[data-heroes]') as HTMLElement;

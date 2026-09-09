@@ -314,6 +314,12 @@ laboratory 4×4/9/65→180; museum 6×6/50/225→575 (one per city).
 hosting requires winning the Olympics plus a working stadium, and brings tourists,
 revenue, popularity and a second monument.
 
+🟡 All four run on their four-year cycle in `src/sim/games.ts`: the city pays to enter,
+and wins if six houses in ten know the art in question — every art at once for the
+Olympics. A win pays its purse and buys goodwill with every city, and a city that has
+won the Olympics and keeps a stadium hosts them for 2500 dr more. Tourists and the
+second monument are not started.
+
 **Hippodrome** (Atlantean only): built stade by stade as any closed loop, 4×4
 segments at 30→100 dr, with 4×1 crosswalks (25→75) to cross it.
 

@@ -63,6 +63,7 @@ import {
   tributeFrom,
 } from './cities';
 import { BLESSINGS, WRATHS } from './divine';
+import { GAME_GOODWILL, HOSTING_REVENUE, culturedShare, gameOfYear, winsTheGames } from './games';
 import { OFFER_MOOD, QUESTS, type QuestCity, type QuestState } from './quests';
 import { NO_TRADE, TRADE_ROUTES, newTradeOrders, trade, type TradeReport } from './trade';
 import { NO_ARMY, companiesIn, fightInvasion, musterArmy, type Army, type Battle } from './military';
@@ -151,6 +152,10 @@ export class World {
   divineFavourMonths = 0;
   monster: Monster | null = null;
   monstersSlain = 0;
+  gamesEntered = false;
+  gamesWon = 0;
+  wonOlympics = false;
+  lastGames: string | null = null;
   quests: Record<GodKind, QuestState> = Object.fromEntries(
     GOD_KINDS.map((kind) => [kind, 'unoffered' as QuestState]),
   ) as Record<GodKind, QuestState>;
@@ -433,6 +438,7 @@ export class World {
       this.month = 0;
       this.year += 1;
       this.collectTribute();
+      this.holdTheGames();
     }
     this.hireWorkers();
     this.taxes = collectTax(this.buildings.values(), this.taxRate, this.difficulty);
@@ -563,6 +569,43 @@ export class World {
       if (!isDwelling(building.kind)) continue;
       building.supply.athletics = Math.max(building.supply.athletics, STADIUM_CULTURE);
     }
+  }
+
+  enterGames(): boolean {
+    const game = gameOfYear(this.year);
+    if (this.gamesEntered || this.treasury < game.entryCost) return false;
+
+    this.treasury -= game.entryCost;
+    this.gamesEntered = true;
+    this.log(`The city enters the ${game.name}.`);
+    return true;
+  }
+
+  private holdTheGames(): void {
+    const game = gameOfYear(this.year - 1);
+    if (!this.gamesEntered) {
+      this.lastGames = `The city sat out the ${game.name}.`;
+      return;
+    }
+    this.gamesEntered = false;
+
+    const houses = [...this.buildings.values()].filter((building) => isDwelling(building.kind));
+    if (!winsTheGames(culturedShare(houses, game.culture))) {
+      this.lastGames = `The city was beaten at the ${game.name}.`;
+      this.log(this.lastGames);
+      return;
+    }
+
+    this.gamesWon += 1;
+    this.wonOlympics = this.wonOlympics || game.name === 'Olympic Games';
+    this.treasury += game.prize;
+    for (const city of CITIES) this.shiftGoodwill(city.id, GAME_GOODWILL);
+
+    const hosting = this.wonOlympics && this.has('stadium');
+    if (hosting) this.treasury += HOSTING_REVENUE;
+
+    this.lastGames = `The city won the ${game.name}${hosting ? ', and hosted them' : ''}.`;
+    this.log(this.lastGames);
   }
 
   private pursueQuests(): void {
