@@ -10,6 +10,9 @@ await page.evaluate(({ tick: t, zoom: z }) => {
   world.treasury = 200000;
   let spot = null;
   for (let y = 2; y < world.grid.size - 6 && !spot; y++) for (let x = 2; x < world.grid.size - 6 && !spot; x++) if (world.canPlace('wheatFarm', x, y).ok) spot = { x, y };
+  const { grid } = world;
+  const clear = (x, y, w, h) => { for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) if (!grid.isFree(x + dx, y + dy)) return false; return grid.isFlat(x, y, w, h); };
+  for (let y = 10; y < grid.size - 20 && !spot; y++) for (let x = 10; x < grid.size - 20 && !spot; x++) if (clear(x - 8, y - 2, 20, 10)) spot = { x, y };
   const row = spot.y + 3;
   for (let x = spot.x - 8; x < spot.x + 12; x++) world.placeRoad(x, row);
   world.place('wheatFarm', spot.x, spot.y);

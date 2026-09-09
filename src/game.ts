@@ -25,7 +25,7 @@ export type Tool =
   | { kind: 'vendor'; good: Good };
 
 const MAP_SIZE = 120;
-const SEA_COLOUR = 0x2f8fa8;
+const SEA_COLOUR = 0x1d6673;
 const MS_PER_TICK = 1000 / TICKS_PER_SECOND;
 const MAX_TICKS_PER_FRAME = 40;
 const OPENING_VIEW = 9;
@@ -320,6 +320,8 @@ export class Game {
 }
 
 function randomSeed(): number {
+  const requested = Number(new URLSearchParams(window.location.search).get('seed'));
+  if (requested > 0) return requested;
   return Math.floor(Math.random() * 1e9);
 }
 

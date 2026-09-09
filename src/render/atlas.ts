@@ -2,11 +2,12 @@ import { CanvasSource, Rectangle, Texture } from 'pixi.js';
 import { TERRAIN_GRASS, TERRAIN_MEADOW, TERRAIN_ROCK, TERRAIN_SAND, TERRAIN_WATER } from '../sim/grid';
 import { createRandom } from '../sim/mapgen';
 import { TEXTURE_SCALE, createSurface, css, diamondPath, polygonPath, shade, speckle } from './canvas';
+import { GRAIN_CELL, type Ramp, type Tuft, fbm, fillGrain, scatterTufts } from './grain';
 import { TILE_HEIGHT, TILE_WIDTH } from './iso';
 
 export type BlendDirection = 'east' | 'south' | 'west' | 'north';
 
-export const TERRAIN_VARIANTS = 6;
+export const TERRAIN_VARIANTS = 12;
 export const ROAD_VARIANTS = 3;
 export const ROAD_GRADES = 3;
 export const WATER_FRAMES = 8;
@@ -35,35 +36,43 @@ export const TERRAIN_PRIORITY: Record<number, number> = {
 };
 
 interface TerrainPalette {
-  base: number;
-  highlight: number;
-  speckles: number[];
+  ramp: Ramp;
+  tufts: Tuft[];
 }
 
+const SCRUB_RAMP: Ramp = {
+  colours: [0xb39a42, 0xbfa44a, 0xcab054, 0xd2b85b, 0xdac266, 0xe2cc74],
+  scale: 5,
+  jitter: 0.35,
+};
+
+const SCRUB_TUFTS: Tuft = { colours: [0x8a8434, 0x9a9440, 0x7d7a2e], density: 0.05, height: 2 };
+
 const TERRAIN_PALETTES: Record<number, TerrainPalette> = {
-  [TERRAIN_GRASS]: {
-    base: 0xadb768,
-    highlight: 0xc2c988,
-    speckles: [0x93a557, 0xc6d189, 0xb2bd6b, 0x9fae5e],
-  },
+  [TERRAIN_GRASS]: { ramp: SCRUB_RAMP, tufts: [SCRUB_TUFTS] },
   [TERRAIN_MEADOW]: {
-    base: 0xdcd28c,
-    highlight: 0xeae09f,
-    speckles: [0xcdc27c, 0xf0e8b0, 0xd5cb84, 0xe3d996],
+    ramp: {
+      colours: [0x2a340c, 0x3a4412, 0x4b541a, 0x5d641f, 0x6c7626, 0x7e8a2e, 0x97a33a],
+      scale: 4.5,
+      jitter: 0.45,
+    },
+    tufts: [
+      { colours: [0x93a038, 0xa3b044, 0x2a330c, 0x1f2708], density: 0.12, height: 3 },
+      { colours: [0xb08ac0, 0xc9a6d6], density: 0.012, height: 1 },
+    ],
   },
-  [TERRAIN_ROCK]: {
-    base: 0xd2ccbc,
-    highlight: 0xe6e1d3,
-    speckles: [0xc3bbaa, 0xefebe0, 0xb9b0a0, 0xdcd6c8],
-  },
+  [TERRAIN_ROCK]: { ramp: SCRUB_RAMP, tufts: [] },
   [TERRAIN_SAND]: {
-    base: 0xefe5bd,
-    highlight: 0xf8f1d6,
-    speckles: [0xe4d8ac, 0xfbf6e4, 0xdccfa0],
+    ramp: {
+      colours: [0xc9b97e, 0xd6c88c, 0xe1d49a, 0xe9dda6, 0xf0e6b6, 0xf6eec6],
+      scale: 3.6,
+      jitter: 0.45,
+    },
+    tufts: [],
   },
 };
 
-const WILDFLOWER_COLOURS = [0xd9584a, 0xf0d472, 0xfbf9f0, 0xc4a9dc];
+const WATER_RAMP: Ramp = { colours: [0x155660, 0x185c68, 0x1b616d, 0x1e6672, 0x216b76], scale: 6, jitter: 0.25 };
 const PEBBLE_COLOUR = 0xc0b6a2;
 
 interface Cell {
@@ -243,28 +252,19 @@ function drawTerrain(
 ): void {
   const palette = TERRAIN_PALETTES[kind] ?? TERRAIN_PALETTES[TERRAIN_GRASS];
   const random = createRandom(kind * 7919 + variant * 104729 + 17);
+  const seed = kind * 1000 + variant * 31;
   const cx = x + width / 2;
   const cy = y + height / 2;
-  const tone = 0.98 + random() * 0.04;
 
   ctx.save();
   diamondPath(ctx, cx, cy, HALF_W, HALF_H);
   ctx.clip();
 
-  const gradient = ctx.createLinearGradient(0, cy - HALF_H, 0, cy + HALF_H);
-  gradient.addColorStop(0, css(shade(palette.base, tone * 1.01)));
-  gradient.addColorStop(1, css(shade(palette.base, tone * 0.99)));
-  ctx.fillStyle = gradient;
-  ctx.fillRect(x, y, width, height);
-
-  speckle(ctx, random, { x, y, width, height }, 320, palette.speckles, 2.4, 0.42);
-
-  if (kind === TERRAIN_GRASS || kind === TERRAIN_MEADOW) {
-    drawBlades(ctx, random, palette, x, y, width, height);
-    drawPebbles(ctx, random, x, y, width, height, 3 + (variant % 3));
-    drawWildflowers(ctx, random, x, y, width, height, variant % 4);
+  fillGrain(ctx, x, y, width, height, palette.ramp, seed);
+  const sparseness = 0.35 + random() * 0.65;
+  for (const tuft of palette.tufts) {
+    scatterTufts(ctx, x, y, width, height, { ...tuft, density: tuft.density * sparseness }, seed);
   }
-  if (kind === TERRAIN_MEADOW) drawFurrows(ctx, cx, cy);
   if (kind === TERRAIN_ROCK) drawStones(ctx, random, x, y, width, height);
   if (kind === TERRAIN_SAND) drawPebbles(ctx, random, x, y, width, height, 4);
 
@@ -288,59 +288,6 @@ function drawPebbles(
     ctx.beginPath();
     ctx.ellipse(px, py, size, size * 0.7, random() * Math.PI, 0, Math.PI * 2);
     ctx.fill();
-  }
-}
-
-function drawWildflowers(
-  ctx: CanvasRenderingContext2D,
-  random: () => number,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  count: number,
-): void {
-  for (let i = 0; i < count; i++) {
-    const fx = x + random() * width;
-    const fy = y + random() * height;
-    ctx.fillStyle = css(WILDFLOWER_COLOURS[Math.floor(random() * WILDFLOWER_COLOURS.length)], 0.75);
-    ctx.beginPath();
-    ctx.arc(fx, fy, 1, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-function drawBlades(
-  ctx: CanvasRenderingContext2D,
-  random: () => number,
-  palette: TerrainPalette,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-): void {
-  ctx.lineWidth = 1;
-  for (let i = 0; i < 140; i++) {
-    const bx = x + random() * width;
-    const by = y + random() * height;
-    const length = 2 + random() * 4;
-    ctx.strokeStyle = css(palette.speckles[Math.floor(random() * palette.speckles.length)], 0.55);
-    ctx.beginPath();
-    ctx.moveTo(bx, by);
-    ctx.lineTo(bx + (random() - 0.5) * 2, by - length);
-    ctx.stroke();
-  }
-}
-
-function drawFurrows(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
-  ctx.strokeStyle = 'rgba(150, 130, 60, 0.3)';
-  ctx.lineWidth = 1.5;
-  for (let i = -4; i <= 4; i++) {
-    const offset = i * 7;
-    ctx.beginPath();
-    ctx.moveTo(cx - HALF_W + offset, cy + offset * (HALF_H / HALF_W));
-    ctx.lineTo(cx + offset, cy - HALF_H + offset * (HALF_H / HALF_W));
-    ctx.stroke();
   }
 }
 
@@ -381,13 +328,6 @@ function drawRoad(
   if (grade === 0) drawTrack(ctx, random, x, y, width, height, cx, cy);
   if (grade === 1) drawCobbles(ctx, random, x, y, width, height, cx, cy);
   if (grade === 2) drawSlabs(ctx, random, x, y, width, height, cx, cy);
-
-  const rut = ctx.createLinearGradient(0, cy - HALF_H, 0, cy + HALF_H);
-  rut.addColorStop(0, 'rgba(0,0,0,0.12)');
-  rut.addColorStop(0.5, 'rgba(0,0,0,0)');
-  rut.addColorStop(1, 'rgba(0,0,0,0.14)');
-  ctx.fillStyle = rut;
-  ctx.fillRect(x, y, width, height);
   ctx.restore();
 }
 
@@ -423,25 +363,12 @@ function drawTrack(
   cx: number,
   cy: number,
 ): void {
-  ctx.fillStyle = css(0xc6ad81);
-  ctx.fillRect(x, y, width, height);
-  speckle(ctx, random, { x, y, width, height }, 220, [0xb59a6e, 0xd8c298, 0xa88f66], 2.2, 0.4);
+  fillGrain(ctx, x, y, width, height, { colours: [0xbfa45c, 0xcbb068, 0xd3b972, 0xdbc27c, 0xe2ca86], scale: 3, jitter: 0.5 }, 4242);
 
-  for (let stone = 0; stone < 26; stone++) {
+  for (let stone = 0; stone < 18; stone++) {
     const [px, py] = isoCorner(cx, cy, random(), random());
-    ctx.fillStyle = css(0xd6c39c, 0.6);
-    ctx.beginPath();
-    ctx.ellipse(px, py, 1.4 + random() * 1.8, 1 + random() * 1.2, random() * Math.PI, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  for (const offset of [-0.16, 0.16]) {
-    ctx.strokeStyle = 'rgba(122, 100, 68, 0.35)';
-    ctx.lineWidth = 5;
-    ctx.beginPath();
-    ctx.moveTo(...(isoCorner(cx, cy, 0, 0.5 + offset) as [number, number]));
-    ctx.lineTo(...(isoCorner(cx, cy, 1, 0.5 + offset) as [number, number]));
-    ctx.stroke();
+    ctx.fillStyle = css(random() < 0.5 ? 0xe8d9a8 : 0xb09a5a, 0.8);
+    ctx.fillRect(Math.round(px / 2) * 2, Math.round(py / 2) * 2, 2, 2);
   }
 }
 
@@ -455,24 +382,24 @@ function drawCobbles(
   cx: number,
   cy: number,
 ): void {
-  ctx.fillStyle = css(0x8b7c5e);
+  ctx.fillStyle = css(0xb3a06a);
   ctx.fillRect(x, y, width, height);
 
-  const rows = 6;
+  const rows = 5;
   const step = 1 / rows;
   for (let row = 0; row < rows; row++) {
     const shift = row % 2 === 0 ? 0 : step / 2;
     for (let column = -1; column <= rows; column++) {
-      const u = column * step + shift + (random() - 0.5) * step * 0.16;
-      const v = row * step + (random() - 0.5) * step * 0.16;
-      const tone = 0.9 + random() * 0.22;
+      const u = column * step + shift + (random() - 0.5) * step * 0.3;
+      const v = row * step + (random() - 0.5) * step * 0.3;
+      const tone = 0.92 + random() * 0.16;
 
-      polygonPath(ctx, isoCell(cx, cy, u, v, step, 0.14 + random() * 0.06));
-      ctx.fillStyle = css(shade(0xcdb894, tone));
+      polygonPath(ctx, isoCell(cx, cy, u, v, step, 0.1 + random() * 0.06));
+      ctx.fillStyle = css(shade(0xdfcd97, tone));
       ctx.fill();
     }
   }
-  speckle(ctx, random, { x, y, width, height }, 90, [0xbda882, 0xdccbaa], 1.2, 0.3);
+  speckle(ctx, random, { x, y, width, height }, 120, [0xcdb97e, 0xeadcaa, 0xf2e6bc], 1.4, 0.45);
 }
 
 function drawSlabs(
@@ -485,22 +412,22 @@ function drawSlabs(
   cx: number,
   cy: number,
 ): void {
-  ctx.fillStyle = css(0xb3a98c);
+  ctx.fillStyle = css(0xc9bd96);
   ctx.fillRect(x, y, width, height);
 
   const rows = 2;
   const step = 1 / rows;
   for (let row = 0; row < rows; row++) {
     for (let column = 0; column < rows; column++) {
-      const tone = 0.96 + random() * 0.09;
+      const tone = 0.96 + random() * 0.07;
       polygonPath(ctx, isoCell(cx, cy, column * step, row * step, step, 0.035));
-      ctx.fillStyle = css(shade(0xe2dac2, tone));
+      ctx.fillStyle = css(shade(0xf1e8c8, tone));
       ctx.fill();
 
       for (let vein = 0; vein < 2; vein++) {
         const start = isoCorner(cx, cy, (column + random() * 0.8) * step, (row + random() * 0.2) * step);
         const end = isoCorner(cx, cy, (column + random() * 0.9) * step, (row + 0.6 + random() * 0.4) * step);
-        ctx.strokeStyle = 'rgba(146, 136, 112, 0.28)';
+        ctx.strokeStyle = 'rgba(170, 156, 120, 0.3)';
         ctx.lineWidth = 0.8;
         ctx.beginPath();
         ctx.moveTo(start[0], start[1]);
@@ -527,45 +454,19 @@ function drawWater(
   diamondPath(ctx, cx, cy, HALF_W, HALF_H);
   ctx.clip();
 
-  ctx.lineWidth = 1.6;
-  for (let band = 0; band < 7; band++) {
-    ctx.strokeStyle = `rgba(214, 245, 240, ${0.1 + 0.08 * Math.sin(phase + band * 1.7)})`;
+  fillGrain(ctx, x, y, width, height, WATER_RAMP, 500 + frame);
+
+  ctx.lineWidth = 2;
+  for (let band = 0; band < 4; band++) {
+    ctx.strokeStyle = `rgba(48, 120, 130, ${0.12 + 0.1 * Math.sin(phase + band * 1.7)})`;
     ctx.beginPath();
-    for (let px = 0; px <= width; px += 6) {
-      const py =
-        y + 6 + band * 8 + Math.sin(phase + px * 0.09 + band) * 2.4 + Math.sin(phase * 1.3) * 1.5;
-      if (px === 0) ctx.moveTo(x + px, py);
-      else ctx.lineTo(x + px, py);
+    for (let px = 0; px <= width; px += 4) {
+      const py = y + 8 + band * 13 + Math.sin(phase + px * 0.11 + band * 2) * 2.5;
+      if (px === 0) ctx.moveTo(x + px, Math.round(py / 2) * 2);
+      else ctx.lineTo(x + px, Math.round(py / 2) * 2);
     }
     ctx.stroke();
   }
-
-  for (let i = 0; i < 14; i++) {
-    const t = phase + i * 1.6;
-    ctx.fillStyle = `rgba(255,255,255,${0.06 + 0.14 * Math.abs(Math.sin(t))})`;
-    ctx.beginPath();
-    ctx.ellipse(cx + Math.cos(t) * HALF_W * 0.55, cy + Math.sin(t * 1.3) * HALF_H * 0.5, 4, 1.4, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
-
-  ctx.save();
-  ctx.globalCompositeOperation = 'destination-in';
-  ctx.translate(cx, cy);
-  ctx.scale(1, HALF_H / HALF_W);
-  const fade = ctx.createRadialGradient(0, 0, 0, 0, 0, HALF_W);
-  fade.addColorStop(0.5, 'rgba(0,0,0,1)');
-  fade.addColorStop(0.9, 'rgba(0,0,0,0)');
-  ctx.fillStyle = fade;
-  ctx.fillRect(-HALF_W, -HALF_W, HALF_W * 2, HALF_W * 2);
-  ctx.restore();
-
-  ctx.save();
-  ctx.globalCompositeOperation = 'destination-over';
-  diamondPath(ctx, cx, cy, HALF_W, HALF_H);
-  ctx.clip();
-  ctx.fillStyle = css(0x2f8fa8);
-  ctx.fillRect(x, y, width, height);
   ctx.restore();
 }
 
@@ -599,17 +500,17 @@ function drawShore(
   diamondPath(ctx, cx, cy, HALF_W, HALF_H);
   ctx.clip();
 
-  const shallows = ctx.createLinearGradient(edgeMid.x, edgeMid.y, cx + ex * 0.35, cy + ey * 0.35);
-  shallows.addColorStop(0, 'rgba(160, 222, 214, 0.7)');
-  shallows.addColorStop(0.45, 'rgba(120, 198, 196, 0.3)');
-  shallows.addColorStop(1, 'rgba(90, 170, 175, 0)');
+  const shallows = ctx.createLinearGradient(edgeMid.x, edgeMid.y, cx + ex * 0.2, cy + ey * 0.2);
+  shallows.addColorStop(0, 'rgba(225, 212, 154, 0.9)');
+  shallows.addColorStop(0.4, 'rgba(190, 195, 150, 0.45)');
+  shallows.addColorStop(1, 'rgba(120, 165, 150, 0)');
   ctx.fillStyle = shallows;
   ctx.fillRect(x, y, width, height);
 
   ctx.lineWidth = 1.4;
   for (let line = 0; line < 2; line++) {
     const inset = 3 + line * 4.5;
-    ctx.strokeStyle = `rgba(238, 251, 248, ${line === 0 ? 0.6 : 0.3})`;
+    ctx.strokeStyle = `rgba(232, 226, 190, ${line === 0 ? 0.35 : 0.18})`;
     ctx.beginPath();
     for (let step = -halfEdge; step <= halfEdge; step += 3) {
       const wobble = Math.sin(step * 0.3 + line * 1.9) * 1.3 + (random() - 0.5) * 0.8;
@@ -635,14 +536,19 @@ function maskEdge(
   const cx = x + width / 2;
   const cy = y + height / 2;
   const [ex, ey] = EDGE_NORMALS[direction];
-  const gradient = ctx.createLinearGradient(cx + ex * 1.6, cy + ey * 1.6, cx - ex * 1.4, cy - ey * 1.4);
-  gradient.addColorStop(0, 'rgba(0,0,0,1)');
-  gradient.addColorStop(0.45, 'rgba(0,0,0,0.6)');
-  gradient.addColorStop(0.9, 'rgba(0,0,0,0)');
+  const normalLength = Math.hypot(ex, ey);
+  const seed = 900 + DIRECTIONS.indexOf(direction);
 
   ctx.globalCompositeOperation = 'destination-in';
-  ctx.fillStyle = gradient;
-  ctx.fillRect(x, y, width, height);
+  ctx.fillStyle = 'rgba(0,0,0,1)';
+  for (let py = y; py < y + height; py += GRAIN_CELL) {
+    for (let px = x; px < x + width; px += GRAIN_CELL) {
+      const along = ((px + 1 - cx) * ex + (py + 1 - cy) * ey) / (normalLength * normalLength);
+      const depth = 1 - along;
+      const ragged = fbm(px / 9, py / 4.5, seed) * 1.1 - 0.2;
+      if (depth * 0.85 < ragged) ctx.fillRect(px, py, GRAIN_CELL, GRAIN_CELL);
+    }
+  }
   ctx.globalCompositeOperation = 'source-over';
 }
 
