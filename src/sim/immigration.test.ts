@@ -134,3 +134,20 @@ describe('immigration', () => {
     expect(isVacantPlot(house)).toBe(true);
   });
 });
+
+describe('a house the settlers cannot reach', () => {
+  test('does not hold up the houses they can', () => {
+    const world = flatCity();
+    roadFromEntryTo(world, 15, 15);
+    for (let x = 20; x < 28; x++) world.grid.road[world.grid.index(x, 28)] = 1;
+
+    expect(world.place('house', 24, 29)).toBe(true);
+    expect(world.place('house', 15, 16)).toBe(true);
+    const [cutOff, onTheRoad] = [...world.buildings.values()];
+
+    run(world, TICKS_PER_MONTH * 3);
+
+    expect(cutOff.population).toBe(0);
+    expect(onTheRoad.population).toBeGreaterThan(0);
+  });
+});

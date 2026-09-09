@@ -1165,32 +1165,28 @@ export class World {
   private admitImmigrants(): void {
     if (this.arrivals <= 0 || this.tick % IMMIGRATION_INTERVAL !== 0) return;
 
-    const destination = this.nextToSettle();
-    const party = destination
-      ? Math.min(this.arrivals, TRAVELLING_PARTY, roomIn(destination) - this.expectedAt(destination))
-      : 0;
-    if (!destination || party <= 0) {
+    const waiting = this.housesWithRoom();
+    for (const { house, room } of waiting) {
+      const party = Math.min(this.arrivals, TRAVELLING_PARTY, room);
+      if (!spawnImmigrants(this, house, party)) continue;
+
+      this.arrivals -= party;
       this.immigrantsStranded = false;
       return;
     }
 
-    this.immigrantsStranded = !spawnImmigrants(this, destination, party);
-    if (this.immigrantsStranded) return;
-    this.arrivals -= party;
+    this.immigrantsStranded = waiting.length > 0;
   }
 
-  private nextToSettle(): Building | undefined {
-    let best: Building | undefined;
-    let bestRoom = 0;
-    for (const house of this.dwellings()) {
-      const room = roomIn(house) - this.expectedAt(house);
-      if (room <= 0) continue;
-      if (isVacantPlot(house)) return house;
-      if (room <= bestRoom) continue;
-      best = house;
-      bestRoom = room;
-    }
-    return best;
+  private housesWithRoom(): { house: Building; room: number }[] {
+    const waiting = this.dwellings()
+      .map((house) => ({ house, room: roomIn(house) - this.expectedAt(house) }))
+      .filter((candidate) => candidate.room > 0);
+
+    return waiting.sort((a, b) => {
+      const empty = Number(isVacantPlot(b.house)) - Number(isVacantPlot(a.house));
+      return empty !== 0 ? empty : b.room - a.room;
+    });
   }
 
   private expectedAt(house: Building): number {
