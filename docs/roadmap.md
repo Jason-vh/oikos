@@ -218,8 +218,11 @@ Homesteads and above ask for fleece, manors and estates for wine. A timber mill 
 stand among trees and a masonry shop beside rock, and a sanctuary now costs marble as
 well as drachmas — 48 cartloads for Zeus down to 8 for Dionysus, taken out of store on
 placement, as in the original. A trading post takes oil, wine, fleece, timber and
-marble for export. Carrots, onions, meat, cheese, fish, bronze, armour, sculpture,
-horses and the mint are not started.
+marble for export. A foundry beside rock smelts bronze, an armoury beats it into
+armour, a sculpture studio casts it into sculpture, a horse ranch turns grain into
+horses on the meadow, and a mint beside rock strikes silver into coin month after
+month. Mansions want armour, estates want horses as well, and a monument wants two
+sculptures with its marble. Carrots, onions, meat, cheese and fish are not started.
 
 🟡 Earlier: wheat farm → granary, and growers' lodge → olive press → oil, with goods
 carted by producers and pulled by the agora. Husbandry, the rest of industry, harvest

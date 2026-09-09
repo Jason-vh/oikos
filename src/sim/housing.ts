@@ -5,19 +5,9 @@ import { SERVICE_KINDS } from './types';
 import type { Building, ServiceKind } from './types';
 import type { World } from './world';
 
-const SUPPLY_DECAY_PER_TICK: Record<ServiceKind, number> = {
-  food: 0.05,
-  water: 0.05,
-  oil: 0.05,
-  culture: 0.04,
-  tax: 0.05,
-  health: 0.05,
-  safety: 0.05,
-  wine: 0.04,
-  fleece: 0.04,
-  athletics: 0.04,
-  drama: 0.04,
-};
+const SUPPLY_DECAY_PER_TICK: Record<ServiceKind, number> = Object.fromEntries(
+  SERVICE_KINDS.map((service) => [service, service === 'culture' || service === 'athletics' || service === 'drama' ? 0.04 : 0.05]),
+) as Record<ServiceKind, number>;
 const EVOLUTION_INTERVAL = 25;
 
 export function updateHouses(world: World): void {

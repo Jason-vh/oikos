@@ -92,13 +92,14 @@ const MONTH_NAMES = [
 
 const TICKS_PER_LOAD = 150;
 const AGORA_SPAWN_INTERVAL = 90;
-const AGORA_GOODS: Good[] = ['food', 'oil', 'wine', 'fleece'];
+const AGORA_GOODS: Good[] = ['food', 'oil', 'wine', 'fleece', 'armour', 'horses'];
 const COLLEGE_SPAWN_INTERVAL = 90;
 const MAINTENANCE_SPAWN_INTERVAL = 70;
 const STAGGERED_RISK = 40;
 const INVASION_MONTH = 6;
 const EVENT_MONTH = 2;
 const RESOURCE_RANGE = 4;
+const MINT_YIELD = 55;
 const EARTHQUAKE_BUILDINGS = 5;
 const TOWER_STRENGTH = 2;
 const WALL_STRENGTH = 1;
@@ -241,6 +242,9 @@ export class World {
     if (def.marbleCost && this.stockOf('marble') < def.marbleCost) {
       return { ok: false, reason: `Needs ${def.marbleCost} marble in store` };
     }
+    if (def.sculptureCost && this.stockOf('sculpture') < def.sculptureCost) {
+      return { ok: false, reason: `Needs ${def.sculptureCost} sculpture in store` };
+    }
     return { ok: true, reason: def.description };
   }
 
@@ -286,6 +290,7 @@ export class World {
 
     this.treasury -= this.costOf(kind);
     if (def.marbleCost) this.spendStock('marble', def.marbleCost);
+    if (def.sculptureCost) this.spendStock('sculpture', def.sculptureCost);
     this.markChanged(this.grid.footprint(x, y, def.size));
     return true;
   }
@@ -445,6 +450,7 @@ export class World {
     this.treasury += this.taxes.collected;
     this.treasury -= monthlyWages(this.labour.employed, this.wageLevel);
     this.runTrade();
+    this.strikeCoin();
 
     this.sentiment = judgeCity({
       wageLevel: this.wageLevel,
@@ -535,6 +541,13 @@ export class World {
 
   get hasNextEpisode(): boolean {
     return this.episode + 1 < CAMPAIGN.length;
+  }
+
+  private strikeCoin(): void {
+    for (const building of this.buildings.values()) {
+      if (building.kind !== 'mint') continue;
+      this.treasury += MINT_YIELD * staffing(building);
+    }
   }
 
   private runTrade(): void {

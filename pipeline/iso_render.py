@@ -1762,6 +1762,124 @@ def build_monument():
     return {"kind": "monument", "variant": 0, "footprint": 3, "height": 3.1}
 
 
+def build_industry_yard(kind, roof_hex, props, height=0.95):
+    """A walled working yard with a tiled shed; props fill the rest."""
+    earth = plaster_material("earth", EARTH, roughness=0.97, variation=0.09, scale=15.0)
+    plaster = plaster_material("plaster", hex_rgb("d8cdb4"), roughness=0.88, variation=0.05, scale=9.0)
+    tiles = roof_material("tiles", hex_rgb(roof_hex), rows_per_unit=18.0)
+
+    half = 0.94
+    yard = add_box("yard", (0, 0, 0.03), (half * 2, half * 2, 0.06), earth)
+    yard.visible_shadow = False
+    add_box("yard_wall", (0, half, 0.15), (half * 2, 0.08, 0.18), plaster)
+    add_box("yard_wall_west", (-half, 0, 0.15), (0.08, half * 2, 0.18), plaster)
+
+    shed_half = 0.42
+    wall_h = 0.5
+    sx, sy = -0.42, -0.4
+    add_box("shed", (sx, sy, 0.06 + wall_h / 2), (shed_half * 2, shed_half * 2, wall_h), plaster)
+    add_hip_roof("shed_roof", (sx, sy, 0.06 + wall_h + 0.13), shed_half + 0.11, 0.26, tiles, ridge_half=0.11)
+    add_doorway(shed_half, 0.34, (sx, sy))
+
+    props()
+    return {"kind": kind, "variant": 0, "footprint": 2, "height": height}
+
+
+def build_foundry():
+    bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
+    brick = plaster_material("brick", CLAY, roughness=0.92, variation=0.08, scale=9.0)
+    wood = material("wood", WOOD, roughness=0.88)
+
+    def props():
+        add_cylinder("furnace", (0.6, -0.5, 0.06 + 0.3), 0.28, 0.6, brick, vertices=14)
+        add_cylinder("chimney", (0.6, -0.5, 0.06 + 0.72), 0.12, 0.28, brick, vertices=10)
+        add_box("bellows", (0.6, 0.2, 0.06 + 0.14), (0.4, 0.3, 0.28), wood)
+        for ingot_y in (0.7, 0.86):
+            add_box("ingot", (0.5, ingot_y, 0.06 + 0.05), (0.34, 0.12, 0.1), bronze)
+
+    return build_industry_yard("foundry", "6b4a30", props, 1.15)
+
+
+def build_armoury():
+    bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
+    wood = material("wood", WOOD, roughness=0.88)
+
+    def props():
+        add_box("anvil", (0.52, -0.5, 0.06 + 0.13), (0.34, 0.2, 0.26), bronze)
+        add_box("bench", (0.7, 0.3, 0.06 + 0.16), (0.5, 0.7, 0.08), wood)
+        for shield_y in (0.1, 0.5):
+            shield = add_cylinder("shield", (0.94, shield_y, 0.06 + 0.42), 0.19, 0.06, bronze, vertices=16)
+            shield.rotation_euler[0] = math.pi / 2
+        add_box("rack", (0.94, 0.3, 0.06 + 0.2), (0.06, 0.8, 0.4), wood)
+
+    return build_industry_yard("armoury", "7c5a34", props)
+
+
+def build_sculpture_studio():
+    marble = material("marble", MARBLE, roughness=0.3)
+    bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
+    wood = material("wood", WOOD, roughness=0.88)
+
+    def props():
+        add_box("plinth", (0.6, -0.5, 0.06 + 0.14), (0.42, 0.42, 0.28), marble)
+        add_cylinder("figure", (0.6, -0.5, 0.06 + 0.55), 0.12, 0.54, bronze, vertices=14)
+        add_box("workbench", (0.66, 0.5, 0.06 + 0.16), (0.5, 0.7, 0.1), wood)
+        add_cylinder("cast", (0.66, 0.5, 0.06 + 0.3), 0.13, 0.18, bronze, vertices=12)
+
+    return build_industry_yard("sculptureStudio", "8a6134", props, 1.2)
+
+
+def build_mint():
+    silver = material("silver", hex_rgb("cdd3d8"), roughness=0.25, metallic=1.0)
+    wood = material("wood", WOOD, roughness=0.88)
+    stone = plaster_material("stone", STONE, roughness=0.88, variation=0.06, scale=11.0)
+
+    def props():
+        add_box("strong_room", (0.6, -0.46, 0.06 + 0.24), (0.6, 0.6, 0.48), stone)
+        add_box("press", (0.62, 0.42, 0.06 + 0.2), (0.36, 0.36, 0.4), wood)
+        add_cylinder("die", (0.62, 0.42, 0.06 + 0.44), 0.11, 0.1, silver, vertices=12)
+        for coin_x in (0.2, 0.34):
+            add_cylinder("coin_stack", (coin_x, 0.78, 0.06 + 0.06), 0.08, 0.12, silver, vertices=12)
+
+    return build_industry_yard("mint", "6f6a5c", props)
+
+
+def build_horse_ranch():
+    """Horse ranch: a fenced paddock of horses beside a long stable."""
+    grass = plaster_material("paddock", (0.45, 0.47, 0.26), roughness=0.95, variation=0.12, scale=15.0)
+    earth = plaster_material("earth", EARTH, roughness=0.97, variation=0.09, scale=15.0)
+    plaster = plaster_material("plaster", hex_rgb("d8c8a4"), roughness=0.88, variation=0.05, scale=9.0)
+    tiles = roof_material("tiles", hex_rgb("8a6134"), rows_per_unit=18.0)
+    wood = material("wood", WOOD, roughness=0.88)
+    hide = material("hide", hex_rgb("8a5a34"), roughness=0.9)
+
+    half = 1.92
+    yard = add_box("ground", (0, 0, 0.03), (half * 2, half * 2, 0.06), earth)
+    yard.visible_shadow = False
+    add_box("paddock", (0.4, 0.4, 0.07), (2.6, 2.6, 0.03), grass)
+
+    stable_half = 0.6
+    wall_h = 0.6
+    sx, sy = -1.0, -1.0
+    add_box("stable", (sx, sy, 0.06 + wall_h / 2), (stable_half * 2, stable_half * 2 + 0.6, wall_h), plaster)
+    add_hip_roof("stable_roof", (sx, sy, 0.06 + wall_h + 0.15), stable_half + 0.2, 0.3, tiles, ridge_half=0.2)
+    add_doorway(stable_half, 0.42, (sx, sy))
+
+    for fence_x in (-0.9, -0.3, 0.3, 0.9, 1.5):
+        add_cylinder("fence_post", (fence_x, 1.7, 0.06 + 0.16), 0.035, 0.32, wood, vertices=6)
+        add_cylinder("fence_post_east", (1.7, fence_x, 0.06 + 0.16), 0.035, 0.32, wood, vertices=6)
+    add_box("fence_rail", (0.4, 1.7, 0.06 + 0.26), (2.6, 0.05, 0.06), wood)
+    add_box("fence_rail_east", (1.7, 0.4, 0.06 + 0.26), (0.05, 2.6, 0.06), wood)
+
+    for hx, hy in ((0.2, 0.5), (0.9, 1.0), (1.2, 0.1)):
+        add_box("horse", (hx, hy, 0.06 + 0.3), (0.56, 0.22, 0.3), hide)
+        add_box("horse_neck", (hx + 0.3, hy, 0.06 + 0.44), (0.16, 0.16, 0.3), hide)
+        for leg_x, leg_y in ((-0.2, -0.08), (-0.2, 0.08), (0.2, -0.08), (0.2, 0.08)):
+            add_cylinder("leg", (hx + leg_x, hy + leg_y, 0.06 + 0.1), 0.035, 0.2, hide, vertices=6)
+
+    return {"kind": "horseRanch", "variant": 0, "footprint": 4, "height": 1.2}
+
+
 def build_fountain():
     """Marble basin with a raised centre and a small bronze statue; light blue water."""
     marble = material("marble", MARBLE, roughness=0.3)
@@ -1874,6 +1992,11 @@ MODELS = {
     "olive-press": build_olive_press,
     "timber-mill": build_timber_mill,
     "masonry-shop": build_masonry_shop,
+    "foundry": build_foundry,
+    "armoury": build_armoury,
+    "sculpture-studio": build_sculpture_studio,
+    "mint": build_mint,
+    "horse-ranch": build_horse_ranch,
     "vineyard": build_vineyard,
     "winery": build_winery,
     "carding-shed": build_carding_shed,

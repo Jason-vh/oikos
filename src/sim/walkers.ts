@@ -53,10 +53,14 @@ const SOLD_AS: Record<Good, ServiceKind | null> = {
   oil: 'oil',
   wine: 'wine',
   fleece: 'fleece',
+  armour: 'armour',
+  horses: 'horses',
   olives: null,
   grapes: null,
   wood: null,
   marble: null,
+  bronze: null,
+  sculpture: null,
 };
 
 const SUPPLY_FULL = 100;

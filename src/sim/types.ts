@@ -4,6 +4,8 @@ export type ServiceKind =
   | 'oil'
   | 'wine'
   | 'fleece'
+  | 'armour'
+  | 'horses'
   | 'culture'
   | 'athletics'
   | 'drama'
@@ -17,6 +19,8 @@ export const SERVICE_KINDS: ServiceKind[] = [
   'oil',
   'wine',
   'fleece',
+  'armour',
+  'horses',
   'culture',
   'athletics',
   'drama',
@@ -25,9 +29,34 @@ export const SERVICE_KINDS: ServiceKind[] = [
   'safety',
 ];
 
-export type Good = 'food' | 'olives' | 'oil' | 'grapes' | 'wine' | 'fleece' | 'wood' | 'marble';
+export type Good =
+  | 'food'
+  | 'olives'
+  | 'oil'
+  | 'grapes'
+  | 'wine'
+  | 'fleece'
+  | 'wood'
+  | 'marble'
+  | 'bronze'
+  | 'armour'
+  | 'sculpture'
+  | 'horses';
 
-export const GOODS: Good[] = ['food', 'olives', 'oil', 'grapes', 'wine', 'fleece', 'wood', 'marble'];
+export const GOODS: Good[] = [
+  'food',
+  'olives',
+  'oil',
+  'grapes',
+  'wine',
+  'fleece',
+  'wood',
+  'marble',
+  'bronze',
+  'armour',
+  'sculpture',
+  'horses',
+];
 
 export type GoodStock = Record<Good, number>;
 
@@ -60,6 +89,11 @@ export type BuildingKind =
   | 'stadium'
   | 'timberMill'
   | 'masonryShop'
+  | 'foundry'
+  | 'armoury'
+  | 'sculptureStudio'
+  | 'horseRanch'
+  | 'mint'
   | 'monument'
   | 'sanctuaryZeus'
   | 'sanctuaryPoseidon'
@@ -128,22 +162,10 @@ export interface Walker {
   good: Good;
 }
 
-export const emptySupply = (): ServiceSupply => ({
-  food: 0,
-  water: 0,
-  oil: 0,
-  wine: 0,
-  fleece: 0,
-  culture: 0,
-  athletics: 0,
-  drama: 0,
-  tax: 0,
-  health: 0,
-  safety: 0,
-});
+export const emptySupply = (): ServiceSupply => (Object.fromEntries(SERVICE_KINDS.map((service) => [service, 0])) as ServiceSupply);
 
 export const emptyStock = (): GoodStock =>
-  ({ food: 0, olives: 0, oil: 0, grapes: 0, wine: 0, fleece: 0, wood: 0, marble: 0 });
+  Object.fromEntries(GOODS.map((good) => [good, 0])) as GoodStock;
 
 export function createBuilding(id: number, kind: BuildingKind, x: number, y: number, size: number): Building {
   return {

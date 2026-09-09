@@ -28,6 +28,10 @@ const GOOD_NAMES: Record<Good, string> = {
   fleece: 'Fleece',
   wood: 'Timber',
   marble: 'Marble',
+  bronze: 'Bronze',
+  armour: 'Armour',
+  sculpture: 'Sculpture',
+  horses: 'Horses',
 };
 
 const WALKER_OF: Partial<Record<BuildingKind, { name: string; kind: WalkerKind }>> = {
@@ -67,6 +71,7 @@ export function describeBuildingTool(kind: BuildingKind, difficulty: number): In
   if (def.minAppeal > 0) facts.push(['Ground', `Appeal ${def.minAppeal} or better`]);
   if (def.needsNear) facts.push(['Ground', def.needsNear === 'woods' ? 'Among trees' : 'Beside rock']);
   if (def.marbleCost) facts.push(['Marble', `${def.marbleCost} cartloads`]);
+  if (def.sculptureCost) facts.push(['Sculpture', `${def.sculptureCost} cartloads`]);
   facts.push(['Appeal', appealSummary(def)]);
 
   return { title: def.name, subtitle: 'Building', description: def.description, facts };

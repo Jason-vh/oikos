@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { HOUSE_TIERS } from './buildings';
+import { GOODS, type Good } from './types';
+
+const NO_OUTPUT = Object.fromEntries(GOODS.map((good) => [good, 0])) as Record<Good, number>;
 import { DEFAULT_SCENARIO, allGoalsMet, measureGoals } from './scenario';
 import type { CitySnapshot, Scenario } from './scenario';
 
@@ -9,7 +12,7 @@ const city = (over: Partial<CitySnapshot> = {}): CitySnapshot => ({
   population: 0,
   treasury: 0,
   peopleByTier: HOUSE_TIERS.map(() => 0),
-  yearlyOutput: { food: 0, olives: 0, oil: 0, grapes: 0, wine: 0, fleece: 0, wood: 0, marble: 0 },
+  yearlyOutput: { ...NO_OUTPUT },
   sanctuaries: 0,
   companies: 0,
   tradePartners: 0,
@@ -46,7 +49,7 @@ describe('goals', () => {
   });
 
   test('ignore production of the wrong good', () => {
-    const wheatOnly = measureGoals(scenario, city({ yearlyOutput: { food: 40, olives: 9, oil: 0, grapes: 0, wine: 0, fleece: 0, wood: 0, marble: 0 } }));
+    const wheatOnly = measureGoals(scenario, city({ yearlyOutput: { ...NO_OUTPUT, food: 40, olives: 9, oil: 0 } }));
 
     expect(wheatOnly[2].met).toBe(false);
   });
@@ -57,7 +60,7 @@ describe('goals', () => {
 
     const progress = measureGoals(
       scenario,
-      city({ population: 200, peopleByTier, yearlyOutput: { food: 0, olives: 0, oil: 8, grapes: 0, wine: 0, fleece: 0, wood: 0, marble: 0 } }),
+      city({ population: 200, peopleByTier, yearlyOutput: { ...NO_OUTPUT, food: 0, olives: 0, oil: 8 } }),
     );
 
     expect(allGoalsMet(progress)).toBe(true);

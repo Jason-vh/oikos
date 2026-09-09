@@ -12,9 +12,9 @@ function city(): World {
   return world;
 }
 
-function stock(world: World, good: 'marble' | 'wine', amount: number): void {
+function stock(world: World, goods: Partial<Record<'marble' | 'wine' | 'sculpture', number>>): void {
   const store = createBuilding(9000, 'tradingPost', 24, 20, 2);
-  store.stock[good] = amount;
+  Object.assign(store.stock, goods);
   world.restore(store);
 }
 
@@ -25,7 +25,7 @@ describe('quests', () => {
 
   test('are offered only by a god who is pleased, and paid when met', () => {
     const world = city();
-    stock(world, 'wine', 30);
+    stock(world, { wine: 30 });
     world.gods.dionysus.honoured = true;
     world.gods.dionysus.mood = OFFER_MOOD - 1;
 
@@ -48,7 +48,7 @@ describe('quests', () => {
 describe('monuments', () => {
   test('wait on a fulfilled quest and cost marble', () => {
     const world = city();
-    stock(world, 'marble', 100);
+    stock(world, { marble: 100, sculpture: 5 });
 
     expect(world.canPlace('monument', 3, 12)).toEqual({ ok: false, reason: 'Fulfil a quest first' });
 
