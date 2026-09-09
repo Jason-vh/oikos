@@ -39,7 +39,7 @@ def shade_hex(code, factor):
     return tuple(min(1.0, channel * factor) for channel in hex_rgb(code))
 
 
-WHITEWASH = hex_rgb("f8e6b8")
+WHITEWASH = hex_rgb("f8e0b0")
 TERRACOTTA = hex_rgb("b4451c")
 TERRACOTTA_LIGHT = hex_rgb("cf5e2a")
 MARBLE = hex_rgb("e9e4d6")
@@ -853,63 +853,89 @@ def build_olive_press():
     return {"kind": "olivePress", "variant": 0, "footprint": 2, "height": 0.95}
 
 
+GREEN_TILE = hex_rgb("7f8f2a")
+TEAL_PAINT = hex_rgb("2a8a80")
+PLANK = hex_rgb("c9a462")
+
+
+def add_farmhouse(origin):
+    """The original's farmhouse: plastered stone in an L under green glazed tile, a
+    trimmed doorway, jars against the wall."""
+    ox, oy = origin
+    plaster = plaster_material("farm_plaster", hex_rgb("efe3c4"), roughness=0.9, variation=0.16, scale=6.0)
+    course = plaster_material("farm_course", hex_rgb("b9b09a"), roughness=0.9, variation=0.12, scale=12.0)
+    green = roof_material("green_tile", GREEN_TILE, rows_per_unit=6.0)
+    trim = material("farm_trim", hex_rgb("5a6a22"), roughness=0.8)
+    clay = material("clay", CLAY, roughness=0.85)
+
+    add_box("main", (ox - 0.2, oy + 0.1, 0.3), (1.0, 0.7, 0.6), plaster)
+    add_box("main_course", (ox - 0.2, oy + 0.1, 0.1), (1.02, 0.72, 0.2), course)
+    add_gable_roof("main_roof", (ox - 0.2, oy + 0.1, 0.6), 0.58, 0.44, 0.24, 0.06, green)
+    add_box("main_trim", (ox - 0.2, oy - 0.26, 0.58), (1.1, 0.04, 0.05), trim)
+    add_window_row(0.35, 0.4, (0.11, 0.13), (ox - 0.2, oy + 0.1))
+
+    add_box("wing", (ox + 0.42, oy - 0.1, 0.25), (0.5, 0.56, 0.5), plaster)
+    add_box("wing_course", (ox + 0.42, oy - 0.1, 0.1), (0.52, 0.58, 0.2), course)
+    add_shed_roof("wing_roof", (ox + 0.44, oy - 0.1, 0.55), 0.32, 0.36, 0.06, green, pitch=0.34)
+    add_doorway(0.25, 0.32, (ox + 0.42, oy - 0.1), width=0.18)
+    add_box("door_trim", (ox + 0.68, oy - 0.1, 0.34), (0.02, 0.24, 0.04), trim)
+
+    add_amphora("jar1", (ox + 0.5, oy - 0.56, 0.0), 0.2, clay)
+    add_amphora("jar2", (ox + 0.72, oy - 0.44, 0.0), 0.16, clay)
+
+
+def add_crop_rows(origin, span, crop, rows, along_x=True):
+    ox, oy = origin
+    for index in range(rows):
+        offset = -span / 2 + (index + 0.5) * span / rows
+        centre = (ox + offset, oy, 0.07) if along_x else (ox, oy + offset, 0.07)
+        size = (span / rows * 0.45, span * 0.9, 0.09) if along_x else (span * 0.9, span / rows * 0.45, 0.09)
+        add_box(f"row_{index}", centre, size, crop)
+
+
 def build_wheat_farm():
-    """Farmhouse with a terracotta roof; low golden wheat rows behind a stone wall."""
-    soil = plaster_material("soil", SOIL, roughness=0.98, variation=0.1, scale=12.0)
-    crop = plaster_material("crop", STRAW, roughness=0.85, variation=0.1, scale=30.0)
-    ochre = plaster_material("ochre", OCHRE, roughness=0.9, variation=0.08, scale=8.0)
-    terracotta = roof_material("terracotta", TERRACOTTA)
-    stone = plaster_material("stone", STONE, roughness=0.85, variation=0.06, scale=10.0)
-    wood = material("wood", WOOD, roughness=0.85)
-
-    add_box("field", (-0.15, -0.15, 0.02), (1.6, 1.6, 0.04), soil)
-    for index in range(8):
-        y = -0.85 + index * 0.2
-        add_box("row", (-0.2, y, 0.09), (1.3, 0.1, 0.1), crop)
-
-    add_wall("wall_south", (-0.15, -0.98, 0.09), 1.66, 0.18, 0.06, stone, along_x=True)
-    add_wall("wall_west", (-0.98, -0.15, 0.09), 1.66, 0.18, 0.06, stone, along_x=False)
-
-    hx, hy = 0.62, 0.62
-    half = 0.28
-    wall_h = 0.4
-    add_box("hut_wall", (hx, hy, wall_h / 2), (half * 2, half * 2, wall_h), ochre)
-    add_hip_roof("hut_roof", (hx, hy, wall_h + 0.09), half + 0.04, 0.18, terracotta, ridge_half=0.07)
-    add_door(half, 0.26, wood, (hx, hy))
-    add_window_row(half, 0.24, (0.1, 0.1), (hx, hy))
-
-    return {"kind": "wheatFarm", "variant": 0, "footprint": 2, "height": 0.75}
+    """Farmhouse at the back of the plot, a strip of wheat before it."""
+    crop = plaster_material("crop", STRAW_DULL, roughness=0.9, variation=0.2, scale=30.0)
+    add_farmhouse((-0.22, 0.34))
+    add_crop_rows((-0.2, -0.58), 1.4, crop, 6)
+    return {"kind": "wheatFarm", "variant": 0, "footprint": 2, "height": 0.9}
 
 
 def build_granary():
-    """Stone base, whitewashed walls, a big terracotta roof, storage jars, loading door."""
-    stone = plaster_material("stone", STONE, roughness=0.8, variation=0.06, scale=10.0)
-    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.85, variation=0.05, scale=6.0)
-    terracotta = roof_material("terracotta", TERRACOTTA)
-    wood = material("wood", WOOD, roughness=0.8)
+    """The original's granary: a teal-painted timber store on a plank deck, a flat
+    board roof on posts, jars waiting by the door and a signal pole."""
+    stone = plaster_material("stone", STONE, roughness=0.85, variation=0.12, scale=10.0)
+    deck = plaster_material("deck", PLANK, roughness=0.92, variation=0.14, scale=14.0)
+    teal = plaster_material("teal", TEAL_PAINT, roughness=0.8, variation=0.2, scale=9.0)
+    board = plaster_material("board", hex_rgb("6e4f2a"), roughness=0.9, variation=0.16, scale=12.0)
+    wood = material("wood", WOOD, roughness=0.85)
     clay = material("clay", CLAY, roughness=0.8)
-    vent = material("vent", (0.08, 0.06, 0.05), roughness=0.6)
+    vent = material("vent", (0.05, 0.05, 0.04), roughness=0.6)
 
-    half = 0.66
-    wall_h = 0.7
-    add_box("base", (0, 0, 0.06), (1.8, 1.8, 0.12), stone)
-    add_box("walls", (0, 0, 0.12 + wall_h / 2), (half * 2, half * 2, wall_h), whitewash)
-    add_box("cornice", (0, 0, 0.12 + wall_h + 0.02), (half * 2 + 0.08, half * 2 + 0.08, 0.04), stone)
-    roof_z = 0.12 + wall_h + 0.04
-    roof_h = 0.34
-    add_hip_roof("roof", (0, 0, roof_z + roof_h / 2), half + 0.08, roof_h, terracotta, ridge_half=0.2)
-    add_box("ridge", (0, 0, roof_z + roof_h + 0.01), (0.42, 0.06, 0.04), terracotta)
+    add_box("plinth", (0, 0, 0.05), (1.9, 1.9, 0.1), stone)
+    add_box("deck", (0, 0, 0.115), (1.8, 1.8, 0.03), deck)
+    for index in range(9):
+        add_box("deck_gap", (-0.8 + index * 0.2, 0, 0.132), (0.015, 1.8, 0.005), board)
 
-    add_box("loading_door", (half - 0.01, 0, 0.12 + 0.22), (0.05, 0.36, 0.44), wood)
-    for y in (-0.4, 0.4):
-        add_box("vent", (-half + 0.01, y, 0.12 + 0.5), (0.05, 0.14, 0.16), vent)
-        add_box("vent", (y, -half + 0.01, 0.12 + 0.5), (0.14, 0.05, 0.16), vent)
+    sx, sy = -0.26, 0.18
+    add_box("store", (sx, sy, 0.13 + 0.36), (1.0, 0.82, 0.72), teal)
+    for z in (0.3, 0.55):
+        add_box("board_line", (sx, sy, 0.13 + z), (1.01, 0.83, 0.015), board)
+    for y in (sy - 0.22, sy + 0.22):
+        add_box("vent", (sx + 0.5, y, 0.13 + 0.5), (0.03, 0.14, 0.09), vent)
+    add_doorway(0.5, 0.36, (sx, sy), width=0.22)
+    roof = add_box("roof", (sx + 0.04, sy, 0.13 + 0.76), (1.14, 0.92, 0.035), deck)
+    roof.rotation_euler[1] = 0.06
+    for px, py in ((sx + 0.6, sy - 0.48), (sx + 0.6, sy + 0.48), (sx - 0.6, sy - 0.48), (sx - 0.6, sy + 0.48)):
+        add_cylinder("post", (px, py, 0.13 + 0.38), 0.025, 0.76, wood, vertices=6)
 
-    add_amphora("jar1", (0.84, -0.5, 0.12), 0.3, clay)
-    add_amphora("jar2", (0.84, 0.55, 0.12), 0.26, clay)
-    add_box("jar_step", (0.84, 0.0, 0.06), (0.3, 1.5, 0.12), stone)
+    add_amphora("jar1", (0.56, -0.52, 0.13), 0.28, clay)
+    add_amphora("jar2", (0.3, -0.66, 0.13), 0.22, clay)
+    add_amphora("jar3", (-0.66, -0.6, 0.13), 0.24, clay)
+    add_cylinder("pole", (0.7, 0.62, 0.13 + 0.6), 0.02, 1.2, wood, vertices=6)
+    add_box("crossbar", (0.7, 0.62, 0.13 + 1.1), (0.26, 0.03, 0.03), wood)
 
-    return {"kind": "granary", "variant": 0, "footprint": 2, "height": roof_z + roof_h + 0.1}
+    return {"kind": "granary", "variant": 0, "footprint": 2, "height": 1.4}
 
 
 def build_agora(kind, across, along, variant):
@@ -2088,26 +2114,11 @@ def build_horse_ranch():
 
 
 def build_field_farm(kind, crop_hex, row_count=5):
-    """A field of rows with a small hut, in the manner of the wheat farm."""
-    soil = plaster_material("soil", SOIL, roughness=0.98, variation=0.1, scale=12.0)
-    crop = plaster_material("crop", hex_rgb(crop_hex), roughness=0.94, variation=0.12, scale=14.0)
-    ochre = plaster_material("ochre", OCHRE, roughness=0.9, variation=0.08, scale=8.0)
-    terracotta = roof_material("terracotta", TERRACOTTA)
-    wood = material("wood", WOOD, roughness=0.85)
-
-    field = add_box("field", (-0.1, -0.1, 0.03), (1.74, 1.74, 0.06), soil)
-    field.visible_shadow = False
-    for row in range(row_count):
-        add_box(f"row_{row}", (-0.78 + row * 0.34, -0.1, 0.09), (0.2, 1.5, 0.1), crop)
-
-    hx, hy = 0.66, 0.66
-    half = 0.28
-    wall_h = 0.4
-    add_box("hut", (hx, hy, 0.06 + wall_h / 2), (half * 2, half * 2, wall_h), ochre)
-    add_hip_roof("hut_roof", (hx, hy, 0.06 + wall_h + 0.1), half + 0.06, 0.2, terracotta, ridge_half=0.07)
-    add_door(half, 0.24, wood, (hx, hy))
-
-    return {"kind": kind, "variant": 0, "footprint": 2, "height": 0.8}
+    """A farm of another crop: the same farmhouse, a different strip before it."""
+    crop = plaster_material("crop", hex_rgb(crop_hex), roughness=0.94, variation=0.16, scale=14.0)
+    add_farmhouse((-0.22, 0.34))
+    add_crop_rows((-0.2, -0.58), 1.4, crop, row_count)
+    return {"kind": kind, "variant": 0, "footprint": 2, "height": 0.9}
 
 
 def build_hunting_lodge():
@@ -2453,7 +2464,7 @@ def add_sun():
     a blue-grey sky shadow at roughly a third of the brightness."""
     bpy.ops.object.light_add(type="SUN", location=(0, 0, 12))
     sun = bpy.context.active_object
-    sun.data.energy = 3.1
+    sun.data.energy = 3.6
     sun.data.color = (1.0, 0.9, 0.72)
     sun.data.angle = math.radians(2.0)
     sun.rotation_euler = (math.pi / 2 - SUN_ALTITUDE, 0, SUN_AZIMUTH)
@@ -2462,8 +2473,8 @@ def add_sun():
     bpy.context.scene.world = world
     world.use_nodes = True
     background = world.node_tree.nodes["Background"]
-    background.inputs[0].default_value = (0.3, 0.45, 0.85, 1)
-    background.inputs[1].default_value = 0.32
+    background.inputs[0].default_value = (0.5, 0.52, 0.68, 1)
+    background.inputs[1].default_value = 0.34
     return sun
 
 
