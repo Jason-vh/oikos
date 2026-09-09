@@ -259,14 +259,18 @@ export class World {
       for (let dx = 0; dx < def.size; dx++) {
         if (!this.grid.contains(x + dx, y + dy)) return { ok: false, reason: 'Outside the map' };
         if (!this.grid.isFree(x + dx, y + dy)) return { ok: false, reason: 'Blocked' };
-        if (def.requiresMeadow && this.grid.terrain[this.grid.index(x + dx, y + dy)] !== TERRAIN_MEADOW) {
-          return { ok: false, reason: 'Must be built on meadow' };
-        }
       }
     }
+    if (def.requiresMeadow && !this.standsOnMeadow(x, y, def.size)) {
+      return { ok: false, reason: 'Must be built on meadow' };
+    }
     if (!this.grid.isFlat(x, y, def.size)) return { ok: false, reason: 'Ground must be level' };
-    if (this.grid.appeal[this.grid.index(x, y)] < def.minAppeal) {
-      return { ok: false, reason: `Needs appeal of ${def.minAppeal} here` };
+    if (def.needsRoad && !this.touchesRoad(x, y, def.size)) {
+      return { ok: false, reason: 'Must touch a road' };
+    }
+    const tileAppeal = this.grid.appeal[this.grid.index(x, y)];
+    if (def.minAppeal > 0 && tileAppeal < def.minAppeal) {
+      return { ok: false, reason: `Needs appeal of ${def.minAppeal}, this ground has ${tileAppeal}` };
     }
     if (def.needsNear && !this.grid.hasNear(def.needsNear, x, y, def.size, RESOURCE_RANGE)) {
       return { ok: false, reason: NEAR_REASON[def.needsNear] };
@@ -301,6 +305,20 @@ export class World {
       owed -= taken;
       if (owed === 0) return;
     }
+  }
+
+  private standsOnMeadow(x: number, y: number, size: number): boolean {
+    for (const tile of this.grid.footprint(x, y, size)) {
+      if (this.grid.terrain[tile] === TERRAIN_MEADOW) return true;
+    }
+    return false;
+  }
+
+  private touchesRoad(x: number, y: number, size: number): boolean {
+    for (const tile of this.grid.perimeter(x, y, size)) {
+      if (this.grid.isRoad(tile)) return true;
+    }
+    return false;
   }
 
   costOf(kind: BuildingKind): number {

@@ -18,7 +18,7 @@ describe('elite housing', () => {
 
     expect(world.canPlace('estate', 4, 11)).toEqual({
       ok: false,
-      reason: `Needs appeal of ${BUILDINGS.estate.minAppeal} here`,
+      reason: `Needs appeal of ${BUILDINGS.estate.minAppeal}, this ground has 0`,
     });
   });
 

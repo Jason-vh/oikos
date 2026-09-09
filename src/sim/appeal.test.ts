@@ -5,6 +5,7 @@ import { BUILDINGS, HOUSE_TIERS } from './buildings';
 import { Grid } from './grid';
 import { createBuilding } from './types';
 import type { Building, BuildingKind } from './types';
+import { World } from './world';
 
 const bands = (initial: number, bandSize: number, step: number, range: number): AppealBands => ({
   initial,
@@ -67,5 +68,19 @@ describe('appeal field', () => {
 
     recomputeAppeal(grid, [building('house', 4, 4, homestead)]);
     expect(grid.appeal[grid.index(6, 4)]).toBe(HOUSE_TIERS[homestead].appeal.initial);
+  });
+});
+
+describe('placement', () => {
+  test('a hut dragging the ground negative does not block ordinary buildings nearby', () => {
+    const world = new World(16, 7);
+    for (let x = 1; x < 15; x++) world.grid.road[world.grid.index(x, 6)] = 1;
+    world.treasury = 1000;
+
+    expect(world.place('house', 4, 4)).toBe(true);
+    world.settle();
+
+    expect(world.grid.appeal[world.grid.index(6, 4)]).toBe(-4);
+    expect(world.canPlace('granary', 6, 4).ok).toBe(true);
   });
 });
