@@ -523,6 +523,9 @@ export class World {
         (building) => SANCTUARY_KINDS.includes(building.kind) && building.built >= FINISHED,
       ).length,
       companies: companiesIn(this.army),
+      pyramids: [...this.buildings.values()].filter(
+        (building) => building.kind.startsWith('pyramid') && building.built >= FINISHED,
+      ).length,
       tradePartners: TRADE_ROUTES.filter((route) => this.tradeOrders[route.id]).length,
       population: this.population,
       treasury: this.treasury,

@@ -9,6 +9,7 @@ export const HADES_TRIBUTE = 400;
 export const ZEUS_APPEAL_MONTHS = 12;
 export const ARES_COMPANIES = 3;
 const STOLEN_SHARE = 0.1;
+const HERA_SUPPLY = 60;
 
 type Act = (world: World) => void;
 
@@ -45,6 +46,18 @@ export const BLESSINGS: Record<GodKind, Act> = {
   dionysus: (world) => stockEvery(world, 'tradingPost', 'wine'),
   hades: (world) => {
     world.treasury += SILVER_GIFT;
+  },
+  hera: (world) => {
+    for (const house of dwellings(world)) {
+      for (const service of Object.keys(house.supply) as (keyof typeof house.supply)[]) {
+        house.supply[service] = Math.max(house.supply[service], HERA_SUPPLY);
+      }
+    }
+  },
+  atlas: (world) => {
+    for (const building of world.buildings.values()) {
+      if (BUILDINGS[building.kind].produces === 'marble') building.stock.marble += UNITS_PER_CARTLOAD;
+    }
   },
 };
 
@@ -94,6 +107,14 @@ export const WRATHS: Record<GodKind, Act> = {
   },
   hades: (world) => {
     world.treasury -= Math.min(world.treasury, HADES_TRIBUTE);
+  },
+  hera: (world) => {
+    world.sentiment = { ...world.sentiment, popularity: Math.max(0, world.sentiment.popularity - 30) };
+  },
+  atlas: (world) => {
+    for (const building of world.buildings.values()) {
+      if (BUILDINGS[building.kind].produces === 'marble') building.staff = 0;
+    }
   },
 };
 

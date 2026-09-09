@@ -111,7 +111,12 @@ export type BuildingKind =
   | 'sanctuaryAphrodite'
   | 'sanctuaryHermes'
   | 'sanctuaryDionysus'
-  | 'sanctuaryHades';
+  | 'sanctuaryHades'
+  | 'sanctuaryHera'
+  | 'sanctuaryAtlas'
+  | 'pyramidModest'
+  | 'pyramid'
+  | 'pyramidGreat';
 
 export type ServiceSupply = Record<ServiceKind, number>;
 
@@ -195,7 +200,7 @@ export function createBuilding(id: number, kind: BuildingKind, x: number, y: num
     disease: 0,
     crime: 0,
     productionProgress: 0,
-    built: kind.startsWith('sanctuary') ? 0 : FINISHED,
+    built: kind.startsWith('sanctuary') || kind.startsWith('pyramid') ? 0 : FINISHED,
     spawnTimer: 0,
     walkersOut: 0,
   };

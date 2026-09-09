@@ -420,6 +420,11 @@ mythological buildings, "best" buildings, or random.
 (both Hercules). Completing one can award a small or large commemorative monument
 and can trigger a scripted event.
 
+🟡 Hera and Atlas make fourteen gods: Hera blesses every household with everything it
+needs or turns the citizens against you, Atlas fills the quarries or petrifies the
+masons. Three pyramids — modest 3×3, pyramid 5×5, great 7×7 — are raised by the same
+artisans who build the sanctuaries, and a scenario can set a goal in pyramids.
+
 **Pyramids and monuments** (Atlantean only, max 6 per city), built in levels by
 artisans:
 

@@ -13,6 +13,8 @@ export const GOD_KINDS = [
   'hermes',
   'dionysus',
   'hades',
+  'hera',
+  'atlas',
 ] as const;
 export type GodKind = (typeof GOD_KINDS)[number];
 
@@ -50,6 +52,8 @@ export const GODS: Record<GodKind, GodDef> = {
   hermes: god('hermes', 'Roads and trade', 'speeds the carts and fills their loads.', 'empties a storehouse onto the road.'),
   dionysus: god('dionysus', 'Wine and revels', 'fills the wine stores.', 'sets the city drinking and quarrelling.'),
   hades: god('hades', 'The underworld', 'sends up buried silver.', 'claims his tribute from the treasury.'),
+  hera: god('hera', 'Marriage and plenty', 'blesses every household in the city.', 'turns the citizens against you.'),
+  atlas: god('atlas', 'The burden of the sky', 'steadies the quarries and the masons.', 'petrifies the stonecutters.'),
 };
 
 export interface GodState {

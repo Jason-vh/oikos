@@ -453,7 +453,8 @@ function groupFor(kind: string): string {
   if (kind === 'infirmary' || kind === 'watchpost') return 'Services';
   if (kind === 'palace' || kind === 'taxOffice' || kind === 'tradingPost') return 'Government';
   if (kind === 'tower') return 'Defence';
-  if (kind.startsWith('sanctuary') || kind === 'heroHall' || kind === 'monument') return 'Mythology';
+  if (kind.startsWith('sanctuary') || kind.startsWith('pyramid')) return 'Mythology';
+  if (kind === 'heroHall' || kind === 'monument' || kind === 'artisansGuild') return 'Mythology';
   return 'Services';
 }
 

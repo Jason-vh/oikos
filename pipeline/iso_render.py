@@ -1028,6 +1028,21 @@ def build_sanctuary(kind, god):
     return {"kind": kind, "variant": 0, "footprint": 3, "height": roof_z + 0.6}
 
 
+def hera_emblem(marble, bronze, wood, clay, cypress):
+    for tree_x, tree_y in ((1.0, -0.9), (1.3, -0.4)):
+        add_cylinder("orange_trunk", (tree_x, tree_y, 0.06 + 0.18), 0.06, 0.36, wood, vertices=8)
+        add_pyramid("orange_crown", (tree_x, tree_y, 0.06 + 0.52), 0.3, 0.36, material("orange_leaf", (0.32, 0.44, 0.24), roughness=0.9), vertices=7)
+    add_cylinder("peacock_perch", (-1.02, 1.0, 0.06 + 0.2), 0.05, 0.4, marble, vertices=10)
+    add_cylinder("peacock", (-1.02, 1.0, 0.06 + 0.5), 0.11, 0.22, bronze, vertices=12)
+
+
+def atlas_emblem(marble, bronze, wood, clay, cypress):
+    add_box("pillar_base", (1.0, -0.9, 0.06 + 0.1), (0.5, 0.5, 0.2), marble)
+    add_cylinder("pillar", (1.0, -0.9, 0.06 + 0.62), 0.16, 0.84, marble, vertices=16)
+    add_cylinder("sky", (1.0, -0.9, 0.06 + 1.14), 0.26, 0.24, bronze, vertices=18)
+    add_box("block", (-1.0, 1.0, 0.06 + 0.16), (0.5, 0.5, 0.32), marble)
+
+
 def zeus_emblem(marble, bronze, wood, clay, cypress):
     add_box("altar_stone", (1.0, -0.9, 0.06 + 0.24), (0.5, 0.5, 0.48), marble)
     add_cylinder("thunderbolt", (1.0, -0.9, 0.06 + 0.62), 0.07, 0.28, bronze, vertices=8)
@@ -1125,6 +1140,8 @@ def hades_emblem(marble, bronze, wood, clay, cypress):
 
 
 SANCTUARIES = {
+    "sanctuary-hera": {"roof": hex_rgb("b0603c"), "emblem": hera_emblem},
+    "sanctuary-atlas": {"roof": hex_rgb("94553a"), "emblem": atlas_emblem},
     "sanctuary-zeus": {"roof": hex_rgb("c8642e"), "emblem": zeus_emblem},
     "sanctuary-poseidon": {"roof": hex_rgb("a8552f"), "emblem": poseidon_emblem},
     "sanctuary-athena": {"roof": hex_rgb("c45f34"), "emblem": athena_emblem},
@@ -1979,6 +1996,36 @@ def build_artisans_guild():
     return build_industry_yard("artisansGuild", "8a6134", props, 1.1)
 
 
+def build_pyramid(kind, footprint, courses):
+    """A stepped pyramid on a paved court, in ashlar marble."""
+    paving = plaster_material("paving", STONE, roughness=0.88, variation=0.05, scale=14.0)
+    marble = plaster_material("ashlar", hex_rgb("f0e8d2"), roughness=0.5, variation=0.04, scale=7.0)
+    capstone = material("capstone", hex_rgb("e0c884"), roughness=0.35, metallic=0.6)
+    clay = material("clay", CLAY, roughness=0.8)
+    cypress = material("cypress", CYPRESS, roughness=0.9)
+
+    half = footprint / 2 - 0.06
+    court = add_box("court", (0, 0, 0.03), (half * 2, half * 2, 0.06), paving)
+    court.visible_shadow = False
+
+    base = half * 0.86
+    rise = base / courses * 1.1
+    for course in range(courses):
+        size = base * (1 - course / courses)
+        add_box(
+            f"course_{course}",
+            (0, 0, 0.06 + rise * course + rise / 2),
+            (size * 2, size * 2, rise),
+            marble,
+        )
+    add_pyramid("cap", (0, 0, 0.06 + rise * courses), base / courses * 1.4, rise, capstone, vertices=4)
+
+    add_cypress_pot("cypress", (half - 0.4, -half + 0.4, 0.06), 0.5, clay, cypress)
+    add_amphora("jar", (-half + 0.4, half - 0.5, 0.06), 0.36, clay)
+
+    return {"kind": kind, "variant": 0, "footprint": footprint, "height": 0.06 + rise * (courses + 1)}
+
+
 def build_fountain():
     """Marble basin with a raised centre and a small bronze statue; light blue water."""
     marble = material("marble", MARBLE, roughness=0.3)
@@ -2096,6 +2143,9 @@ MODELS = {
     "sculpture-studio": build_sculpture_studio,
     "mint": build_mint,
     "artisans-guild": build_artisans_guild,
+    "pyramid-modest": lambda: build_pyramid("pyramidModest", 3, 3),
+    "pyramid": lambda: build_pyramid("pyramid", 5, 4),
+    "pyramid-great": lambda: build_pyramid("pyramidGreat", 7, 5),
     "horse-ranch": build_horse_ranch,
     "vineyard": build_vineyard,
     "winery": build_winery,

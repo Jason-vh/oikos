@@ -102,6 +102,20 @@ export const QUESTS: Record<GodKind, Quest> = {
     reward: 900,
     met: (city) => city.wine >= 24,
   },
+  hera: {
+    god: 'hera',
+    name: 'The Orchard of Hera',
+    demand: '1000 citizens and two allies',
+    reward: 1100,
+    met: (city) => city.population >= 1000 && city.allies >= 2,
+  },
+  atlas: {
+    god: 'atlas',
+    name: "Atlas' Burden",
+    demand: '60 marble in store',
+    reward: 1300,
+    met: (city) => city.marble >= 60,
+  },
   hades: {
     god: 'hades',
     name: 'A Monster Slain',

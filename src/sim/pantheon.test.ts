@@ -14,9 +14,9 @@ function city(): World {
 }
 
 describe('the pantheon', () => {
-  test('is twelve gods, each with a sanctuary of their own', () => {
-    expect(GOD_KINDS.length).toBe(12);
-    expect(SANCTUARY_KINDS.length).toBe(12);
+  test('is fourteen gods, each with a sanctuary of their own', () => {
+    expect(GOD_KINDS.length).toBe(14);
+    expect(SANCTUARY_KINDS.length).toBe(14);
     for (const kind of GOD_KINDS) expect(BUILDINGS[GODS[kind].sanctuary].size).toBe(3);
   });
 

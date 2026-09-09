@@ -11,7 +11,8 @@ export type Goal =
   | { kind: 'production'; good: Good; target: number }
   | { kind: 'sanctuary'; target: number }
   | { kind: 'army'; target: number }
-  | { kind: 'trade'; target: number };
+  | { kind: 'trade'; target: number }
+  | { kind: 'pyramid'; target: number };
 
 export interface Scenario {
   name: string;
@@ -30,6 +31,7 @@ export interface CitySnapshot {
   sanctuaries: number;
   companies: number;
   tradePartners: number;
+  pyramids: number;
 }
 
 export interface GoalProgress {
@@ -106,10 +108,11 @@ export const CAMPAIGN: Scenario[] = [
     goals: [
       { kind: 'population', target: 2000 },
       { kind: 'army', target: 8 },
+      { kind: 'pyramid', target: 1 },
       { kind: 'housing', tier: townhouse, target: 400 },
       { kind: 'treasury', target: 15000 },
     ],
-    gods: ['ares', 'athena', 'zeus', 'hephaestus', 'demeter', 'hermes'],
+    gods: ['ares', 'athena', 'zeus', 'hera', 'atlas', 'hephaestus'],
     invasions: [
       { year: -493, nation: 'Trojans', companies: 6 },
       { year: -489, nation: 'Persians', companies: 12 },
@@ -150,6 +153,7 @@ function currentValue(goal: Goal, city: CitySnapshot): number {
   if (goal.kind === 'sanctuary') return city.sanctuaries;
   if (goal.kind === 'army') return city.companies;
   if (goal.kind === 'trade') return city.tradePartners;
+  if (goal.kind === 'pyramid') return city.pyramids;
   return city.peopleByTier.slice(goal.tier).reduce((people, count) => people + count, 0);
 }
 
@@ -160,5 +164,6 @@ function labelOf(goal: Goal): string {
   if (goal.kind === 'sanctuary') return 'Sanctuaries';
   if (goal.kind === 'army') return 'Companies';
   if (goal.kind === 'trade') return 'Trading partners';
+  if (goal.kind === 'pyramid') return 'Pyramids raised';
   return `Citizens in a ${HOUSE_TIERS[goal.tier].name.toLowerCase()} or better`;
 }

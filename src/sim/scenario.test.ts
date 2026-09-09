@@ -16,6 +16,7 @@ const city = (over: Partial<CitySnapshot> = {}): CitySnapshot => ({
   sanctuaries: 0,
   companies: 0,
   tradePartners: 0,
+  pyramids: 0,
   ...over,
 });
 
