@@ -962,40 +962,35 @@ def build_agora(kind, across, along, variant):
 
 
 def build_college():
-    """Teaching court: colonnaded hall around a paved yard with benches and a stele."""
-    paving = plaster_material("paving", STONE, roughness=0.9, variation=0.05, scale=14.0)
-    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.85, variation=0.05, scale=6.0)
-    marble = material("marble", MARBLE, roughness=0.32)
-    terracotta = roof_material("terracotta", TERRACOTTA)
-    wood = material("wood", WOOD, roughness=0.85)
-    cypress = material("cypress", CYPRESS, roughness=0.9)
-    clay = material("clay", CLAY, roughness=0.8)
+    """The original's: a teal-tiled hall behind a colonnade, a curved flight of steps
+    down to the paving, a lower wing at its side."""
+    m = civic_materials()
 
-    half = 1.44
-    add_box("paving", (0, 0, 0.03), (half * 2, half * 2, 0.06), paving)
-    add_box("kerb", (0, 0, 0.02), (half * 2 + 0.06, half * 2 + 0.06, 0.04), marble)
+    add_box("paving", (0, 0, 0.02), (2.9, 2.9, 0.04), m["paving"])
+    hx, hy = -0.45, 0.35
+    add_box("stylobate", (hx, hy, 0.04 + 0.1), (2.0, 1.5, 0.2), m["marble"])
+    add_box("hall", (hx, hy + 0.2, 0.04 + 0.2 + 0.55), (1.8, 0.9, 1.1), m["blue_wall"])
+    add_gable_roof("hall_roof", (hx, hy + 0.2, 0.04 + 0.2 + 1.1), 0.64, 1.0, 0.4, 0.07, m["teal_tile"])
+    for x in (hx - 0.7, hx - 0.35, hx, hx + 0.35, hx + 0.7):
+        add_column("column", (x, hy - 0.5, 0.04 + 0.2), 1.0, 0.045, m["marble"], m["teal_tile"])
+    add_box("architrave", (hx, hy - 0.5, 0.04 + 0.2 + 1.04), (1.9, 0.2, 0.08), m["marble"])
+    add_box("porch_roof", (hx, hy - 0.4, 0.04 + 0.2 + 1.12), (1.9, 0.5, 0.06), m["teal_tile"])
+    add_doorway(0.45, 0.5, (hx, hy + 0.2), width=0.3)
+    for x in (hx - 0.6, hx + 0.6):
+        add_box("window", (x, hy - 0.24, 0.04 + 0.2 + 0.6), (0.18, 0.04, 0.3), m["dark"])
 
-    hall_half = 0.62
-    wall_h = 0.72
-    hx, hy = -0.72, -0.72
-    add_box("hall", (hx, hy, 0.06 + wall_h / 2), (hall_half * 2, hall_half * 2, wall_h), whitewash)
-    add_box("hall_cornice", (hx, hy, 0.06 + wall_h + 0.02), (hall_half * 2 + 0.07, hall_half * 2 + 0.07, 0.04), marble)
-    add_hip_roof("hall_roof", (hx, hy, 0.06 + wall_h + 0.18), hall_half + 0.09, 0.28, terracotta, ridge_half=0.18)
-    add_door(hall_half, 0.34, wood, (hx, hy))
-    add_window_row(hall_half, 0.34, (0.12, 0.16), (hx, hy))
+    for index in range(4):
+        add_ring(f"step{index}", (hx + 0.3, hy - 0.9, 0.04), 0.9 - index * 0.16, 0.0, 0.05 + index * 0.05, m["marble"],
+                 keep=((hx + 0.3, hy - 1.6, 0.5), (3.0, 1.4, 2.0)))
 
-    for y in (-0.9, -0.3, 0.3, 0.9):
-        add_cylinder("column", (half - 0.24, y, 0.06 + 0.32), 0.05, 0.64, marble, vertices=14)
-        add_box("capital", (half - 0.24, y, 0.06 + 0.66), (0.13, 0.13, 0.04), marble)
-    add_box("stoa_roof", (half - 0.24, 0, 0.06 + 0.72), (0.36, half * 2 - 0.1, 0.07), marble)
+    wx, wy = 0.95, -0.4
+    add_box("wing", (wx, wy, 0.04 + 0.35), (0.8, 1.0, 0.7), m["blue_wall"])
+    add_shed_roof("wing_roof", (wx + 0.02, wy, 0.04 + 0.76), 0.46, 0.56, 0.06, m["teal_tile"], pitch=0.3)
+    add_doorway(0.4, 0.4, (wx, wy), width=0.22)
+    add_flag("flag", (hx + 0.9, hy + 0.6, 0.04 + 1.7), 0.3, m["wood"], m["flag"])
+    add_cypress("cypress", (-1.25, -1.15, 0.04), 0.7, m["cypress"])
 
-    add_box("bench", (0.1, -half + 0.3, 0.06 + 0.09), (0.9, 0.18, 0.18), marble)
-    add_box("stele", (-0.1, 0.86, 0.06 + 0.3), (0.16, 0.16, 0.6), marble)
-    add_pyramid("stele_cap", (-0.1, 0.86, 0.06 + 0.66), 0.14, 0.12, marble, vertices=4)
-    add_cypress_pot("cypress", (0.9, 0.9, 0.06), 0.4, clay, cypress)
-
-    return {"kind": "college", "variant": 0, "footprint": 3, "height": 1.15}
-
+    return {"kind": "college", "variant": 0, "footprint": 3, "height": 1.9}
 
 STALL_AWNINGS = ["d9a441", "e8e2d2", "8fa354", "8e3f56", "6f7d8c", "8a5a34"]
 
@@ -1048,26 +1043,21 @@ def build_stall(variant):
 
 
 def build_podium():
-    """Speaker's platform: stepped marble dais, a lectern, two benches facing it."""
-    marble = material("marble", MARBLE, roughness=0.32)
-    stone = plaster_material("stone", STONE, roughness=0.85, variation=0.06, scale=10.0)
-    wood = material("wood", WOOD, roughness=0.85)
-    bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
+    """The original's: a stepped platform, four columns and a teal gable over it."""
+    m = civic_materials()
 
-    add_box("paving", (0, 0, 0.03), (1.7, 1.7, 0.06), stone)
-    for step, (size, z) in enumerate(((1.0, 0.1), (0.8, 0.18), (0.6, 0.26))):
-        add_box(f"step_{step}", (-0.28, -0.28, z), (size, size, 0.09), marble)
+    add_box("paving", (0, 0, 0.02), (1.9, 1.9, 0.04), m["paving"])
+    for index, size in enumerate((1.5, 1.2)):
+        add_box(f"step{index}", (0, 0, 0.04 + 0.06 + index * 0.12), (size, size, 0.12), m["marble"])
+    add_box("dais", (0, 0, 0.04 + 0.3), (0.9, 0.9, 0.12), m["blue_wall"])
+    for sx, sy in ((-0.34, -0.34), (0.34, -0.34), (-0.34, 0.34), (0.34, 0.34)):
+        add_column("column", (sx, sy, 0.04 + 0.36), 0.8, 0.045, m["marble"], m["teal_tile"])
+    add_box("entablature", (0, 0, 0.04 + 1.2), (1.0, 1.0, 0.08), m["marble"])
+    add_gable_roof("roof", (0, 0, 0.04 + 1.24), 0.6, 0.56, 0.3, 0.07, m["teal_tile"])
+    add_box("lectern", (0.1, -0.1, 0.04 + 0.52), (0.16, 0.16, 0.32), m["marble"])
+    add_flag("flag", (0.0, 0.0, 0.04 + 1.54), 0.3, m["wood"], m["flag"])
 
-    add_cylinder("lectern", (-0.28, -0.28, 0.44), 0.09, 0.28, marble, vertices=14)
-    add_box("lectern_top", (-0.28, -0.28, 0.6), (0.26, 0.2, 0.04), wood)
-    add_cylinder("tripod", (0.52, 0.52, 0.24), 0.05, 0.36, bronze, vertices=10)
-    add_cylinder("tripod_bowl", (0.52, 0.52, 0.44), 0.12, 0.08, bronze, vertices=16)
-
-    for y in (-0.62, 0.5):
-        add_box("bench", (0.56, y, 0.15), (0.22, 0.7, 0.14), marble)
-
-    return {"kind": "podium", "variant": 0, "footprint": 2, "height": 0.7}
-
+    return {"kind": "podium", "variant": 0, "footprint": 2, "height": 1.9}
 
 BLUE_TILE = hex_rgb("2f5e9c")
 BLUE_WALL = hex_rgb("4a6ea0")
@@ -1146,6 +1136,46 @@ def add_cypress(name, centre, height, mat):
     tree.name = name
     tree.data.materials.append(mat)
     return tree
+
+
+def subtract(target, cutter):
+    modifier = target.modifiers.new("cut", "BOOLEAN")
+    modifier.operation = "DIFFERENCE"
+    modifier.object = cutter
+    bpy.context.view_layer.objects.active = target
+    bpy.ops.object.modifier_apply(modifier="cut")
+    bpy.data.objects.remove(cutter, do_unlink=True)
+
+
+def add_ring(name, centre, outer, inner, height, mat, vertices=32, keep=None):
+    """A flat ring; `keep` is a box (centre, size) outside which the ring is cut away."""
+    cx, cy, cz = centre
+    ring = add_cylinder(name, (cx, cy, cz + height / 2), outer, height, mat, vertices=vertices)
+    hole = add_cylinder(f"{name}_hole", (cx, cy, cz + height / 2), inner, height + 0.1, mat, vertices=vertices)
+    subtract(ring, hole)
+    if keep:
+        (kx, ky, kz), (sx, sy, sz) = keep
+        outside = add_box(f"{name}_outside", (kx, ky, kz), (sx, sy, sz), mat)
+        inside = add_box(f"{name}_inside", (cx, cy, cz + height / 2), (outer * 3, outer * 3, height + 0.2), mat)
+        subtract(inside, outside)
+        subtract(ring, inside)
+    return ring
+
+
+def add_tiers(name, centre, inner, rows, row_width, row_rise, mat, keep=None):
+    """Concentric rings stepping up and out: an amphitheatre's seating."""
+    for row in range(rows):
+        add_ring(f"{name}_{row}", centre, inner + (row + 1) * row_width, inner + row * row_width, (row + 1) * row_rise, mat, keep=keep)
+
+
+def add_statue(name, centre, height, mat):
+    cx, cy, cz = centre
+    add_cylinder(f"{name}_legs", (cx, cy, cz + height * 0.3), height * 0.09, height * 0.6, mat, vertices=10)
+    add_cylinder(f"{name}_torso", (cx, cy, cz + height * 0.72), height * 0.12, height * 0.28, mat, vertices=10)
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=height * 0.09, location=(cx, cy, cz + height * 0.94), segments=10, ring_count=6)
+    head = bpy.context.active_object
+    head.name = f"{name}_head"
+    head.data.materials.append(mat)
 
 
 def build_maintenance_office():
@@ -1809,115 +1839,77 @@ def build_carding_shed():
 
 
 def build_gymnasium():
-    """Gymnasium: a sanded palaestra ringed by a colonnade, with weights and a washing basin."""
-    sand = plaster_material("sand", hex_rgb("e6d7ab"), roughness=0.97, variation=0.08, scale=16.0)
-    paving = plaster_material("paving", STONE, roughness=0.88, variation=0.05, scale=14.0)
-    marble = material("marble", MARBLE, roughness=0.3)
-    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.84, variation=0.04, scale=7.0)
-    tiles = roof_material("tiles", TERRACOTTA, rows_per_unit=20.0)
-    bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
-    clay = material("clay", CLAY, roughness=0.8)
+    """The original's: a ring of columns round a sand floor, a curved marble wall at
+    the back, teal capitals."""
+    m = civic_materials()
+    sand = plaster_material("sand", hex_rgb("d8c078"), roughness=0.98, variation=0.16, scale=20.0)
 
-    half = 1.44
-    yard = add_box("yard", (0, 0, 0.03), (half * 2, half * 2, 0.06), paving)
-    yard.visible_shadow = False
-    add_box("palaestra", (0.2, 0.2, 0.07), (1.9, 1.9, 0.03), sand)
+    add_box("paving", (0, 0, 0.02), (2.9, 2.9, 0.04), m["paving"])
+    add_cylinder("floor", (0, 0, 0.04 + 0.03), 1.1, 0.06, sand, vertices=32)
+    add_ring("kerb", (0, 0, 0.04), 1.16, 1.06, 0.1, m["marble"])
+    back = add_ring("back_wall", (0, 0, 0.04), 1.3, 1.16, 0.5, m["marble"])
+    front = add_box("front_cut", (0.9, -0.9, 0.3), (2.6, 2.6, 1.2), m["marble"])
+    front.rotation_euler[2] = math.radians(45)
+    subtract(back, front)
+    for angle in (1.6, 2.0, 2.4, 2.8, 3.2):
+        add_column("column", (math.cos(angle) * 1.24, math.sin(angle) * 1.24, 0.04), 0.9, 0.05, m["marble"], m["teal_tile"])
+    lintel = add_box("lintel", (-0.8, 0.8, 0.04 + 0.96), (1.5, 0.16, 0.08), m["marble"])
+    lintel.rotation_euler[2] = math.radians(-45)
+    add_statue("statue", (-0.85, 0.85, 0.04 + 1.0), 0.4, m["marble"])
+    add_hedge("hedge", (1.2, 1.1), (0.4, 0.3, 0.26), m["hedge"])
 
-    room_half = 0.48
-    wall_h = 0.6
-    rx, ry = -0.86, -0.86
-    add_box("changing_room", (rx, ry, 0.06 + wall_h / 2), (room_half * 2, room_half * 2, wall_h), whitewash)
-    add_hip_roof("room_roof", (rx, ry, 0.06 + wall_h + 0.14), room_half + 0.12, 0.28, tiles, ridge_half=0.12)
-    add_doorway(room_half, 0.4, (rx, ry))
-
-    for offset in (-0.9, -0.3, 0.3, 0.9):
-        add_cylinder("column", (half - 0.16, offset + 0.2, 0.06 + 0.36), 0.055, 0.72, marble, vertices=14)
-        add_cylinder("column", (offset + 0.2, -half + 0.16, 0.06 + 0.36), 0.055, 0.72, marble, vertices=14)
-    add_box("stoa_roof", (half - 0.16, 0.2, 0.06 + 0.76), (0.36, 2.3, 0.08), marble)
-    add_box("stoa_roof", (0.2, -half + 0.16, 0.06 + 0.76), (2.3, 0.36, 0.08), marble)
-
-    add_cylinder("basin", (-0.1, 1.0, 0.06 + 0.2), 0.26, 0.4, marble, vertices=18)
-    add_cylinder("basin_water", (-0.1, 1.0, 0.06 + 0.4), 0.22, 0.03, bronze, vertices=18)
-    for weight_x in (0.6, 0.86):
-        add_cylinder("weight", (weight_x, -0.6, 0.09), 0.09, 0.06, bronze, vertices=12)
-    add_amphora("oil_jar", (-0.2, -1.1, 0.06), 0.3, clay)
-
-    return {"kind": "gymnasium", "variant": 0, "footprint": 3, "height": 1.05}
-
+    return {"kind": "gymnasium", "variant": 0, "footprint": 3, "height": 1.3}
 
 def build_drama_school():
-    """Drama school: a rehearsal court with masks on the wall and a low stage."""
-    paving = plaster_material("paving", STONE, roughness=0.88, variation=0.05, scale=14.0)
-    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.84, variation=0.05, scale=7.0)
-    tiles = roof_material("tiles", hex_rgb("c0603a"), rows_per_unit=20.0)
-    marble = material("marble", MARBLE, roughness=0.32)
-    wood = material("wood", WOOD, roughness=0.86)
-    mask = material("mask", hex_rgb("d9c2e0"), roughness=0.7)
-    clay = material("clay", CLAY, roughness=0.8)
+    """The original's: a curved colonnade carrying an arch, statues raised on its
+    columns, a chequered floor, masks hung on the arch."""
+    m = civic_materials()
+    chequer = plaster_material("chequer", hex_rgb("9fb8b0"), roughness=0.85, variation=0.2, scale=30.0)
 
-    half = 1.44
-    yard = add_box("yard", (0, 0, 0.03), (half * 2, half * 2, 0.06), paving)
-    yard.visible_shadow = False
+    add_box("paving", (0, 0, 0.02), (2.9, 2.9, 0.04), m["paving"])
+    add_cylinder("floor", (0.1, -0.1, 0.04 + 0.02), 1.0, 0.04, chequer, vertices=32)
+    add_ring("kerb", (0.1, -0.1, 0.04), 1.06, 0.98, 0.08, m["marble"])
+    for index in range(5):
+        angle = 2.0 + index * 0.45
+        cx, cy = -math.cos(angle) * 0.95 + 0.1, -math.sin(angle) * 0.95 - 0.1
+        add_column(f"column{index}", (cx, cy, 0.04), 1.1 + (index % 2) * 0.3, 0.05, m["marble"], m["teal_tile"])
+        if index % 2 == 0:
+            add_statue(f"statue{index}", (cx, cy, 0.04 + 1.16), 0.42, m["marble"])
+    arch = add_ring("arch", (0.1, -0.1, 0.04 + 1.42), 1.02, 0.9, 0.1, m["marble"], keep=((-0.9, 0.9, 1.5), (2.4, 2.4, 1.0)))
+    add_box("stage", (0.5, -0.5, 0.04 + 0.06), (0.9, 0.9, 0.12), m["plank"])
+    add_hedge("hedge", (1.1, 1.0), (0.4, 0.4, 0.3), m["hedge"])
+    add_amphora("jar", (-1.2, -1.1, 0.04), 0.26, m["clay"])
 
-    hall_half = 0.6
-    wall_h = 0.66
-    hx, hy = -0.7, -0.7
-    add_box("hall", (hx, hy, 0.06 + wall_h / 2), (hall_half * 2, hall_half * 2, wall_h), whitewash)
-    add_hip_roof("hall_roof", (hx, hy, 0.06 + wall_h + 0.15), hall_half + 0.12, 0.3, tiles, ridge_half=0.14)
-    add_doorway(hall_half, 0.42, (hx, hy))
-
-    add_box("stage", (0.5, 0.4, 0.06 + 0.09), (1.5, 1.3, 0.18), wood)
-    add_box("backdrop", (0.5, 1.1, 0.06 + 0.52), (1.5, 0.1, 0.7), whitewash)
-    for mask_x in (0.1, 0.5, 0.9):
-        add_cylinder("mask", (mask_x, 1.04, 0.06 + 0.66), 0.12, 0.05, mask, vertices=14)
-    for offset in (-0.5, 0.5):
-        add_cylinder("bench_post", (offset + 0.5, -0.5, 0.06 + 0.1), 0.04, 0.2, wood, vertices=8)
-    add_box("bench", (0.5, -0.5, 0.06 + 0.22), (1.3, 0.22, 0.08), marble)
-    add_amphora("jar", (-1.1, 0.9, 0.06), 0.3, clay)
-
-    return {"kind": "dramaSchool", "variant": 0, "footprint": 3, "height": 1.1}
-
+    return {"kind": "dramaSchool", "variant": 0, "footprint": 3, "height": 1.9}
 
 def build_theatre():
-    """Theatre: a tiered semicircle of stone seats around an orchestra and a skene."""
-    paving = plaster_material("paving", STONE, roughness=0.88, variation=0.05, scale=14.0)
-    sand = plaster_material("orchestra", hex_rgb("e6d7ab"), roughness=0.96, variation=0.07, scale=16.0)
-    marble = material("marble", MARBLE, roughness=0.3)
-    whitewash = plaster_material("whitewash", WHITEWASH, roughness=0.84, variation=0.04, scale=7.0)
-    tiles = roof_material("tiles", TERRACOTTA, rows_per_unit=20.0)
-    wood = material("wood", WOOD, roughness=0.86)
-    clay = material("clay", CLAY, roughness=0.8)
-    cypress = material("cypress", CYPRESS, roughness=0.9)
+    """The original's: marble tiers round a round teal orchestra, a stage house
+    with columns at the back, cypresses at the corners."""
+    m = civic_materials()
+    orchestra = plaster_material("orchestra", hex_rgb("3aa39a"), roughness=0.7, variation=0.12, scale=10.0)
 
-    half = 1.92
-    yard = add_box("yard", (0, 0, 0.03), (half * 2, half * 2, 0.06), paving)
-    yard.visible_shadow = False
+    add_box("paving", (0, 0, 0.02), (3.9, 3.9, 0.04), m["paving"])
+    cx, cy = 0.2, -0.2
+    add_cylinder("orchestra", (cx, cy, 0.04 + 0.03), 0.9, 0.06, orchestra, vertices=32)
+    add_tiers("tiers", (cx, cy, 0.04), 0.95, 4, 0.18, 0.14, m["marble"])
+    add_ring("rim", (cx, cy, 0.04), 1.72, 1.66, 0.62, m["marble"], keep=((cx - 0.9, cy + 0.9, 0.5), (2.6, 2.6, 2.0)))
+    add_box("stair", (cx + 0.95, cy - 0.95, 0.04 + 0.2), (0.5, 0.5, 0.4), m["marble"])
+    bpy.context.active_object.rotation_euler[2] = math.radians(45)
 
-    cx, cy = -0.34, 0.2
-    add_cylinder("terrace", (cx, cy, 0.06 + 0.07), 1.82, 0.14, marble, vertices=30)
-    add_cylinder("orchestra", (cx, cy, 0.06 + 0.15), 0.8, 0.04, sand, vertices=30)
-    for radius, rise, count in ((1.04, 0.16, 16), (1.34, 0.3, 20), (1.64, 0.46, 24)):
-        for index in range(count):
-            angle = math.radians(62 + index * (236 / (count - 1)))
-            seat = add_box(
-                f"seat_{radius}_{index}",
-                (cx + math.cos(angle) * radius, cy + math.sin(angle) * radius, 0.13 + rise / 2),
-                (0.32, 2 * math.pi * radius / count * 1.5, rise),
-                marble,
-            )
-            seat.rotation_euler[2] = angle
+    sx, sy = -0.9, 0.9
+    add_box("skene", (sx, sy, 0.04 + 0.5), (1.6, 0.8, 1.0), m["blue_wall"])
+    add_box("skene_cornice", (sx, sy, 0.04 + 1.02), (1.7, 0.9, 0.06), m["marble"])
+    for offset in (-0.5, 0.0, 0.5):
+        add_column("skene_column", (sx + offset * 0.7, sy - offset * 0.7, 0.04 + 1.05), 0.7, 0.045, m["marble"], m["teal_tile"])
+    arch = add_ring("skene_arch", (sx, sy, 0.04 + 1.78), 0.8, 0.7, 0.1, m["marble"], keep=((sx - 0.5, sy + 0.5, 1.8), (1.5, 1.5, 1.0)))
+    for offset in (-0.4, 0.4):
+        add_box("skene_door", (sx + 0.3 + offset * 0.7, sy - 0.3 - offset * 0.7, 0.04 + 0.35), (0.16, 0.16, 0.7), m["dark"])
 
-    add_box("skene", (1.16, 0.2, 0.06 + 0.44), (0.5, 2.0, 0.88), whitewash)
-    add_box("skene_cornice", (1.16, 0.2, 0.06 + 0.9), (0.62, 2.12, 0.08), marble)
-    add_shed_roof("skene_roof", (1.16, 0.2, 0.06 + 0.98), 0.3, 1.06, 0.07, tiles)
-    for door_y in (-0.4, 0.2, 0.8):
-        add_box("skene_door", (0.92, door_y, 0.06 + 0.26), (0.05, 0.24, 0.5), wood)
+    for tx, ty in ((-1.7, -1.5), (1.5, 1.6), (-1.5, 1.7)):
+        add_cypress("cypress", (tx, ty, 0.04), 0.9, m["cypress"])
+    add_hedge("hedge", (1.4, -1.6), (0.6, 0.3, 0.3), m["hedge"])
 
-    add_cypress_pot("cypress", (-1.6, -1.5, 0.06), 0.5, clay, cypress)
-    add_amphora("jar", (0.4, -1.6, 0.06), 0.34, clay)
-
-    return {"kind": "theatre", "variant": 0, "footprint": 4, "height": 1.3}
-
+    return {"kind": "theatre", "variant": 0, "footprint": 4, "height": 2.2}
 
 def build_stadium():
     """Stadium: a long running track between banked stone seats, with turning posts."""
