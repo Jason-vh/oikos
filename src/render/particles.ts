@@ -58,15 +58,15 @@ export class Particles {
     });
   }
 
-  dust(x: number, y: number): void {
+  dust(x: number, y: number, strength = 1): void {
     this.spawn({
       x,
       y,
       tint: 0xbfae8c,
-      scale: 0.16 + Math.random() * 0.1,
-      alpha: 0.3,
-      velocityX: (Math.random() - 0.5) * 14,
-      velocityY: -6 - Math.random() * 6,
+      scale: (0.16 + Math.random() * 0.1) * strength,
+      alpha: Math.min(0.85, 0.3 * strength),
+      velocityX: (Math.random() - 0.5) * 14 * strength,
+      velocityY: (-6 - Math.random() * 6) * strength,
       life: 700 + Math.random() * 400,
       growth: 0.5,
       fade: 1.3,

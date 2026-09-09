@@ -44,6 +44,17 @@ const CHIMNEYS: Record<number, { x: number; y: number; z: number }> = {
 const DUST_INTERVAL_MS = 320;
 const APPEAL_COLOUR_SCALE = 20;
 const GROUND_DEPTH = -0.5;
+const BUILDING_PUFFS = 9;
+const BUILDING_STRENGTH = 2.1;
+const RUBBLE_PUFFS = 16;
+const RUBBLE_STRENGTH = 2.8;
+const WAITING_SETTLERS = 4;
+const SETTLER_SPOTS = [
+  { x: -0.32, y: 0.3 },
+  { x: 0.34, y: 0.26 },
+  { x: -0.14, y: -0.24 },
+  { x: 0.3, y: -0.32 },
+];
 const STALL_TINTS: Record<Good, number> = {
   food: 0xe8c96a,
   fleece: 0xe8e0d0,
@@ -66,6 +77,7 @@ interface BuildingEntry {
   body: Sprite;
   shadow: Sprite | null;
   stalls: Sprite[];
+  footprint: { x: number; y: number; width: number; height: number };
 }
 
 export class Scene {
@@ -85,12 +97,14 @@ export class Scene {
   private readonly structures = new Container();
   private readonly buildingSprites = new Map<number, BuildingEntry>();
   private readonly walkerSprites = new Map<number, Sprite>();
+  private readonly settlerSprites: Sprite[] = [];
   private readonly unitSprites = new Map<number, Sprite>();
   private readonly overlaySprites: Sprite[] = [];
   private readonly emissionSchedule = new Map<number, number>();
 
   private overlayMode: OverlayMode = 'none';
   private syncedVersion = -1;
+  private settled = false;
   private clock = 0;
   private baked: BakedStructures | null = null;
   private bakedVersion = 0;
@@ -158,6 +172,7 @@ export class Scene {
     this.syncBuildings();
     if (this.overlayMode !== 'none' && this.overlayMode !== 'appeal') this.refreshOverlay();
     this.syncWalkers();
+    this.syncWaitingSettlers();
     this.syncUnits();
     this.emitParticles();
     this.particles.update(deltaMs);
@@ -211,6 +226,7 @@ export class Scene {
   private syncBuildings(): void {
     for (const [id, entry] of this.buildingSprites) {
       if (this.world.buildings.has(id)) continue;
+      this.kickUpDust(entry.footprint, RUBBLE_PUFFS, RUBBLE_STRENGTH);
       destroyBuilding(entry);
       this.buildingSprites.delete(id);
       this.emissionSchedule.delete(id);
@@ -223,11 +239,30 @@ export class Scene {
         if (this.overlayMode === 'none') existing.body.tint = unfinishedTint(building);
         continue;
       }
+      const raised = existing !== undefined;
       if (existing) destroyBuilding(existing);
 
       const entry = this.createBuilding(building, key);
       entry.body.tint = unfinishedTint(building);
       this.buildingSprites.set(building.id, entry);
+      if (this.settled && !raised) this.kickUpDust(entry.footprint, BUILDING_PUFFS, BUILDING_STRENGTH);
+    }
+    this.settled = true;
+  }
+
+  private kickUpDust(
+    footprint: { x: number; y: number; width: number; height: number },
+    puffs: number,
+    strength: number,
+  ): void {
+    const { grid } = this.world;
+    const ground = grid.heightAt(footprint.x, footprint.y);
+
+    for (let puff = 0; puff < puffs; puff++) {
+      const x = footprint.x + Math.random() * footprint.width;
+      const y = footprint.y + Math.random() * footprint.height;
+      const position = tileToScreen(x, y, ground);
+      this.particles.dust(position.x, position.y, strength);
     }
   }
 
@@ -259,6 +294,7 @@ export class Scene {
     return {
       key,
       shadow,
+      footprint: { x: building.x, y: building.y, width: building.width, height: building.height },
       body: place(this.bodyFor(building), this.structures),
       stalls: this.raiseStalls(building),
     };
@@ -316,6 +352,34 @@ export class Scene {
     if (isVacantPlot(building)) return this.baked?.shadow(plotKind(building), 0);
     if (isAgora(building.kind)) return undefined;
     return this.baked?.shadow(building.kind, bakedVariantOf(building));
+  }
+
+  private syncWaitingSettlers(): void {
+    const waiting = Math.min(WAITING_SETTLERS, this.world.arrivals);
+    const { grid } = this.world;
+    const x = grid.tileX(this.world.entry);
+    const y = grid.tileY(this.world.entry);
+    const height = grid.height[this.world.entry];
+    const frame = Math.floor(this.clock / (WALKER_FRAME_MS * 6));
+
+    for (let index = 0; index < WAITING_SETTLERS; index++) {
+      let sprite = this.settlerSprites[index];
+      if (!sprite) {
+        sprite = new Sprite();
+        sprite.anchor.set(0.5, 0.92);
+        this.structures.addChild(sprite);
+        this.settlerSprites[index] = sprite;
+      }
+
+      sprite.visible = index < waiting;
+      if (!sprite.visible) continue;
+
+      const offset = SETTLER_SPOTS[index];
+      sprite.texture = this.textures.walker('immigrant', index % WALKER_LOOKS, index % 2 === 0 ? 0 : 3, (frame + index) % 2);
+      const position = tileToScreen(x + offset.x, y + offset.y, height);
+      sprite.position.set(position.x, position.y);
+      sprite.zIndex = x + y + 0.4;
+    }
   }
 
   private markEntry(): void {

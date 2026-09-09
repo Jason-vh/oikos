@@ -84,6 +84,11 @@ function adviseOnPeople(world: World): AdvisorReport {
       { label: 'Workers short', value: `${short}`, concern: short > 0 },
       { label: 'Idle', value: `${idle}`, concern: idle > workforce * 0.2 },
       { label: 'Migration', value: migration(world.migrants), concern: world.migrants < 0 },
+      {
+        label: 'Waiting at the edge',
+        value: `${world.arrivals}`,
+        concern: world.arrivals > 0 && !world.entryConnected,
+      },
     ],
   };
 }

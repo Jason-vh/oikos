@@ -309,7 +309,7 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       field('workers').textContent = labourLabel(world.labour);
       field('idle').textContent = `${world.labour.workforce - world.labour.employed}`;
       field('popularity').textContent = `${world.sentiment.popularity} of 100`;
-      field('migration').textContent = migrationLabel(world.migrants);
+      field('migration').textContent = migrationLabel(world);
       field('complaint').textContent = world.sentiment.complaint ?? 'Nobody complains.';
       field('overlays').textContent = OVERLAYS.find((overlay) => overlay.mode === game.overlayMode)?.short ?? 'City';
       if (!advisors.hidden) renderAdvisors(hud, world);
@@ -728,9 +728,12 @@ function labourLabel({ employed, required }: LabourReport): string {
   return `${employed}/${required}`;
 }
 
-function migrationLabel(migrants: number): string {
-  if (migrants > 0) return `${migrants} settling`;
-  if (migrants < 0) return `${-migrants} leaving`;
+function migrationLabel(world: Game['world']): string {
+  if (world.arrivals > 0) {
+    return world.entryConnected ? `${world.arrivals} on the road` : `${world.arrivals} stranded at the edge`;
+  }
+  if (world.migrants > 0) return `${world.migrants} settling`;
+  if (world.migrants < 0) return `${-world.migrants} leaving`;
   return 'Steady';
 }
 
