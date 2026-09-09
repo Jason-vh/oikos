@@ -788,38 +788,18 @@ def build_house_6():
 
 
 def build_growers_lodge():
-    """Lodge beside an olive grove: low stone hut, trees in rows, harvest baskets."""
-    soil = plaster_material("soil", SOIL, roughness=0.98, variation=0.1, scale=12.0)
-    grass = plaster_material("grove_grass", (0.42, 0.45, 0.24), roughness=0.95, variation=0.12, scale=14.0)
-    stone = plaster_material("stone", STONE, roughness=0.85, variation=0.06, scale=10.0)
-    ochre = plaster_material("ochre", OCHRE, roughness=0.9, variation=0.08, scale=8.0)
-    terracotta = roof_material("terracotta", TERRACOTTA)
-    wood = material("wood", WOOD, roughness=0.85)
-    bark = material("bark", (0.32, 0.26, 0.18), roughness=0.9)
-    leaf = material("leaf", (0.36, 0.44, 0.26), roughness=0.9)
-    clay = material("clay", CLAY, roughness=0.8)
-
-    add_box("ground", (-0.1, -0.1, 0.02), (1.7, 1.7, 0.04), grass)
-    add_wall("wall_south", (-0.1, -0.96, 0.09), 1.7, 0.18, 0.06, stone, along_x=True)
-    add_wall("wall_west", (-0.96, -0.1, 0.09), 1.7, 0.18, 0.06, stone, along_x=False)
-
-    for row, x in enumerate((-0.62, -0.02)):
-        for column, y in enumerate((-0.6, 0.0, 0.6)):
-            add_box(f"root_{row}{column}", (x, y, 0.05), (0.24, 0.24, 0.04), soil)
-            add_cylinder(f"trunk_{row}{column}", (x, y, 0.17), 0.045, 0.26, bark, vertices=8)
-            add_pyramid(f"crown_{row}{column}", (x, y, 0.42), 0.28, 0.34, leaf, vertices=7)
-
-    hx, hy = 0.62, 0.62
-    half = 0.3
-    wall_h = 0.42
-    add_box("lodge_wall", (hx, hy, wall_h / 2), (half * 2, half * 2, wall_h), ochre)
-    add_hip_roof("lodge_roof", (hx, hy, wall_h + 0.1), half + 0.05, 0.2, terracotta, ridge_half=0.08)
-    add_door(half, 0.26, wood, (hx, hy))
-    add_window_row(half, 0.24, (0.1, 0.1), (hx, hy))
-    add_amphora("basket", (0.66, -0.2, 0.04), 0.24, clay)
-
-    return {"kind": "growersLodge", "variant": 0, "footprint": 2, "height": 0.85}
-
+    """The original's: the green-tiled farmhouse, olive trees in the plot before it."""
+    olive = plaster_material("olive", hex_rgb("6f8a3a"), roughness=0.95, variation=0.2, scale=12.0)
+    trunk = material("trunk", hex_rgb("5a3f22"), roughness=0.9)
+    add_farmhouse((-0.15, 0.4))
+    for index, (tx, ty) in enumerate(((-0.7, -0.5), (-0.2, -0.65), (0.3, -0.5), (0.7, -0.7))):
+        add_cylinder(f"trunk{index}", (tx, ty, 0.12), 0.03, 0.24, trunk, vertices=6)
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=0.2, location=(tx, ty, 0.36), segments=10, ring_count=6)
+        crown = bpy.context.active_object
+        crown.name = f"crown{index}"
+        crown.scale = (1.0, 1.0, 0.7)
+        crown.data.materials.append(olive)
+    return {"kind": "growersLodge", "variant": 0, "footprint": 2, "height": 1.2}
 
 def workshop_materials():
     m = civic_materials()
@@ -907,7 +887,7 @@ PLANK = hex_rgb("c9a462")
 
 def add_farmhouse(origin):
     """The original's farmhouse: plastered stone in an L under green glazed tile, a
-    trimmed doorway, jars against the wall."""
+    trimmed doorway, jars against the wall. Fills the back half of a 2x2 plot."""
     ox, oy = origin
     plaster = plaster_material("farm_plaster", hex_rgb("efe3c4"), roughness=0.9, variation=0.16, scale=6.0)
     course = plaster_material("farm_course", hex_rgb("b9b09a"), roughness=0.9, variation=0.12, scale=12.0)
@@ -915,20 +895,20 @@ def add_farmhouse(origin):
     trim = material("farm_trim", hex_rgb("5a6a22"), roughness=0.8)
     clay = material("clay", CLAY, roughness=0.85)
 
-    add_box("main", (ox - 0.2, oy + 0.1, 0.3), (1.0, 0.7, 0.6), plaster)
-    add_box("main_course", (ox - 0.2, oy + 0.1, 0.1), (1.02, 0.72, 0.2), course)
-    add_gable_roof("main_roof", (ox - 0.2, oy + 0.1, 0.6), 0.58, 0.44, 0.24, 0.06, green)
-    add_box("main_trim", (ox - 0.2, oy - 0.26, 0.58), (1.1, 0.04, 0.05), trim)
-    add_window_row(0.35, 0.4, (0.11, 0.13), (ox - 0.2, oy + 0.1))
+    add_box("main", (ox - 0.25, oy + 0.1, 0.4), (1.3, 0.9, 0.8), plaster)
+    add_box("main_course", (ox - 0.25, oy + 0.1, 0.12), (1.32, 0.92, 0.24), course)
+    add_gable_roof("main_roof", (ox - 0.25, oy + 0.1, 0.8), 0.74, 0.56, 0.36, 0.07, green)
+    add_box("main_trim", (ox - 0.25, oy - 0.36, 0.78), (1.4, 0.04, 0.05), trim)
+    add_window_row(0.45, 0.5, (0.13, 0.16), (ox - 0.25, oy + 0.1))
 
-    add_box("wing", (ox + 0.42, oy - 0.1, 0.25), (0.5, 0.56, 0.5), plaster)
-    add_box("wing_course", (ox + 0.42, oy - 0.1, 0.1), (0.52, 0.58, 0.2), course)
-    add_shed_roof("wing_roof", (ox + 0.44, oy - 0.1, 0.55), 0.32, 0.36, 0.06, green, pitch=0.34)
-    add_doorway(0.25, 0.32, (ox + 0.42, oy - 0.1), width=0.18)
-    add_box("door_trim", (ox + 0.68, oy - 0.1, 0.34), (0.02, 0.24, 0.04), trim)
+    add_box("wing", (ox + 0.55, oy - 0.1, 0.32), (0.6, 0.7, 0.64), plaster)
+    add_box("wing_course", (ox + 0.55, oy - 0.1, 0.12), (0.62, 0.72, 0.24), course)
+    add_shed_roof("wing_roof", (ox + 0.57, oy - 0.1, 0.7), 0.38, 0.44, 0.07, green, pitch=0.34)
+    add_doorway(0.3, 0.42, (ox + 0.55, oy - 0.1), width=0.22)
+    add_box("door_trim", (ox + 0.86, oy - 0.1, 0.44), (0.02, 0.28, 0.04), trim)
 
-    add_amphora("jar1", (ox + 0.5, oy - 0.56, 0.0), 0.2, clay)
-    add_amphora("jar2", (ox + 0.72, oy - 0.44, 0.0), 0.16, clay)
+    add_amphora("jar1", (ox + 0.5, oy - 0.62, 0.0), 0.22, clay)
+    add_amphora("jar2", (ox + 0.8, oy - 0.5, 0.0), 0.18, clay)
 
 
 def add_crop_rows(origin, span, crop, rows, along_x=True):
@@ -943,9 +923,9 @@ def add_crop_rows(origin, span, crop, rows, along_x=True):
 def build_wheat_farm():
     """Farmhouse at the back of the plot, a strip of wheat before it."""
     crop = plaster_material("crop", STRAW_DULL, roughness=0.9, variation=0.2, scale=30.0)
-    add_farmhouse((-0.22, 0.34))
-    add_crop_rows((-0.2, -0.58), 1.4, crop, 6)
-    return {"kind": "wheatFarm", "variant": 0, "footprint": 2, "height": 0.9}
+    add_farmhouse((-0.15, 0.4))
+    add_crop_rows((-0.2, -0.6), 1.4, crop, 6)
+    return {"kind": "wheatFarm", "variant": 0, "footprint": 2, "height": 1.2}
 
 
 def build_granary():
@@ -1513,47 +1493,23 @@ def sanctuary_builder(name, god):
 
 
 def build_trading_post():
-    """Trading post: a walled yard of crates and jars under awnings, with a weighing beam."""
-    earth = plaster_material("earth", EARTH, roughness=0.97, variation=0.09, scale=16.0)
-    plaster = plaster_material("plaster", WHITEWASH, roughness=0.85, variation=0.05, scale=7.0)
-    tiles = roof_material("tiles", TERRACOTTA, rows_per_unit=20.0)
-    canvas = plaster_material("canvas", hex_rgb("d9cba4"), roughness=0.95, variation=0.07, scale=9.0)
-    wood = material("wood", WOOD, roughness=0.86)
-    crate = material("crate", hex_rgb("8a6134"), roughness=0.9)
-    clay = material("clay", CLAY, roughness=0.8)
-    bronze = material("bronze", BRONZE, roughness=0.35, metallic=1.0)
-
-    half = 0.94
-    yard = add_box("yard", (0, 0, 0.03), (half * 2, half * 2, 0.06), earth)
-    yard.visible_shadow = False
-    for side in (-1, 1):
-        add_box("yard_wall", (side * half, 0, 0.16), (0.08, half * 2, 0.2), plaster)
-        add_box("yard_wall", (0, side * half, 0.16), (half * 2, 0.08, 0.2), plaster)
-
-    office_half = 0.42
-    wall_h = 0.56
-    ox, oy = -0.42, -0.42
-    add_box("office", (ox, oy, 0.06 + wall_h / 2), (office_half * 2, office_half * 2, wall_h), plaster)
-    add_hip_roof("office_roof", (ox, oy, 0.06 + wall_h + 0.13), office_half + 0.12, 0.26, tiles, ridge_half=0.12)
-    add_doorway(office_half, 0.36, (ox, oy))
-
-    add_box("awning", (0.46, 0.2, 0.06 + 0.52), (0.72, 0.9, 0.04), canvas)
-    for cx, cy in ((0.14, -0.22), (0.78, -0.22), (0.14, 0.62), (0.78, 0.62)):
-        add_cylinder("awning_post", (cx, cy, 0.06 + 0.26), 0.022, 0.52, wood, vertices=6)
-
-    for cx, cy, cz, size in ((0.4, 0.06, 0.06, 0.28), (0.72, 0.3, 0.06, 0.24), (0.4, 0.06, 0.34, 0.22)):
-        add_box("crate", (cx, cy, cz + size / 2), (size, size, size), crate)
-    add_amphora("jar1", (0.28, 0.62, 0.06), 0.3, clay)
-    add_amphora("jar2", (0.52, 0.72, 0.06), 0.26, clay)
-    add_amphora("jar3", (-0.2, 0.74, 0.06), 0.28, clay)
-
-    add_cylinder("scale_post", (-0.66, 0.58, 0.06 + 0.3), 0.03, 0.6, wood, vertices=8)
-    add_box("scale_beam", (-0.66, 0.58, 0.06 + 0.6), (0.06, 0.5, 0.04), wood)
-    for pan in (-0.22, 0.22):
-        add_cylinder("scale_pan", (-0.66, 0.58 + pan, 0.06 + 0.5), 0.09, 0.03, bronze, vertices=12)
-
-    return {"kind": "tradingPost", "variant": 0, "footprint": 2, "height": 0.95}
-
+    """The original's: a curved marble stoa round a court, red tile over the
+    colonnade, cypresses at the gate."""
+    m = civic_materials()
+    add_box("paving", (0, 0, 0.02), (1.9, 1.9, 0.04), m["paving"])
+    back = add_ring("back", (0.1, 0.1, 0.04), 0.95, 0.75, 0.9, m["marble"])
+    front = add_box("front_cut", (0.9, -0.9, 0.5), (2.6, 2.6, 1.4), m["marble"])
+    front.rotation_euler[2] = math.radians(45)
+    subtract(back, front)
+    for angle in (0.2, 0.6, 1.0, 1.4):
+        add_column("column", (0.1 + math.cos(angle) * 0.85, 0.1 - math.sin(angle) * 0.85, 0.04), 0.7, 0.04, m["marble"])
+        add_column("column", (0.1 - math.cos(angle) * 0.85, 0.1 + math.sin(angle) * 0.85, 0.04), 0.7, 0.04, m["marble"])
+    add_box("stoa_roof_x", (0.55, -0.4, 0.04 + 0.78), (0.9, 0.3, 0.05), m["terracotta"] if "terracotta" in m else roof_material("terracotta", TERRACOTTA))
+    add_box("stoa_roof_y", (-0.4, 0.55, 0.04 + 0.78), (0.3, 0.9, 0.05), roof_material("terracotta2", TERRACOTTA))
+    add_cypress("cypress1", (-0.75, -0.75, 0.04), 0.9, m["cypress"])
+    add_cypress("cypress2", (0.8, 0.8, 0.04), 0.8, m["cypress"])
+    add_crates("crates", (0.3, 0.3, 0.04), 2, m["plank"])
+    return {"kind": "tradingPost", "variant": 0, "footprint": 2, "height": 1.3}
 
 def build_estate(tier):
     """The elite ladder, after the original: a tall mansion of blue-grey stone under
@@ -1760,39 +1716,17 @@ def build_tower():
 
 
 def build_vineyard():
-    """Vineyard: trellised rows of vines on the meadow, with a picker's hut and baskets."""
-    soil = plaster_material("soil", SOIL, roughness=0.98, variation=0.1, scale=12.0)
-    grass = plaster_material("vine_grass", (0.45, 0.47, 0.26), roughness=0.95, variation=0.12, scale=14.0)
-    stone = plaster_material("stone", STONE, roughness=0.85, variation=0.06, scale=10.0)
-    ochre = plaster_material("ochre", OCHRE, roughness=0.9, variation=0.08, scale=8.0)
-    terracotta = roof_material("terracotta", TERRACOTTA)
-    wood = material("wood", WOOD, roughness=0.86)
-    vine = material("vine", (0.28, 0.4, 0.2), roughness=0.9)
-    grape = material("grape", hex_rgb("6b3a63"), roughness=0.75)
-    clay = material("clay", CLAY, roughness=0.8)
-
-    add_box("ground", (-0.1, -0.1, 0.02), (1.7, 1.7, 0.04), grass)
-    add_wall("wall_south", (-0.1, -0.96, 0.09), 1.7, 0.18, 0.06, stone, along_x=True)
-
-    for row, x in enumerate((-0.66, -0.16, 0.34)):
-        add_box(f"bed_{row}", (x, -0.1, 0.05), (0.2, 1.4, 0.03), soil)
-        for post_y in (-0.66, 0.0, 0.66):
-            add_cylinder(f"post_{row}{post_y}", (x, post_y, 0.2), 0.022, 0.32, wood, vertices=6)
-        add_box(f"wire_{row}", (x, -0.1, 0.34), (0.03, 1.4, 0.02), wood)
-        for leaf_y in (-0.62, -0.28, 0.06, 0.4, 0.7):
-            add_box(f"vine_{row}{leaf_y}", (x, leaf_y, 0.28), (0.22, 0.24, 0.2), vine)
-            add_cylinder(f"bunch_{row}{leaf_y}", (x + 0.1, leaf_y, 0.2), 0.05, 0.1, grape, vertices=8)
-
-    hx, hy = 0.68, 0.66
-    half = 0.26
-    wall_h = 0.36
-    add_box("hut_wall", (hx, hy, wall_h / 2), (half * 2, half * 2, wall_h), ochre)
-    add_hip_roof("hut_roof", (hx, hy, wall_h + 0.09), half + 0.05, 0.18, terracotta, ridge_half=0.07)
-    add_door(half, 0.22, wood, (hx, hy))
-    add_amphora("basket", (0.72, -0.3, 0.04), 0.24, clay)
-
-    return {"kind": "vineyard", "variant": 0, "footprint": 2, "height": 0.75}
-
+    """The original's: the same farmhouse, vines on trellises before it."""
+    vine = plaster_material("vine", hex_rgb("4f7a2a"), roughness=0.95, variation=0.2, scale=12.0)
+    wood = material("wood", WOOD, roughness=0.9)
+    add_farmhouse((-0.15, 0.4))
+    for row in range(3):
+        y = -0.35 - row * 0.22
+        add_box(f"trellis{row}", (-0.2, y, 0.2), (1.4, 0.02, 0.02), wood)
+        for x in (-0.8, -0.4, 0.0, 0.4):
+            add_cylinder(f"stake{row}", (x, y, 0.12), 0.012, 0.24, wood, vertices=5)
+        add_box(f"vine{row}", (-0.2, y, 0.16), (1.36, 0.1, 0.2), vine)
+    return {"kind": "vineyard", "variant": 0, "footprint": 2, "height": 1.2}
 
 def build_winery():
     """The original's: a treading vat under a plank roof, purple must in the trough,
@@ -2169,68 +2103,40 @@ def build_horse_ranch():
 def build_field_farm(kind, crop_hex, row_count=5):
     """A farm of another crop: the same farmhouse, a different strip before it."""
     crop = plaster_material("crop", hex_rgb(crop_hex), roughness=0.94, variation=0.16, scale=14.0)
-    add_farmhouse((-0.22, 0.34))
-    add_crop_rows((-0.2, -0.58), 1.4, crop, row_count)
-    return {"kind": kind, "variant": 0, "footprint": 2, "height": 0.9}
+    add_farmhouse((-0.15, 0.4))
+    add_crop_rows((-0.2, -0.6), 1.4, crop, row_count)
+    return {"kind": kind, "variant": 0, "footprint": 2, "height": 1.2}
 
 
 def build_hunting_lodge():
-    """Hunting lodge: a timber cabin with drying racks and a stack of pelts."""
-    earth = plaster_material("earth", EARTH, roughness=0.97, variation=0.09, scale=15.0)
-    daub = plaster_material("daub", DAUB, roughness=0.95, variation=0.12, scale=10.0)
-    thatch = plaster_material("thatch", THATCH, roughness=0.95, variation=0.1, scale=20.0)
-    wood = material("wood", WOOD, roughness=0.88)
-    hide = material("hide", hex_rgb("8a5a34"), roughness=0.92)
-
-    half = 0.94
-    yard = add_box("yard", (0, 0, 0.03), (half * 2, half * 2, 0.06), earth)
-    yard.visible_shadow = False
-
-    lodge_half = 0.42
-    wall_h = 0.46
-    lx, ly = -0.42, -0.4
-    add_box("lodge", (lx, ly, 0.06 + wall_h / 2), (lodge_half * 2, lodge_half * 2, wall_h), daub)
-    add_gable_roof("lodge_roof", (lx, ly, 0.06 + wall_h), lodge_half + 0.09, lodge_half + 0.08, 0.24, 0.05, thatch)
-    add_doorway(lodge_half, 0.32, (lx, ly))
-
-    add_rack("rack", (0.6, 0.3, 0.06), 0.6, 0.3, wood, hide)
-    for pelt_y in (-0.8, -0.6):
-        add_box("pelt", (0.6, pelt_y, 0.06 + 0.07), (0.4, 0.16, 0.14), hide)
-    add_stump("stump", (-0.8, 0.72, 0.06), wood)
-
-    return {"kind": "huntingLodge", "variant": 0, "footprint": 2, "height": 0.9}
-
+    """The original's: the farmhouse with a stone forecourt and a drying rack of pelts."""
+    m = civic_materials()
+    hide = plaster_material("hide", HIDE, roughness=0.95, variation=0.2, scale=8.0)
+    add_farmhouse((-0.15, 0.4))
+    add_box("forecourt", (-0.2, -0.55, 0.02), (1.5, 0.7, 0.04), m["paving"])
+    add_rack("rack", (0.5, -0.6, 0.04), 0.5, 0.4, m["wood"], hide)
+    add_box("pelt", (-0.5, -0.6, 0.04 + 0.02), (0.3, 0.2, 0.04), hide)
+    return {"kind": "huntingLodge", "variant": 0, "footprint": 2, "height": 1.2}
 
 def build_fishery():
-    """Fishery: a jetty over the water with a boat, nets and drying fish."""
-    earth = plaster_material("earth", EARTH, roughness=0.97, variation=0.09, scale=15.0)
-    plaster = plaster_material("plaster", hex_rgb("bcd0d4"), roughness=0.88, variation=0.05, scale=9.0)
-    tiles = roof_material("tiles", hex_rgb("b8502c"), rows_per_unit=18.0)
-    wood = material("wood", WOOD, roughness=0.88)
-    net = material("net", hex_rgb("cbbf95"), roughness=0.95)
-
-    half = 0.94
-    yard = add_box("yard", (0, 0, 0.03), (half * 2, half * 2, 0.06), earth)
-    yard.visible_shadow = False
-
-    shed_half = 0.36
-    wall_h = 0.44
-    sx, sy = -0.5, -0.5
-    add_box("shed", (sx, sy, 0.06 + wall_h / 2), (shed_half * 2, shed_half * 2, wall_h), plaster)
-    add_hip_roof("shed_roof", (sx, sy, 0.06 + wall_h + 0.12), shed_half + 0.1, 0.24, tiles, ridge_half=0.1)
-    add_doorway(shed_half, 0.3, (sx, sy))
-
-    add_box("jetty", (0.42, -0.2, 0.09), (1.0, 0.3, 0.06), wood)
-    for post_x in (0.0, 0.42, 0.84):
-        add_cylinder("pile", (post_x, -0.2, 0.06), 0.04, 0.14, wood, vertices=6)
-    add_box("boat", (0.5, 0.62, 0.1), (0.8, 0.3, 0.14), wood)
-    add_box("boat_rim", (0.5, 0.62, 0.17), (0.86, 0.36, 0.04), wood)
-    add_box("net", (-0.3, 0.72, 0.06 + 0.16), (0.3, 0.5, 0.3), net)
-    for fish_y in (-0.72, -0.5):
-        add_box("fish", (-0.86, fish_y, 0.06 + 0.3), (0.1, 0.16, 0.08), material("fish", hex_rgb("9fb6bd"), roughness=0.6))
-
-    return {"kind": "fishery", "variant": 0, "footprint": 2, "height": 0.85}
-
+    """The original's: a plank deck on the shore, nets hung from a tall frame, a
+    boat drawn up, a fish basket."""
+    m = civic_materials()
+    net = plaster_material("net", hex_rgb("6a6a3a"), roughness=0.95, variation=0.2, scale=30.0)
+    add_box("deck", (0, 0, 0.06), (1.9, 1.9, 0.12), m["plank"])
+    for index in range(9):
+        add_box("deck_gap", (-0.8 + index * 0.2, 0, 0.125), (0.015, 1.9, 0.005), m["wood"])
+    fx, fy = -0.5, 0.4
+    for px, py in ((fx - 0.3, fy), (fx + 0.3, fy)):
+        add_cylinder("frame_post", (px, py, 0.12 + 0.6), 0.025, 1.2, m["wood"], vertices=6)
+    add_box("frame_top", (fx, fy, 0.12 + 1.2), (0.7, 0.04, 0.04), m["wood"])
+    sheet = add_box("net", (fx, fy, 0.12 + 0.7), (0.6, 0.02, 0.9), net)
+    sheet.rotation_euler[0] = 0.1
+    add_box("boat", (0.5, -0.4, 0.12 + 0.12), (0.9, 0.36, 0.24), m["wood"])
+    add_box("boat_inner", (0.5, -0.4, 0.12 + 0.2), (0.8, 0.26, 0.1), m["dark"])
+    add_barrel("basket", (-0.5, -0.6, 0.12), m["clay"], radius=0.14, height=0.18)
+    add_box("crate", (0.7, 0.6, 0.12 + 0.1), (0.24, 0.24, 0.2), m["plank"])
+    return {"kind": "fishery", "variant": 0, "footprint": 2, "height": 1.5}
 
 def build_artisans_guild():
     """Artisans' guild: a working yard of half-cut stone, scaffolding poles and tool benches."""
