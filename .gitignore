@@ -6,3 +6,5 @@ pipeline/out
 .DS_Store
 scripts/.pilot-profile
 scripts/pilot-shot.png
+reference
+zeus.zip

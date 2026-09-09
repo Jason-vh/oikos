@@ -1,0 +1,109 @@
+{
+  "tile": {
+    "width": 58,
+    "height": 30,
+    "gameWidth": 120,
+    "gameHeight": 60
+  },
+  "terrain": {
+    "grass": {
+      "median": "#5a6318",
+      "luminance": 93.8,
+      "grainWithinTile": 24.7,
+      "driftBetweenTiles": 9.2,
+      "tiles": 41
+    },
+    "meadow": {
+      "median": "#c6ad52",
+      "luminance": 167.6,
+      "grainWithinTile": 21.7,
+      "driftBetweenTiles": 5.0,
+      "tiles": 65
+    },
+    "bare": {
+      "median": "#c6ad52",
+      "luminance": 171.1,
+      "grainWithinTile": 14.5,
+      "driftBetweenTiles": 1.8,
+      "tiles": 58
+    },
+    "deepWater": {
+      "median": "#296b73",
+      "luminance": 96.1,
+      "grainWithinTile": 3.7,
+      "driftBetweenTiles": 0.1,
+      "tiles": 8
+    },
+    "beach": {
+      "median": "#adb584",
+      "luminance": 166.5,
+      "grainWithinTile": 42.8,
+      "driftBetweenTiles": 29.2,
+      "tiles": 82
+    },
+    "road": {
+      "median": "#dece9c",
+      "luminance": 205.2,
+      "grainWithinTile": 17.2,
+      "driftBetweenTiles": 6.0,
+      "tiles": 49
+    },
+    "paving": {
+      "median": "#f7efd6",
+      "luminance": 230.3,
+      "grainWithinTile": 19.6,
+      "driftBetweenTiles": 4.1,
+      "tiles": 36
+    }
+  },
+  "housing": [
+    {
+      "hex": "#c99c52",
+      "share": 0.044
+    },
+    {
+      "hex": "#525e68",
+      "share": 0.034
+    },
+    {
+      "hex": "#343b3d",
+      "share": 0.031
+    },
+    {
+      "hex": "#6d2f16",
+      "share": 0.031
+    },
+    {
+      "hex": "#8b6039",
+      "share": 0.031
+    },
+    {
+      "hex": "#e1c17c",
+      "share": 0.031
+    },
+    {
+      "hex": "#211410",
+      "share": 0.029
+    },
+    {
+      "hex": "#f8dea2",
+      "share": 0.027
+    },
+    {
+      "hex": "#fbeecf",
+      "share": 0.024
+    },
+    {
+      "hex": "#89846f",
+      "share": 0.021
+    },
+    {
+      "hex": "#150000",
+      "share": 0.004
+    },
+    {
+      "hex": "#000008",
+      "share": 0.003
+    }
+  ]
+}
