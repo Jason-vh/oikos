@@ -43,9 +43,9 @@ describe('the goods list', () => {
 });
 
 describe('what housing asks for', () => {
-  test('a homestead wants fleece, and every tier above it', () => {
-    expect(HOUSE_TIERS[2].needs).not.toContain('fleece');
-    for (const tier of HOUSE_TIERS.slice(3)) expect(tier.needs).toContain('fleece');
+  test('a tenement wants fleece, and every tier above it', () => {
+    expect(HOUSE_TIERS[3].needs).not.toContain('fleece');
+    for (const tier of HOUSE_TIERS.slice(4)) expect(tier.needs).toContain('fleece');
   });
 
   test('a manor wants wine, a mansion does not', () => {

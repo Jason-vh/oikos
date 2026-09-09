@@ -54,9 +54,10 @@ npm run smoke    # headless render + simulation check (needs a dev server runnin
   fresh plot is nothing but a rough square of stakes and surveyor's string: it asks
   nothing of the city, lends it no appeal and cannot catch fire until someone lives
   there. Once settled it evolves Hut →
-  Shack → Hovel → Homestead → Tenement → Apartment → Townhouse (8 to 60 citizens),
-  gated on supplied services — food, then water, then culture, then olive oil — and,
-  from Homestead up, on local appeal. A house emptied of people is a plot again.
+  Shack → Hovel → Homestead → Tenement → Apartment → Townhouse (8 to 60 citizens).
+  Each step asks for one thing more than the last: food, then water, then culture,
+  then fleece, then olive oil, and at the top athletics and drama — and, from
+  Homestead up, a decent appeal. A house emptied of people is a plot again.
 - **Culture**: a college trains a philosopher and walks him to a podium; from there he
   roams 35 tiles teaching the houses he passes. A college with no podium sends nobody. Houses devolve when their tier's needs
   lapse or their surroundings decay.

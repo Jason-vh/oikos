@@ -58,10 +58,8 @@ describe('culture', () => {
     expect([...world.walkers.values()].some((walker) => walker.kind === 'philosopher')).toBe(false);
   });
 
-  test('houses stall below a hovel until someone teaches them', () => {
+  test('houses stall below a homestead until someone teaches them', () => {
     const { world, house } = schoolTown(false);
-    house.supply.water = 100;
-    house.supply.food = 100;
 
     for (let tick = 0; tick < 2000; tick++) {
       house.supply.water = 100;
@@ -69,6 +67,6 @@ describe('culture', () => {
       world.update();
     }
 
-    expect(HOUSE_TIERS[house.tier].name).toBe('Shack');
+    expect(HOUSE_TIERS[house.tier].name).toBe('Hovel');
   });
 });

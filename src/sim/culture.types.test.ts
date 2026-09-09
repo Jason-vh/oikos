@@ -14,8 +14,8 @@ describe('the three kinds of culture', () => {
   test('housing asks for one, then two, then three', () => {
     const types = (needs: string[]) => needs.filter((need) => ['culture', 'athletics', 'drama'].includes(need)).length;
 
-    expect(types(HOUSE_TIERS[2].needs)).toBe(1);
-    expect(types(HOUSE_TIERS[4].needs)).toBe(2);
+    expect(types(HOUSE_TIERS[2].needs)).toBe(0);
+    expect(types(HOUSE_TIERS[3].needs)).toBe(1);
     expect(types(HOUSE_TIERS[6].needs)).toBe(3);
     expect(types(ELITE_TIERS[3].needs)).toBe(3);
   });
