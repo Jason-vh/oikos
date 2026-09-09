@@ -393,6 +393,10 @@ button.cartouche:hover {
   filter: brightness(1.1);
 }
 
+.tool.idle {
+  filter: grayscale(0.7) brightness(0.72);
+}
+
 .tool:active,
 .choice:active,
 .overlay-toggle:active {

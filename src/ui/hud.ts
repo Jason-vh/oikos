@@ -12,7 +12,7 @@ import { GAMES, gameOfYear } from '../sim/games';
 import { QUESTS } from '../sim/quests';
 import { CAMPAIGN } from '../sim/scenario';
 import { adviseCity } from './advisors';
-import { VENDOR_GOODS, VENDOR_COST } from '../sim/agora';
+import { VENDOR_GOODS, VENDOR_COST, freeStalls, isAgora } from '../sim/agora';
 import type { BuildingKind } from '../sim/types';
 import { abandonCity } from '../sim/save';
 import { CITIES, GIFT_COST, GIFT_GOODWILL, relationOf, tradesWithYou } from '../sim/cities';
@@ -317,9 +317,11 @@ export function createHud(root: HTMLElement, game: Game): { update: () => void }
       renderPopup(popup, balloon ?? game.inspectSelection(), balloon === null);
       field('messages').textContent = world.messages[0] ?? '';
 
+      const stallsFree = freeStallsInCity(world) > 0;
       hud.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((element) => {
         const button = buttons[Number(element.dataset.tool)];
         element.classList.toggle('active', isSameTool(button.tool, game.tool));
+        element.classList.toggle('idle', button.tool.kind === 'vendor' && !stallsFree);
       });
       hud.querySelectorAll<HTMLButtonElement>('[data-speed]').forEach((element) => {
         element.classList.toggle('chosen', Number(element.dataset.speed) === game.speed);
@@ -464,6 +466,14 @@ function renderPopup(popup: HTMLElement, inspection: Inspection | null, closable
   facts.innerHTML = inspection.facts
     .map(([term, value]) => `<dt>${term}</dt><dd>${value}</dd>`)
     .join('');
+}
+
+function freeStallsInCity(world: Game['world']): number {
+  let free = 0;
+  for (const building of world.buildings.values()) {
+    if (isAgora(building.kind)) free += freeStalls(building);
+  }
+  return free;
 }
 
 function groupFor(kind: string): string {

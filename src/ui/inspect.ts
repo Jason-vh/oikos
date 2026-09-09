@@ -1,7 +1,8 @@
-import { STALL_WORKERS, VENDOR_COST, freeStalls, isAgora, stallGoods } from '../sim/agora';
+import { STALL_WORKERS, VENDOR_COST, freeStalls, isAgora, stallAt, stallGoods } from '../sim/agora';
 import { bandValues } from '../sim/appeal';
 import {
   BUILDINGS,
+  UNITS_PER_CARTLOAD,
   ROADBLOCK_COST,
   ROAD_COST,
   WALL_COST,
@@ -61,6 +62,10 @@ export function inspectTile(world: World, x: number, y: number): Inspection | nu
 
   const index = grid.index(x, y);
   const building = world.buildingAt(index);
+  if (building && isAgora(building.kind)) {
+    const stall = stallAt(building, x, y);
+    if (stall !== -1) return inspectStall(world, building, stall);
+  }
   if (building) return inspectBuilding(world, building, index);
   if (grid.isWall(index)) return describeWallTool();
   if (index === world.entry) return inspectEntry(world);
@@ -178,9 +183,6 @@ function inspectBuilding(world: World, building: Building, index: number): Inspe
     const vendors = stallGoods(building).map((good) => VENDOR_NAMES[good]);
     facts.push(['Vendors', vendors.length > 0 ? vendors.join(', ') : 'none yet']);
     facts.push(['Free stalls', `${freeStalls(building)} of ${building.stalls.length}`]);
-    for (const good of stallGoods(building)) {
-      facts.push([`${VENDOR_NAMES[good]} in stall`, `${Math.round(building.stock[good] / 100)} cartloads`]);
-    }
   }
 
   if (building.kind === 'tradingPost') {
@@ -206,6 +208,40 @@ function inspectBuilding(world: World, building: Building, index: number): Inspe
   facts.push(['Risk', describeRisk(building)]);
 
   return { title: def.name, subtitle: 'Building', description: def.description, facts };
+}
+
+function inspectStall(world: World, agora: Building, stall: number): Inspection {
+  const good = agora.stalls[stall];
+  const agoraName = BUILDINGS[agora.kind].name;
+  if (!good) {
+    return {
+      title: 'Empty stall',
+      subtitle: agoraName,
+      description: 'Nobody trades here yet. Put a vendor on it and he will fetch his goods and sell them house to house.',
+      facts: [
+        ['Free stalls', `${freeStalls(agora)} of ${agora.stalls.length}`],
+        ['A vendor costs', `${money(VENDOR_COST)} and ${STALL_WORKERS} workers`],
+      ],
+    };
+  }
+
+  const out = [...world.walkers.values()].filter(
+    (walker) => walker.homeId === agora.id && walker.good === good,
+  );
+  const fetching = out.some((walker) => walker.kind === 'deliveryman');
+  const selling = out.some((walker) => walker.kind === 'peddler');
+
+  return {
+    title: `${VENDOR_NAMES[good]} vendor`,
+    subtitle: agoraName,
+    description: `He fetches ${VENDOR_NAMES[good].toLowerCase()} from the nearest store that has it, then sells it to every house he passes.`,
+    facts: [
+      ['In stall', `${Math.round(agora.stock[good] / UNITS_PER_CARTLOAD)} cartloads`],
+      ['Fetching', fetching ? 'on his way' : 'no'],
+      ['Selling', selling ? 'on his rounds' : 'no'],
+      ['Workers', `${STALL_WORKERS}`],
+    ],
+  };
 }
 
 function inspectPlot(world: World, plot: Building, index: number): Inspection {

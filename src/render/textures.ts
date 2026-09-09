@@ -712,6 +712,10 @@ function drawWalker(surface: DrawSurface, kind: WalkerKind, look: number, direct
   ctx.lineTo(backArmX + 1.5 * swing, feet - 15);
   ctx.stroke();
 
+  if (kind === 'immigrant' || kind === 'emigrant') {
+    drawBundle(ctx, backArmX + (facingLeft ? 2 : -2), feet - 23, palette.trim);
+  }
+
   const body = ctx.createLinearGradient(cx - 8, 0, cx + 8, 0);
   body.addColorStop(0, css(shade(tunic, 0.74)));
   body.addColorStop(0.5, css(tunic));
@@ -772,6 +776,24 @@ function drawWalker(surface: DrawSurface, kind: WalkerKind, look: number, direct
   if (kind === 'cartPusher' && !facingAway) drawCart(ctx, cx, feet, direction);
   if (kind === 'waterCarrier') drawShoulderedAmphora(ctx, facingLeft ? cx - 7 : cx + 7, feet - 30);
   if (kind === 'peddler' || kind === 'deliveryman') drawHeadBasket(ctx, cx, feet - 41);
+}
+
+function drawBundle(ctx: CanvasRenderingContext2D, x: number, y: number, cord: number): void {
+  ctx.fillStyle = css(0xcdb98c);
+  ctx.beginPath();
+  ctx.ellipse(x, y, 4.6, 4.2, 0.25, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = css(0xa8916a, 0.75);
+  ctx.beginPath();
+  ctx.ellipse(x + 1.2, y + 1.4, 2.4, 1.9, 0.25, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = css(cord, 0.85);
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(x - 4, y - 1.5);
+  ctx.lineTo(x + 4, y + 1);
+  ctx.stroke();
 }
 
 function drawShoulderedAmphora(ctx: CanvasRenderingContext2D, x: number, y: number): void {

@@ -271,15 +271,27 @@ export class Scene {
       const good = building.stalls[index];
       if (!good) return [];
 
-      const stall = this.baked?.get('stall', VENDOR_GOODS.indexOf(good)) ?? this.textures.stall();
-      const sprite = new Sprite(stall.texture);
+      const variant = VENDOR_GOODS.indexOf(good);
       const anchor = footprintAnchor(slot.x, slot.y, STALL_SIZE, STALL_SIZE, ground);
-      sprite.anchor.set(stall.anchorX, stall.anchorY);
-      sprite.position.set(anchor.x, anchor.y);
-      sprite.zIndex = depthOf(slot.x, slot.y, STALL_SIZE, STALL_SIZE);
-      if (!this.baked) sprite.tint = STALL_TINTS[good];
-      this.structures.addChild(sprite);
-      return [sprite];
+      const depth = depthOf(slot.x, slot.y, STALL_SIZE, STALL_SIZE);
+
+      const raise = (structure: StructureSprite, layer: Container, alpha = 1): Sprite => {
+        const sprite = new Sprite(structure.texture);
+        sprite.anchor.set(structure.anchorX, structure.anchorY);
+        sprite.position.set(anchor.x, anchor.y);
+        sprite.zIndex = depth;
+        sprite.alpha = alpha;
+        layer.addChild(sprite);
+        return sprite;
+      };
+
+      const cast = this.baked?.shadow('stall', variant);
+      const shadow = cast ? [raise(cast, this.shadows, SHADOW_ALPHA)] : [];
+
+      const stall = this.baked?.get('stall', variant) ?? this.textures.stall();
+      const body = raise(stall, this.structures);
+      if (!this.baked) body.tint = STALL_TINTS[good];
+      return [...shadow, body];
     });
   }
 
