@@ -22,7 +22,7 @@ import {
   describeBuildingTool,
   describeDemolishTool,
   describeVendorTool,
-  GOOD_NAMES,
+  VENDOR_NAMES,
   describeInspectTool,
   describeRoadTool,
   describeRoadblockTool,
@@ -353,7 +353,7 @@ function toolButtons(game: Game): ToolButton[] {
   }));
 
   const vendors = VENDOR_GOODS.map((good) => ({
-    label: `${GOOD_NAMES[good]} vendor`,
+    label: `${VENDOR_NAMES[good]} vendor`,
     cost: VENDOR_COST,
     shortcut: '',
     tool: { kind: 'vendor', good } as Tool,

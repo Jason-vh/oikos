@@ -171,6 +171,69 @@ def roof_material(name, colour, rows_per_unit=14.0, roughness=0.78):
     return mat
 
 
+def cobble_material(name, colour, stones_per_unit=9.0, roughness=0.9, spread=0.16):
+    """Cobbles: one Voronoi cell to a stone, tinting each a little differently, with a
+    second Voronoi for the gaps between them driving the bump."""
+    mat = plaster_material(name, colour, roughness=roughness, variation=0.05, scale=stones_per_unit * 2)
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+    bsdf = nodes["Principled BSDF"]
+
+    stones = nodes.new("ShaderNodeTexVoronoi")
+    stones.feature = "F1"
+    stones.inputs["Scale"].default_value = stones_per_unit
+    stones.inputs["Randomness"].default_value = 0.85
+    link_object_coords(mat, stones)
+
+    gaps = nodes.new("ShaderNodeTexVoronoi")
+    gaps.feature = "DISTANCE_TO_EDGE"
+    gaps.inputs["Scale"].default_value = stones_per_unit
+    gaps.inputs["Randomness"].default_value = 0.85
+    link_object_coords(mat, gaps)
+
+    tint = nodes.new("ShaderNodeValToRGB")
+    tint.color_ramp.elements[0].position = 0.0
+    tint.color_ramp.elements[0].color = (1 - spread, 1 - spread, 1 - spread * 0.7, 1)
+    tint.color_ramp.elements[1].position = 1.0
+    tint.color_ramp.elements[1].color = (1 + spread, 1 + spread, 1 + spread * 0.7, 1)
+    links.new(stones.outputs["Color"], tint.inputs["Fac"])
+
+    shade = nodes.new("ShaderNodeMix")
+    shade.data_type = "RGBA"
+    shade.blend_type = "MULTIPLY"
+    shade.inputs["Factor"].default_value = 1.0
+    links.new(bsdf.inputs["Base Color"].links[0].from_socket, shade.inputs["A"])
+    links.new(tint.outputs["Color"], shade.inputs["B"])
+    links.new(shade.outputs["Result"], bsdf.inputs["Base Color"])
+
+    grout = nodes.new("ShaderNodeValToRGB")
+    grout.color_ramp.elements[0].position = 0.0
+    grout.color_ramp.elements[0].color = (0.42, 0.4, 0.35, 1)
+    grout.color_ramp.elements[1].position = 0.07
+    grout.color_ramp.elements[1].color = (1, 1, 1, 1)
+    links.new(gaps.outputs["Distance"], grout.inputs["Fac"])
+
+    joints = nodes.new("ShaderNodeMix")
+    joints.data_type = "RGBA"
+    joints.blend_type = "MULTIPLY"
+    joints.inputs["Factor"].default_value = 1.0
+    links.new(bsdf.inputs["Base Color"].links[0].from_socket, joints.inputs["A"])
+    links.new(grout.outputs["Color"], joints.inputs["B"])
+    links.new(joints.outputs["Result"], bsdf.inputs["Base Color"])
+
+    rounded = nodes.new("ShaderNodeValToRGB")
+    rounded.color_ramp.elements[0].position = 0.0
+    rounded.color_ramp.elements[1].position = 0.2
+    links.new(gaps.outputs["Distance"], rounded.inputs["Fac"])
+
+    bump = nodes.new("ShaderNodeBump")
+    bump.inputs["Strength"].default_value = 1.0
+    bump.inputs["Distance"].default_value = 0.05
+    links.new(rounded.outputs["Color"], bump.inputs["Height"])
+    links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+    return mat
+
+
 def add_box(name, centre, size, mat):
     bpy.ops.mesh.primitive_cube_add(size=2, location=centre)
     box = bpy.context.active_object
@@ -828,45 +891,24 @@ def build_granary():
 
 
 def build_agora(kind, across, along, variant):
-    """The agora itself is only its floor: marble flags in two tones inside a kerb,
-    with a dark inlay running round them. Everything on it is a stall the player puts
-    there."""
-    pale = plaster_material("marble_pale", hex_rgb("e4d8b8"), roughness=0.5, variation=0.06, scale=16.0)
-    warm = plaster_material("marble_warm", hex_rgb("d3c39c"), roughness=0.55, variation=0.07, scale=13.0)
-    kerb = plaster_material("kerb", hex_rgb("d9cdaa"), roughness=0.6, variation=0.05, scale=9.0)
-    inlay = plaster_material("inlay", hex_rgb("8a7248"), roughness=0.5, variation=0.06, scale=11.0)
-    bed = material("bed", hex_rgb("9d9174"), roughness=0.95)
+    """The agora itself is only its floor: cobbles inside a marble kerb, with a dark
+    inlay running round them. Everything on it is a stall the player puts there."""
+    cobbles = cobble_material("cobbles", hex_rgb("cdbc98"), stones_per_unit=10.0, spread=0.26)
+    kerb = plaster_material("kerb", hex_rgb("e0d6ba"), roughness=0.6, variation=0.04, scale=9.0)
+    inlay = cobble_material("inlay", hex_rgb("947c4e"), stones_per_unit=14.0, spread=0.14)
 
     width = along if variant == 0 else across
     depth = across if variant == 0 else along
-    kerb_width = 0.34
+    kerb_width = 0.3
     field_x = width - kerb_width * 2
     field_y = depth - kerb_width * 2
 
     add_box("kerb", (0, 0, 0.03), (width, depth, 0.06), kerb)
-    add_box("kerb_lip", (0, 0, 0.062), (width - 0.1, depth - 0.1, 0.008), warm)
-    add_box("bed", (0, 0, 0.066), (field_x + 0.1, field_y + 0.1, 0.008), bed)
+    add_box("cobbles", (0, 0, 0.065), (field_x, field_y, 0.02), cobbles)
 
     for sign in (-1, 1):
-        add_box("inlay", (0, sign * (field_y / 2 + 0.11), 0.07), (field_x + 0.34, 0.07, 0.012), inlay)
-        add_box("inlay", (sign * (field_x / 2 + 0.11), 0, 0.07), (0.07, field_y + 0.34, 0.012), inlay)
-    for cx in (-1, 1):
-        for cy in (-1, 1):
-            add_box("stud", (cx * (field_x / 2 + 0.11), cy * (field_y / 2 + 0.11), 0.071), (0.16, 0.16, 0.014), inlay)
-
-    flags_x = int(round(field_x))
-    flags_y = int(round(field_y))
-    step_x = field_x / flags_x
-    step_y = field_y / flags_y
-    for ix in range(flags_x):
-        for iy in range(flags_y):
-            stone = pale if (ix + iy) % 2 == 0 else warm
-            add_box(
-                "flag",
-                (-field_x / 2 + (ix + 0.5) * step_x, -field_y / 2 + (iy + 0.5) * step_y, 0.076),
-                (step_x - 0.05, step_y - 0.05, 0.014),
-                stone,
-            )
+        add_box("inlay", (0, sign * (field_y / 2 + 0.1), 0.068), (field_x + 0.3, 0.14, 0.016), inlay)
+        add_box("inlay", (sign * (field_x / 2 + 0.1), 0, 0.068), (0.14, field_y + 0.3, 0.016), inlay)
 
     return {"kind": kind, "variant": variant, "footprint": [width, depth], "height": 0.09}
 

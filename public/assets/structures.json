@@ -206,9 +206,9 @@
       "x": 672,
       "y": 2091,
       "width": 664,
-      "height": 333,
+      "height": 332,
       "anchorX": 0.54669,
-      "anchorY": 0.99492
+      "anchorY": 0.99791
     },
     {
       "kind": "grandAgora",
@@ -326,16 +326,16 @@
       "layer": "shadow",
       "x": 2641,
       "y": 2435,
-      "width": 545,
+      "width": 544,
       "height": 272,
-      "anchorX": 0.66697,
+      "anchorX": 0.6682,
       "anchorY": 0.99561
     },
     {
       "kind": "agora",
       "variant": 1,
       "layer": "shadow",
-      "x": 3190,
+      "x": 3189,
       "y": 2435,
       "width": 544,
       "height": 272,

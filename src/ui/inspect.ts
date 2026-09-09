@@ -69,11 +69,18 @@ export function inspectTile(world: World, x: number, y: number): Inspection | nu
   return inspectGround(world, index);
 }
 
+export const VENDOR_NAMES: Record<Good, string> = {
+  ...GOOD_NAMES,
+  food: 'Food',
+  armour: 'Arms',
+  horses: 'Horse',
+};
+
 export function describeVendorTool(good: Good): Inspection {
   return {
-    title: `${GOOD_NAMES[good]} vendor`,
+    title: `${VENDOR_NAMES[good]} vendor`,
     subtitle: 'Agora stall',
-    description: `Takes a free stall on an agora. He fetches ${GOOD_NAMES[
+    description: `Takes a free stall on an agora. He fetches ${VENDOR_NAMES[
       good
     ].toLowerCase()} from the nearest store that has it, then sells it to every house he passes.`,
     facts: [
@@ -168,11 +175,11 @@ function inspectBuilding(world: World, building: Building, index: number): Inspe
     facts.push([`${GOOD_NAMES[good]} stored`, `${building.stock[good]} of ${def.capacity} cartloads`]);
   }
   if (isAgora(building.kind)) {
-    const vendors = stallGoods(building).map((good) => GOOD_NAMES[good]);
+    const vendors = stallGoods(building).map((good) => VENDOR_NAMES[good]);
     facts.push(['Vendors', vendors.length > 0 ? vendors.join(', ') : 'none yet']);
     facts.push(['Free stalls', `${freeStalls(building)} of ${building.stalls.length}`]);
     for (const good of stallGoods(building)) {
-      facts.push([`${GOOD_NAMES[good]} in stall`, `${Math.round(building.stock[good] / 100)} cartloads`]);
+      facts.push([`${VENDOR_NAMES[good]} in stall`, `${Math.round(building.stock[good] / 100)} cartloads`]);
     }
   }
 
