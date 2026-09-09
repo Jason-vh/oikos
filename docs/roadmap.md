@@ -214,9 +214,12 @@ black marble. Chariots cannot be imported or exported.
 
 🟡 Four chains: wheat farm → granary, growers' lodge → olive press → oil, vineyard →
 winery → wine (appeal +4, as in the original), and a carding shed's sheep → fleece.
-Homesteads and above ask for fleece, manors and estates for wine, and a trading post
-takes all three for export. Carrots, onions, meat, cheese, fish, timber, marble,
-bronze, armour, sculpture, horses and the mint are not started.
+Homesteads and above ask for fleece, manors and estates for wine. A timber mill must
+stand among trees and a masonry shop beside rock, and a sanctuary now costs marble as
+well as drachmas — 48 cartloads for Zeus down to 8 for Dionysus, taken out of store on
+placement, as in the original. A trading post takes oil, wine, fleece, timber and
+marble for export. Carrots, onions, meat, cheese, fish, bronze, armour, sculpture,
+horses and the mint are not started.
 
 🟡 Earlier: wheat farm → granary, and growers' lodge → olive press → oil, with goods
 carted by producers and pulled by the agora. Husbandry, the rest of industry, harvest

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { NEUTRAL_MOOD, actFor, moodAfterMonth, moodName, newPantheon } from './gods';
 import { TICKS_PER_MONTH } from './time';
+import { createBuilding } from './types';
 import { World } from './world';
 
 describe('divine mood', () => {
@@ -33,6 +34,12 @@ describe('divine mood', () => {
   });
 });
 
+function stockMarble(world: World): void {
+  const quarried = createBuilding(9000, 'masonryShop', 0, 0, 2);
+  quarried.stock.marble = 100;
+  world.restore(quarried);
+}
+
 describe('a city and its gods', () => {
   test('ignores gods until a sanctuary stands, then answers to them', () => {
     const world = new World(24, 11);
@@ -44,6 +51,7 @@ describe('a city and its gods', () => {
     }
     expect(world.gods.demeter).toEqual({ mood: NEUTRAL_MOOD, honoured: false, lastAct: null });
 
+    stockMarble(world);
     expect(world.place('sanctuaryDemeter', 2, 7)).toBe(true);
     for (let tick = 0; tick < TICKS_PER_MONTH; tick++) world.update();
 

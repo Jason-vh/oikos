@@ -55,6 +55,8 @@ const SOLD_AS: Record<Good, ServiceKind | null> = {
   fleece: 'fleece',
   olives: null,
   grapes: null,
+  wood: null,
+  marble: null,
 };
 
 const SUPPLY_FULL = 100;

@@ -3,6 +3,7 @@ import { BUILDINGS, SANCTUARY_KINDS } from './buildings';
 import { BLESSINGS, SILVER_GIFT, WRATHS } from './divine';
 import { GODS, GOD_KINDS } from './gods';
 import { CAMPAIGN } from './scenario';
+import { createBuilding } from './types';
 import { World } from './world';
 
 function city(): World {
@@ -37,6 +38,10 @@ describe('the pantheon', () => {
 describe('sanctuaries', () => {
   test('may only be raised to a god who attends the city', () => {
     const world = city();
+
+    const quarried = createBuilding(9000, 'masonryShop', 24, 20, 2);
+    quarried.stock.marble = 100;
+    world.restore(quarried);
 
     expect(world.scenario.gods).toContain('demeter');
     expect(world.canPlace('sanctuaryDemeter', 3, 11).ok).toBe(true);

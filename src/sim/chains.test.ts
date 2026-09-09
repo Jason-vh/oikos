@@ -4,7 +4,7 @@ import { GOODS, createBuilding } from './types';
 
 describe('the goods list', () => {
   test('carries the two new chains', () => {
-    expect(GOODS).toEqual(['food', 'olives', 'oil', 'grapes', 'wine', 'fleece']);
+    expect(GOODS).toEqual(['food', 'olives', 'oil', 'grapes', 'wine', 'fleece', 'wood', 'marble']);
     expect(createBuilding(1, 'winery', 0, 0, 2).stock.grapes).toBe(0);
   });
 
@@ -21,8 +21,14 @@ describe('the goods list', () => {
     expect(BUILDINGS.vineyard.requiresMeadow).toBe(true);
   });
 
-  test('a trading post takes all three exports', () => {
-    expect(BUILDINGS.tradingPost.accepts).toEqual(['oil', 'wine', 'fleece']);
+  test('a trading post takes everything the city exports', () => {
+    expect(BUILDINGS.tradingPost.accepts).toEqual(['oil', 'wine', 'fleece', 'wood', 'marble']);
+  });
+
+  test('timber comes from the woods and marble from the rock', () => {
+    expect(BUILDINGS.timberMill.needsNear).toBe('woods');
+    expect(BUILDINGS.masonryShop.needsNear).toBe('rock');
+    expect(BUILDINGS.masonryShop.produces).toBe('marble');
   });
 });
 

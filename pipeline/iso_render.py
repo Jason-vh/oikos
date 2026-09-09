@@ -1666,6 +1666,73 @@ def build_stadium():
     return {"kind": "stadium", "variant": 0, "footprint": 5, "height": 1.3}
 
 
+def build_timber_mill():
+    """Timber mill: a saw shed with a log pile, trestles and stacked planks."""
+    earth = plaster_material("earth", EARTH, roughness=0.97, variation=0.09, scale=15.0)
+    daub = plaster_material("daub", DAUB_LIGHT, roughness=0.94, variation=0.1, scale=10.0)
+    thatch = plaster_material("thatch", THATCH, roughness=0.95, variation=0.1, scale=20.0)
+    wood = material("wood", WOOD, roughness=0.88)
+    log = material("log", hex_rgb("8a6134"), roughness=0.9)
+    plank = material("plank", hex_rgb("c8ad82"), roughness=0.88)
+
+    half = 0.94
+    yard = add_box("yard", (0, 0, 0.03), (half * 2, half * 2, 0.06), earth)
+    yard.visible_shadow = False
+
+    shed_half = 0.42
+    wall_h = 0.46
+    sx, sy = -0.42, -0.4
+    add_box("shed", (sx, sy, 0.06 + wall_h / 2), (shed_half * 2, shed_half * 2, wall_h), daub)
+    add_gable_roof("shed_roof", (sx, sy, 0.06 + wall_h), shed_half + 0.09, shed_half + 0.08, 0.24, 0.05, thatch)
+    add_doorway(shed_half, 0.32, (sx, sy))
+
+    for index, log_y in enumerate((-0.9, -0.62, -0.34)):
+        trunk = add_cylinder(f"log_{index}", (0.7, log_y, 0.06 + 0.12), 0.12, 0.9, log, vertices=10)
+        trunk.rotation_euler[0] = math.pi / 2
+    add_cylinder("log_top", (0.7, -0.62, 0.06 + 0.33), 0.12, 0.9, log, vertices=10).rotation_euler[0] = math.pi / 2
+
+    for post_y in (0.4, 0.9):
+        add_cylinder("trestle", (0.5, post_y, 0.06 + 0.16), 0.04, 0.32, wood, vertices=6)
+        add_cylinder("trestle", (0.9, post_y, 0.06 + 0.16), 0.04, 0.32, wood, vertices=6)
+    add_box("saw_bench", (0.7, 0.65, 0.06 + 0.34), (0.6, 0.6, 0.06), plank)
+    for index, z in enumerate((0.0, 0.08, 0.16)):
+        add_box(f"planks_{index}", (-0.86, 0.62, 0.06 + 0.04 + z), (0.28, 0.9, 0.07), plank)
+
+    return {"kind": "timberMill", "variant": 0, "footprint": 2, "height": 0.9}
+
+
+def build_masonry_shop():
+    """Masonry shop: a cutting yard of marble blocks, a lifting frame and a dust-covered hut."""
+    earth = plaster_material("earth", EARTH, roughness=0.97, variation=0.09, scale=15.0)
+    stone = plaster_material("stone", STONE, roughness=0.88, variation=0.06, scale=11.0)
+    marble = material("marble", MARBLE, roughness=0.35)
+    tiles = roof_material("tiles", hex_rgb("7c6a52"), rows_per_unit=18.0)
+    wood = material("wood", WOOD, roughness=0.88)
+    rope = material("rope", hex_rgb("b9a06a"), roughness=0.95)
+
+    half = 0.94
+    yard = add_box("yard", (0, 0, 0.03), (half * 2, half * 2, 0.06), earth)
+    yard.visible_shadow = False
+
+    hut_half = 0.4
+    wall_h = 0.46
+    hx, hy = -0.46, -0.42
+    add_box("hut", (hx, hy, 0.06 + wall_h / 2), (hut_half * 2, hut_half * 2, wall_h), stone)
+    add_hip_roof("hut_roof", (hx, hy, 0.06 + wall_h + 0.12), hut_half + 0.1, 0.24, tiles, ridge_half=0.1)
+    add_doorway(hut_half, 0.32, (hx, hy))
+
+    for index, (bx, by, bz) in enumerate(((0.62, -0.5, 0.0), (0.62, -0.5, 0.24), (0.9, 0.1, 0.0), (0.5, 0.2, 0.0))):
+        add_box(f"block_{index}", (bx, by, 0.06 + 0.12 + bz), (0.34, 0.34, 0.24), marble)
+
+    for post_x in (0.32, 1.0):
+        add_cylinder("frame_post", (post_x, 0.78, 0.06 + 0.36), 0.04, 0.72, wood, vertices=6)
+    add_box("frame_beam", (0.66, 0.78, 0.06 + 0.72), (0.78, 0.08, 0.08), wood)
+    add_cylinder("hoist_rope", (0.66, 0.78, 0.06 + 0.52), 0.015, 0.34, rope, vertices=6)
+    add_box("hoisted_block", (0.66, 0.78, 0.06 + 0.28), (0.24, 0.24, 0.18), marble)
+
+    return {"kind": "masonryShop", "variant": 0, "footprint": 2, "height": 0.95}
+
+
 def build_fountain():
     """Marble basin with a raised centre and a small bronze statue; light blue water."""
     marble = material("marble", MARBLE, roughness=0.3)
@@ -1775,6 +1842,8 @@ MODELS = {
     "tower": build_tower,
     "watchpost": build_watchpost,
     "olive-press": build_olive_press,
+    "timber-mill": build_timber_mill,
+    "masonry-shop": build_masonry_shop,
     "vineyard": build_vineyard,
     "winery": build_winery,
     "carding-shed": build_carding_shed,

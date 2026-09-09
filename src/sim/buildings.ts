@@ -17,6 +17,8 @@ export interface BuildingDef {
   needsRoad: boolean;
   requires: BuildingKind | null;
   minAppeal: number;
+  needsNear?: 'woods' | 'rock';
+  marbleCost?: number;
   produces: Good | null;
   consumes: Good | null;
   accepts: Good[];
@@ -226,6 +228,21 @@ const SANCTUARY_ROOFS: Record<GodKind, number> = {
   hades: 0x7c4030,
 };
 
+const SANCTUARY_MARBLE: Record<GodKind, number> = {
+  zeus: 48,
+  poseidon: 37,
+  demeter: 27,
+  athena: 24,
+  artemis: 20,
+  apollo: 20,
+  ares: 13,
+  hephaestus: 13,
+  aphrodite: 11,
+  hermes: 9,
+  dionysus: 8,
+  hades: 37,
+};
+
 const SANCTUARY_NAMES: Record<GodKind, string> = {
   zeus: 'Stronghold of Zeus',
   poseidon: 'Promontory of Poseidon',
@@ -264,6 +281,7 @@ function sanctuaries(): Record<SanctuaryKind, BuildingDef> {
         needsRoad: true,
         requires: null,
         minAppeal: 0,
+        marbleCost: SANCTUARY_MARBLE[kind],
         produces: null,
         consumes: null,
         accepts: [],
@@ -373,6 +391,56 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     fireRisk: 10,
     damageRisk: 4,
     description: 'Tends an olive grove on meadow and carts the harvest to a press.',
+  },
+  timberMill: {
+    kind: 'timberMill',
+    name: 'Timber Mill',
+    size: 2,
+    cost: 35,
+    colour: 0xc8ad82,
+    roofColour: 0x8a6134,
+    height: 18,
+    workers: 12,
+    maxWalkers: 1,
+    appeal: { initial: -6, bandSize: 1, step: 1, range: 3 },
+    requiresMeadow: false,
+    needsRoad: true,
+    requires: null,
+    minAppeal: 0,
+    needsNear: 'woods',
+    produces: 'wood',
+    consumes: null,
+    accepts: [],
+    supplies: null,
+    capacity: 5,
+    fireRisk: 6,
+    damageRisk: 4,
+    description: 'Cuts timber from the woods around it. Must stand among trees.',
+  },
+  masonryShop: {
+    kind: 'masonryShop',
+    name: 'Masonry Shop',
+    size: 2,
+    cost: 75,
+    colour: 0xd8d2c2,
+    roofColour: 0x7c6a52,
+    height: 18,
+    workers: 15,
+    maxWalkers: 1,
+    appeal: { initial: -8, bandSize: 1, step: 1, range: 4 },
+    requiresMeadow: false,
+    needsRoad: true,
+    requires: null,
+    minAppeal: 0,
+    needsNear: 'rock',
+    produces: 'marble',
+    consumes: null,
+    accepts: [],
+    supplies: null,
+    capacity: 5,
+    fireRisk: 2,
+    damageRisk: 5,
+    description: 'Cuts marble from an outcrop. Must stand beside rock.',
   },
   vineyard: {
     kind: 'vineyard',
@@ -799,7 +867,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
     minAppeal: 0,
     produces: null,
     consumes: null,
-    accepts: ['oil', 'wine', 'fleece'],
+    accepts: ['oil', 'wine', 'fleece', 'wood', 'marble'],
     supplies: 'food',
     capacity: 20,
     fireRisk: 4,
@@ -912,6 +980,8 @@ export const PLACEABLE: BuildingKind[] = [
   'granary',
   'growersLodge',
   'olivePress',
+  'timberMill',
+  'masonryShop',
   'vineyard',
   'winery',
   'cardingShed',
@@ -940,6 +1010,8 @@ export const LABOUR_PRIORITY: BuildingKind[] = [
   'granary',
   'growersLodge',
   'olivePress',
+  'timberMill',
+  'masonryShop',
   'vineyard',
   'winery',
   'cardingShed',

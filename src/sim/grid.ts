@@ -87,6 +87,20 @@ export class Grid {
     return this.roadblock[index] === 1;
   }
 
+  hasNear(resource: 'woods' | 'rock', x: number, y: number, size: number, range: number): boolean {
+    for (let dy = -range; dy < size + range; dy++) {
+      for (let dx = -range; dx < size + range; dx++) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (!this.contains(nx, ny)) continue;
+        const index = this.index(nx, ny);
+        if (resource === 'rock' && this.terrain[index] === TERRAIN_ROCK) return true;
+        if (resource === 'woods' && this.decor[index] !== 0 && this.terrain[index] !== TERRAIN_ROCK) return true;
+      }
+    }
+    return false;
+  }
+
   isWall(index: number): boolean {
     return this.wall[index] === 1;
   }

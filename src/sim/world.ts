@@ -96,6 +96,7 @@ const MAINTENANCE_SPAWN_INTERVAL = 70;
 const STAGGERED_RISK = 40;
 const INVASION_MONTH = 6;
 const EVENT_MONTH = 2;
+const RESOURCE_RANGE = 4;
 const EARTHQUAKE_BUILDINGS = 5;
 const TOWER_STRENGTH = 2;
 const WALL_STRENGTH = 1;
@@ -221,11 +222,33 @@ export class World {
     if (this.grid.appeal[this.grid.index(x, y)] < def.minAppeal) {
       return { ok: false, reason: `Needs appeal of ${def.minAppeal} here` };
     }
+    if (def.needsNear && !this.grid.hasNear(def.needsNear, x, y, def.size, RESOURCE_RANGE)) {
+      return { ok: false, reason: def.needsNear === 'woods' ? 'Must stand among trees' : 'Must stand beside rock' };
+    }
+    if (def.marbleCost && this.stockOf('marble') < def.marbleCost) {
+      return { ok: false, reason: `Needs ${def.marbleCost} marble in store` };
+    }
     return { ok: true, reason: def.description };
   }
 
   scenarioGods(): BuildingKind[] {
     return this.scenario.gods.map((god) => GODS[god].sanctuary);
+  }
+
+  stockOf(good: Good): number {
+    let total = 0;
+    for (const building of this.buildings.values()) total += building.stock[good];
+    return total;
+  }
+
+  private spendStock(good: Good, amount: number): void {
+    let owed = amount;
+    for (const building of this.buildings.values()) {
+      const taken = Math.min(owed, building.stock[good]);
+      building.stock[good] -= taken;
+      owed -= taken;
+      if (owed === 0) return;
+    }
   }
 
   costOf(kind: BuildingKind): number {
@@ -249,6 +272,7 @@ export class World {
     for (const tile of this.grid.footprint(x, y, def.size)) this.grid.occupant[tile] = building.id;
 
     this.treasury -= this.costOf(kind);
+    if (def.marbleCost) this.spendStock('marble', def.marbleCost);
     this.markChanged(this.grid.footprint(x, y, def.size));
     return true;
   }

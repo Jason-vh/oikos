@@ -25,9 +25,9 @@ export const SERVICE_KINDS: ServiceKind[] = [
   'safety',
 ];
 
-export type Good = 'food' | 'olives' | 'oil' | 'grapes' | 'wine' | 'fleece';
+export type Good = 'food' | 'olives' | 'oil' | 'grapes' | 'wine' | 'fleece' | 'wood' | 'marble';
 
-export const GOODS: Good[] = ['food', 'olives', 'oil', 'grapes', 'wine', 'fleece'];
+export const GOODS: Good[] = ['food', 'olives', 'oil', 'grapes', 'wine', 'fleece', 'wood', 'marble'];
 
 export type GoodStock = Record<Good, number>;
 
@@ -58,6 +58,8 @@ export type BuildingKind =
   | 'dramaSchool'
   | 'theatre'
   | 'stadium'
+  | 'timberMill'
+  | 'masonryShop'
   | 'sanctuaryZeus'
   | 'sanctuaryPoseidon'
   | 'sanctuaryDemeter'
@@ -139,7 +141,8 @@ export const emptySupply = (): ServiceSupply => ({
   safety: 0,
 });
 
-export const emptyStock = (): GoodStock => ({ food: 0, olives: 0, oil: 0, grapes: 0, wine: 0, fleece: 0 });
+export const emptyStock = (): GoodStock =>
+  ({ food: 0, olives: 0, oil: 0, grapes: 0, wine: 0, fleece: 0, wood: 0, marble: 0 });
 
 export function createBuilding(id: number, kind: BuildingKind, x: number, y: number, size: number): Building {
   return {

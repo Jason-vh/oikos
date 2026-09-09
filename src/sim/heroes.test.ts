@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { HEROES, HERO_STAY_MONTHS, slays, summonable, type HeroCall } from './heroes';
 import { TICKS_PER_MONTH } from './time';
+import { createBuilding } from './types';
 import { World } from './world';
 
 const call = (over: Partial<HeroCall> = {}): HeroCall => ({
@@ -49,6 +50,9 @@ describe('a city and its hero', () => {
     const world = city();
     expect(world.place('palace', 3, 11)).toBe(true);
     expect(world.place('heroHall', 8, 11)).toBe(true);
+    const quarried = createBuilding(9000, 'masonryShop', 24, 14, 2);
+    quarried.stock.marble = 100;
+    world.restore(quarried);
     expect(world.place('sanctuaryDemeter', 14, 11)).toBe(true);
     world.army.rabble = 3;
 
