@@ -43,6 +43,7 @@ await page.evaluate(() => {
   for (const building of world.buildings.values()) {
     if (building.kind !== 'house') continue;
     building.tier = tier;
+    building.population = 8;
     tier = (tier + 1) % 7;
   }
 });
