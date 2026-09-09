@@ -1,10 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import { WALL_COST } from './buildings';
 import { fightInvasion } from './military';
+import { levelGround } from './testing';
 import { World } from './world';
 
 function city(): World {
-  const world = new World(28, 7);
+  const world = levelGround(new World(28, 7));
   for (let x = 1; x < 27; x++) world.grid.road[world.grid.index(x, 10)] = 1;
   world.treasury = 20000;
   return world;

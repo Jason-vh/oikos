@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'bun:test';
+import { levelGround } from '../sim/testing';
 import { World } from '../sim/world';
 import { adviseCity, ratingsOf } from './advisors';
 
 function city(): World {
-  const world = new World(28, 7);
+  const world = levelGround(new World(28, 7));
   for (let x = 1; x < 27; x++) world.grid.road[world.grid.index(x, 10)] = 1;
   world.treasury = 4000;
   return world;

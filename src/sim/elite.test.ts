@@ -3,10 +3,11 @@ import { recomputeAppeal } from './appeal';
 import { BUILDINGS, ELITE_TIERS } from './buildings';
 import { TAX_RATES, collectTax } from './taxation';
 import { createBuilding } from './types';
+import { levelGround } from './testing';
 import { World } from './world';
 
 function city(): World {
-  const world = new World(28, 7);
+  const world = levelGround(new World(28, 7));
   for (let x = 1; x < 27; x++) world.grid.road[world.grid.index(x, 10)] = 1;
   world.treasury = 5000;
   return world;

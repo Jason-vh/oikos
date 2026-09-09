@@ -3,10 +3,11 @@ import { GOD_KINDS } from './gods';
 import { OFFER_MOOD, QUESTS } from './quests';
 import { TICKS_PER_MONTH } from './time';
 import { createBuilding } from './types';
+import { levelGround } from './testing';
 import { World } from './world';
 
 function city(): World {
-  const world = new World(28, 7);
+  const world = levelGround(new World(28, 7));
   for (let x = 1; x < 27; x++) world.grid.road[world.grid.index(x, 10)] = 1;
   world.treasury = 20000;
   return world;
