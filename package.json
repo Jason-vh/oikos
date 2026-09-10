@@ -1,7 +1,7 @@
 {
-  "name": "zeus",
+  "name": "thalassa",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,12 +9,9 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "bun test src",
-    "smoke": "bun scripts/smoke.mjs",
-    "pilot": "bun scripts/pilot.ts",
-    "render": "blender --background --python pipeline/iso_render.py -- --out pipeline/out",
-    "pack": "python3 pipeline/pack.py",
-    "art:check": "python3 -m unittest discover -s pipeline -p 'test_*.py'",
-    "art:camera": "blender --background --python-exit-code 1 --python pipeline/check_camera.py"
+    "smoke": "node scripts/smoke.mjs",
+    "art:check": "bun test src/art",
+    "art:capture": "node scripts/art-capture.mjs"
   },
   "dependencies": {
     "three": "^0.186.0"

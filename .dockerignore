@@ -1,8 +1,4 @@
 node_modules
 dist
-pipeline/out
-pipeline/__pycache__
-reference
-zeus.zip
-scripts
 .git
+artifacts

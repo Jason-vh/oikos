@@ -1,11 +1,4 @@
-node_modules
-dist
-scripts/shot-*.png
-scripts/atlas.png
-pipeline/out
-__pycache__/
+node_modules/
+dist/
+artifacts/
 .DS_Store
-scripts/.pilot-profile
-scripts/pilot-shot.png
-reference
-zeus.zip

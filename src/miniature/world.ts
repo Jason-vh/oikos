@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { bake, boat, box, citizen, colors, group, house, lump, mesh, post, pot, releaseModelGeometries, stall, temple, tree } from './models';
+import { bake, boat, box, citizen, colors, group, house, lump, mesh, post, pot, releaseModelGeometries, stall, temple, tree } from '../art';
 
 const shoreline: [number, number][] = [
   [-22, -1], [-21, -5], [-18, -9], [-13, -12], [-8, -12.8], [-4, -11.5],

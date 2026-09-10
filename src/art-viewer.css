@@ -1,0 +1,16 @@
+@import './miniature/style.css';
+nav a { text-decoration: none; color: inherit; padding: 11px 17px; font-size: 12px; pointer-events: auto; }
+nav a:hover { background: #d7e1d8; border-radius: 5px; }
+.atelier { position: absolute; top: 155px; left: 38px; width: 225px; padding: 22px; border-radius: 8px; background: #f7f2e6e8; box-shadow: 0 3px 24px #36564a12; }
+.atelier > label { font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+select { width: 100%; margin-top: 9px; padding: 11px 7px; border: 1px solid #b3bcb0; border-radius: 5px; background: #fffaf1; color: #294b4a; font: inherit; font-size: 12px; }
+.atelier p { font-size: 11px; line-height: 1.65; }
+dl { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 15px 0; font-size: 11px; border-block: 1px solid #36564a22; }
+dt { opacity: .75; } dd { margin: 0; font-variant-numeric: tabular-nums; }
+.atelier .check { display: flex; gap: 8px; align-items: center; text-transform: none; letter-spacing: 0; font-size: 11px; font-weight: 400; margin-top: 10px; }
+input { accent-color: #315954; }
+.atelier-buttons { display: flex; flex-wrap: wrap; gap: 4px; margin: 15px 0; }
+.atelier-buttons button { background: #e2e7dc; font-size: 10px; padding: 9px; }
+.atelier-buttons button[aria-pressed='true'] { background: #315954; }
+.note { opacity: .65; margin-bottom: 0; }
+@media (max-width: 600px) { .atelier { top: auto; left: 20px; right: 20px; bottom: 70px; width: auto; padding: 13px; } .atelier dl, .atelier .note, #description { display: none; } .atelier .check { display: inline-flex; margin-right: 14px; } .atelier-buttons { margin: 10px 0 0; } .masthead { gap: 10px; } }
