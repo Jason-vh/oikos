@@ -17,6 +17,7 @@ export interface Building extends Tile {
   progress: number;
   workers: number;
   vendorEnabled: boolean;
+  vendorInstalled: boolean;
   connected: boolean;
   serviceTimer: number;
   upgradeTimer: number;
