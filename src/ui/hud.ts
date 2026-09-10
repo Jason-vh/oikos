@@ -168,6 +168,7 @@ const SKELETON = `
         <div><dt>X</dt><dd>Demolish</dd></div>
         <div><dt>R</dt><dd>Rotate building</dd></div>
         <div><dt>G</dt><dd>Toggle grid</dd></div>
+        <div><dt>WASD / \u2190\u2191\u2192\u2193</dt><dd>Pan the view</dd></div>
         <div><dt>Q</dt><dd>Rotate view</dd></div>
         <div><dt>Space</dt><dd>Pause</dd></div>
         <div><dt>Esc</dt><dd>Cancel tool / menu</dd></div>

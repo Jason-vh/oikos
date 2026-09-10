@@ -168,6 +168,17 @@ try {
   assert.equal((await state(page)).buildings.length, 0, 'Confirmed new island kept the old city');
   await menuChoice(page, 'load');
   assert.equal((await state(page)).buildings.length, 0, 'New island did not replace the saved island');
+  const beforePan = await page.evaluate(() => window.oikos.camera);
+  await page.keyboard.down('d');
+  await paint(page, 12);
+  await page.keyboard.up('d');
+  const afterPan = await page.evaluate(() => window.oikos.camera);
+  assert(Math.hypot(afterPan[3] - beforePan[3], afterPan[5] - beforePan[5]) > .5, 'WASD did not pan the camera');
+  await page.keyboard.down('ArrowLeft');
+  await paint(page, 12);
+  await page.keyboard.up('ArrowLeft');
+  const afterArrow = await page.evaluate(() => window.oikos.camera);
+  assert(Math.hypot(afterArrow[3] - afterPan[3], afterArrow[5] - afterPan[5]) > .5, 'Arrow keys did not pan the camera');
   await page.keyboard.press('g');
   await menuChoice(page, 'grid-toggle');
   assert.equal(await page.getByTestId('grid-toggle').getAttribute('aria-pressed'), 'false', 'Grid toggle state not reflected');

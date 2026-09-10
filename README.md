@@ -20,8 +20,8 @@ fields, store it in a granary, then add a food vendor to an agora. Connect every
 with roads. Add a fountain and maintenance post. Reliable food and water evolve
 homes into cottages and courtyard houses.
 
-Left-click builds or inspects. Drag to lay roads. Right-drag pans; scroll zooms;
-Alt-drag orbits. `1`–`7` select construction tools, `X` demolishes, `R` rotates a
+Left-click builds or inspects. Drag to lay roads. WASD / arrow keys or right-drag
+pan; scroll zooms; Alt-drag orbits. `1`–`7` select construction tools, `X` demolishes, `R` rotates a
 building, `G` toggles the grid, `Q` rotates the camera, and `Space` pauses.
 `Escape` cancels the current tool, or opens the menu (save, load, new island,
 model atelier). On touchscreens, use two fingers to pan/zoom.

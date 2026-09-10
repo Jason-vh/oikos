@@ -134,6 +134,18 @@ export class Stage {
     this.invalidate();
   }
 
+  pan(right: number, forward: number): void {
+    if (right === 0 && forward === 0) return;
+    const forwardDirection = new T.Vector3().subVectors(this.controls.target, this.camera.position).setY(0).normalize();
+    const rightDirection = new T.Vector3().crossVectors(forwardDirection, new T.Vector3(0, 1, 0)).normalize();
+    const distance = (this.camera.right - this.camera.left) / this.camera.zoom;
+    const step = new T.Vector3().addScaledVector(rightDirection, right * distance).addScaledVector(forwardDirection, forward * distance);
+    this.controls.target.add(step);
+    this.camera.position.add(step);
+    this.controls.update();
+    this.invalidate();
+  }
+
   rotate(): void {
     const offset = this.camera.position.clone().sub(this.controls.target);
     offset.applyAxisAngle(new T.Vector3(0, 1, 0), Math.PI / 2);

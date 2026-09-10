@@ -188,7 +188,7 @@ function boot(): void {
   function updatePreview(): void {
     if (!hover || tool === 'inspect') {
       city.hidePreview();
-      hud.setHint('Click a building to inspect · Right-drag to pan · Scroll to zoom · Q rotates the view');
+      hud.setHint('Click a building to inspect · WASD or right-drag to pan · Scroll to zoom · Q rotates the view');
       return;
     }
     if (tool === 'demolish') {
@@ -254,6 +254,18 @@ function boot(): void {
   });
   stage.canvas.addEventListener('pointercancel', () => { drag = null; city.hidePreview(); });
   stage.canvas.addEventListener('pointerleave', () => { if (!drag) { hover = null; city.hidePreview(); } });
+  const held = new Set<string>();
+  const PAN_KEYS: Record<string, [number, number]> = { w: [0, 1], s: [0, -1], a: [-1, 0], d: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
+  window.addEventListener('keyup', (event) => held.delete(event.key.length === 1 ? event.key.toLowerCase() : event.key));
+  window.addEventListener('blur', () => held.clear());
+  window.addEventListener('keydown', (event) => {
+    if (event.target instanceof HTMLElement && (event.target.closest('input,select,textarea,dialog') || event.target.isContentEditable)) return;
+    const panKey = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+    if (PAN_KEYS[panKey] && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      held.add(panKey);
+      event.preventDefault();
+    }
+  });
   window.addEventListener('keydown', (event) => {
     if (event.target instanceof HTMLElement && (event.target.closest('input,select,textarea,dialog') || event.target.isContentEditable)) return;
     const keys: Record<string, Tool> = { '1': 'road', '2': 'house', '3': 'farm', '4': 'granary', '5': 'agora', '6': 'fountain', '7': 'maintenance', x: 'demolish' };
@@ -283,6 +295,15 @@ function boot(): void {
   function frame(now: number): void {
     const delta = previous === 0 || document.hidden ? 0 : Math.min((now - previous) / 1000, .25);
     previous = now;
+    if (held.size > 0) {
+      let right = 0;
+      let forward = 0;
+      for (const key of held) {
+        right += PAN_KEYS[key][0];
+        forward += PAN_KEYS[key][1];
+      }
+      stage.pan(right * delta * .9, forward * delta * .9);
+    }
     if (speed > 0 && !document.hidden) {
       accumulator += delta * speed;
       let changed = false;
