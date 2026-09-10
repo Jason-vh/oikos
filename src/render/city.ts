@@ -7,12 +7,38 @@ import type { Animal, AnimalKind, Building, BuildTool, Placement, Resource, Rota
 import type { Stage } from './stage';
 import { IslandScenery } from './island';
 
-interface BuildingEntry { key: string; model: T.Group; }
+interface BuildingEntry { key: string; tier: number; model: T.Group; intro: number; from: number; }
+interface Departure { model: T.Group; elapsed: number; }
+interface Puff { model: T.Group; material: T.MeshStandardMaterial; elapsed: number; }
 interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; from: T.Vector3; target: T.Vector3; elapsed: number; moving: boolean; working: boolean; heading: number; }
 interface AnimalEntry { model: T.Group; from: T.Vector3; target: T.Vector3; heading: number; elapsed: number; moving: boolean; dying: number; }
 
 const RAMP_SPAN = 1;
 const TURN_RATE = 14;
+const INTRO_SECONDS = .45;
+const EXIT_SECONDS = .3;
+const PUFF_SECONDS = .7;
+const PUFF_GEOMETRY = new T.DodecahedronGeometry(1, 0);
+
+function backOut(t: number): number {
+  const overshoot = 1.6;
+  const shifted = t - 1;
+  return 1 + shifted * shifted * ((overshoot + 1) * shifted + overshoot);
+}
+
+function dustPuff(x: number, y: number, z: number, width: number, depth: number): Puff {
+  const model = new T.Group();
+  const material = new T.MeshStandardMaterial({ color: colors.cream, roughness: .88, transparent: true, opacity: .75, depthWrite: false });
+  for (let index = 0; index < 7; index++) {
+    const angle = index / 7 * Math.PI * 2;
+    const cloud = new T.Mesh(PUFF_GEOMETRY, material);
+    cloud.position.set(Math.cos(angle) * width * .38, .15, Math.sin(angle) * depth * .38);
+    cloud.scale.setScalar(.22 + (index % 3) * .08);
+    model.add(cloud);
+  }
+  model.position.set(x, y, z);
+  return { model, material, elapsed: 0 };
+}
 
 function turnToward(current: number, goal: number, delta: number): number {
   const difference = Math.atan2(Math.sin(goal - current), Math.cos(goal - current));
@@ -45,7 +71,11 @@ export class CityScene {
   private readonly walkerTemplates = new Map<string, T.Group>();
   private readonly animals = new Map<number, AnimalEntry>();
   private readonly animalTemplates = new Map<AnimalKind, T.Group>();
+  private readonly departures: Departure[] = [];
+  private readonly puffs: Puff[] = [];
   private readonly roads = new T.Group();
+  private readonly hoverMark = new T.Mesh(new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new T.MeshBasicMaterial({ color: 0xffefae, transparent: true, opacity: .18, depthWrite: false }));
+  private primed = false;
   private readonly selection = new T.Mesh(new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new T.MeshBasicMaterial({ color: 0xffefae, transparent: true, opacity: .4, depthWrite: false }));
   private readonly preview = new T.Group();
   private roadKey = '';
@@ -56,10 +86,11 @@ export class CityScene {
   private readonly invalidMaterial = new T.MeshBasicMaterial({ color: 0xd3664e, transparent: true, opacity: .45, depthWrite: false });
   private readonly tileGeometry = new T.PlaneGeometry(CELL_SIZE - .06, CELL_SIZE - .06).rotateX(-Math.PI / 2);
 
-  constructor(private readonly stage: Stage, readonly map: IslandMap) {
+  constructor(private readonly stage: Stage, readonly map: IslandMap, private readonly motion = true) {
     this.scenery = new IslandScenery(stage.scene, map);
     this.selection.visible = false;
-    stage.scene.add(this.roads, this.selection, this.preview);
+    this.hoverMark.visible = false;
+    stage.scene.add(this.roads, this.selection, this.hoverMark, this.preview);
   }
 
   private roadModels(world: World): void {
@@ -111,9 +142,12 @@ export class CityScene {
     const occupied = new Set(world.roads);
     for (const [id, entry] of this.buildings) {
       if (ids.has(id)) continue;
-      entry.model.removeFromParent();
-      disposeModel(entry.model);
       this.buildings.delete(id);
+      if (this.motion) this.depart(entry.model);
+      else {
+        entry.model.removeFromParent();
+        disposeModel(entry.model);
+      }
       this.stage.shadows();
     }
     for (const building of world.buildings) {
@@ -135,9 +169,13 @@ export class CityScene {
       model.rotation.y = -building.rotation * Math.PI / 2;
       model.userData.buildingId = building.id;
       this.stage.scene.add(model);
-      this.buildings.set(building.id, { key, model });
+      const animated = this.motion && this.primed && (!existing || existing.tier !== building.tier);
+      const entry = { key, tier: building.tier, model, intro: animated ? 0 : INTRO_SECONDS, from: existing ? .85 : .4 };
+      this.buildings.set(building.id, entry);
+      if (animated) this.settle(entry);
       this.stage.shadows();
     }
+    this.primed = true;
     this.scenery.clearDecor(occupied, new Set(world.felled));
     const walkerIds = new Set(world.walkers.map((walker) => walker.id));
     for (const [id, entry] of this.walkers) {
@@ -330,6 +368,82 @@ export class CityScene {
     this.stage.invalidate();
   }
 
+  private depart(model: T.Group): void {
+    const bounds = new T.Box3().setFromObject(model);
+    const size = bounds.getSize(new T.Vector3());
+    const puff = dustPuff(model.position.x, model.position.y, model.position.z, size.x, size.z);
+    this.stage.scene.add(puff.model);
+    this.puffs.push(puff);
+    this.departures.push({ model, elapsed: 0 });
+  }
+
+  private settle(entry: BuildingEntry): void {
+    const t = Math.min(1, entry.intro / INTRO_SECONDS);
+    const scale = t >= 1 ? 1 : entry.from + (1 - entry.from) * backOut(t);
+    entry.model.scale.setScalar(scale);
+  }
+
+  transitions(delta: number): boolean {
+    let active = false;
+    for (const entry of this.buildings.values()) {
+      if (entry.intro >= INTRO_SECONDS) continue;
+      entry.intro += delta;
+      this.settle(entry);
+      active = true;
+    }
+    for (const departure of [...this.departures]) {
+      departure.elapsed += delta;
+      const t = Math.min(1, departure.elapsed / EXIT_SECONDS);
+      departure.model.scale.set(1 + t * .08, 1 - t * .9, 1 + t * .08);
+      if (t >= 1) {
+        departure.model.removeFromParent();
+        disposeModel(departure.model);
+        this.departures.splice(this.departures.indexOf(departure), 1);
+      }
+      active = true;
+    }
+    for (const puff of [...this.puffs]) {
+      puff.elapsed += delta;
+      const t = Math.min(1, puff.elapsed / PUFF_SECONDS);
+      const spread = 1 + t * 1.6;
+      puff.model.scale.set(spread, 1 + t * .8, spread);
+      puff.model.position.y += delta * .35;
+      puff.material.opacity = .75 * (1 - t) * (1 - t);
+      if (t >= 1) {
+        puff.model.removeFromParent();
+        puff.material.dispose();
+        this.puffs.splice(this.puffs.indexOf(puff), 1);
+      }
+      active = true;
+    }
+    if (active) this.stage.shadows();
+    return active;
+  }
+
+  hover(clientX: number, clientY: number, world: World): boolean {
+    const picked = this.pick(clientX, clientY);
+    const building = world.buildings.find((candidate) => candidate.id === picked.building);
+    const mover = picked.walker !== null ? this.walkers.get(picked.walker) : picked.animal !== null ? this.animals.get(picked.animal) : null;
+    this.hoverMark.visible = building !== undefined || mover !== undefined;
+    if (mover) {
+      this.hoverMark.scale.set(1.1, 1, 1.1);
+      this.hoverMark.position.set(mover.model.position.x, mover.model.position.y - .015, mover.model.position.z);
+    } else if (building) {
+      const { width, depth } = footprint(building.kind, building.rotation);
+      const p = worldPositionOn(this.map, building.x + width / 2, building.z + depth / 2);
+      this.hoverMark.scale.set(width * CELL_SIZE + .12, 1, depth * CELL_SIZE + .12);
+      this.hoverMark.position.set(p.x, groundHeight(this.map, building.x, building.z) + .06, p.z);
+    }
+    this.stage.invalidate();
+    return this.hoverMark.visible;
+  }
+
+  clearHover(): void {
+    if (!this.hoverMark.visible) return;
+    this.hoverMark.visible = false;
+    this.stage.invalidate();
+  }
+
   private kindOf(model: T.Object3D): AnimalKind {
     return model.userData.kind as AnimalKind;
   }
@@ -450,9 +564,20 @@ export class CityScene {
     this.animalTemplates.clear();
     for (const template of this.walkerTemplates.values()) disposeModel(template);
     this.walkerTemplates.clear();
+    for (const departure of this.departures) {
+      departure.model.removeFromParent();
+      disposeModel(departure.model);
+    }
+    this.departures.length = 0;
+    for (const puff of this.puffs) {
+      puff.model.removeFromParent();
+      puff.material.dispose();
+    }
+    this.puffs.length = 0;
     disposeModel(this.roads);
     this.roads.removeFromParent();
     this.selection.removeFromParent();
+    this.hoverMark.removeFromParent();
     this.preview.removeFromParent();
     this.scenery.dispose();
   }

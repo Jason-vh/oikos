@@ -31,8 +31,9 @@ function boot(): void {
     autoSaveEnabled = false;
     storageWarning = 'Browser storage is unavailable. This island cannot be saved.';
   }
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const stage = new Stage(document.querySelector<HTMLElement>('#app')!, false);
-  let city = new CityScene(stage, islandFor(world.seed));
+  let city = new CityScene(stage, islandFor(world.seed), !reducedMotion);
   const map = () => city.map;
   function viewFor(seed: number): { target: number[]; offset: number[]; size: number } {
     const island = islandFor(seed);
@@ -42,7 +43,7 @@ function boot(): void {
   stage.setView(viewFor(world.seed));
   function rebuildScene(): void {
     city.dispose();
-    city = new CityScene(stage, islandFor(world.seed));
+    city = new CityScene(stage, islandFor(world.seed), !reducedMotion);
     stage.setView(viewFor(world.seed));
     stage.shadows();
   }
@@ -58,7 +59,6 @@ function boot(): void {
   let artTime = 0;
   let inDebt = false;
   const panVelocity = { right: 0, forward: 0 };
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   function refresh(): void {
     const selected = world.buildings.find((building) => building.id === selectedId) ?? null;
@@ -190,11 +190,13 @@ function boot(): void {
     return { ok: !failed && cost <= world.money, reason: failed?.reason ?? (cost > world.money ? 'Not enough drachmas.' : `Road · ${cost} drachmas`), cost, tiles: path.filter((tile) => tile.x >= 0 && tile.x < map().width && tile.z >= 0 && tile.z < map().depth).map((tile) => tileIndexOn(map(), tile.x, tile.z)) };
   }
 
-  function updatePreview(): void {
+  function updatePreview(pointer: { x: number; y: number } | null = null): void {
     stage.canvas.style.cursor = tool === 'inspect' ? '' : 'crosshair';
+    if (tool !== 'inspect') city.clearHover();
     if (!hover || tool === 'inspect') {
       city.hidePreview();
       hud.setHint('Click anything to inspect · WASD pans · Scroll zooms · Q rotates');
+      if (tool === 'inspect' && pointer && !drag && city.hover(pointer.x, pointer.y, world)) stage.canvas.style.cursor = 'pointer';
       return;
     }
     if (tool === 'demolish') {
@@ -235,7 +237,7 @@ function boot(): void {
   stage.canvas.addEventListener('pointermove', (event) => {
     if (!event.isPrimary || event.altKey || event.buttons === 2) return;
     hover = atPointer(event);
-    updatePreview();
+    updatePreview({ x: event.clientX, y: event.clientY });
   });
   stage.canvas.addEventListener('pointerup', (event) => {
     if (!drag || drag.pointer !== event.pointerId) return;
@@ -260,7 +262,7 @@ function boot(): void {
     updatePreview();
   });
   stage.canvas.addEventListener('pointercancel', () => { drag = null; city.hidePreview(); });
-  stage.canvas.addEventListener('pointerleave', () => { if (!drag) { hover = null; city.hidePreview(); } });
+  stage.canvas.addEventListener('pointerleave', () => { if (!drag) { hover = null; city.hidePreview(); city.clearHover(); } });
   const held = new Set<string>();
   const PAN_KEYS: Record<string, [number, number]> = { w: [0, 1], s: [0, -1], a: [-1, 0], d: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
   window.addEventListener('keyup', (event) => held.delete(event.key.length === 1 ? event.key.toLowerCase() : event.key));
@@ -314,6 +316,7 @@ function boot(): void {
     if (Math.abs(panVelocity.forward) < .002) panVelocity.forward = 0;
     stage.pan(panVelocity.right * delta * .9, panVelocity.forward * delta * .9);
     stage.update(delta);
+    city.transitions(delta);
     if (speed > 0 && !document.hidden) {
       accumulator += delta * speed;
       let changed = false;
