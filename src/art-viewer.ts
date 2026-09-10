@@ -39,7 +39,7 @@ function boot(): void {
     }
     const [kindValue, tierValue] = select.value.split(':');
     const kind = kindValue as BuildingKind;
-    const tier = Number(tierValue);
+    const tier = Number(tierValue) as 1 | 2 | 3;
     model = getBuildingModel(kind, tier, kind === 'agora' && tier === 2);
     model.traverse((child) => {
       if (!(child instanceof T.Mesh)) return;
