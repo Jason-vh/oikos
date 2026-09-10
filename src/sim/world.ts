@@ -39,7 +39,7 @@ import {
 export function createWorld(): World {
   const world: World = {
     version: 1,
-    island: 'thalassa',
+    island: 'kalliste',
     time: 0,
     remainder: 0,
     money: STARTING_MONEY,

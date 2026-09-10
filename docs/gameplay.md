@@ -1,4 +1,4 @@
-# Thalassa: first playable
+# Oikos: first playable
 
 A small, deterministic, headless simulation for the first slice of the island game.
 The whole thing lives in `src/sim/` and has no dependency on Three.js or the browser —

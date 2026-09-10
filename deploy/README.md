@@ -4,7 +4,7 @@
 https://zeus.vhtm.eu
 ```
 
-Static Vite build of Thalassa hosted on the shared `vhtm-eu` VM. Architecture and
+Static Vite build of Oikos hosted on the shared `vhtm-eu` VM. Architecture and
 conventions live in <https://github.com/Jason-vh/vhtm.eu>.
 
 ## Architecture

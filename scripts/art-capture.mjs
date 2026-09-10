@@ -66,7 +66,7 @@ try {
   await paint(page);
   await page.screenshot({ path: path.join(output, 'atelier-mobile.png') });
   assert.deepEqual(await page.evaluate(() => ({ ...localStorage })), { 'art-save-sentinel': 'untouched' });
-  assert.equal(await page.evaluate(() => Reflect.has(window, 'thalassa')), false);
+  assert.equal(await page.evaluate(() => Reflect.has(window, 'oikos')), false);
   assert.deepEqual(errors, []);
   console.log(`Art checks passed. Captures: ${output}`);
 } finally {

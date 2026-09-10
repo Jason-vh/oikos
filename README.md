@@ -1,7 +1,8 @@
-# Thalassa
+# Oikos
 
-A living Aegean miniature. Build a small island neighbourhood around real road-bound
-food deliveries, water carriers, and caretakers.
+*Oikos* (οἶκος): the household, root of *economy*. A living Aegean miniature where
+you build a small island neighbourhood around real road-bound food deliveries,
+water carriers, and caretakers. The first island is Kalliste.
 
 ```bash
 npm install

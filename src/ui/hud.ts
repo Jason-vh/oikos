@@ -91,7 +91,7 @@ const SKELETON = `
   <div class="hud-top">
     <header class="hud-panel hud-masthead" data-testid="masthead">
       <div class="hud-identity">
-        <h1>Thalassa<span> / First island</span></h1>
+        <h1>Oikos<span> / Kalliste</span></h1>
       </div>
       <dl class="hud-resources" aria-label="City resources">
         <div><dt>Population</dt><dd data-field="population">0</dd></div>

@@ -1,4 +1,4 @@
-# Thalassa
+# Oikos
 
 Read `README.md`, `docs/gameplay.md`, `docs/art-direction.md`, and
 `docs/art-tooling.md` before changing the game.

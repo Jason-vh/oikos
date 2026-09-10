@@ -36,7 +36,7 @@ export interface Walker {
 }
 export interface World {
   version: 1;
-  island: 'thalassa';
+  island: 'kalliste';
   time: number;
   remainder: number;
   money: number;

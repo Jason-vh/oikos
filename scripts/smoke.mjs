@@ -6,13 +6,13 @@ import { chromium } from 'playwright';
 const [url = 'http://localhost:5180/?debug', output = 'artifacts/smoke'] = process.argv.slice(2);
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch();
-const state = (page) => page.evaluate(() => window.thalassa.state);
-const summary = (page) => page.evaluate(() => window.thalassa.summary);
+const state = (page) => page.evaluate(() => window.oikos.state);
+const summary = (page) => page.evaluate(() => window.oikos.summary);
 const paint = (page, count = 2) => page.evaluate((frames) => new Promise((resolve) => {
   const next = () => { if (--frames <= 0) resolve(null); else requestAnimationFrame(next); };
   requestAnimationFrame(next);
 }), count);
-const tilePoint = (page, x, z) => page.evaluate(([tx, tz]) => window.thalassa.projectTile(tx, tz), [x, z]);
+const tilePoint = (page, x, z) => page.evaluate(([tx, tz]) => window.oikos.projectTile(tx, tz), [x, z]);
 const clickTile = async (page, x, z) => {
   const point = await tilePoint(page, x, z);
   await page.mouse.click(point.x, point.y);
@@ -20,7 +20,7 @@ const clickTile = async (page, x, z) => {
 };
 const selectTool = (page, name) => page.getByRole('button', { name: new RegExp(`^${name}`) }).first().click();
 const advance = async (page, seconds) => {
-  await page.evaluate((value) => window.thalassa.advance(value), seconds);
+  await page.evaluate((value) => window.oikos.advance(value), seconds);
   await paint(page);
 };
 const houseAt = (world, x, z) => world.buildings.find((building) => building.kind === 'house' && building.x === x && building.z === z);
@@ -71,7 +71,7 @@ try {
   await page.keyboard.press('Escape');
   const agora = (await state(page)).buildings.find((building) => building.kind === 'agora');
   assert(agora, 'Agora missing');
-  const agoraPoint = await page.evaluate((id) => window.thalassa.projectBuilding(id), agora.id);
+  const agoraPoint = await page.evaluate((id) => window.oikos.projectBuilding(id), agora.id);
   await page.mouse.click(agoraPoint.x, agoraPoint.y);
   await paint(page);
   const vendorButton = page.getByTestId('vendor-toggle');
@@ -116,7 +116,7 @@ try {
   const restored = await state(page);
   assert.equal(restored.buildings.length, world.buildings.length, 'Save did not restore buildings');
   assert(restored.time >= world.time, 'Save lost simulation time');
-  const tampered = await page.evaluate((key) => { localStorage.setItem(key, '{"version":1,"buildings":"nope"}'); return key; }, await page.evaluate(() => window.thalassa.saveKey));
+  const tampered = await page.evaluate((key) => { localStorage.setItem(key, '{"version":1,"buildings":"nope"}'); return key; }, await page.evaluate(() => window.oikos.saveKey));
   await page.getByTestId('load').click();
   await paint(page);
   assert.equal((await state(page)).buildings.length, restored.buildings.length, 'Corrupt save replaced the island');

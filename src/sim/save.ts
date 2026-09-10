@@ -166,7 +166,7 @@ export function deserializeWorld(raw: string): World | null {
   const { version, island, time, remainder, money, nextId, roads: rawRoads, buildings: rawBuildings, walkers: rawWalkers, produced, delivered } = parsed;
 
   if (version !== 1) return null;
-  if (island !== 'thalassa') return null;
+  if (island !== 'kalliste') return null;
   if (!isNonNegativeFinite(time)) return null;
   if (!isNonNegativeFinite(remainder)) return null;
   if (!isFiniteNumber(money)) return null;
@@ -203,7 +203,7 @@ export function deserializeWorld(raw: string): World | null {
 
   const world: World = {
     version: 1,
-    island: 'thalassa',
+    island: 'kalliste',
     time: time as number,
     remainder: remainder as number,
     money: money as number,

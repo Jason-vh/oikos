@@ -1,4 +1,4 @@
-# Art direction — Thalassa miniature
+# Art direction — Oikos miniature
 
 This is the visual contract for `src/art/`. It exists so a future agent can add a
 model, or judge whether one belongs, without re-litigating taste. The prototype at

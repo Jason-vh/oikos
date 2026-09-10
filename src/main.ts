@@ -9,7 +9,7 @@ import type { ActionResult, Placement, Rotation, Tile, Tool } from './sim/types'
 import { createHud } from './ui/hud';
 import './ui/style.css';
 
-const SAVE_KEY = 'thalassa.island.v1';
+const SAVE_KEY = 'oikos.island.v1';
 const DEFAULT_VIEW = { target: [0, 0, 0], offset: [35, 38, 48], size: 43 };
 
 function boot(): void {
@@ -279,7 +279,7 @@ function boot(): void {
   requestAnimationFrame(frame);
 
   if (import.meta.env.DEV || new URLSearchParams(location.search).has('debug')) {
-    Reflect.set(window, 'thalassa', {
+    Reflect.set(window, 'oikos', {
       get state() { return structuredClone(world); },
       get summary() { return getSummary(world); },
       get frames() { return stage.frames; },
