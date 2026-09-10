@@ -8,10 +8,16 @@ import type { Stage } from './stage';
 import { IslandScenery } from './island';
 
 interface BuildingEntry { key: string; model: T.Group; }
-interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; from: T.Vector3; target: T.Vector3; elapsed: number; moving: boolean; working: boolean; facing: number | null; }
+interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; from: T.Vector3; target: T.Vector3; elapsed: number; moving: boolean; working: boolean; heading: number; }
 interface AnimalEntry { model: T.Group; from: T.Vector3; target: T.Vector3; heading: number; elapsed: number; moving: boolean; dying: number; }
 
 const RAMP_SPAN = 1;
+const TURN_RATE = 14;
+
+function turnToward(current: number, goal: number, delta: number): number {
+  const difference = Math.atan2(Math.sin(goal - current), Math.cos(goal - current));
+  return current + difference * Math.min(1, delta * TURN_RATE);
+}
 
 function rampHeight(from: number, to: number, progress: number): number {
   if (from === to) return from;
@@ -170,6 +176,7 @@ export class CityScene {
       const model = template.clone();
       model.userData.kind = animal.kind;
       model.position.copy(target);
+      model.rotation.y = -animal.heading + Math.PI / 2;
       this.stage.scene.add(model);
       entry = { model, from: target.clone(), target, heading: animal.heading, elapsed: .25, moving: false, dying: 0 };
       this.animals.set(animal.id, entry);
@@ -260,11 +267,12 @@ export class CityScene {
       entry.key = key;
       this.stage.scene.add(replacement);
     }
+    const fresh = !entry;
     if (!entry) {
       const model = this.walkerModel(walker.kind, load);
       model.position.copy(target);
       this.stage.scene.add(model);
-      entry = { key, kind: walker.kind, model, from: target.clone(), target, elapsed: .25, moving: false, working: false, facing: null };
+      entry = { key, kind: walker.kind, model, from: target.clone(), target, elapsed: .25, moving: false, working: false, heading: 0 };
       this.walkers.set(walker.id, entry);
     } else {
       entry.from.copy(entry.model.position);
@@ -273,15 +281,16 @@ export class CityScene {
       entry.moving = entry.from.distanceToSquared(target) > 1e-6;
     }
     entry.working = walker.working > 0;
-    entry.facing = null;
+    let facing: number | null = null;
     if (entry.working && walker.quarry !== null) {
       const quarry = walker.kind === 'hunter' ? this.animals.get(walker.quarry)?.model.position : null;
       const tile = walker.kind === 'woodcutter' ? tileAtOn(this.map, walker.quarry) : null;
       const goal = quarry ?? (tile ? new T.Vector3(worldPositionOn(this.map, tile.x + .5, tile.z + .5).x, 0, worldPositionOn(this.map, tile.x + .5, tile.z + .5).z) : null);
-      if (goal) entry.facing = Math.atan2(goal.x - target.x, goal.z - target.z);
+      if (goal) facing = Math.atan2(goal.x - target.x, goal.z - target.z);
     }
-    if (entry.facing !== null) entry.model.rotation.y = entry.facing;
-    else if (a.x !== b.x || a.z !== b.z) entry.model.rotation.y = Math.atan2(b.x - a.x, b.z - a.z);
+    if (facing !== null) entry.heading = facing;
+    else if (a.x !== b.x || a.z !== b.z) entry.heading = Math.atan2(b.x - a.x, b.z - a.z);
+    if (fresh) entry.model.rotation.y = entry.heading;
   }
 
   animate(time: number, delta: number, speed: number): void {
@@ -289,6 +298,7 @@ export class CityScene {
     for (const [id, walker] of this.walkers) {
       walker.elapsed += delta * speed;
       walker.model.position.lerpVectors(walker.from, walker.target, Math.min(1, walker.elapsed / .25));
+      walker.model.rotation.y = turnToward(walker.model.rotation.y, walker.heading, delta * speed);
       const stride = walker.moving ? .55 : 0;
       const phase = time * 9 * Math.max(1, speed) + id;
       if (walker.working) animateWork(walker.model, time * Math.max(1, speed) + id, walker.kind === 'hunter' ? 'thrust' : 'chop');
@@ -301,7 +311,7 @@ export class CityScene {
       animal.elapsed += delta * speed;
       animal.model.position.lerpVectors(animal.from, animal.target, Math.min(1, animal.elapsed / .25));
       const kind = this.kindOf(animal.model);
-      animal.model.rotation.y = -animal.heading + Math.PI / 2;
+      animal.model.rotation.y = turnToward(animal.model.rotation.y, -animal.heading + Math.PI / 2, delta * speed);
       if (animal.dying > 0) {
         animal.dying += delta * speed;
         const t = Math.min(1, animal.dying / .9);

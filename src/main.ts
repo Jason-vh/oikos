@@ -56,6 +56,8 @@ function boot(): void {
   let dirtySave = false;
   let showGrid = false;
   let artTime = 0;
+  let inDebt = false;
+  const panVelocity = { right: 0, forward: 0 };
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   function refresh(): void {
@@ -68,6 +70,9 @@ function boot(): void {
     else if (animal) hud.update(world, getSummary(world), { kind: 'person', name: animalName(animal), role: 'Wildlife', status: animalStatus(animal) });
     else if (selected) hud.update(world, getSummary(world), { kind: 'building', building: selected, status: buildingStatus(world, selected) });
     else hud.update(world, getSummary(world), null);
+    const debt = world.money < 0;
+    if (debt && !inDebt) hud.notify('The treasury is in debt: upkeep outweighs income.', true);
+    inDebt = debt;
   }
 
   function selectTool(next: Tool): void {
@@ -186,6 +191,7 @@ function boot(): void {
   }
 
   function updatePreview(): void {
+    stage.canvas.style.cursor = tool === 'inspect' ? '' : 'crosshair';
     if (!hover || tool === 'inspect') {
       city.hidePreview();
       hud.setHint('Click anything to inspect · WASD pans · Scroll zooms · Q rotates');
@@ -209,6 +215,7 @@ function boot(): void {
     }
     const preview = tool === 'road' ? roadPreview() : placement(world, tool, hover.x, hover.z, rotation);
     city.showPreview(tool, hover.x, hover.z, rotation, preview);
+    if (!preview.ok) stage.canvas.style.cursor = 'not-allowed';
     let hint = preview.reason;
     if (preview.ok && tool !== 'road') hint = `${BUILDINGS[tool].name} · ${preview.cost} drachmas · R to rotate · Escape cancels`;
     hud.setHint(hint);
@@ -290,20 +297,23 @@ function boot(): void {
   let previous = 0;
   let lastRender = 0;
   let lastSave = 0;
-  let lastShadow = 0;
   let visualDelta = 0;
   function frame(now: number): void {
     const delta = previous === 0 || document.hidden ? 0 : Math.min((now - previous) / 1000, .25);
     previous = now;
-    if (held.size > 0) {
-      let right = 0;
-      let forward = 0;
-      for (const key of held) {
-        right += PAN_KEYS[key][0];
-        forward += PAN_KEYS[key][1];
-      }
-      stage.pan(right * delta * .9, forward * delta * .9);
+    let right = 0;
+    let forward = 0;
+    for (const key of held) {
+      right += PAN_KEYS[key][0];
+      forward += PAN_KEYS[key][1];
     }
+    const ease = 1 - Math.exp(-delta * 12);
+    panVelocity.right += (Math.sign(right) - panVelocity.right) * ease;
+    panVelocity.forward += (Math.sign(forward) - panVelocity.forward) * ease;
+    if (Math.abs(panVelocity.right) < .002) panVelocity.right = 0;
+    if (Math.abs(panVelocity.forward) < .002) panVelocity.forward = 0;
+    stage.pan(panVelocity.right * delta * .9, panVelocity.forward * delta * .9);
+    stage.update(delta);
     if (speed > 0 && !document.hidden) {
       accumulator += delta * speed;
       let changed = false;
@@ -315,18 +325,21 @@ function boot(): void {
       if (changed) {
         dirtySave = true;
         refresh();
-        if (reducedMotion) city.animate(0, .25, 1);
+        if (reducedMotion) {
+          city.animate(0, .25, 1);
+          stage.shadows();
+        }
       }
       visualDelta += delta;
       if (now - lastRender >= 1000 / 30) {
         if (!reducedMotion) {
           artTime += visualDelta;
           city.animate(artTime, visualDelta, speed);
+          stage.shadows();
         }
         visualDelta = 0;
         lastRender = now;
       }
-      if (world.walkers.length && now - lastShadow > 150) { stage.shadows(); lastShadow = now; }
     }
     if (now - lastSave >= 5000) {
       if (dirtySave) save(false);
@@ -364,7 +377,7 @@ function boot(): void {
       build: (tool: BuildTool, x: number, z: number) => { const result = build(world, tool, x, z, 0); refresh(); save(true); return result; },
       road: (tiles: Tile[]) => { const result = placeRoadPath(world, tiles); refresh(); save(true); return result; },
       probe: (clientX: number, clientY: number) => city.probe(clientX, clientY),
-      focusTile: (x: number, z: number) => { const point = worldPositionOn(map(), x + .5, z + .5); stage.focus(point.x, point.z); },
+      focusTile: (x: number, z: number) => { const point = worldPositionOn(map(), x + .5, z + .5); stage.focus(point.x, point.z, true); },
       terrainAt: (x: number, z: number) => terrainOn(map(), x, z),
       get map() { const island = map(); return { width: island.width, depth: island.depth, entry: island.entry, terrain: island.terrain, level: Array.from(island.level) }; },
       roadCost: ROAD_COST,

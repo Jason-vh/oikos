@@ -7,6 +7,8 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 export interface View { target: number[]; offset: number[]; size: number; }
 
+const UP = new T.Vector3(0, 1, 0);
+
 export class Stage {
   readonly scene = new T.Scene();
   readonly camera = new T.OrthographicCamera(-30, 30, 20, -20, .1, 350);
@@ -21,6 +23,7 @@ export class Stage {
   private size = 44;
   private request = 0;
   private lost = false;
+  private readonly goal = { target: new T.Vector3(), spin: 0, active: false };
   frames = 0;
 
   constructor(root: HTMLElement, interactive = true) {
@@ -37,7 +40,8 @@ export class Stage {
     this.canvas.setAttribute('aria-label', 'Interactive island');
     root.append(this.canvas);
     this.controls = new OrbitControls(this.camera, this.canvas);
-    this.controls.enableDamping = false;
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = .14;
     this.controls.minPolarAngle = Math.PI / 7;
     this.controls.maxPolarAngle = Math.PI / 2.65;
     this.controls.minZoom = .65;
@@ -48,6 +52,7 @@ export class Stage {
     this.controls.rotateSpeed = .55;
     if (!interactive) this.controls.mouseButtons.LEFT = null;
     this.controls.addEventListener('change', this.invalidate);
+    this.controls.addEventListener('start', this.settle);
     this.sun.position.set(-25, 42, 24);
     this.sun.target.position.set(-2, 0, -4);
     this.sun.castShadow = true;
@@ -81,6 +86,11 @@ export class Stage {
       status.hidden = false;
       status.textContent = 'The 3D context was lost. Reload to reopen the island.';
     }
+  };
+
+  private settle = (): void => {
+    this.goal.active = false;
+    this.goal.spin = 0;
   };
 
   invalidate = (): void => {
@@ -123,20 +133,44 @@ export class Stage {
     this.camera.position.copy(this.controls.target).add(new T.Vector3().fromArray(view.offset));
     this.camera.zoom = 1;
     this.size = view.size;
+    this.settle();
     this.controls.update();
     this.resize();
   }
 
-  focus(x: number, z: number): void {
-    const offset = this.camera.position.clone().sub(this.controls.target);
-    this.controls.target.set(x, 1.15, z);
-    this.camera.position.copy(this.controls.target).add(offset);
-    this.controls.update();
+  focus(x: number, z: number, immediate = false): void {
+    this.goal.target.set(x, 1.15, z);
+    this.goal.active = true;
+    if (immediate) this.update(Infinity);
     this.invalidate();
+  }
+
+  update(delta: number): void {
+    if (this.goal.active) {
+      const ease = 1 - Math.exp(-delta * 9);
+      const step = this.goal.target.clone().sub(this.controls.target).multiplyScalar(ease);
+      const remainingSpin = this.goal.spin * ease;
+      this.goal.spin -= remainingSpin;
+      const offset = this.camera.position.clone().sub(this.controls.target).applyAxisAngle(UP, remainingSpin);
+      this.controls.target.add(step);
+      this.camera.position.copy(this.controls.target).add(offset);
+      const settled = this.controls.target.distanceToSquared(this.goal.target) < 1e-4 && Math.abs(this.goal.spin) < 1e-3;
+      if (settled) {
+        this.controls.target.copy(this.goal.target);
+        this.camera.position.copy(this.controls.target).add(offset.applyAxisAngle(UP, this.goal.spin));
+        this.goal.spin = 0;
+        this.goal.active = false;
+      }
+      this.controls.update();
+      this.invalidate();
+      return;
+    }
+    if (this.controls.update()) this.invalidate();
   }
 
   pan(right: number, forward: number): void {
     if (right === 0 && forward === 0) return;
+    this.settle();
     const forwardDirection = new T.Vector3().subVectors(this.controls.target, this.camera.position).setY(0).normalize();
     const rightDirection = new T.Vector3().crossVectors(forwardDirection, new T.Vector3(0, 1, 0)).normalize();
     const distance = (this.camera.right - this.camera.left) / this.camera.zoom;
@@ -148,10 +182,9 @@ export class Stage {
   }
 
   rotate(): void {
-    const offset = this.camera.position.clone().sub(this.controls.target);
-    offset.applyAxisAngle(new T.Vector3(0, 1, 0), Math.PI / 2);
-    this.camera.position.copy(this.controls.target).add(offset);
-    this.controls.update();
+    if (!this.goal.active) this.goal.target.copy(this.controls.target);
+    this.goal.spin += Math.PI / 2;
+    this.goal.active = true;
     this.invalidate();
   }
 
@@ -179,6 +212,7 @@ export class Stage {
     cancelAnimationFrame(this.request);
     window.removeEventListener('resize', this.resize);
     this.canvas.removeEventListener('webglcontextlost', this.contextLost);
+    this.controls.removeEventListener('start', this.settle);
     this.controls.dispose();
     this.ao.dispose();
     this.composer.dispose();

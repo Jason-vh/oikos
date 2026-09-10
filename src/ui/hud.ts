@@ -29,18 +29,18 @@ export interface Hud {
   dispose(): void;
 }
 
-const TOOL_DEFS: Array<{ tool: Tool; label: string; cost: string; key: string }> = [
-  { tool: 'road', label: 'Road', cost: `${ROAD_COST} / tile`, key: '1' },
-  { tool: 'house', label: BUILDINGS.house.name, cost: String(BUILDINGS.house.cost), key: '2' },
-  { tool: 'farm', label: BUILDINGS.farm.name, cost: String(BUILDINGS.farm.cost), key: '3' },
-  { tool: 'granary', label: BUILDINGS.granary.name, cost: String(BUILDINGS.granary.cost), key: '4' },
-  { tool: 'agora', label: BUILDINGS.agora.name, cost: String(BUILDINGS.agora.cost), key: '5' },
-  { tool: 'fountain', label: BUILDINGS.fountain.name, cost: String(BUILDINGS.fountain.cost), key: '6' },
-  { tool: 'maintenance', label: 'Caretaker', cost: String(BUILDINGS.maintenance.cost), key: '7' },
-  { tool: 'lodge', label: 'Hunter', cost: String(BUILDINGS.lodge.cost), key: '8' },
-  { tool: 'woodcutter', label: 'Woodcutter', cost: String(BUILDINGS.woodcutter.cost), key: '9' },
-  { tool: 'stockpile', label: BUILDINGS.stockpile.name, cost: String(BUILDINGS.stockpile.cost), key: '0' },
-  { tool: 'demolish', label: 'Demolish', cost: 'half refunded', key: 'X' },
+const TOOL_DEFS: Array<{ tool: Tool; label: string; cost: string; price: number; key: string }> = [
+  { tool: 'road', label: 'Road', cost: `${ROAD_COST} / tile`, price: ROAD_COST, key: '1' },
+  { tool: 'house', label: BUILDINGS.house.name, cost: String(BUILDINGS.house.cost), price: BUILDINGS.house.cost, key: '2' },
+  { tool: 'farm', label: BUILDINGS.farm.name, cost: String(BUILDINGS.farm.cost), price: BUILDINGS.farm.cost, key: '3' },
+  { tool: 'granary', label: BUILDINGS.granary.name, cost: String(BUILDINGS.granary.cost), price: BUILDINGS.granary.cost, key: '4' },
+  { tool: 'agora', label: BUILDINGS.agora.name, cost: String(BUILDINGS.agora.cost), price: BUILDINGS.agora.cost, key: '5' },
+  { tool: 'fountain', label: BUILDINGS.fountain.name, cost: String(BUILDINGS.fountain.cost), price: BUILDINGS.fountain.cost, key: '6' },
+  { tool: 'maintenance', label: 'Caretaker', cost: String(BUILDINGS.maintenance.cost), price: BUILDINGS.maintenance.cost, key: '7' },
+  { tool: 'lodge', label: 'Hunter', cost: String(BUILDINGS.lodge.cost), price: BUILDINGS.lodge.cost, key: '8' },
+  { tool: 'woodcutter', label: 'Woodcutter', cost: String(BUILDINGS.woodcutter.cost), price: BUILDINGS.woodcutter.cost, key: '9' },
+  { tool: 'stockpile', label: BUILDINGS.stockpile.name, cost: String(BUILDINGS.stockpile.cost), price: BUILDINGS.stockpile.cost, key: '0' },
+  { tool: 'demolish', label: 'Demolish', cost: 'half refunded', price: 0, key: 'X' },
 ];
 
 const TOAST_LIFETIME = 3200;
@@ -71,11 +71,6 @@ function describeStores(building: Building): string {
   return entries.map(([food, amount]) => `${Math.round(amount)} ${food}`).join(' \u00b7 ');
 }
 
-function vendorInstalled(building: Building): boolean {
-  const record = building as Building & { vendorInstalled?: boolean };
-  return record.vendorInstalled ?? building.vendorEnabled;
-}
-
 interface Milestones {
   houses: boolean;
   farmGranary: boolean;
@@ -89,7 +84,7 @@ function computeMilestones(world: World, summary: Summary): Milestones {
   const houses = world.buildings.filter((building) => building.kind === 'house');
   const farms = world.buildings.some((building) => building.kind === 'farm');
   const granaries = world.buildings.some((building) => building.kind === 'granary');
-  const agoraVendor = world.buildings.some((building) => building.kind === 'agora' && vendorInstalled(building));
+  const agoraVendor = world.buildings.some((building) => building.kind === 'agora' && building.vendorInstalled);
   const fountains = world.buildings.some((building) => building.kind === 'fountain');
   const maintenance = world.buildings.some((building) => building.kind === 'maintenance');
   const courtyardCount = houses.filter((house) => house.tier === 3).length;
@@ -299,7 +294,7 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
       return;
     }
     vendorButton.hidden = false;
-    if (!vendorInstalled(building)) {
+    if (!building.vendorInstalled) {
       vendorButton.textContent = `Add food vendor \u00b7 ${VENDOR_COST}`;
       vendorButton.setAttribute('aria-pressed', 'false');
       vendorButton.onclick = () => actions.vendor(building.id, true);
@@ -385,7 +380,9 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
   function update(world: World, summary: Summary, selected: Selection | null): void {
     populationField.textContent = summary.population.toLocaleString('en-US');
     treasuryField.textContent = formatDrachma(world.money);
-    foodField.textContent = summary.food.toLocaleString('en-US');
+    treasuryField.classList.toggle('hud-debt', world.money < 0);
+    foodField.textContent = Math.round(summary.food).toLocaleString('en-US');
+    for (const def of TOOL_DEFS) toolButtons.get(def.tool)!.classList.toggle('hud-tool-unaffordable', def.price > world.money);
     balanceField.textContent = formatSigned(summary.balance);
     employedField.textContent = `${summary.workers} / ${summary.jobs}`;
     timeField.textContent = formatDate(world);

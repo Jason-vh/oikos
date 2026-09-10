@@ -61,6 +61,7 @@ button[aria-pressed='true'] { background: var(--sage); color: #fffdf0; }
 .hud-resources > div { display: flex; flex-direction: column; gap: 2px; }
 .hud-resources dt { font-size: 9px; text-transform: uppercase; letter-spacing: 1.6px; opacity: .55; }
 .hud-resources dd { margin: 0; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.hud-resources dd.hud-debt { color: var(--terracotta-deep); }
 
 .hud-clock { display: flex; align-items: center; gap: 12px; margin-left: auto; }
 .hud-clock time { font-family: Georgia, 'Times New Roman', serif; font-size: 16px; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -133,6 +134,8 @@ button[aria-pressed='true'] { background: var(--sage); color: #fffdf0; }
 .hud-tool-label { font-weight: 600; max-width: 72px; overflow: hidden; text-overflow: ellipsis; }
 .hud-tool-cost { font-size: 9.5px; opacity: .6; font-variant-numeric: tabular-nums; }
 .hud-tool[aria-pressed='true'] .hud-tool-cost { opacity: .85; }
+.hud-tool-unaffordable:not([aria-pressed='true']) { color: var(--ink-soft); opacity: .55; }
+.hud-tool-unaffordable .hud-tool-cost { color: var(--terracotta-deep); opacity: 1; }
 .hud-tool[data-tool='demolish'] { color: var(--terracotta-deep); }
 .hud-tool[data-tool='demolish'][aria-pressed='true'] { background: var(--terracotta-deep); color: #fffaf0; }
 
