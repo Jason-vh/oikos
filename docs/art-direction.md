@@ -138,29 +138,47 @@ approved prototype:
    footprint allows. The playable tier keeps the two-storey silhouette and the idea
    of a private yard, sized to fit.
 
-## Lighting, camera and shading budget (as set by the prototype, in `src/miniature/main.ts`)
+## Lighting, camera and shading budget (as set by the shared `Stage`, `src/render/stage.ts`)
 
 This library doesn't touch the renderer, but a model built without knowing how it'll
-be lit will look wrong under it. The approved settings:
+be lit will look wrong under it. `Stage` is shared by the game (`/`), the harbour
+benchmark (`/miniature.html`) and the model viewer (`/art.html`); these are the
+settings all three run under:
 
-- **Camera**: orthographic, `(-30, 30, 20, -20, .1, 350)`, three fixed views —
-  harbour (`target [-2,0,-4]`, closest), streets (`target [-1,1.5,2]`, closer still),
-  archipelago (`target [4,0,-18]`, furthest). A model has to read at all three; the
-  streets view is the harshest test since it's the closest to individual buildings.
+- **Camera**: orthographic, `(-30, 30, 20, -20, .1, 350)`. The benchmark has three
+  fixed views — harbour (`target [-2,0,-4]`, closest), streets (`target [-1,1.5,2]`,
+  closer still), archipelago (`target [4,0,-18]`, furthest); the model viewer uses
+  its own close-in view (`target [-1.2,1.2,0]`, `size 11`) built for judging one
+  building against a citizen. A model has to read at all of these; the model viewer's
+  distance and the benchmark's streets view are the harshest tests.
 - **Key light**: one `DirectionalLight` (`0xffe6bd`, intensity `3.5`) from
   `(-25, 42, 24)`, casting shadows (`2048²` shadow map, `PCFSoftShadowMap`,
-  `shadowMap.autoUpdate = false` — shadows are baked once per static scene change,
-  not per frame).
+  `shadowMap.autoUpdate = false`, refreshed on demand — at most every 150ms while the
+  game is animating, or once per change while it's static).
 - **Fill**: one `HemisphereLight` (`0xe7f1ee` / `0xb4a075`, intensity `2.1`).
+- **Golden hour** (both benchmark and viewer have a toggle): sun colour
+  `0xffc083`, position `y 22` (lower angle), intensity `3.8`; ambient intensity
+  drops to `1.55`. A model should still read correctly under this, not just the
+  default noon light.
 - **Ambient occlusion**: a `GTAOPass` (radius `.65`, distance exponent `1.5`,
-  thickness `1`, blend intensity `.65`) — contact shadow is a post-process, not
-  geometry. Don't add extra small geometry purely to fake contact shadow; the AO pass
-  is the budget for that.
+  thickness `1`, blend intensity `.65`), rendered at **70% of the display
+  resolution** and upscaled — contact shadow is a cheap post-process, not geometry.
+  Don't add extra small geometry purely to fake contact shadow; the AO pass is the
+  budget for that.
+- **Anti-aliasing**: 2x MSAA on a half-float render target (`EffectComposer`'s
+  target has `samples: 2`), not a higher multiample count — edges on a model are
+  expected to show some aliasing at this budget, not to be perfectly smooth.
 - **Tone mapping**: ACES Filmic, exposure `1.18`.
+- **Render loop**: the renderer only redraws on invalidation (an orbit change, a
+  world update, a toggled control), not continuously. While the game is running and
+  unpaused, world state updates and the resulting redraw are capped to 30fps —
+  there is no budget here for a model whose *appearance* depends on being drawn at a
+  higher frame rate (no per-frame shader animation beyond the existing water/sail
+  treatment, which isn't part of this library).
 
 None of this is this library's to change — it's recorded here so a new model can be
 sanity-checked against it (e.g. "does this read under a low, warm key light from the
-west") without booting the renderer.
+west, at 70%-resolution AO") without booting the renderer.
 
 ## Topology and draw-call budget
 
@@ -211,9 +229,11 @@ the prototype's own complexity.
    or just run `bun test src/art` — the footprint test fails with the offending
    kind/tier named.
 5. Look at it. `/art.html` (the model viewer, built by the parent project around
-   `getBuildingModel()`) is the fast per-model loop; `/miniature.html` is the full
-   scene and the final check, since a model that's fine alone can still clash once
-   it's sitting between the others.
+   `getBuildingModel()` — pick a kind/tier from the dropdown, see it against a
+   citizen and its dashed footprint outline, with a live triangle/mesh count,
+   wireframe toggle, turn/reset and golden-hour controls) is the fast per-model
+   loop; `/miniature.html` is the full scene and the final check, since a model
+   that's fine alone can still clash once it's sitting between the others.
 6. Compare against `public/art/harbour.png`. If the harbour reads differently at a
    glance, figure out why before moving on — either the screenshot needs re-capturing
    deliberately (rare, and worth a note in the commit) or the model regressed.
@@ -236,19 +256,19 @@ and archipelago views don't have pinned screenshots yet but follow the same bar.
 
 ## Validation and capture tooling
 
-- `npm run art:check` — intended as the executable form of the footprint, ground,
-  triangle/draw-call and vertex-integrity rules above. Today, that check is
-  `bun test src/art` (see `src/art/models.test.ts`); the `art:check` npm script
-  itself is **not yet wired** in this worktree's `package.json` — the existing
-  `art:check` entry there is a leftover Python/Blender pipeline check unrelated to
-  this library. Wiring `npm run art:check` to run `bun test src/art` (or a superset
-  that includes it) is for the parent project to do; see `docs/art-tooling.md`.
-- `npm run art:capture` — intended to regenerate `public/art/harbour.png` (and,
-  eventually, the streets/archipelago references) by driving `/miniature.html`
-  headlessly. **This script does not exist yet.** It belongs to the parent project,
-  which owns the renderer, the headless capture harness (`scripts/smoke.mjs` already
-  does headless rendering of the game and is the closest existing precedent) and
-  `public/art/`.
+- `npm run art:check` — the executable form of the footprint, ground,
+  triangle/draw-call and vertex-integrity rules above: `bun test src/art` (see
+  `src/art/models.test.ts`). Wired in the parent project's `package.json`; run it
+  from there. This worktree's own `package.json` still has the old, unrelated
+  Python/Blender `art:check` entry — that's this worktree's leftover, not a claim
+  about the integrated project.
+- `npm run art:capture` — regenerates `public/art/harbour.png` (and, eventually,
+  the streets/archipelago references) by driving `/miniature.html` headlessly. The
+  parent project's `package.json` points this at `scripts/art-capture.mjs`, but as
+  of this writing **that script has not been written yet** and `public/art/` is
+  still empty — owned by the parent project, which owns the renderer and the
+  headless capture harness (`scripts/smoke.mjs` is the closest existing precedent
+  for driving the page headlessly).
 
-Neither of the two commands above is claimed as done by this library — they're
-named and scoped here so whoever wires them doesn't have to guess what "pass" means.
+Don't take either bullet above as a claim that capture is done: `art:check` is real
+and passing today; `art:capture` is named and scoped, not yet built.

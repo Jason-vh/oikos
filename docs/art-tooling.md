@@ -117,6 +117,27 @@ template geometry survives untouched, because the tag — not "did this pass thr
 `bake()`" — is what `disposeModel()` actually checks. `src/art/models.test.ts`
 exercises exactly this un-baked case directly.
 
+`disposeModel()` **only disposes geometry** — it never calls `group.clear()`,
+never removes children, never touches `scene.remove()`. Freeing GPU resources and
+taking the group out of the scene graph are two different jobs; the caller does the
+second one, in whichever order suits it (`scene.remove(model); disposeModel(model);`
+or the reverse — both are fine, since disposal doesn't depend on the group still
+being in the scene). The game's own model viewer (`src/art-viewer.ts`) does exactly
+this: on swapping models it clones each mesh's material (so a per-instance
+wireframe toggle doesn't touch the shared palette), disposes those clones itself,
+removes the old group, and calls `disposeModel()` on it — all four steps are the
+caller's, and none of them is `disposeModel()`'s job to do for it.
+
+The walker/citizen system in the game (`src/miniature/world.ts` and its successors)
+caches one template `citizen()`/`boat()` group and reuses cloned references for many
+walkers rather than calling `getBuildingModel()`-style construction per walker, and
+never calls `disposeModel()` on those clones — exactly the caution in "Integrating
+this into the game" above (a clone shares its template's baked geometry, so
+disposing a clone would break every other reference to it). That pattern is correct
+as long as it stays clone-only-never-dispose; `getBuildingModel()`'s buildings, which
+are built fresh per placement and never cloned, are the ones safe to `disposeModel()`
+individually.
+
 `getBuildingModel()` always calls `bake()` on its result before returning, so in
 practice a model built through it is one or a handful of independent, fully-owned
 meshes — cheap to `disposeModel()`, safe to drop and rebuild as often as needed.
@@ -131,16 +152,19 @@ the cache entry. It never touches materials either.
 
 ## Model viewer (`/art.html`) and benchmark (`/miniature.html`)
 
+Both are **owned and built by the parent project**, not this library, using its
+shared `Stage` (`src/render/stage.ts`) — this worktree only supplies the models
+they render, and does not add or modify either page.
+
 - `/miniature.html` (`src/miniature/`) is the existing, approved full-scene
   prototype and remains the benchmark for "does this still look like the approved
-  study" — it is **owned by the parent project**, not this library, and this
-  worktree does not add or modify it.
-- `/art.html`, a focused model viewer built around `getBuildingModel()` (one
-  building, all kinds/tiers/vendor states, rotate/inspect in isolation) is planned
-  but **does not exist in this worktree**. It's called out in
-  `docs/art-direction.md` as the fast per-model check because the parent project is
-  building it around this library's `getBuildingModel()` export — this doc
-  describes the contract it should render against, not a shipped page.
+  study".
+- `/art.html` (`src/art-viewer.ts`) is the focused model viewer built around
+  `getBuildingModel()`: a dropdown over every kind/tier/vendor combination, a
+  citizen for scale, a dashed footprint outline at the model's exact catalog size,
+  live triangle/mesh-count metrics, a wireframe toggle, turn/reset camera controls
+  and the same golden-hour toggle as the benchmark. It is the fast per-model loop
+  described in `docs/art-direction.md`'s workflow section.
 
 ## Executable validation
 
@@ -148,17 +172,18 @@ the cache entry. It never touches materials either.
   `docs/art-direction.md`'s footprint/ground/topology rules, plus the resource
   ownership contract above. It requires nothing but this repo's `node_modules`
   (`npm ci` in this worktree) — no renderer, no browser, no GPU.
-- **`npm run art:check`** is the name this should eventually answer to, so "run the
-  art check" doesn't require knowing it's a `bun test` call today. **It is not wired
-  in this worktree's `package.json`** — the `art:check` script that exists there
-  predates this library (a Python/Blender pipeline check, unrelated). Pointing
-  `npm run art:check` at `bun test src/art` is a one-line `package.json` change for
-  whoever owns that file next; nothing here claims it's already done.
+- **`npm run art:check`** runs `bun test src/art` in the parent project, where it's
+  wired in `package.json`. This worktree's own `package.json` still has the old,
+  unrelated Python/Blender `art:check` entry that predates this library — that's a
+  leftover of this worktree, not the integrated state; don't take it as this
+  library's word on what `art:check` does.
 - **`npm run art:capture`** — regenerating `public/art/harbour.png` (and any future
   pinned screenshots) needs a browser/WebGL context this library doesn't have access
-  to and doesn't own. `scripts/smoke.mjs` in the parent project already does headless
-  rendering of the main game and is the closest existing precedent for how this
-  would work. **This script does not exist yet**; it's scoped here, not built here.
+  to and doesn't own. The parent project's `package.json` points it at
+  `scripts/art-capture.mjs`; as of this writing that script hasn't been written and
+  `public/art/` is empty. `scripts/smoke.mjs` already does headless rendering of the
+  main game and is the closest existing precedent for how the capture script would
+  work. This is scoped here, not built here.
 
 ## Testing conventions used in `models.test.ts`
 
