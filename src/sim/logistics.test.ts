@@ -3,7 +3,7 @@ import { advance, build, createWorld } from './world';
 import { buildStarterNeighbourhood } from './scenario';
 import { buildServiceCircuit, exitTile } from './grid';
 import { ROAD_BUDGET } from './balance';
-import { deliveryRoutes, serviceRoute, walkerRoute } from './logistics';
+import { deliveryRoutes, serviceRoute, walkerRoute, type DeliveryRoute } from './logistics';
 import { connect, farCorner, spotFor } from './testing';
 import { islandFor } from './island';
 import { GATHER_RANGE } from './gathering';
@@ -162,14 +162,12 @@ describe('deliveryRoutes', () => {
     const house = spotFor(world, 'house', islandFor(world.seed).entry)!;
     expect(build(world, 'house', house.x, house.z).ok).toBe(true);
     expect(connect(world, world.buildings[2]).ok).toBe(true);
-    let cart: Walker | undefined;
-    for (let t = 0; t < 400 && !cart; t++) {
-      advance(world, 1);
-      cart = world.walkers.find((walker) => walker.kind === 'cart' && walker.targetId === stockpile.id);
+    let route: DeliveryRoute | undefined;
+    for (let t = 0; t < 1600 && !route; t++) {
+      advance(world, .25);
+      route = deliveryRoutes(world, stockpile).find((candidate) => candidate.otherId === woodcutter.id);
     }
-    expect(cart).toBeTruthy();
-    const routes = deliveryRoutes(world, stockpile);
-    expect(routes.some((route) => route.walkerId === cart!.id && route.otherId === woodcutter.id)).toBe(true);
+    expect(route).toBeTruthy();
   });
 });
 

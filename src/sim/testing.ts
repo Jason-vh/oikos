@@ -2,6 +2,7 @@ import type { ActionResult, Building, BuildingKind, BuildTool, Rotation, Tile, W
 import { footprint } from './catalog';
 import { buildable, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import { mapOf, neighbours, perimeterTiles, footprintTiles } from './grid';
+import { harbourTiles } from './harbour';
 import { placement, placeRoadPath } from './world';
 
 export { mapOf };
@@ -51,7 +52,7 @@ function placeholderBuilding(kind: BuildingKind, rotation: Rotation, x: number, 
   };
 }
 
-export function spotAdjacentTo(world: World, kind: BuildingKind, tile: Tile, rotation: Rotation = 0): Tile | null {
+export function spotAdjacentTo(world: World, kind: Exclude<BuildingKind, 'harbour'>, tile: Tile, rotation: Rotation = 0): Tile | null {
   const map = mapOf(world);
   const { width, depth } = footprint(kind, rotation);
   const target = tileIndexOn(map, tile.x, tile.z);
@@ -87,6 +88,7 @@ export function unevenFootprint(world: World, kind: BuildingKind, rotation: Rota
 
 function passableForRoad(world: World, map: IslandMap, roads: Set<number>, tile: number): boolean {
   if (roads.has(tile)) return true;
+  if (harbourTiles(world).includes(tile)) return false;
   const { x, z } = tileAtOn(map, tile);
   const terrain = terrainOn(map, x, z);
   if (!(buildable(terrain) || terrain === 'forest')) return false;

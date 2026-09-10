@@ -184,6 +184,31 @@ at home; carts take food to a granary and materials to a **stockpile** (3×3, ei
 bays, same court as the granary). Walkers carry `overland` tiles so saves validate
 off-road paths.
 
+## The harbour
+
+`src/sim/harbour.ts`. Every island starts with a harbour: a dockyard sited once, at
+`createWorld`, on buildable ground touching the starter road nearest the entry —
+`world.harbour`, not a placeable tool, and never demolishable. It begins unrebuilt
+(`tier` 1): whenever a connected stockpile holds lumber, a porter carries up to a
+cartload to the harbour, the same way a farm cart reaches a granary. Once
+`HARBOUR_UPGRADE_LUMBER` (200) has arrived, the harbour rebuilds itself in stone
+(`tier` 2) and the lumber is spent.
+
+A rebuilt harbour can host one renewable export order. Switching it on (the same
+`setVendor` action used for an agora's vendor, at no cost) sends porters to keep the
+dock stocked; once it holds at least `HARBOUR_MIN_CARGO` (100) lumber, a ship departs
+with the whole load, the lumber is sold at `HARBOUR_LUMBER_PRICE` per unit, and the
+money lands immediately — the voyage itself (`HARBOUR_VOYAGE_SECONDS`, shown as the
+ship's absence and return) is scenery, not a further condition on the payment.
+Turning the trade off stops new porters going out; a voyage already under way still
+returns and the dock still accepts what's already arrived.
+
+`harbourStatus(building)` reports delivery progress while rebuilding, and while
+rebuilt: a ship at sea, lumber loading for the next departure, or that the trade
+is off. The harbour is otherwise an ordinary `Building` — inspectable, its model
+keyed on `tier` and stage exactly like a farm's growth — so it needs no bespoke
+render or HUD plumbing beyond that.
+
 ## Roads that climb
 
 A road may step one level where it crosses a `cliff` tile (either end of the step
@@ -244,12 +269,16 @@ another building, and that every walker's path is a real, road-adjacent route
 (no jump between two tiles that aren't neighbours). Anything that doesn't pass is
 rejected as unsupported rather than partially loaded. A valid save round-trips
 exactly, including walkers already mid-journey, which keep walking correctly after
-a reload.
+a reload. Only the harbour's progress (tier, stock, trade order, voyage) is stored;
+its site is re-derived from the seed on load, so a save from before the harbour
+existed gets one sited fresh rather than needing its position migrated.
 
 ## Tests
 
 `bun test src/sim` covers placement and cost rules, connectivity, employment,
 the full farm-to-house supply chain and its timing targets, vendor enable/disable
 billing, water and maintenance service, housing grace and devolution, road breaks
-and demolition mid-delivery, save/load round-trips and corruption rejection, and
-determinism of the fixed timestep (one big `advance()` matches many small ones).
+and demolition mid-delivery, the harbour's rebuild and renewable trade with the
+same robustness guarantees as every other delivery, save/load round-trips and
+corruption rejection, and determinism of the fixed timestep (one big `advance()`
+matches many small ones).

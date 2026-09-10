@@ -2,6 +2,7 @@ import type { ActionResult, Building, BuildTool, Food, Placement, Resource, Rota
 import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, STARTING_MONEY, VENDOR_COST, footprint, isFood } from './catalog';
 import { spawnWildlife, stepWildlife } from './wildlife';
 import { gatherArrival, gatherFinished, regrowForest, updateGatherer } from './gathering';
+import { freshHarbour, HARBOUR_DOCK_CAP, harbourStatus, harbourTiles, setHarbourTrade, updateHarbour } from './harbour';
 import { buildable, insideMapOn, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import {
   accessTiles,
@@ -44,15 +45,19 @@ import {
 export const DEFAULT_SEED = 1;
 
 export function createWorld(seed = DEFAULT_SEED): World {
+  const map = islandFor(seed);
+  const roads = new Set<number>();
+  for (let z = map.entry.z; z >= map.entry.z - 8 && terrainOn(map, map.entry.x, z) !== 'water'; z--) roads.add(tileIndexOn(map, map.entry.x, z));
+  const roadList = [...roads];
   const world: World = {
-    version: 2,
+    version: 3,
     island: 'kalliste',
     seed,
     time: 0,
     remainder: 0,
     money: STARTING_MONEY,
     nextId: 1,
-    roads: [],
+    roads: roadList,
     buildings: [],
     walkers: [],
     wildlife: [],
@@ -60,11 +65,8 @@ export function createWorld(seed = DEFAULT_SEED): World {
     regrowth: 0,
     produced: 0,
     delivered: 0,
+    harbour: freshHarbour(seed, roadList),
   };
-  const map = islandFor(seed);
-  const roads = new Set<number>();
-  for (let z = map.entry.z; z >= map.entry.z - 8 && terrainOn(map, map.entry.x, z) !== 'water'; z--) roads.add(tileIndexOn(map, map.entry.x, z));
-  world.roads = [...roads];
   world.wildlife = spawnWildlife(world);
   recomputeConnectivity(world);
   return world;
@@ -86,9 +88,11 @@ const REASON = {
   nothingToDemolish: 'Nothing to demolish there.',
   noSuchBuilding: 'No such building.',
   onlyAgoraHostsVendor: 'Only an agora can host a vendor.',
+  harbourPermanent: 'The harbour is a permanent fixture.',
 } as const;
 
 function buildingAt(world: World, tile: number): Building | undefined {
+  if (harbourTiles(world).includes(tile)) return world.harbour;
   const map = mapOf(world);
   return world.buildings.find((building) => footprintTiles(map, building).includes(tile));
 }
@@ -225,6 +229,7 @@ export function demolish(world: World, x: number, z: number): ActionResult {
 
   const building = buildingAt(world, tile);
   if (building) {
+    if (building.kind === 'harbour') return { ok: false, reason: REASON.harbourPermanent };
     const refund = Math.floor((BUILDINGS[building.kind].cost + (building.vendorInstalled ? VENDOR_COST : 0)) / 2);
     world.money += refund;
     removeBuilding(world, building.id);
@@ -260,6 +265,7 @@ function dropStrandedWalkers(world: World): void {
 }
 
 export function setVendor(world: World, id: number, enabled: boolean): ActionResult {
+  if (id === world.harbour.id) return setHarbourTrade(world.harbour, enabled);
   const building = world.buildings.find((candidate) => candidate.id === id);
   if (!building) return { ok: false, reason: REASON.noSuchBuilding };
   if (building.kind !== 'agora') return { ok: false, reason: REASON.onlyAgoraHostsVendor };
@@ -288,6 +294,7 @@ export function recomputeConnectivity(world: World): void {
   for (const building of world.buildings) {
     building.connected = perimeterTiles(map, building).some((tile) => reachable.has(tile));
   }
+  world.harbour.connected = perimeterTiles(map, world.harbour).some((tile) => reachable.has(tile));
 }
 
 export function totalStock(building: Building): number {
@@ -382,7 +389,9 @@ export function sendCart(world: World, producer: Building): void {
 }
 
 export function storeCapacity(building: Building): number {
-  return building.kind === 'agora' ? AGORA_CAP : GRANARY_CAP;
+  if (building.kind === 'agora') return AGORA_CAP;
+  if (building.kind === 'harbour') return HARBOUR_DOCK_CAP;
+  return GRANARY_CAP;
 }
 
 function updateAgora(world: World, agora: Building, dt: number): void {
@@ -519,6 +528,17 @@ function onFinalArrival(world: World, walker: Walker): boolean {
     if (agora && walker.food) {
       const deliver = Math.min(walker.cargo, AGORA_CAP - totalStock(agora));
       addStore(agora, walker.food, deliver);
+      walker.cargo -= deliver;
+    }
+    reverseForReturn(walker);
+    return false;
+  }
+  if (walker.kind === 'porter') {
+    if (walker.returning) return true;
+    const harbour = world.harbour;
+    if (walker.food) {
+      const deliver = Math.min(walker.cargo, storeCapacity(harbour) - totalStock(harbour));
+      addStore(harbour, walker.food, deliver);
       walker.cargo -= deliver;
     }
     reverseForReturn(walker);
@@ -676,6 +696,7 @@ function simulationStep(world: World, dt: number): void {
     else if (building.kind === 'fountain') updateCircuitDispatch(world, building, 'water');
     else if (building.kind === 'maintenance') updateCircuitDispatch(world, building, 'maintenance');
   }
+  updateHarbour(world, dt);
   moveWalkers(world, dt);
   stepWildlife(world, dt);
   regrowForest(world, dt);
@@ -766,6 +787,8 @@ export function buildingStatus(world: World, building: Building): string[] {
     lines.push(hasActiveWalker(world, building.id, 'water') ? 'Water carrier making the rounds.' : 'Water carrier resting at the fountain.');
   } else if (building.kind === 'maintenance') {
     lines.push(hasActiveWalker(world, building.id, 'maintenance') ? 'Caretaker doing rounds.' : 'Caretaker resting at the post.');
+  } else if (building.kind === 'harbour') {
+    lines.push(...harbourStatus(building));
   }
 
   if (building.condition < 50) lines.push(neglectAdvice(world));
@@ -784,6 +807,7 @@ export const WALKER_ROLES: Record<WalkerKind, string> = {
   immigrant: 'Settlers',
   hunter: 'Hunter',
   woodcutter: 'Woodcutter',
+  porter: 'Harbour porter',
 };
 
 export function walkerName(walker: Walker): string {
@@ -811,6 +835,9 @@ export function walkerStatus(world: World, walker: Walker): string[] {
     case 'buyer':
       if (walker.returning) return [`Bringing ${load} back to ${named(home)}.`];
       return [`Off to ${named(target)} to fetch food.`];
+    case 'porter':
+      if (walker.returning) return [`Bringing ${load} back to ${named(home)}.`];
+      return [`Off to ${named(target)} to fetch lumber.`];
     case 'vendor':
       if (walker.cargo > 0) return [`Selling ${load} door to door.`];
       return ['Sold out; returning to the agora.'];

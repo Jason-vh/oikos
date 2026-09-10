@@ -84,7 +84,7 @@ function boot(): void {
   const panVelocity = { right: 0, forward: 0 };
 
   function refresh(): void {
-    const selected = world.buildings.find((building) => building.id === selectedId) ?? null;
+    const selected = world.buildings.find((building) => building.id === selectedId) ?? (world.harbour.id === selectedId ? world.harbour : null);
     const walker = selected ? null : world.walkers.find((candidate) => candidate.id === selectedId) ?? null;
     const animal = selected || walker ? null : world.wildlife.find((candidate) => candidate.id === selectedId) ?? null;
     city.sync(world);

@@ -11,14 +11,16 @@ import { citizen } from './people';
 import { boat } from './ships';
 import { getBuildingModel } from './buildings';
 
-const KINDS: BuildingKind[] = ['house', 'farm', 'granary', 'agora', 'fountain', 'maintenance', 'lodge', 'woodcutter', 'stockpile'];
+const KINDS: BuildingKind[] = ['house', 'farm', 'granary', 'agora', 'fountain', 'maintenance', 'lodge', 'woodcutter', 'stockpile', 'harbour'];
 const FOOTPRINT_EPSILON = 0.01;
 const GROUND_EPSILON = 0.02;
 const TRIANGLE_BUDGET = 12000;
 const DRAW_CALL_BUDGET = 18;
 
 function tiersFor(kind: BuildingKind): (1 | 2 | 3)[] {
-  return kind === 'house' ? [1, 2, 3] : [1];
+  if (kind === 'house') return [1, 2, 3];
+  if (kind === 'harbour') return [1, 2];
+  return [1];
 }
 
 function instances(): { kind: BuildingKind; tier: 1 | 2 | 3; vendorEnabled: boolean; model: T.Group }[] {
@@ -26,9 +28,12 @@ function instances(): { kind: BuildingKind; tier: 1 | 2 | 3; vendorEnabled: bool
   for (const kind of KINDS) {
     for (const tier of tiersFor(kind)) {
       const vendorOptions = kind === 'agora' ? [false, true] : [false];
-      const stores = kind === 'granary' ? { wheat: 300, carrots: 200, fish: 100, meat: 100, olives: 200 } : { wheat: 100, fish: 100, meat: 100 };
+      const stores = kind === 'granary' ? { wheat: 300, carrots: 200, fish: 100, meat: 100, olives: 200 } : kind === 'harbour' ? { lumber: 200 } : { wheat: 100, fish: 100, meat: 100 };
+      const stages: (0 | 1 | 2 | 3)[] = kind === 'harbour' ? [0, 1, 2, 3] : [3];
       for (const vendorEnabled of vendorOptions) {
-        result.push({ kind, tier, vendorEnabled, model: getBuildingModel(kind, { tier, vendorEnabled, stores }) });
+        for (const stage of stages) {
+          result.push({ kind, tier, vendorEnabled, model: getBuildingModel(kind, { tier, vendorEnabled, stores, stage }) });
+        }
       }
     }
   }

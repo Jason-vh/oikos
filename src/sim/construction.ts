@@ -15,7 +15,7 @@ export interface DemolitionPreview {
 
 function buildingOccupancy(map: IslandMap, world: World): Set<number> {
   const occupied = new Set<number>();
-  for (const building of world.buildings) for (const tile of buildingFootprintTiles(map, building)) occupied.add(tile);
+  for (const building of [...world.buildings, world.harbour]) for (const tile of buildingFootprintTiles(map, building)) occupied.add(tile);
   return occupied;
 }
 

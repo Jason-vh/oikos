@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { deserializeWorld, serializeWorld } from './save';
+import { CURRENT_VERSION } from './save-migrations';
 import { advance, build, createWorld } from './world';
 import { buildStarterNeighbourhood } from './scenario';
 import { islandFor, tileIndexOn } from './island';
@@ -142,7 +143,7 @@ describe('corruption rejection', () => {
   test('rejects a future save version', () => {
     const world = advancedWorld();
     const raw = JSON.parse(serializeWorld(world));
-    raw.version = 3;
+    raw.version = CURRENT_VERSION + 1;
     expect(deserializeWorld(JSON.stringify(raw))).toBeNull();
   });
 

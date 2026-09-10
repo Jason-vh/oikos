@@ -2,12 +2,14 @@ import type { ActionResult, BuildingKind, Tile, World } from './types';
 import { footprint } from './catalog';
 import { buildable, islandFor, levelOn, terrainOn, tileIndexOn, type IslandMap } from './island';
 import { neighbours } from './grid';
+import { harbourTiles } from './harbour';
 import { build, placement, placeRoadPath, setVendor } from './world';
 
-export interface PlannedBuilding { kind: BuildingKind; x: number; z: number; }
+type PlaceableKind = Exclude<BuildingKind, 'harbour'>;
+export interface PlannedBuilding { kind: PlaceableKind; x: number; z: number; }
 export interface StarterPlan { buildings: PlannedBuilding[]; roads: Tile[]; }
 
-const ORDER: BuildingKind[] = ['farm', 'granary', 'house', 'house', 'house', 'house', 'agora', 'fountain', 'maintenance'];
+const ORDER: PlaceableKind[] = ['farm', 'granary', 'house', 'house', 'house', 'house', 'agora', 'fountain', 'maintenance'];
 
 function ringAround(map: IslandMap, centre: Tile, radius: number): Tile[] {
   const tiles: Tile[] = [];
@@ -22,12 +24,14 @@ function ringAround(map: IslandMap, centre: Tile, radius: number): Tile[] {
   return tiles;
 }
 
-function roadReachable(world: World, map: IslandMap, roads: Set<number>, from: Tile, to: Tile): Tile[] | null {
+function roadReachable(world: World, map: IslandMap, roads: Set<number>, from: Tile, to: Tile, excluded: Set<number>): Tile[] | null {
   const passable = (index: number) => {
     const x = index % map.width;
     const z = Math.floor(index / map.width);
     if (roads.has(index)) return true;
     if (!buildable(terrainOn(map, x, z))) return false;
+    if (harbourTiles(world).includes(index)) return false;
+    if (excluded.has(index)) return false;
     return !world.buildings.some((building) => {
       const size = footprint(building.kind, building.rotation);
       return x >= building.x && x < building.x + size.width && z >= building.z && z < building.z + size.depth;
@@ -80,7 +84,12 @@ export function planStarterNeighbourhood(world: World): StarterPlan | null {
         if (!buildable(terrainOn(map, door.x, door.z)) && !roads.has(tileIndexOn(map, door.x, door.z))) continue;
         const nearest = [...roads].map((index) => ({ x: index % map.width, z: Math.floor(index / map.width) }))
           .sort((a, b) => Math.hypot(a.x - door.x, a.z - door.z) - Math.hypot(b.x - door.x, b.z - door.z))[0];
-        const path = roadReachable(trial, map, roads, nearest, door);
+        const { width: candidateWidth, depth: candidateDepth } = footprint(kind, 0);
+        const ownFootprint = new Set<number>();
+        for (let dz = 0; dz < candidateDepth; dz++) {
+          for (let dx = 0; dx < candidateWidth; dx++) ownFootprint.add(tileIndexOn(map, tile.x + dx, tile.z + dz));
+        }
+        const path = roadReachable(trial, map, roads, nearest, door, ownFootprint);
         if (!path || path.length > 24) continue;
         const built = build(trial, kind, tile.x, tile.z, 0);
         if (!built.ok) continue;

@@ -5,6 +5,7 @@ import { dwelling } from './houses';
 import { wheatFarm } from './vegetation';
 import { fountain as fountainModel, lodge as lodgeModel, maintenance as maintenanceModel, stockpile as stockpileModel, woodcutter as woodcutterModel } from './civic';
 import { granary } from './granaries';
+import { harbour as harbourModel } from './harbour';
 import { stall } from './stall';
 
 
@@ -53,6 +54,9 @@ export function getBuildingModel(kind: BuildingKind, state: ModelState = {}): T.
       break;
     case 'stockpile':
       model.add(stockpileModel(stores));
+      break;
+    case 'harbour':
+      model.add(harbourModel(tier === 2 ? 2 : 1, stage, stores));
       break;
   }
   bake(model);

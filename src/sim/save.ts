@@ -7,14 +7,15 @@ import { islandFor, insideMapOn, tileIndexOn, type IslandMap } from './island';
 import { footprintTiles, neighbours } from './grid';
 import { recomputeConnectivity } from './world';
 import { spawnWildlife } from './wildlife';
+import { siteHarbour, validateHarbourProgress } from './harbour';
 import { CURRENT_VERSION, migrateSave } from './save-migrations';
 
 export function serializeWorld(world: World): string {
   return JSON.stringify(world);
 }
 
-const BUILDING_KINDS: BuildingKind[] = ['house', 'farm', 'granary', 'agora', 'fountain', 'maintenance', 'lodge', 'woodcutter', 'stockpile'];
-const WALKER_KINDS: WalkerKind[] = ['cart', 'buyer', 'vendor', 'water', 'maintenance', 'immigrant', 'hunter', 'woodcutter'];
+const BUILDING_KINDS: BuildingKind[] = ['house', 'farm', 'granary', 'agora', 'fountain', 'maintenance', 'lodge', 'woodcutter', 'stockpile', 'harbour'];
+const WALKER_KINDS: WalkerKind[] = ['cart', 'buyer', 'vendor', 'water', 'maintenance', 'immigrant', 'hunter', 'woodcutter', 'porter'];
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
@@ -181,7 +182,7 @@ export function deserializeWorld(raw: string): World | null {
   const wildlifeWasMissing = parsed.version === 1 && parsed.wildlife === undefined;
   const migrated = migrateSave(parsed);
   if (!migrated) return null;
-  const { version, island, seed, time, remainder, money, nextId, roads: rawRoads, buildings: rawBuildings, walkers: rawWalkers, wildlife: rawWildlife, felled: rawFelled, regrowth, produced, delivered } = migrated;
+  const { version, island, seed, time, remainder, money, nextId, roads: rawRoads, buildings: rawBuildings, walkers: rawWalkers, wildlife: rawWildlife, felled: rawFelled, regrowth, produced, delivered, harbour: rawHarbour } = migrated;
 
   if (version !== CURRENT_VERSION) return null;
   if (island !== 'kalliste') return null;
@@ -193,6 +194,8 @@ export function deserializeWorld(raw: string): World | null {
   if (!isInteger(nextId) || nextId <= 0) return null;
   if (!isNonNegativeFinite(produced)) return null;
   if (!isNonNegativeFinite(delivered)) return null;
+  const harbourProgress = validateHarbourProgress(rawHarbour);
+  if (!harbourProgress) return null;
 
   const roads = validateRoads(map, rawRoads);
   if (!roads) return null;
@@ -251,6 +254,7 @@ export function deserializeWorld(raw: string): World | null {
     regrowth: regrowth as number,
     produced: produced as number,
     delivered: delivered as number,
+    harbour: siteHarbour(seed as number, roads, harbourProgress),
   };
   if (wildlifeWasMissing) world.wildlife = seedMissingWildlife(world);
   recomputeConnectivity(world);
@@ -260,11 +264,11 @@ export function deserializeWorld(raw: string): World | null {
 function seedMissingWildlife(world: World): Animal[] {
   const map = islandFor(world.seed);
   const occupied = new Set(world.roads);
-  for (const building of world.buildings) for (const tile of footprintTiles(map, building)) occupied.add(tile);
+  for (const building of [...world.buildings, world.harbour]) for (const tile of footprintTiles(map, building)) occupied.add(tile);
   return spawnWildlife(world).filter((animal) => !occupied.has(tileIndexOn(map, Math.floor(animal.homeX), Math.floor(animal.homeZ))));
 }
 
-function parseStores(raw: unknown): Stores | null {
+export function parseStores(raw: unknown): Stores | null {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
   const stores: Stores = {};
   for (const [food, amount] of Object.entries(raw)) {

@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = 2 as const;
+export const CURRENT_VERSION = 3 as const;
 
 type RawRecord = Record<string, unknown>;
 
@@ -12,6 +12,7 @@ function hasRecoverableGeometry(parsed: RawRecord): boolean {
 
 const MIGRATIONS: Record<number, (parsed: RawRecord) => RawRecord | null> = {
   1: migrateV1toV2,
+  2: migrateV2toV3,
 };
 
 export function migrateSave(parsed: RawRecord): RawRecord | null {
@@ -36,6 +37,14 @@ function migrateV1toV2(parsed: RawRecord): RawRecord | null {
     felled: parsed.felled === undefined ? [] : parsed.felled,
     regrowth: parsed.regrowth === undefined ? 0 : parsed.regrowth,
     walkers: migrateWalkers(parsed.walkers),
+  };
+}
+
+function migrateV2toV3(parsed: RawRecord): RawRecord | null {
+  return {
+    ...parsed,
+    version: 3,
+    harbour: parsed.harbour === undefined ? { tier: 1, stores: {}, vendorEnabled: false, vendorInstalled: false, progress: 0 } : parsed.harbour,
   };
 }
 

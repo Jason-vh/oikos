@@ -56,11 +56,12 @@ function rampHeight(from: number, to: number, progress: number): number {
 
 function modelStage(building: Building): ModelStage {
   if (building.kind === 'farm') return Math.min(3, Math.floor(building.progress * 4)) as ModelStage;
+  if (building.kind === 'harbour') return (building.progress === 0 ? 0 : Math.min(3, 1 + Math.floor(building.progress * 3))) as ModelStage;
   return 3;
 }
 
 function storesKey(building: Building): string {
-  if (building.kind === 'granary' || building.kind === 'stockpile') return bundleKey(building.stores, GRANARY_SLOTS);
+  if (building.kind === 'granary' || building.kind === 'stockpile' || building.kind === 'harbour') return bundleKey(building.stores, GRANARY_SLOTS);
   if (building.kind === 'agora') return bundleKey(building.stores, AGORA_SLOTS);
   return '';
 }
@@ -143,7 +144,8 @@ export class CityScene {
   sync(world: World): void {
     this.lastWorld = world;
     this.roadModels(world);
-    const ids = new Set(world.buildings.map((building) => building.id));
+    const allBuildings = [...world.buildings, world.harbour];
+    const ids = new Set(allBuildings.map((building) => building.id));
     const occupied = new Set(world.roads);
     for (const [id, entry] of this.buildings) {
       if (ids.has(id)) continue;
@@ -155,7 +157,7 @@ export class CityScene {
       }
       this.stage.shadows();
     }
-    for (const building of world.buildings) {
+    for (const building of allBuildings) {
       const { width, depth } = footprint(building.kind, building.rotation);
       for (let z = building.z; z < building.z + depth; z++) {
         for (let x = building.x; x < building.x + width; x++) occupied.add(tileIndexOn(this.map, x, z));
@@ -249,9 +251,10 @@ export class CityScene {
     const key = `${kind}:${load ?? ''}`;
     const existing = this.walkerTemplates.get(key);
     if (existing) return existing.clone();
-    const colour: Record<WalkerKind, number> = { cart: colors.gold, buyer: colors.roof, vendor: colors.blue, water: colors.blueLight, maintenance: colors.oliveDark, immigrant: colors.linen, hunter: 0x6f5a3c, woodcutter: 0x8a5a3a };
+    const colour: Record<WalkerKind, number> = { cart: colors.gold, buyer: colors.roof, vendor: colors.blue, water: colors.blueLight, maintenance: colors.oliveDark, immigrant: colors.linen, hunter: 0x6f5a3c, woodcutter: 0x8a5a3a, porter: colors.wood };
     const gatherer = kind === 'hunter' || kind === 'woodcutter';
-    const carries = kind === 'water' || (load !== null && kind !== 'cart' && !gatherer);
+    const cartLike = kind === 'cart' || kind === 'porter';
+    const carries = kind === 'water' || (load !== null && !cartLike && !gatherer);
     const model = figure(colour[kind], carries ? 'jar' : kind === 'immigrant' || (gatherer && load !== null) ? 'bundle' : 'none').root;
     if (gatherer) {
       const tool = new T.Group();
@@ -267,7 +270,7 @@ export class CityScene {
       bake(tool);
       model.add(tool);
     }
-    if (kind === 'cart') {
+    if (cartLike) {
       const cart = new T.Group();
       box(cart, colors.wood, 0, .4, -.62, .62, .38, .68);
       for (const side of [-1, 1]) {

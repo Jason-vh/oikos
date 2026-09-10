@@ -88,6 +88,7 @@ interface Milestones {
   foodDelivered: boolean;
   services: boolean;
   courtyards: boolean;
+  harbourTrade: boolean;
 }
 
 function computeMilestones(world: World, summary: Summary): Milestones {
@@ -105,6 +106,7 @@ function computeMilestones(world: World, summary: Summary): Milestones {
     foodDelivered: world.delivered > 0,
     services: fountains && maintenance,
     courtyards: summary.goal,
+    harbourTrade: world.harbour.tier === 2 && world.harbour.vendorInstalled,
   };
 }
 
@@ -140,6 +142,7 @@ const SKELETON = `
       <li><label><input type="checkbox" disabled data-milestone="foodDelivered" /> Food delivered to your houses</label></li>
       <li><label><input type="checkbox" disabled data-milestone="services" /> A fountain and a maintenance post</label></li>
       <li><label><input type="checkbox" disabled data-milestone="courtyards" /> Four courtyard houses, thriving</label></li>
+      <li><label><input type="checkbox" disabled data-milestone="harbourTrade" /> The harbour rebuilt and trading lumber</label></li>
     </ol>
     <p class="hud-guide-note">Wheat only takes root in fertile soil: the darker, striped fields.</p>
   </details>
@@ -324,6 +327,14 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
   const vendorButton = action(root, 'vendor');
 
   function updateVendor(building: Building): void {
+    if (building.kind === 'harbour') {
+      vendorButton.hidden = building.tier < 2;
+      if (vendorButton.hidden) return;
+      vendorButton.textContent = building.vendorEnabled ? 'Pause lumber trade' : 'Start lumber trade';
+      vendorButton.setAttribute('aria-pressed', String(building.vendorEnabled));
+      vendorButton.onclick = () => actions.vendor(building.id, !building.vendorEnabled);
+      return;
+    }
     if (building.kind !== 'agora') {
       vendorButton.hidden = true;
       return;
@@ -383,7 +394,7 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     rowCondition.hidden = false;
     field(rowCondition, 'inspector-condition').textContent = `${Math.round(selected.condition)}%`;
 
-    const hasStock = selected.kind === 'farm' || selected.kind === 'granary' || selected.kind === 'agora' || selected.kind === 'lodge' || selected.kind === 'woodcutter' || selected.kind === 'stockpile';
+    const hasStock = selected.kind === 'farm' || selected.kind === 'granary' || selected.kind === 'agora' || selected.kind === 'lodge' || selected.kind === 'woodcutter' || selected.kind === 'stockpile' || selected.kind === 'harbour';
     rowStock.hidden = !hasStock;
     if (hasStock) field(rowStock, 'inspector-stock').textContent = describeStores(selected);
 
@@ -418,6 +429,7 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
       ['foodDelivered', 'Follow the carts: farm, granary, market, then homes.'],
       ['services', 'Connect a fountain and a maintenance post to supply your streets.'],
       ['courtyards', 'Keep four homes fed and watered. Watch them become courtyard houses.'],
+      ['harbourTrade', 'Porters carry stockpile lumber to the harbour. Enough rebuilds it in stone; then start its trade.'],
     ];
     const next = steps.find(([key]) => !milestones[key]);
     guidePanel.querySelector('summary')!.textContent = summary.goal ? 'Kalliste is thriving' : 'A home on Kalliste';

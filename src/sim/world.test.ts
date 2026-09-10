@@ -632,6 +632,7 @@ describe('player-facing building status', () => {
     expect(buildingStatus(world, house)).toEqual(['A thriving courtyard house.', 'Neglected; build a maintenance post.']);
     const maintenanceSpot = spotFor(world, 'maintenance')!;
     build(world, 'maintenance', maintenanceSpot.x, maintenanceSpot.z);
+    connect(world, findByKind(world, 'maintenance'));
     expect(buildingStatus(world, house).at(-1)).toBe('Neglected; a caretaker will repair it.');
   });
 

@@ -19,7 +19,9 @@ npm run dev
 Build four dwellings beside the harbour road. Grow wheat on the fertile striped
 fields, store it in a granary, then add a food vendor to an agora. Connect everything
 with roads. Add a fountain and maintenance post. Reliable food and water evolve
-homes into cottages and courtyard houses.
+homes into cottages and courtyard houses. Fell forest for lumber: porters carry it
+to the harbour, enough rebuilds the quay in stone, and a trade order ships it
+overseas for coin.
 
 Left-click builds or inspects. Drag to lay roads. WASD / arrow keys or right-drag
 pan; scroll zooms; Alt-drag orbits. `1`–`0` select construction tools, `X` demolishes, `R` rotates a

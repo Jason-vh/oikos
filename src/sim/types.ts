@@ -1,5 +1,5 @@
-export type BuildingKind = 'house' | 'farm' | 'granary' | 'agora' | 'fountain' | 'maintenance' | 'lodge' | 'woodcutter' | 'stockpile';
-export type BuildTool = BuildingKind | 'road';
+export type BuildingKind = 'house' | 'farm' | 'granary' | 'agora' | 'fountain' | 'maintenance' | 'lodge' | 'woodcutter' | 'stockpile' | 'harbour';
+export type BuildTool = Exclude<BuildingKind, 'harbour'> | 'road';
 export type Tool = BuildTool | 'inspect' | 'demolish';
 export type Rotation = 0 | 1 | 2 | 3;
 export type Terrain = 'water' | 'sand' | 'grass' | 'fertile' | 'scrub' | 'forest' | 'rock' | 'cliff';
@@ -39,7 +39,7 @@ export interface Animal {
   respawn: number;
   cornered: boolean;
 }
-export type WalkerKind = 'cart' | 'buyer' | 'vendor' | 'water' | 'maintenance' | 'immigrant' | 'hunter' | 'woodcutter';
+export type WalkerKind = 'cart' | 'buyer' | 'vendor' | 'water' | 'maintenance' | 'immigrant' | 'hunter' | 'woodcutter' | 'porter';
 export interface Walker {
   id: number;
   kind: WalkerKind;
@@ -56,7 +56,7 @@ export interface Walker {
   working: number;
 }
 export interface World {
-  version: 2;
+  version: 3;
   island: 'kalliste';
   seed: number;
   time: number;
@@ -71,6 +71,7 @@ export interface World {
   regrowth: number;
   produced: number;
   delivered: number;
+  harbour: Building;
 }
 export interface ActionResult { ok: boolean; reason: string; }
 export interface Placement extends ActionResult { cost: number; tiles: number[]; }

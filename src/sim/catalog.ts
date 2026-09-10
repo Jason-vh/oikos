@@ -25,6 +25,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDefinition> = {
   lodge: { name: "Hunter's lodge", width: 2, depth: 2, cost: 110, jobs: 3, upkeep: 3, description: 'A hunter stalks boar and rabbits nearby and brings back meat for the granary.' },
   woodcutter: { name: "Woodcutter's cabin", width: 2, depth: 2, cost: 90, jobs: 3, upkeep: 2, description: 'A woodcutter fells nearby forest and carts lumber to a stockpile.' },
   stockpile: { name: 'Stockpile', width: 3, depth: 3, cost: 100, jobs: 2, upkeep: 2, description: 'Stores lumber, clay and stone in eight bays.' },
+  harbour: { name: 'Harbour', width: 3, depth: 2, cost: 0, jobs: 0, upkeep: 0, description: 'A dockyard beside the entry road. Porters bring it lumber from stockpiles; enough rebuilds the quay in stone, after which a renewable trade order ships lumber overseas for coin.' },
 };
 export const HOUSE_NAMES = ['Vacant plot', 'Dwelling', 'Cottage', 'Courtyard house'];
 export const HOUSE_CAPACITY = [0, 8, 12, 20];
