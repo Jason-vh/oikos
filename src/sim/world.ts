@@ -1,4 +1,4 @@
-import type { ActionResult, Building, BuildTool, Placement, Rotation, Summary, Tile, Walker, WalkerKind, World } from './types';
+import type { ActionResult, Building, BuildTool, Food, Placement, Rotation, Stores, Summary, Tile, Walker, WalkerKind, World } from './types';
 import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, STARTING_MONEY, VENDOR_COST, footprint } from './catalog';
 import { ENTRY, insideMap, terrainAt, tileAt, tileIndex } from './island';
 import {
@@ -146,7 +146,7 @@ export function build(world: World, tool: BuildTool, x: number, z: number, rotat
       food: 0,
       water: 0,
       condition: 100,
-      stock: 0,
+      stores: {},
       progress: 0,
       workers: 0,
       vendorEnabled: false,
@@ -255,6 +255,24 @@ export function recomputeConnectivity(world: World): void {
   }
 }
 
+export function totalStock(building: Building): number {
+  return Object.values(building.stores).reduce((sum, amount) => sum + amount, 0);
+}
+
+function addStore(building: Building, food: Food, amount: number): void {
+  const next = (building.stores[food] ?? 0) + amount;
+  if (next <= 1e-9) delete building.stores[food];
+  else building.stores[food] = next;
+}
+
+function richestFood(stores: Stores): Food | null {
+  let best: Food | null = null;
+  for (const [food, amount] of Object.entries(stores) as [Food, number][]) {
+    if (amount > 0 && (best === null || amount > (stores[best] ?? 0))) best = food;
+  }
+  return best;
+}
+
 function jobsOf(building: Building): number {
   return BUILDINGS[building.kind].jobs;
 }
@@ -290,13 +308,13 @@ function updateFarm(world: World, farm: Building, dt: number): void {
     farm.progress += (dt / FARM_GROW_SECONDS) * ratio;
     if (farm.progress >= 1) {
       farm.progress -= 1;
-      farm.stock = Math.min(FARM_STOCK_CAP, farm.stock + HARVEST_UNITS);
+      addStore(farm, 'wheat', Math.min(HARVEST_UNITS, FARM_STOCK_CAP - totalStock(farm)));
       world.produced += HARVEST_UNITS;
     }
   }
 
   if (!farm.connected || farm.workers <= 0) return;
-  if (farm.stock <= 0) return;
+  if (totalStock(farm) <= 0) return;
   if (hasActiveWalker(world, farm.id, 'cart')) return;
 
   const exit = exitTile(world, farm);
@@ -305,9 +323,9 @@ function updateFarm(world: World, farm: Building, dt: number): void {
   const found = findNearestConnected(world, exit, granaries);
   if (!found) return;
 
-  const cargo = Math.min(farm.stock, CART_CAPACITY);
+  const cargo = Math.min(farm.stores.wheat ?? 0, CART_CAPACITY);
   if (cargo <= 0) return;
-  farm.stock -= cargo;
+  addStore(farm, 'wheat', -cargo);
   spawnWalker(world, {
     kind: 'cart',
     homeId: farm.id,
@@ -315,6 +333,7 @@ function updateFarm(world: World, farm: Building, dt: number): void {
     path: found.path,
     step: 0,
     progress: 0,
+    food: 'wheat',
     cargo,
     returning: false,
   });
@@ -324,15 +343,16 @@ function updateAgora(world: World, agora: Building, dt: number): void {
   void dt;
   if (!agora.connected || agora.workers <= 0) return;
 
-  if (!hasActiveWalker(world, agora.id, 'buyer') && agora.stock < AGORA_CAP) {
+  if (!hasActiveWalker(world, agora.id, 'buyer') && totalStock(agora) < AGORA_CAP) {
     const exit = exitTile(world, agora);
-    const granaries = world.buildings.filter((building) => building.kind === 'granary' && building.connected && building.stock > 0);
+    const granaries = world.buildings.filter((building) => building.kind === 'granary' && building.connected && totalStock(building) > 0);
     if (exit !== -1 && granaries.length > 0) {
       const found = findNearestConnected(world, exit, granaries);
       if (found) {
-        const cargo = Math.min(found.building.stock, BUYER_FETCH_CAPACITY, AGORA_CAP - agora.stock);
-        if (cargo > 0) {
-          found.building.stock -= cargo;
+        const food = richestFood(found.building.stores);
+        const cargo = food ? Math.min(found.building.stores[food] ?? 0, BUYER_FETCH_CAPACITY, AGORA_CAP - totalStock(agora)) : 0;
+        if (food && cargo > 0) {
+          addStore(found.building, food, -cargo);
           spawnWalker(world, {
             kind: 'buyer',
             homeId: agora.id,
@@ -340,6 +360,7 @@ function updateAgora(world: World, agora: Building, dt: number): void {
             path: found.path,
             step: 0,
             progress: 0,
+            food,
             cargo,
             returning: false,
           });
@@ -348,13 +369,14 @@ function updateAgora(world: World, agora: Building, dt: number): void {
     }
   }
 
-  if (agora.vendorEnabled && agora.stock > 0 && !hasActiveWalker(world, agora.id, 'vendor')) {
+  if (agora.vendorEnabled && totalStock(agora) > 0 && !hasActiveWalker(world, agora.id, 'vendor')) {
     const exit = exitTile(world, agora);
     if (exit !== -1) {
-      const cargo = Math.min(agora.stock, VENDOR_TRIP_CAPACITY);
+      const food = richestFood(agora.stores);
+      const cargo = food ? Math.min(agora.stores[food] ?? 0, VENDOR_TRIP_CAPACITY) : 0;
       const path = buildServiceCircuit(world, exit, ROAD_BUDGET);
       if (path.length > 1) {
-        agora.stock -= cargo;
+        addStore(agora, food!, -cargo);
         spawnWalker(world, {
           kind: 'vendor',
           homeId: agora.id,
@@ -362,6 +384,7 @@ function updateAgora(world: World, agora: Building, dt: number): void {
           path,
           step: 0,
           progress: 0,
+          food,
           cargo,
           returning: false,
         });
@@ -384,6 +407,7 @@ function updateCircuitDispatch(world: World, building: Building, kind: WalkerKin
     path,
     step: 0,
     progress: 0,
+    food: null,
     cargo: 0,
     returning: false,
   });
@@ -433,9 +457,9 @@ function onFinalArrival(world: World, walker: Walker): boolean {
   if (walker.kind === 'cart') {
     if (walker.returning) return true;
     const granary = world.buildings.find((building) => building.id === walker.targetId);
-    if (granary) {
-      const deliver = Math.min(walker.cargo, GRANARY_CAP - granary.stock);
-      granary.stock += deliver;
+    if (granary && walker.food) {
+      const deliver = Math.min(walker.cargo, GRANARY_CAP - totalStock(granary));
+      addStore(granary, walker.food, deliver);
       walker.cargo -= deliver;
     }
     reverseForReturn(walker);
@@ -444,9 +468,9 @@ function onFinalArrival(world: World, walker: Walker): boolean {
   if (walker.kind === 'buyer') {
     if (walker.returning) return true;
     const agora = world.buildings.find((building) => building.id === walker.homeId);
-    if (agora) {
-      const deliver = Math.min(walker.cargo, AGORA_CAP - agora.stock);
-      agora.stock += deliver;
+    if (agora && walker.food) {
+      const deliver = Math.min(walker.cargo, AGORA_CAP - totalStock(agora));
+      addStore(agora, walker.food, deliver);
       walker.cargo -= deliver;
     }
     reverseForReturn(walker);
@@ -454,7 +478,7 @@ function onFinalArrival(world: World, walker: Walker): boolean {
   }
   if (walker.kind === 'vendor' && walker.cargo > 0) {
     const agora = world.buildings.find((building) => building.id === walker.homeId);
-    if (agora) agora.stock = Math.min(AGORA_CAP, agora.stock + walker.cargo);
+    if (agora && walker.food) addStore(agora, walker.food, Math.min(walker.cargo, AGORA_CAP - totalStock(agora)));
     walker.cargo = 0;
   }
   return true;
@@ -512,6 +536,7 @@ function sendImmigrants(world: World, house: Building, party: number): void {
     path,
     step: 0,
     progress: 0,
+    food: null,
     cargo: party,
     returning: false,
   });
@@ -619,7 +644,7 @@ export function getSummary(world: World): Summary {
   const jobs = workplaces.reduce((sum, building) => sum + jobsOf(building), 0);
   const food = world.buildings
     .filter((building) => building.kind === 'granary' || building.kind === 'agora')
-    .reduce((sum, building) => sum + building.stock, 0);
+    .reduce((sum, building) => sum + totalStock(building), 0);
   const income = houses.reduce((sum, house) => sum + house.residents * INCOME_PER_RESIDENT, 0);
   const upkeep = workplaces.reduce((sum, building) => sum + BUILDINGS[building.kind].upkeep, 0);
   const balance = income - upkeep;
@@ -669,13 +694,13 @@ export function buildingStatus(world: World, building: Building): string[] {
   if (building.workers < definition.jobs * .999) {
     lines.push(building.workers > 0 ? 'Short of workers; more settlers are needed.' : 'Unstaffed; settlers are needed for work.');
   } else if (building.kind === 'farm') {
-    if (building.stock > 0 && !hasActiveWalker(world, building.id, 'cart')) {
+    if (totalStock(building) > 0 && !hasActiveWalker(world, building.id, 'cart')) {
       lines.push('Harvest ready, but no granary to send it to.');
     } else {
       lines.push(`Growing wheat, ${Math.round(building.progress * 100)}% to harvest.`);
     }
   } else if (building.kind === 'granary') {
-    lines.push(building.stock > 0 ? 'Stocked and ready for buyers.' : 'Empty; waiting for a farm cart.');
+    lines.push(totalStock(building) > 0 ? 'Stocked and ready for buyers.' : 'Empty; waiting for a farm cart.');
   } else if (building.kind === 'agora') {
     if (!building.vendorInstalled) lines.push('Add a food vendor to start deliveries.');
     else if (hasActiveWalker(world, building.id, 'vendor')) lines.push('Vendor on the streets.');

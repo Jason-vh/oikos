@@ -15,7 +15,7 @@ const KINDS: BuildingKind[] = ['house', 'farm', 'granary', 'agora', 'fountain', 
 const FOOTPRINT_EPSILON = 0.01;
 const GROUND_EPSILON = 0.02;
 const TRIANGLE_BUDGET = 12000;
-const DRAW_CALL_BUDGET = 16;
+const DRAW_CALL_BUDGET = 18;
 
 function tiersFor(kind: BuildingKind): (1 | 2 | 3)[] {
   return kind === 'house' ? [1, 2, 3] : [1];
@@ -26,8 +26,9 @@ function instances(): { kind: BuildingKind; tier: 1 | 2 | 3; vendorEnabled: bool
   for (const kind of KINDS) {
     for (const tier of tiersFor(kind)) {
       const vendorOptions = kind === 'agora' ? [false, true] : [false];
+      const stores = kind === 'granary' ? { wheat: 300, carrots: 200, fish: 100, meat: 100, olives: 200 } : { wheat: 100, fish: 100, meat: 100 };
       for (const vendorEnabled of vendorOptions) {
-        result.push({ kind, tier, vendorEnabled, model: getBuildingModel(kind, tier, vendorEnabled) });
+        result.push({ kind, tier, vendorEnabled, model: getBuildingModel(kind, { tier, vendorEnabled, stores }) });
       }
     }
   }

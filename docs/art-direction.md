@@ -270,9 +270,11 @@ the new set against a capture taken before the change, is the review process; se
 
 ## Model stages
 
-`getBuildingModel(kind, tier, vendorEnabled, stage)` takes a `ModelStage` (0–3) that
-the renderer derives from simulation state: wheat height and colour on a farm
-(`progress`), grain baskets by the granary doors (`stock / GRANARY_CAP`), and
-crates on the agora stall (`stock / AGORA_CAP`). A stage change swaps the model,
-so keep stage variants cheap and confined to the footprint. Citizens are built by
+`getBuildingModel(kind, { tier, vendorEnabled, stage, stores })` builds the model
+for a simulation state: `stage` (0–3) drives wheat height and colour on a farm;
+`stores` fills the granary yard (nine slots) and the agora stall (three slots) with
+one bundle per 100 units of a food. `src/art/food.ts` owns each food's signature
+(wheat sheaves, carrot crates, fish and meat racks, olive jars) — keep bundles under
+a cell wide and readable at city zoom. A state change swaps the model, so variants
+must stay cheap and inside the footprint. Citizens are built by
 `figure()` with separate leg and arm groups; `animateFigure()` swings them.

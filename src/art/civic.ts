@@ -1,5 +1,7 @@
 import * as T from 'three';
-import { box, colors, lump, post, pot, roof } from './primitives';
+import type { Stores } from '../sim/types';
+import { box, colors, group, lump, post, pot, roof } from './primitives';
+import { bundle, bundlesOf } from './food';
 
 export function fountain(): T.Group {
   const basin = new T.Group();
@@ -30,24 +32,25 @@ export function maintenance(): T.Group {
   return shed;
 }
 
-export function granary(stage = 0): T.Group {
+export function granary(stores: Stores = {}): T.Group {
   const store = new T.Group();
-  box(store, colors.stone, 0, .12, 0, 3.15, .24, 3.0);
-  box(store, colors.plaster, 0, 1.02, 0, 2.75, 1.6, 2.55, .07);
-  box(store, colors.cream, 0, 1.85, 0, 2.9, .18, 2.7);
-  roof(store, 3.15, 3.05, 1.94, .62, colors.roofDark);
-  box(store, colors.wood, -.55, .78, 1.29, .95, 1.4, .1);
-  box(store, colors.wood, .55, .78, 1.29, .95, 1.4, .1);
-  box(store, colors.dark, 0, .78, 1.31, .1, 1.4, .06);
-  box(store, colors.gold, -.2, .78, 1.35, .06, .06, .04);
-  box(store, colors.gold, .2, .78, 1.35, .06, .06, .04);
-  box(store, colors.paving, 0, .1, 1.5, 3.3, .2, .5);
-  pot(store, -1.25, .18, -1.05, .9);
-  const baskets = [[1.22, 0, 1.55], [.8, 0, 1.55], [1.22, 0, 1.15], [-1.22, 0, 1.55], [-.8, 0, 1.55], [-1.22, 0, 1.15], [1.0, .42, 1.55], [-1.0, .42, 1.55], [1.22, .42, 1.15]];
-  for (const [px, py, pz] of baskets.slice(0, stage * 3)) {
-    post(store, 0xd9c48f, px, .21 + py, pz, .24, .42);
-    post(store, colors.wood, px, .4 + py, pz, .25, .04);
-    lump(store, colors.gold, px, .46 + py, pz, .2, .09, .2);
+  box(store, colors.stone, 0, .12, 0, 3.4, .24, 3.3);
+  box(store, colors.paving, 0, .25, .2, 3.15, .04, 2.65);
+  const shed = group(store, 0, 0, -1.1);
+  box(shed, colors.plaster, 0, .95, 0, 3.2, 1.4, 1.1, .06);
+  box(shed, colors.cream, 0, 1.68, 0, 3.35, .14, 1.25);
+  roof(shed, 3.5, 1.4, 1.74, .55, colors.roofDark);
+  box(shed, colors.wood, -.7, .82, .56, .7, 1.05, .08);
+  box(shed, colors.wood, .7, .82, .56, .7, 1.05, .08);
+  for (const px of [-1.35, 1.35]) box(store, colors.stone, px, .4, .55, .16, .32, 2.3);
+  box(store, colors.stone, 0, .4, 1.62, 2.85, .32, .16);
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 3; col++) {
+      box(store, colors.earth, -.85 + col * .85, .285, -.15 + row * .72, .7, .03, .58, .01);
+    }
   }
+  bundlesOf(stores, 9).forEach((food, index) => {
+    bundle(store, food, -.85 + (index % 3) * .85, .3, 1.3 - Math.floor(index / 3) * .72, index);
+  });
   return store;
 }

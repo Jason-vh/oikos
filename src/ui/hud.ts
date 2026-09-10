@@ -58,6 +58,12 @@ function formatDate(world: World): string {
   return `${day} ${MONTHS[months % 12]} ${year} BC`;
 }
 
+function describeStores(building: Building): string {
+  const entries = Object.entries(building.stores).filter(([, amount]) => amount > 0);
+  if (entries.length === 0) return 'Empty';
+  return entries.map(([food, amount]) => `${Math.round(amount)} ${food}`).join(' \u00b7 ');
+}
+
 function vendorInstalled(building: Building): boolean {
   const record = building as Building & { vendorInstalled?: boolean };
   return record.vendorInstalled ?? building.vendorEnabled;
@@ -324,7 +330,7 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
 
     const hasStock = selected.kind === 'farm' || selected.kind === 'granary' || selected.kind === 'agora';
     rowStock.hidden = !hasStock;
-    if (hasStock) field(rowStock, 'inspector-stock').textContent = String(Math.round(selected.stock));
+    if (hasStock) field(rowStock, 'inspector-stock').textContent = describeStores(selected);
 
     const hasWorkers = definition.jobs > 0;
     rowWorkers.hidden = !hasWorkers;

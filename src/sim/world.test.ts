@@ -411,8 +411,10 @@ describe('road breaks and demolition cargo', () => {
 
     expect(() => advance(world, 100)).not.toThrow();
     for (const building of world.buildings) {
-      expect(building.stock).toBeGreaterThanOrEqual(0);
-      expect(Number.isFinite(building.stock)).toBe(true);
+      for (const amount of Object.values(building.stores)) {
+        expect(amount).toBeGreaterThan(0);
+        expect(Number.isFinite(amount)).toBe(true);
+      }
     }
   });
 
@@ -579,7 +581,7 @@ describe('player-facing building status', () => {
     const granary = findByKind(world, 'granary');
     granary.workers = BUILDINGS.granary.jobs;
     expect(buildingStatus(world, granary)).toEqual(['Empty; waiting for a farm cart.']);
-    granary.stock = 50;
+    granary.stores.wheat = 50;
     expect(buildingStatus(world, granary)).toEqual(['Stocked and ready for buyers.']);
   });
 

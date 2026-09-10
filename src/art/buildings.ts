@@ -1,5 +1,5 @@
 import * as T from 'three';
-import type { BuildingKind } from '../sim/types';
+import type { BuildingKind, Stores } from '../sim/types';
 import { BUILDINGS } from '../sim/catalog';
 import { CELL_SIZE } from '../sim/island';
 import { bake, box, colors, post } from './primitives';
@@ -13,20 +13,23 @@ export function footprintSize(kind: BuildingKind): { width: number; depth: numbe
   return { width: definition.width * CELL_SIZE, depth: definition.depth * CELL_SIZE };
 }
 
-function agora(vendorEnabled: boolean, stage: number): T.Group {
+function agora(vendorEnabled: boolean, stores: Stores): T.Group {
   const market = new T.Group();
   box(market, colors.paving, 0, .09, 0, 3.55, .18, 3.55);
   box(market, colors.stone, 0, .19, 0, 3.65, .06, 3.65);
   for (const [px, pz] of [[-1.65, -1.65], [1.65, -1.65], [-1.65, 1.65], [1.65, 1.65]]) {
     post(market, colors.cream, px, .32, pz, .06, .3);
   }
-  if (vendorEnabled) stall(market, -.7, .2, .6, colors.blue, stage);
+  if (vendorEnabled) stall(market, -.7, .2, .6, colors.blue, stores);
   return market;
 }
 
 export type ModelStage = 0 | 1 | 2 | 3;
 
-export function getBuildingModel(kind: BuildingKind, tier: 1 | 2 | 3 = 1, vendorEnabled = false, stage: ModelStage = 3): T.Group {
+export interface ModelState { tier?: 1 | 2 | 3; vendorEnabled?: boolean; stage?: ModelStage; stores?: Stores; }
+
+export function getBuildingModel(kind: BuildingKind, state: ModelState = {}): T.Group {
+  const { tier = 1, vendorEnabled = false, stage = 3, stores = {} } = state;
   const model = new T.Group();
   switch (kind) {
     case 'house':
@@ -36,10 +39,10 @@ export function getBuildingModel(kind: BuildingKind, tier: 1 | 2 | 3 = 1, vendor
       model.add(wheatFarm(stage));
       break;
     case 'granary':
-      model.add(granaryModel(stage));
+      model.add(granaryModel(stores));
       break;
     case 'agora':
-      model.add(agora(vendorEnabled, stage));
+      model.add(agora(vendorEnabled, stores));
       break;
     case 'fountain':
       model.add(fountainModel());

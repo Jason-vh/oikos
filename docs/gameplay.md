@@ -84,6 +84,15 @@ all four houses settle into fully-inhabited, water-and-food-supplied dwellings
 inside five simulated minutes — after which the neighbourhood runs indefinitely on
 its own income.
 
+## Food and storage
+
+Food comes in kinds (`Food`: wheat, carrots, fish, meat, olives; only wheat is
+produced in this slice). Every storing building keeps `stores`, a map of food →
+units. Capacity is physical: a granary has nine slots and an agora three, each
+holding one bundle of 100 units of a single food, so the model shows exactly what
+is stored. Walkers carry one food at a time (`walker.food`, `walker.cargo`); buyers
+and vendors take whichever food the source has most of.
+
 ## The supply chain
 
 Nothing is delivered by radius. Every good moves along roads, carried by a walker

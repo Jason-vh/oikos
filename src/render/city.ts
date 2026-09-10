@@ -1,7 +1,7 @@
 import * as T from 'three';
-import { animateFigure, bake, box, colors, disposeModel, figure, getBuildingModel, lump, post, type ModelStage } from '../art';
+import { animateFigure, bake, box, bundleKey, colors, disposeModel, figure, getBuildingModel, lump, post, type ModelStage } from '../art';
 import { footprint } from '../sim/catalog';
-import { AGORA_CAP, GRANARY_CAP } from '../sim/balance';
+import { AGORA_SLOTS, GRANARY_SLOTS } from '../sim/balance';
 import { CELL_SIZE, GROUND_Y, MAP_WIDTH, tileAt, tileIndex, worldPosition } from '../sim/island';
 import type { Building, BuildTool, Placement, Rotation, Walker, WalkerKind, World } from '../sim/types';
 import type { Stage } from './stage';
@@ -12,9 +12,13 @@ interface WalkerEntry { model: T.Group; from: T.Vector3; target: T.Vector3; elap
 
 function modelStage(building: Building): ModelStage {
   if (building.kind === 'farm') return Math.min(3, Math.floor(building.progress * 4)) as ModelStage;
-  if (building.kind === 'granary') return Math.min(3, Math.ceil(building.stock / GRANARY_CAP * 3)) as ModelStage;
-  if (building.kind === 'agora') return Math.min(3, Math.ceil(building.stock / AGORA_CAP * 3)) as ModelStage;
   return 3;
+}
+
+function storesKey(building: Building): string {
+  if (building.kind === 'granary') return bundleKey(building.stores, GRANARY_SLOTS);
+  if (building.kind === 'agora') return bundleKey(building.stores, AGORA_SLOTS);
+  return '';
 }
 
 export class CityScene {
@@ -72,14 +76,14 @@ export class CityScene {
         for (let x = building.x; x < building.x + width; x++) occupied.add(tileIndex(x, z));
       }
       const stage = modelStage(building);
-      const key = `${building.kind}:${building.tier}:${building.vendorEnabled}:${stage}:${building.rotation}:${building.x}:${building.z}`;
+      const key = `${building.kind}:${building.tier}:${building.vendorEnabled}:${stage}:${storesKey(building)}:${building.rotation}:${building.x}:${building.z}`;
       const existing = this.buildings.get(building.id);
       if (existing?.key === key) continue;
       if (existing) {
         existing.model.removeFromParent();
         disposeModel(existing.model);
       }
-      const model = getBuildingModel(building.kind, building.tier, building.vendorEnabled, stage);
+      const model = getBuildingModel(building.kind, { tier: building.tier, vendorEnabled: building.vendorEnabled, stage, stores: building.stores });
       const point = worldPosition(building.x + width / 2, building.z + depth / 2);
       model.position.set(point.x, GROUND_Y, point.z);
       model.rotation.y = -building.rotation * Math.PI / 2;
@@ -201,7 +205,7 @@ export class CityScene {
       }
       this.ghost = null;
       if (tool !== 'road' && tool !== 'demolish') {
-        this.ghost = getBuildingModel(tool, 1, tool === 'agora');
+        this.ghost = getBuildingModel(tool, { vendorEnabled: tool === 'agora', stores: tool === 'agora' ? { wheat: 300 } : {} });
         this.ghost.traverse((child) => {
           if (!(child instanceof T.Mesh)) return;
           const material = (child.material as T.MeshStandardMaterial).clone();

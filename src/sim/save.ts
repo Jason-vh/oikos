@@ -1,4 +1,6 @@
-import type { Building, BuildingKind, Walker, WalkerKind, World } from './types';
+import type { Building, BuildingKind, Food, Stores, Walker, WalkerKind, World } from './types';
+
+const FOODS: Food[] = ['wheat', 'carrots', 'fish', 'meat', 'olives'];
 import { BUILDINGS, HOUSE_CAPACITY } from './catalog';
 import { MAP_DEPTH, MAP_WIDTH, insideMap } from './island';
 import { neighbours } from './grid';
@@ -62,7 +64,7 @@ function footprintFor(kind: BuildingKind, rotation: number, x: number, z: number
 
 function validateBuilding(raw: unknown, roads: Set<number>, occupied: Set<number>): Building | null {
   if (!isPlainObject(raw)) return null;
-  const { id, x, z, kind, rotation, tier, residents, food, water, condition, stock, progress, workers, vendorEnabled, vendorInstalled, connected, serviceTimer, upgradeTimer } = raw;
+  const { id, x, z, kind, rotation, tier, residents, food, water, condition, stores, progress, workers, vendorEnabled, vendorInstalled, connected, serviceTimer, upgradeTimer } = raw;
 
   if (!isInteger(id) || id <= 0) return null;
   if (!isInteger(x) || !isInteger(z)) return null;
@@ -73,7 +75,8 @@ function validateBuilding(raw: unknown, roads: Set<number>, occupied: Set<number
   if (!isNonNegativeFinite(food)) return null;
   if (!isNonNegativeFinite(water)) return null;
   if (!isFiniteNumber(condition) || condition < 0 || condition > 100) return null;
-  if (!isNonNegativeFinite(stock)) return null;
+  const parsedStores = parseStores(stores);
+  if (!parsedStores) return null;
   if (!isFiniteNumber(progress) || progress < 0 || progress >= 1) return null;
   if (!isNonNegativeFinite(workers)) return null;
   if (typeof vendorEnabled !== 'boolean') return null;
@@ -106,7 +109,7 @@ function validateBuilding(raw: unknown, roads: Set<number>, occupied: Set<number
     food: food as number,
     water: water as number,
     condition: condition as number,
-    stock: stock as number,
+    stores: parsedStores,
     progress: progress as number,
     workers: workers as number,
     vendorEnabled: vendorEnabled as boolean,
@@ -128,7 +131,7 @@ function pathIsAdjacent(path: number[], roads: Set<number>): boolean {
 
 function validateWalker(raw: unknown, roads: Set<number>, buildingIds: Set<number>): Walker | null {
   if (!isPlainObject(raw)) return null;
-  const { id, kind, homeId, targetId, path, step, progress, cargo, returning } = raw;
+  const { id, kind, homeId, targetId, path, step, progress, food, cargo, returning } = raw;
 
   if (!isInteger(id) || id <= 0) return null;
   if (typeof kind !== 'string' || !WALKER_KINDS.includes(kind as WalkerKind)) return null;
@@ -140,6 +143,7 @@ function validateWalker(raw: unknown, roads: Set<number>, buildingIds: Set<numbe
   if (!isInteger(step) || step < 0 || step >= path.length) return null;
   if (!isFiniteNumber(progress) || progress < 0 || progress >= 1) return null;
   if (!isNonNegativeFinite(cargo)) return null;
+  if (food !== null && (typeof food !== 'string' || !FOODS.includes(food as Food))) return null;
   if (typeof returning !== 'boolean') return null;
 
   return {
@@ -150,6 +154,7 @@ function validateWalker(raw: unknown, roads: Set<number>, buildingIds: Set<numbe
     path: path as number[],
     step: step as number,
     progress: progress as number,
+    food: food as Food | null,
     cargo: cargo as number,
     returning: returning as boolean,
   };
@@ -216,4 +221,14 @@ export function deserializeWorld(raw: string): World | null {
   };
   recomputeConnectivity(world);
   return world;
+}
+
+function parseStores(raw: unknown): Stores | null {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
+  const stores: Stores = {};
+  for (const [food, amount] of Object.entries(raw)) {
+    if (!FOODS.includes(food as Food) || !isNonNegativeFinite(amount)) return null;
+    if ((amount as number) > 0) stores[food as Food] = amount as number;
+  }
+  return stores;
 }

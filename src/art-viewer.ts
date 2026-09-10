@@ -2,7 +2,14 @@ import * as T from 'three';
 import { citizen, colors, disposeModel, getBuildingModel, type ModelStage } from './art';
 import { BUILDINGS, footprint } from './sim/catalog';
 import { CELL_SIZE } from './sim/island';
-import type { BuildingKind } from './sim/types';
+import type { BuildingKind, Stores } from './sim/types';
+
+const STORE_VARIANTS: Record<string, Stores> = {
+  empty: {},
+  wheat: { wheat: 300 },
+  mixed: { wheat: 200, carrots: 100, fish: 100, meat: 100 },
+  full: { wheat: 300, carrots: 200, fish: 200, meat: 100, olives: 100 },
+};
 import { Stage } from './render/stage';
 import './art-viewer.css';
 
@@ -37,11 +44,11 @@ function boot(): void {
       });
       disposeModel(model);
     }
-    const [kindValue, tierValue, stageValue = '3'] = select.value.split(':');
+    const [kindValue, tierValue, variant = ''] = select.value.split(':');
     const kind = kindValue as BuildingKind;
     const tier = Number(tierValue) as 1 | 2 | 3;
-    const modelStage = Number(stageValue) as ModelStage;
-    model = getBuildingModel(kind, tier, kind === 'agora' && tier === 2, modelStage);
+    const stores = STORE_VARIANTS[variant] ?? {};
+    model = getBuildingModel(kind, { tier, vendorEnabled: kind === 'agora' && tier === 2, stage: Number(variant || 3) as ModelStage, stores });
     model.traverse((child) => {
       if (!(child instanceof T.Mesh)) return;
       const material = (child.material as T.MeshStandardMaterial).clone();
