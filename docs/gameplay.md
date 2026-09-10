@@ -76,8 +76,9 @@ builds the plan through the real UI.
 
 ## Food and storage
 
-Food comes in kinds (`Food`: wheat, carrots, fish, meat, olives; only wheat is
-produced in this slice). Every storing building keeps `stores`, a map of food →
+Food comes in kinds (`Food`: wheat, carrots, fish, meat, olives) and materials
+(`Material`: lumber, clay, stone); `Resource` is either. Wheat, meat and lumber are
+produced in this slice. Every storing building keeps `stores`, a map of food →
 units. Capacity is physical: a granary has eight slots around its tower and an agora three, each
 holding one bundle of 100 units of a single food, so the model shows exactly what
 is stored. Walkers carry one food at a time (`walker.food`, `walker.cargo`); buyers
@@ -163,6 +164,28 @@ a small, steady income, and every standing workplace has a modest upkeep, both
 expressed as a rate per `MONTH_SECONDS` (60 simulated seconds) and settled every
 tick. `getSummary(world)` reports the current population, employment, food in
 storage, income, upkeep, balance, and how many tier-3 houses are inhabited.
+
+## Gathering: hunters and woodcutters
+
+`src/sim/gathering.ts`. A hunter's lodge (2×2, 3 jobs) and a woodcutter's cabin
+(2×2, 3 jobs) send a walker *off the road*: `overlandPath` searches roads and then
+passable open ground (grass, scrub, sand, fertile, forest, cliff edges) within
+`GATHER_RANGE` (14 tiles), stepping between levels only across a cliff edge. The
+hunter targets the nearest live boar or rabbit; on arrival, if the quarry is within
+`CATCH_RADIUS`, it is killed (`respawn` set; it reappears at home after 240 s) and
+the hunter carries its `yield` of meat back. The woodcutter targets a tile beside
+standing forest, fells it (`world.felled`), and carries 25 lumber back. Felled
+tiles regrow one at a time every 480 s unless built over. Gatherers stock up to 200
+at home; carts take food to a granary and materials to a **stockpile** (3×3, eight
+bays, same court as the granary). Walkers carry `overland` tiles so saves validate
+off-road paths.
+
+## Roads that climb
+
+A road may step one level where it crosses a `cliff` tile (either end of the step
+is cliff). Any other level change is refused: "Roads climb only one step at a time,
+across the cliff edge." The renderer draws a staircase between stone walls on the
+lower tile facing the climb; walkers and the ground-height lookup handle the rise.
 
 ## Wildlife
 

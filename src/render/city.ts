@@ -1,9 +1,9 @@
 import * as T from 'three';
-import { animalModel, animateAnimal, animateFigure, bake, box, bundle, bundleKey, colors, disposeModel, figure, getBuildingModel, post, type ModelStage } from '../art';
+import { animalModel, animateAnimal, animateFigure, bake, box, bundle, bundleKey, colors, disposeModel, figure, getBuildingModel, lump, post, type ModelStage } from '../art';
 import { footprint } from '../sim/catalog';
 import { AGORA_SLOTS, GRANARY_SLOTS } from '../sim/balance';
-import { CELL_SIZE, groundHeight, tileAtOn, tileIndexOn, worldPositionOn, type IslandMap } from '../sim/island';
-import type { Animal, AnimalKind, Building, BuildTool, Food, Placement, Rotation, Walker, WalkerKind, World } from '../sim/types';
+import { CELL_SIZE, groundHeight, levelOn, LEVEL_HEIGHT, tileAtOn, tileIndexOn, worldPositionOn, type IslandMap } from '../sim/island';
+import type { Animal, AnimalKind, Building, BuildTool, Placement, Resource, Rotation, Walker, WalkerKind, World } from '../sim/types';
 import type { Stage } from './stage';
 import { IslandScenery } from './island';
 
@@ -17,7 +17,7 @@ function modelStage(building: Building): ModelStage {
 }
 
 function storesKey(building: Building): string {
-  if (building.kind === 'granary') return bundleKey(building.stores, GRANARY_SLOTS);
+  if (building.kind === 'granary' || building.kind === 'stockpile') return bundleKey(building.stores, GRANARY_SLOTS);
   if (building.kind === 'agora') return bundleKey(building.stores, AGORA_SLOTS);
   return '';
 }
@@ -52,10 +52,30 @@ export class CityScene {
     this.roadKey = key;
     disposeModel(this.roads);
     this.roads.clear();
+    const roads = new Set(world.roads);
     for (const index of world.roads) {
       const tile = tileAtOn(this.map, index);
       const p = worldPositionOn(this.map, tile.x + .5, tile.z + .5);
       const y = groundHeight(this.map, tile.x, tile.z);
+      const level = levelOn(this.map, tile.x, tile.z);
+      const climb = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dz]) => roads.has(tileIndexOn(this.map, tile.x + dx, tile.z + dz)) && levelOn(this.map, tile.x + dx, tile.z + dz) === level + 1);
+      if (climb) {
+        const [dx, dz] = climb;
+        const steps = 8;
+        const span = CELL_SIZE * 1.4;
+        const origin = { x: p.x + dx * (CELL_SIZE / 2 - span / 2 + CELL_SIZE * .45), z: p.z + dz * (CELL_SIZE / 2 - span / 2 + CELL_SIZE * .45) };
+        for (let step = 0; step < steps; step++) {
+          const along = (step + .5) / steps - .5;
+          const rise = (step + 1) / steps * LEVEL_HEIGHT;
+          const tread = span / steps + .02;
+          box(this.roads, colors.cream, origin.x + dx * along * span, y + rise / 2 + .015, origin.z + dz * along * span, dx === 0 ? CELL_SIZE - .2 : tread, rise, dz === 0 ? CELL_SIZE - .2 : tread, .012);
+        }
+        for (const side of [-1, 1]) {
+          box(this.roads, colors.stone, origin.x + (dx === 0 ? side * (CELL_SIZE / 2 - .05) : 0), y + LEVEL_HEIGHT * .5 + .1, origin.z + (dz === 0 ? side * (CELL_SIZE / 2 - .05) : 0), dx === 0 ? .1 : span, LEVEL_HEIGHT + .2, dz === 0 ? .1 : span, .02);
+        }
+        box(this.roads, colors.paving, p.x - dx * CELL_SIZE * .3, y + .015, p.z - dz * CELL_SIZE * .3, dx === 0 ? CELL_SIZE : CELL_SIZE * .4, .07, dz === 0 ? CELL_SIZE : CELL_SIZE * .4, .025);
+        continue;
+      }
       box(this.roads, colors.paving, p.x, y + .015, p.z, CELL_SIZE, .07, CELL_SIZE, .025);
       if (index % 3 !== 0) box(this.roads, colors.cream, p.x - .15, y + .058, p.z + .08, .58, .012, .42, .008);
     }
@@ -96,6 +116,7 @@ export class CityScene {
       this.buildings.set(building.id, { key, model });
       this.stage.shadows();
     }
+    for (const tile of world.felled) occupied.add(tile);
     this.scenery.clearDecor(occupied);
     const walkerIds = new Set(world.walkers.map((walker) => walker.id));
     for (const [id, entry] of this.walkers) {
@@ -146,13 +167,28 @@ export class CityScene {
     entry.moving = entry.from.distanceToSquared(target) > 1e-5;
   }
 
-  private walkerModel(kind: WalkerKind, load: Food | null): T.Group {
+  private walkerModel(kind: WalkerKind, load: Resource | null): T.Group {
     const key = `${kind}:${load ?? ''}`;
     const existing = this.walkerTemplates.get(key);
     if (existing) return existing.clone();
-    const colour: Record<WalkerKind, number> = { cart: colors.gold, buyer: colors.roof, vendor: colors.blue, water: colors.blueLight, maintenance: colors.oliveDark, immigrant: colors.linen };
-    const carries = kind === 'water' || (load !== null && kind !== 'cart');
-    const model = figure(colour[kind], carries ? 'jar' : kind === 'immigrant' ? 'bundle' : 'none').root;
+    const colour: Record<WalkerKind, number> = { cart: colors.gold, buyer: colors.roof, vendor: colors.blue, water: colors.blueLight, maintenance: colors.oliveDark, immigrant: colors.linen, hunter: 0x6f5a3c, woodcutter: 0x8a5a3a };
+    const gatherer = kind === 'hunter' || kind === 'woodcutter';
+    const carries = kind === 'water' || (load !== null && kind !== 'cart' && !gatherer);
+    const model = figure(colour[kind], carries ? 'jar' : kind === 'immigrant' || (gatherer && load !== null) ? 'bundle' : 'none').root;
+    if (gatherer) {
+      const tool = new T.Group();
+      tool.position.set(.24, .55, .08);
+      if (kind === 'hunter') {
+        const spear = post(tool, colors.wood, 0, .3, 0, .022, 1.5);
+        spear.rotation.x = .15;
+        lump(tool, colors.stone, 0, 1.06, -.11, .04, .12, .03);
+      } else {
+        post(tool, colors.wood, 0, .15, 0, .028, .75);
+        box(tool, colors.stone, .0, .5, .05, .05, .18, .12, .01);
+      }
+      bake(tool);
+      model.add(tool);
+    }
     if (kind === 'cart') {
       const cart = new T.Group();
       box(cart, colors.wood, 0, .4, -.62, .62, .38, .68);
@@ -190,7 +226,7 @@ export class CityScene {
     const b = worldPositionOn(this.map, next.x + .5, next.z + .5);
     const y = T.MathUtils.lerp(groundHeight(this.map, current.x, current.z), groundHeight(this.map, next.x, next.z), walker.progress);
     const target = new T.Vector3(T.MathUtils.lerp(a.x, b.x, walker.progress), y + .08, T.MathUtils.lerp(a.z, b.z, walker.progress));
-    const load = walker.cargo > 0 ? walker.food : null;
+    const load: Resource | null = walker.cargo > 0 ? walker.food : null;
     const key = `${walker.kind}:${load ?? ''}`;
     let entry = this.walkers.get(walker.id);
     if (entry && entry.key !== key) {

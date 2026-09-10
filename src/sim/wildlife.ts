@@ -48,6 +48,7 @@ export function spawnWildlife(world: World): Animal[] {
             homeZ: z + .5,
             heading: angle,
             phase: hash(x, z, world.seed + member + 11) * 100,
+            respawn: 0,
           });
         }
       }
@@ -71,6 +72,14 @@ export function stepWildlife(world: World, dt: number): void {
   const map = islandFor(world.seed);
   for (const animal of world.wildlife) {
     const species = SPECIES[animal.kind];
+    if (animal.respawn > 0) {
+      animal.respawn = Math.max(0, animal.respawn - dt);
+      if (animal.respawn === 0) {
+        animal.x = animal.homeX;
+        animal.z = animal.homeZ;
+      }
+      continue;
+    }
     animal.phase += dt;
     const wander = Math.sin(animal.phase * .7 + animal.id) * .9 + Math.sin(animal.phase * .23 + animal.id * 2) * .6;
     const toHomeX = animal.homeX - animal.x;
@@ -118,4 +127,16 @@ export function animalStatus(animal: Animal): string[] {
   if (animal.kind === 'gull') return ['Wheeling over the shore.'];
   if (animal.kind === 'fish') return [`A shoal in the shallows. Worth ${species.yield} fish to a fisherman.`];
   return [`Roaming the ${animal.kind === 'boar' ? 'forest' : 'scrub'}. Worth ${species.yield} meat to a hunter.`];
+}
+
+export const RESPAWN_SECONDS = 240;
+
+export function alive(animal: Animal): boolean {
+  return animal.respawn === 0;
+}
+
+export function killAnimal(animal: Animal): number {
+  const amount = SPECIES[animal.kind].yield;
+  animal.respawn = RESPAWN_SECONDS;
+  return amount;
 }

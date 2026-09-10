@@ -124,13 +124,13 @@ button[aria-pressed='true'] { background: var(--sage); color: #fffdf0; }
 .hud-toolbar { pointer-events: auto; display: flex; gap: 2px; padding: 6px; max-width: 96vw; overflow-x: auto; }
 .hud-tool {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
-  width: 84px; padding: 8px 6px 7px; border-radius: 8px;
-  font-size: 11px; line-height: 1.2; white-space: nowrap;
+  width: 76px; padding: 8px 4px 7px; border-radius: 8px;
+  font-size: 10.5px; line-height: 1.2; white-space: nowrap;
 }
 .hud-tool-icon { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .hud-tool-icon .fill { fill: currentColor; stroke: none; opacity: .55; }
 .hud-tool-icon .dash { stroke-dasharray: 2 2.5; }
-.hud-tool-label { font-weight: 600; }
+.hud-tool-label { font-weight: 600; max-width: 72px; overflow: hidden; text-overflow: ellipsis; }
 .hud-tool-cost { font-size: 9.5px; opacity: .6; font-variant-numeric: tabular-nums; }
 .hud-tool[aria-pressed='true'] .hud-tool-cost { opacity: .85; }
 .hud-tool[data-tool='demolish'] { color: var(--terracotta-deep); }

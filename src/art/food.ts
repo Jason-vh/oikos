@@ -1,12 +1,12 @@
 import * as T from 'three';
-import type { Food, Stores } from '../sim/types';
+import type { Resource, Stores } from '../sim/types';
 import { box, colors, group, lump, post } from './primitives';
 
 export const BUNDLE_SIZE = 100;
-export const FOOD_ORDER: Food[] = ['wheat', 'carrots', 'fish', 'meat', 'olives'];
+export const FOOD_ORDER: Resource[] = ['wheat', 'carrots', 'fish', 'meat', 'olives', 'lumber', 'clay', 'stone'];
 
-export function bundlesOf(stores: Stores, slots: number): Food[] {
-  const result: Food[] = [];
+export function bundlesOf(stores: Stores, slots: number): Resource[] {
+  const result: Resource[] = [];
   for (const food of FOOD_ORDER) {
     const count = Math.ceil((stores[food] ?? 0) / BUNDLE_SIZE);
     for (let i = 0; i < count && result.length < slots; i++) result.push(food);
@@ -18,7 +18,7 @@ export function bundleKey(stores: Stores, slots: number): string {
   return bundlesOf(stores, slots).join(',');
 }
 
-export function bundle(parent: T.Object3D, food: Food, x: number, y: number, z: number, seed = 0): void {
+export function bundle(parent: T.Object3D, food: Resource, x: number, y: number, z: number, seed = 0): void {
   const pile = group(parent, x, y, z, seed * .9);
   switch (food) {
     case 'wheat':
@@ -53,6 +53,23 @@ export function bundle(parent: T.Object3D, food: Food, x: number, y: number, z: 
         lump(pile, colors.oliveDark, px, .17, pz, .13, .2, .13);
         post(pile, colors.oliveDark, px, .34, pz, .06, .08);
       }
+      break;
+    case 'lumber':
+      for (let row = 0; row < 3; row++) {
+        for (let i = 0; i < 3 - row; i++) {
+          const log = post(pile, colors.wood, -.14 + i * .14 + row * .07, .07 + row * .12, 0, .065, .5);
+          log.rotation.x = Math.PI / 2;
+          const end = post(pile, 0xc9a97a, -.14 + i * .14 + row * .07, .07 + row * .12, .26, .06, .01);
+          end.rotation.x = Math.PI / 2;
+        }
+      }
+      break;
+    case 'clay':
+      for (const [px, pz] of [[-.13, -.1], [.13, -.1], [0, .12]]) lump(pile, 0xb8724f, px, .12, pz, .16, .12, .16);
+      break;
+    case 'stone':
+      box(pile, colors.cream, 0, .1, 0, .46, .2, .3, .02);
+      box(pile, colors.stone, .05, .28, .02, .32, .16, .24, .02);
       break;
   }
 }

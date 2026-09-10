@@ -1,10 +1,12 @@
-export type BuildingKind = 'house' | 'farm' | 'granary' | 'agora' | 'fountain' | 'maintenance';
+export type BuildingKind = 'house' | 'farm' | 'granary' | 'agora' | 'fountain' | 'maintenance' | 'lodge' | 'woodcutter' | 'stockpile';
 export type BuildTool = BuildingKind | 'road';
 export type Tool = BuildTool | 'inspect' | 'demolish';
 export type Rotation = 0 | 1 | 2 | 3;
 export type Terrain = 'water' | 'sand' | 'grass' | 'fertile' | 'scrub' | 'forest' | 'rock' | 'cliff';
 export type Food = 'wheat' | 'carrots' | 'fish' | 'meat' | 'olives';
-export type Stores = Partial<Record<Food, number>>;
+export type Material = 'lumber' | 'clay' | 'stone';
+export type Resource = Food | Material;
+export type Stores = Partial<Record<Resource, number>>;
 export interface Tile { x: number; z: number; }
 export interface Building extends Tile {
   id: number;
@@ -34,8 +36,9 @@ export interface Animal {
   homeZ: number;
   heading: number;
   phase: number;
+  respawn: number;
 }
-export type WalkerKind = 'cart' | 'buyer' | 'vendor' | 'water' | 'maintenance' | 'immigrant';
+export type WalkerKind = 'cart' | 'buyer' | 'vendor' | 'water' | 'maintenance' | 'immigrant' | 'hunter' | 'woodcutter';
 export interface Walker {
   id: number;
   kind: WalkerKind;
@@ -44,9 +47,11 @@ export interface Walker {
   path: number[];
   step: number;
   progress: number;
-  food: Food | null;
+  food: Resource | null;
   cargo: number;
   returning: boolean;
+  overland: number[];
+  quarry: number | null;
 }
 export interface World {
   version: 1;
@@ -60,6 +65,8 @@ export interface World {
   buildings: Building[];
   walkers: Walker[];
   wildlife: Animal[];
+  felled: number[];
+  regrowth: number;
   produced: number;
   delivered: number;
 }

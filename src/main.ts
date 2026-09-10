@@ -6,8 +6,8 @@ import { CELL_SIZE, groundHeight, islandFor, LEVEL_HEIGHT, terrainOn, tileIndexO
 import { advance, build, buildingStatus, createWorld, DEFAULT_SEED, demolish, getSummary, placement, placeRoadPath, setVendor, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
 import { deserializeWorld, serializeWorld } from './sim/save';
 import { animalName, animalStatus } from './sim/wildlife';
-import { planStarterNeighbourhood } from './sim/scenario';
-import type { ActionResult, Placement, Rotation, Tile, Tool } from './sim/types';
+import { buildStarterNeighbourhood, planStarterNeighbourhood } from './sim/scenario';
+import type { ActionResult, BuildTool, Placement, Rotation, Tile, Tool } from './sim/types';
 import { createHud } from './ui/hud';
 import './ui/style.css';
 
@@ -188,7 +188,7 @@ function boot(): void {
   function updatePreview(): void {
     if (!hover || tool === 'inspect') {
       city.hidePreview();
-      hud.setHint('Click a building to inspect · WASD or right-drag to pan · Scroll to zoom · Q rotates the view');
+      hud.setHint('Click anything to inspect · WASD pans · Scroll zooms · Q rotates');
       return;
     }
     if (tool === 'demolish') {
@@ -268,7 +268,7 @@ function boot(): void {
   });
   window.addEventListener('keydown', (event) => {
     if (event.target instanceof HTMLElement && (event.target.closest('input,select,textarea,dialog') || event.target.isContentEditable)) return;
-    const keys: Record<string, Tool> = { '1': 'road', '2': 'house', '3': 'farm', '4': 'granary', '5': 'agora', '6': 'fountain', '7': 'maintenance', x: 'demolish' };
+    const keys: Record<string, Tool> = { '1': 'road', '2': 'house', '3': 'farm', '4': 'granary', '5': 'agora', '6': 'fountain', '7': 'maintenance', '8': 'lodge', '9': 'woodcutter', '0': 'stockpile', x: 'demolish' };
     if (event.key === 'Escape') {
       escapeOpensMenu = tool === 'inspect';
       if (!escapeOpensMenu) selectTool('inspect');
@@ -360,6 +360,9 @@ function boot(): void {
       },
       advance: (seconds: number) => { setSpeed(0); advance(world, seconds); refresh(); dirtySave = true; stage.shadows(); },
       get plan() { return planStarterNeighbourhood(world); },
+      buildPlan: () => { const result = buildStarterNeighbourhood(world); refresh(); save(true); stage.shadows(); return result; },
+      build: (tool: BuildTool, x: number, z: number) => { const result = build(world, tool, x, z, 0); refresh(); save(true); return result; },
+      road: (tiles: Tile[]) => { const result = placeRoadPath(world, tiles); refresh(); save(true); return result; },
       probe: (clientX: number, clientY: number) => city.probe(clientX, clientY),
       focusTile: (x: number, z: number) => { const point = worldPositionOn(map(), x + .5, z + .5); stage.focus(point.x, point.z); },
       terrainAt: (x: number, z: number) => terrainOn(map(), x, z),

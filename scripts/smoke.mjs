@@ -49,7 +49,7 @@ try {
   const island = await page.evaluate(() => window.oikos.map);
   const waterTile = (() => { for (let z = 0; z < island.depth; z++) for (let x = 0; x < island.width; x++) if (island.terrain[z * island.width + x] === 'water' && x > 4 && z > 4 && x < island.width - 4 && z < island.depth - 4) return [x, z]; })();
   const grassTile = (() => { for (let z = 0; z < island.depth; z++) for (let x = 0; x < island.width; x++) if (island.terrain[z * island.width + x] === 'grass') return [x, z]; })();
-  const labels = { house: 'Dwelling', farm: 'Wheat farm', granary: 'Granary', agora: 'Agora', fountain: 'Fountain', maintenance: 'Maintenance post' };
+  const labels = { house: 'Dwelling', farm: 'Wheat farm', granary: 'Granary', agora: 'Agora', fountain: 'Fountain', maintenance: 'Caretaker', lodge: 'Hunter', woodcutter: 'Woodcutter', stockpile: 'Stockpile' };
   const roadStrokes = [];
   let stroke = [];
   for (const tile of plan.roads) {

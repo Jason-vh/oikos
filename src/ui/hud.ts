@@ -36,7 +36,10 @@ const TOOL_DEFS: Array<{ tool: Tool; label: string; cost: string; key: string }>
   { tool: 'granary', label: BUILDINGS.granary.name, cost: String(BUILDINGS.granary.cost), key: '4' },
   { tool: 'agora', label: BUILDINGS.agora.name, cost: String(BUILDINGS.agora.cost), key: '5' },
   { tool: 'fountain', label: BUILDINGS.fountain.name, cost: String(BUILDINGS.fountain.cost), key: '6' },
-  { tool: 'maintenance', label: BUILDINGS.maintenance.name, cost: String(BUILDINGS.maintenance.cost), key: '7' },
+  { tool: 'maintenance', label: 'Caretaker', cost: String(BUILDINGS.maintenance.cost), key: '7' },
+  { tool: 'lodge', label: 'Hunter', cost: String(BUILDINGS.lodge.cost), key: '8' },
+  { tool: 'woodcutter', label: 'Woodcutter', cost: String(BUILDINGS.woodcutter.cost), key: '9' },
+  { tool: 'stockpile', label: BUILDINGS.stockpile.name, cost: String(BUILDINGS.stockpile.cost), key: '0' },
   { tool: 'demolish', label: 'Demolish', cost: 'half refunded', key: 'X' },
 ];
 
@@ -164,7 +167,7 @@ const SKELETON = `
         <button type="submit" value="grid" data-testid="grid-toggle" aria-pressed="false">Placement grid</button>
       </div>
       <dl class="hud-keys">
-        <div><dt>1\u20137</dt><dd>Build tools</dd></div>
+        <div><dt>1\u20130</dt><dd>Build tools</dd></div>
         <div><dt>X</dt><dd>Demolish</dd></div>
         <div><dt>R</dt><dd>Rotate building</dd></div>
         <div><dt>G</dt><dd>Toggle grid</dd></div>
@@ -350,7 +353,7 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     rowCondition.hidden = false;
     field(rowCondition, 'inspector-condition').textContent = `${Math.round(selected.condition)}%`;
 
-    const hasStock = selected.kind === 'farm' || selected.kind === 'granary' || selected.kind === 'agora';
+    const hasStock = selected.kind === 'farm' || selected.kind === 'granary' || selected.kind === 'agora' || selected.kind === 'lodge' || selected.kind === 'woodcutter' || selected.kind === 'stockpile';
     rowStock.hidden = !hasStock;
     if (hasStock) field(rowStock, 'inspector-stock').textContent = describeStores(selected);
 

@@ -10,6 +10,7 @@ const STORE_VARIANTS: Record<string, Stores> = {
   wheat: { wheat: 300 },
   mixed: { wheat: 200, carrots: 100, fish: 100, meat: 100 },
   full: { wheat: 300, carrots: 200, fish: 100, meat: 100, olives: 100 },
+  materials: { lumber: 300, clay: 100, stone: 100 },
 };
 import { Stage } from './render/stage';
 import './art-viewer.css';

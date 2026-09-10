@@ -1,4 +1,9 @@
-import type { BuildingKind, Rotation } from './types';
+import type { BuildingKind, Food, Material, Resource, Rotation } from './types';
+
+export const FOODS: Food[] = ['wheat', 'carrots', 'fish', 'meat', 'olives'];
+export const MATERIALS: Material[] = ['lumber', 'clay', 'stone'];
+export const RESOURCES: Resource[] = [...FOODS, ...MATERIALS];
+export function isFood(resource: Resource): resource is Food { return (FOODS as Resource[]).includes(resource); }
 
 export interface BuildingDefinition {
   name: string;
@@ -17,6 +22,9 @@ export const BUILDINGS: Record<BuildingKind, BuildingDefinition> = {
   agora: { name: 'Agora', width: 3, depth: 3, cost: 100, jobs: 3, upkeep: 3, description: 'Add a food vendor to fetch food and distribute it along roads.' },
   fountain: { name: 'Fountain', width: 2, depth: 2, cost: 70, jobs: 2, upkeep: 2, description: 'A water carrier supplies homes along connected roads.' },
   maintenance: { name: 'Maintenance post', width: 2, depth: 2, cost: 90, jobs: 2, upkeep: 2, description: 'A caretaker walks the roads and repairs nearby buildings.' },
+  lodge: { name: "Hunter's lodge", width: 2, depth: 2, cost: 110, jobs: 3, upkeep: 3, description: 'A hunter stalks boar and rabbits nearby and brings back meat for the granary.' },
+  woodcutter: { name: "Woodcutter's cabin", width: 2, depth: 2, cost: 90, jobs: 3, upkeep: 2, description: 'A woodcutter fells nearby forest and carts lumber to a stockpile.' },
+  stockpile: { name: 'Stockpile', width: 3, depth: 3, cost: 100, jobs: 2, upkeep: 2, description: 'Stores lumber, clay and stone in eight bays.' },
 };
 export const HOUSE_NAMES = ['Vacant plot', 'Dwelling', 'Cottage', 'Courtyard house'];
 export const HOUSE_CAPACITY = [0, 8, 12, 20];

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { advance, build, buildingStatus, createWorld, demolish, getSummary, placeRoadPath, placement, setVendor } from './world';
 import { buildStarterNeighbourhood, planStarterNeighbourhood } from './scenario';
 import { BUILDINGS, ROAD_COST, STARTING_MONEY, VENDOR_COST } from './catalog';
-import { generateIsland, terrainOn, tileAtOn, tileIndexOn } from './island';
+import { generateIsland, islandFor, terrainOn, tileAtOn, tileIndexOn } from './island';
 import { entryTileIndex } from './grid';
 import { connect, farCorner, findTile, freshRoadSpot, isolatedRoadPair, mapOf, slopeFixture, spotAdjacentTo, spotFor, unevenFootprint, SLOPE_SEED } from './testing';
 import type { World } from './types';
@@ -90,7 +90,18 @@ describe('placement validation', () => {
     expect(build(world, 'road', low.x, low.z).ok).toBe(true);
     const result = placement(world, 'road', high.x, high.z);
     expect(result.ok).toBe(false);
-    expect(result.reason).toBe('Roads cannot climb cliffs.');
+    expect(result.reason).toBe('Roads climb only one step at a time, across the cliff edge.');
+  });
+
+  test('roads climb one level where they cross a cliff edge', () => {
+    const { low, high } = slopeFixture();
+    const map = islandFor(SLOPE_SEED);
+    map.terrain[tileIndexOn(map, high.x, high.z)] = 'cliff';
+    const world = createWorld(SLOPE_SEED);
+    expect(build(world, 'road', low.x, low.z).ok).toBe(true);
+    expect(placement(world, 'road', high.x, high.z).ok).toBe(true);
+    expect(placeRoadPath(world, [low, high]).ok).toBe(true);
+    map.terrain[tileIndexOn(map, high.x, high.z)] = 'grass';
   });
 });
 
@@ -139,7 +150,7 @@ describe('build costs', () => {
     const world = createWorld(SLOPE_SEED);
     const result = placeRoadPath(world, [low, high]);
     expect(result.ok).toBe(false);
-    expect(result.reason).toBe('Roads cannot climb cliffs.');
+    expect(result.reason).toBe('Roads climb only one step at a time, across the cliff edge.');
   });
 });
 

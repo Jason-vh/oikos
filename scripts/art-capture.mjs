@@ -49,7 +49,7 @@ try {
   await page.goto(new URL('/art.html', base).href, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => document.body.dataset.ready || document.body.dataset.error);
   assert.equal(await page.locator('body').getAttribute('data-ready'), 'true');
-  for (const value of ['house:1', 'house:2', 'house:3', 'farm:1:0', 'farm:1:2', 'farm:1:3', 'granary:1:mixed:tower', 'granary:1:mixed:drum', 'granary:1:mixed:silos', 'granary:1:mixed:stoa', 'granary:1:mixed:terrace', 'granary:1:mixed:pithoi', 'granary:1:mixed:pithoi-low', 'granary:1:mixed:pithoi-open', 'granary:1:mixed:pithoi-sunk', 'granary:1:mixed:pithoi-colonnade', 'granary:1:mixed:pithoi-lodge', 'granary:1:empty:tower', 'granary:1:full:tower', 'agora:1', 'agora:2:empty', 'agora:2:mixed', 'fountain:1', 'maintenance:1']) {
+  for (const value of ['house:1', 'house:2', 'house:3', 'farm:1:0', 'farm:1:2', 'farm:1:3', 'granary:1:mixed:tower', 'granary:1:mixed:drum', 'granary:1:mixed:silos', 'granary:1:mixed:stoa', 'granary:1:mixed:terrace', 'granary:1:mixed:pithoi', 'granary:1:mixed:pithoi-low', 'granary:1:mixed:pithoi-open', 'granary:1:mixed:pithoi-sunk', 'granary:1:mixed:pithoi-colonnade', 'granary:1:mixed:pithoi-lodge', 'granary:1:empty:tower', 'granary:1:full:tower', 'agora:1', 'agora:2:empty', 'agora:2:mixed', 'fountain:1', 'maintenance:1', 'lodge:1', 'woodcutter:1', 'stockpile:1:materials']) {
     await page.getByLabel('Model', { exact: true }).selectOption(value);
     await paint(page);
     assert.equal(await page.locator('body').getAttribute('data-model'), value);
