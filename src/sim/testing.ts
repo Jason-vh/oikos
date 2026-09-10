@@ -1,0 +1,177 @@
+import type { ActionResult, Building, BuildingKind, BuildTool, Rotation, Tile, World } from './types';
+import { footprint } from './catalog';
+import { buildable, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
+import { mapOf, neighbours, perimeterTiles, footprintTiles } from './grid';
+import { placement, placeRoadPath } from './world';
+
+export { mapOf };
+
+export function findTile(world: World, predicate: (map: IslandMap, x: number, z: number) => boolean, near?: Tile): Tile | null {
+  const map = mapOf(world);
+  const centre = near ?? map.entry;
+  const reach = Math.max(map.width, map.depth);
+  for (let radius = 0; radius <= reach; radius++) {
+    for (let dz = -radius; dz <= radius; dz++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== radius) continue;
+        const x = centre.x + dx;
+        const z = centre.z + dz;
+        if (x < 0 || z < 0 || x >= map.width || z >= map.depth) continue;
+        if (predicate(map, x, z)) return { x, z };
+      }
+    }
+  }
+  return null;
+}
+
+export function spotFor(world: World, kind: BuildTool, near?: Tile, rotation: Rotation = 0): Tile | null {
+  return findTile(world, (_map, x, z) => placement(world, kind, x, z, rotation).ok, near);
+}
+
+export function freshRoadSpot(world: World, near?: Tile): Tile | null {
+  const map = mapOf(world);
+  return findTile(world, (_map, x, z) => {
+    if (world.roads.includes(tileIndexOn(map, x, z))) return false;
+    return placement(world, 'road', x, z).ok;
+  }, near);
+}
+
+export function farCorner(world: World): Tile {
+  const map = mapOf(world);
+  return {
+    x: map.entry.x > map.width / 2 ? 2 : map.width - 3,
+    z: map.entry.z > map.depth / 2 ? 2 : map.depth - 3,
+  };
+}
+
+function placeholderBuilding(kind: BuildingKind, rotation: Rotation, x: number, z: number): Building {
+  return {
+    id: 0, x, z, kind, rotation, tier: 1, residents: 0, food: 0, water: 0, condition: 100, stores: {},
+    progress: 0, workers: 0, vendorEnabled: false, vendorInstalled: false, connected: false, serviceTimer: 0, upgradeTimer: 0,
+  };
+}
+
+export function spotAdjacentTo(world: World, kind: BuildingKind, tile: Tile, rotation: Rotation = 0): Tile | null {
+  const map = mapOf(world);
+  const { width, depth } = footprint(kind, rotation);
+  const target = tileIndexOn(map, tile.x, tile.z);
+  for (let dz = -depth; dz <= 1; dz++) {
+    for (let dx = -width; dx <= 1; dx++) {
+      const x = tile.x + dx;
+      const z = tile.z + dz;
+      if (x < 0 || z < 0 || x + width > map.width || z + depth > map.depth) continue;
+      if (!perimeterTiles(map, placeholderBuilding(kind, rotation, x, z)).includes(target)) continue;
+      if (placement(world, kind, x, z, rotation).ok) return { x, z };
+    }
+  }
+  return null;
+}
+
+export function unevenFootprint(world: World, kind: BuildingKind, rotation: Rotation = 0): Tile | null {
+  const map = mapOf(world);
+  const { width, depth } = footprint(kind, rotation);
+  for (let z = 0; z <= map.depth - depth; z++) {
+    for (let x = 0; x <= map.width - width; x++) {
+      const base = levelOn(map, x, z);
+      let uneven = false;
+      for (let dz = 0; dz < depth && !uneven; dz++) {
+        for (let dx = 0; dx < width && !uneven; dx++) {
+          if (levelOn(map, x + dx, z + dz) !== base) uneven = true;
+        }
+      }
+      if (uneven) return { x, z };
+    }
+  }
+  return null;
+}
+
+function passableForRoad(world: World, map: IslandMap, roads: Set<number>, tile: number): boolean {
+  if (roads.has(tile)) return true;
+  const { x, z } = tileAtOn(map, tile);
+  const terrain = terrainOn(map, x, z);
+  if (!(buildable(terrain) || terrain === 'forest')) return false;
+  return !world.buildings.some((candidate) => footprintTiles(map, candidate).includes(tile));
+}
+
+function reconstruct(cameFrom: Map<number, number>, goal: number): number[] {
+  const path: number[] = [];
+  let node = goal;
+  while (node !== -1) {
+    path.push(node);
+    node = cameFrom.get(node) ?? -1;
+  }
+  return path.reverse();
+}
+
+function routeToRoad(world: World, map: IslandMap, roads: Set<number>, start: number): number[] | null {
+  if (roads.has(start)) return [start];
+  if (!passableForRoad(world, map, roads, start)) return null;
+  const cameFrom = new Map<number, number>([[start, -1]]);
+  const queue = [start];
+  let head = 0;
+  while (head < queue.length) {
+    const current = queue[head++];
+    const { x, z } = tileAtOn(map, current);
+    for (const next of neighbours(map, current)) {
+      if (cameFrom.has(next) || !passableForRoad(world, map, roads, next)) continue;
+      const { x: nx, z: nz } = tileAtOn(map, next);
+      if (levelOn(map, nx, nz) !== levelOn(map, x, z)) continue;
+      cameFrom.set(next, current);
+      if (roads.has(next)) return reconstruct(cameFrom, next);
+      queue.push(next);
+    }
+  }
+  return null;
+}
+
+export function connect(world: World, building: Building): ActionResult {
+  const map = mapOf(world);
+  const roads = new Set(world.roads);
+  let best: number[] | null = null;
+  for (const start of perimeterTiles(map, building)) {
+    const path = routeToRoad(world, map, roads, start);
+    if (path && (!best || path.length < best.length)) best = path;
+  }
+  if (!best) return { ok: false, reason: 'No route to the road network.' };
+  return placeRoadPath(world, best.map((tile) => tileAtOn(map, tile)));
+}
+
+export function isolatedRoadPair(world: World, near: Tile): [Tile, Tile] | null {
+  const map = mapOf(world);
+  const first = findTile(world, (candidateMap, x, z) => {
+    if (!buildable(terrainOn(candidateMap, x, z))) return false;
+    if (world.roads.includes(tileIndexOn(candidateMap, x, z))) return false;
+    return secondOf(candidateMap, x, z) !== null;
+  }, near);
+  if (!first) return null;
+  const second = secondOf(map, first.x, first.z);
+  return second ? [first, second] : null;
+
+  function secondOf(candidateMap: IslandMap, x: number, z: number): Tile | null {
+    for (const [dx, dz] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
+      const nx = x + dx;
+      const nz = z + dz;
+      if (nx < 0 || nz < 0 || nx >= candidateMap.width || nz >= candidateMap.depth) continue;
+      if (world.roads.includes(tileIndexOn(candidateMap, nx, nz))) continue;
+      if (!buildable(terrainOn(candidateMap, nx, nz))) continue;
+      if (levelOn(candidateMap, nx, nz) !== levelOn(candidateMap, x, z)) continue;
+      return { x: nx, z: nz };
+    }
+    return null;
+  }
+}
+
+export const SLOPE_SEED = 913_047;
+
+export function slopeFixture(): { low: Tile; high: Tile } {
+  const map = islandFor(SLOPE_SEED);
+  const low: Tile = { x: 2, z: 2 };
+  const high: Tile = { x: 3, z: 2 };
+  const lowIndex = tileIndexOn(map, low.x, low.z);
+  const highIndex = tileIndexOn(map, high.x, high.z);
+  map.terrain[lowIndex] = 'grass';
+  map.terrain[highIndex] = 'grass';
+  map.level[lowIndex] = 0;
+  map.level[highIndex] = 1;
+  return { low, high };
+}
