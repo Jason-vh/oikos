@@ -1,15 +1,18 @@
 # Art direction — Oikos miniature
 
 This is the visual contract for `src/art/`. It exists so a future agent can add a
-model, or judge whether one belongs, without re-litigating taste. The prototype at
-`/miniature.html` is the approved reference: chunky, sun-bleached, hand-built low-poly
-Aegean harbour. **The user has explicitly said no more detailing.** Every rule below
-exists to keep new work at the same level of finish as the prototype — not above it.
+model, or judge whether one belongs, without re-litigating taste. `/miniature.html`
+(`src/miniature/world.ts`) is the approved reference scene: chunky, sun-bleached,
+hand-built low-poly Aegean harbour. **The user has explicitly said no more
+detailing.** Every rule below exists to keep new work at the same level of finish as
+that scene — not above it.
 
-Canonical screenshot: `public/art/harbour.png`, captured by the parent game project
-from the `harbour` camera view of `/miniature.html` (see `main.ts`'s `views.harbour`).
-If a change makes the harbour look different from that PNG without a deliberate,
-signed-off reason, the change is wrong, not the picture.
+`src/art/` is the only source of models in this repo. `src/miniature/world.ts`
+imports its decorative models (`house`, `temple`, `boat`, `citizen`, `tree`, `stall`,
+etc.) straight from `../art` and renders them as the fixed harbour benchmark. The
+playable game (`src/render/city.ts`) calls `getBuildingModel()` from the same library
+to place buildings per tile. There is no second model source, and no pending swap —
+this is the integrated state.
 
 ## What this is not
 
@@ -20,12 +23,9 @@ signed-off reason, the change is wrong, not the picture.
 - Not photoreal. No PBR texture maps, no normal maps, no decals. Bevels and vertex
   colour are the entire toolkit for surface interest.
 - Not a target for "more detail". A model that already reads correctly at the
-  prototype's three camera distances (see below) is finished. Additional geometry
-  that doesn't change the read at those distances is scope creep, not craft.
-- The one named exception: a future glTF/GLB import pipeline may be added later for
-  hand-authored assets that need topology this code-first approach can't produce
-  economically. Nothing in this codebase currently does that, and adding it is out of
-  scope for this library — noted here so nobody mistakes its absence for an oversight.
+  camera distances below (see "Lighting, camera and shading budget") is finished.
+  Additional geometry that doesn't change the read at those distances is scope
+  creep, not craft.
 
 ## Palette
 
@@ -55,18 +55,19 @@ duplicated as a raw hex elsewhere. Every model call picks a name, not a value.
 
 Do not introduce a new colour without a reason a reviewer can see in the model it
 serves; do not reuse a name for a different hex. If a model needs vertex colour
-(the sail is the one precedent — see below), tint from this same palette.
+(the sail is the one precedent — see `src/art/ships.ts`), tint from this same
+palette.
 
 ## Material and geometry conventions
 
 - Every material is `MeshStandardMaterial({ color, roughness: 0.88 })`, cached once
   per colour in `primitives.ts`'s `material()`. Nothing sets `metalness` except the
-  hand-tuned water shader in `world.ts` (not part of this library) — buildings and
-  props stay matte.
+  hand-tuned water shader in `src/miniature/world.ts` (outside `src/art`) — buildings
+  and props stay matte.
 - Bevels: `box()` defaults to a `0.045` bevel radius, clamped to a quarter of the
-  smallest dimension so thin members don't self-intersect. This is the standard bevel
-  for the whole prototype; pass a different one only for a specific reason (the roof
-  ridge cap, the tiny window mullions) the way the original code already does.
+  smallest dimension so thin members don't self-intersect. Pass a different one only
+  for a specific reason — the roof ridge cap and the window mullions use a tighter
+  `0.02`/`0.01` bevel, the way the existing code already does.
 - `RoundedBoxGeometry` is built with a single segment (`1`) — the facets are visible
   and that's correct. Do not raise segment counts to "smooth out" a bevel; that reads
   as a style change, not a bugfix.
@@ -75,12 +76,11 @@ serves; do not reuse a name for a different hex. If a model needs vertex colour
 
 ## Scale
 
-- `CELL_SIZE = 1.25` (see `src/sim/island.ts`) — one simulation tile in world units.
-- `GROUND_Y = 1.15` — the height of the playable island's ground plane in the game
-  world. Models from `getBuildingModel()` are built with their own ground at
-  local `y = 0`; the caller (parent) is responsible for placing that group at world
-  `y = GROUND_Y` (or wherever the tile height requires) — this library never bakes
-  `GROUND_Y` into a model's geometry.
+- `CELL_SIZE = 1.25` (`src/sim/island.ts`) — one simulation tile in world units.
+- `GROUND_Y = 1.15` (`src/sim/island.ts`) — the height of the playable island's
+  ground plane. Models from `getBuildingModel()` are built with their own ground at
+  local `y = 0`; the renderer (`src/render/city.ts`) places that group at world
+  `y = GROUND_Y`. `src/art` never bakes `GROUND_Y` into a model's geometry.
 - A citizen (`citizen()` in `src/art/people.ts`) stands about **1.1** units tall.
   Every other model is scaled to read correctly next to that figure — a door a
   citizen can walk through, a table at roughly waist height. When adding a model,
@@ -113,70 +113,74 @@ enforces on every kind and tier:
 - The model's lowest point sits at `y ≈ 0` (within ~2cm) — it stands on its own
   footprint, doesn't float and doesn't sink.
 - The model faces **+Z**. Doors, windows, awnings, stalls, crop rows — whatever
-  reads as "front" — face positive Z. The parent rotates the whole group per the
-  building's placed `Rotation` in the world; this library never bakes a rotation in.
+  reads as "front" — face positive Z. `src/render/city.ts` rotates the whole group
+  per the building's placed `rotation` in the world; `src/art` never bakes a
+  rotation in.
 
-Decorative, non-catalog models (`tree`, `citizen`, `boat`, `temple`, `stall`, the old
-`house()`) don't carry a simulation footprint and aren't subject to this rule — they
-were part of the original approved scene and are preserved exactly as they were.
+Decorative, non-catalog models (`tree`, `citizen`, `boat`, `temple`, `stall`, the
+decorative `house()`) don't carry a simulation footprint and aren't subject to this
+rule — they were part of the original approved scene and are preserved exactly as
+they were.
 
 ## Housing tiers
 
 `house` is the only kind whose look changes with `tier` (the other kinds are
 functionally distinct enough — a farm vs. a granary — that they don't need a second
-axis of visual change). The three tiers are genuinely different massing, not palette
-swaps, while staying inside the same footprint and the same visual language as the
-approved prototype:
+axis of visual change). The three tiers, built by `dwelling(tier)` in
+`src/art/houses.ts`, are genuinely different massing, not palette swaps, while
+staying inside the same footprint and the same visual language as the approved
+prototype:
 
 1. **Small dwelling** — one room, low eaves, a single window. The plainest silhouette.
 2. **Cottage** — larger footprint, taller eaves, a door canopy, shutters on two
    faces. Reads as a step up without changing material language.
 3. **Taller courtyard house** — two storeys (upper-floor windows, a banding course
    between floors) with a small paved rear yard behind a low wall. This is *not* the
-   old prototype's wide courtyard extension (`house()` variant 2, in `houses.ts`,
-   preserved unchanged for the decorative scene) — that shape is wider than a 3×3
-   footprint allows. The playable tier keeps the two-storey silhouette and the idea
-   of a private yard, sized to fit.
+   decorative scene's wide courtyard extension (`house()` variant 2, in
+   `houses.ts`, preserved unchanged for `/miniature.html`) — that shape is wider
+   than a 3×3 footprint allows. The playable tier keeps the two-storey silhouette
+   and the idea of a private yard, sized to fit.
 
-## Lighting, camera and shading budget (as set by the shared `Stage`, `src/render/stage.ts`)
+## Lighting, camera and shading budget
 
-This library doesn't touch the renderer, but a model built without knowing how it'll
-be lit will look wrong under it. `Stage` is shared by the game (`/`), the harbour
-benchmark (`/miniature.html`) and the model viewer (`/art.html`); these are the
-settings all three run under:
+Set by the shared `Stage` (`src/render/stage.ts`), used by the game (`/`, built
+around `src/render/city.ts` + `src/render/island.ts`), the harbour benchmark
+(`/miniature.html`, `src/miniature/world.ts`), and the model viewer (`/art.html`,
+`src/art-viewer.ts`). A model built without knowing how it'll be lit will look wrong
+under it, so these are the settings all three run under:
 
-- **Camera**: orthographic, `(-30, 30, 20, -20, .1, 350)`. The benchmark has three
-  fixed views — harbour (`target [-2,0,-4]`, closest), streets (`target [-1,1.5,2]`,
-  closer still), archipelago (`target [4,0,-18]`, furthest); the model viewer uses
-  its own close-in view (`target [-1.2,1.2,0]`, `size 11`) built for judging one
-  building against a citizen. A model has to read at all of these; the model viewer's
-  distance and the benchmark's streets view are the harshest tests.
+- **Camera**: orthographic, `(-30, 30, 20, -20, .1, 350)`. `/miniature.html` has
+  three fixed views — harbour (`target [-2,0,-4]`, closest), streets
+  (`target [-1,1.5,2]`, closer still), archipelago (`target [4,0,-18]`, furthest);
+  the model viewer uses its own close-in view (`target [-1.2,1.2,0]`, `size 11`)
+  built for judging one building against a citizen. A model has to read at all of
+  these; the model viewer's distance and the benchmark's streets view are the
+  harshest tests.
 - **Key light**: one `DirectionalLight` (`0xffe6bd`, intensity `3.5`) from
   `(-25, 42, 24)`, casting shadows (`2048²` shadow map, `PCFSoftShadowMap`,
-  `shadowMap.autoUpdate = false`, refreshed on demand — at most every 150ms while the
-  game is animating, or once per change while it's static).
+  `shadowMap.autoUpdate = false`, refreshed on demand via `Stage.shadows()`).
 - **Fill**: one `HemisphereLight` (`0xe7f1ee` / `0xb4a075`, intensity `2.1`).
-- **Golden hour** (both benchmark and viewer have a toggle): sun colour
-  `0xffc083`, position `y 22` (lower angle), intensity `3.8`; ambient intensity
-  drops to `1.55`. A model should still read correctly under this, not just the
-  default noon light.
+- **Golden hour** (both benchmark and viewer have a toggle, `Stage.golden()`): sun
+  colour `0xffc083`, position `y 22` (lower angle), intensity `3.8`; ambient
+  intensity drops to `1.55`. A model should still read correctly under this, not
+  just the default noon light.
 - **Ambient occlusion**: a `GTAOPass` (radius `.65`, distance exponent `1.5`,
   thickness `1`, blend intensity `.65`), rendered at **70% of the display
   resolution** and upscaled — contact shadow is a cheap post-process, not geometry.
   Don't add extra small geometry purely to fake contact shadow; the AO pass is the
   budget for that.
 - **Anti-aliasing**: 2x MSAA on a half-float render target (`EffectComposer`'s
-  target has `samples: 2`), not a higher multiample count — edges on a model are
+  target has `samples: 2`), not a higher sample count — edges on a model are
   expected to show some aliasing at this budget, not to be perfectly smooth.
 - **Tone mapping**: ACES Filmic, exposure `1.18`.
 - **Render loop**: the renderer only redraws on invalidation (an orbit change, a
   world update, a toggled control), not continuously. While the game is running and
   unpaused, world state updates and the resulting redraw are capped to 30fps —
-  there is no budget here for a model whose *appearance* depends on being drawn at a
+  there is no budget for a model whose *appearance* depends on being drawn at a
   higher frame rate (no per-frame shader animation beyond the existing water/sail
-  treatment, which isn't part of this library).
+  treatment in `world.ts`, which isn't part of `src/art`).
 
-None of this is this library's to change — it's recorded here so a new model can be
+None of this is `src/art`'s to change — it's recorded here so a new model can be
 sanity-checked against it (e.g. "does this read under a low, warm key light from the
 west, at 70%-resolution AO") without booting the renderer.
 
@@ -184,26 +188,32 @@ west, at 70%-resolution AO") without booting the renderer.
 
 Every primitive call (`box`, `post`, `lump`, `roof`, `pot`, …) that shares a colour
 shares a material; `bake()` merges everything of one material into one draw call.
-Measured against the approved prototype's own models as the reference (all figures
-from `bun test src/art`, and reproducible with the snippets in
+Measured against the current models (reproducible with the snippets in
 `docs/art-tooling.md`):
 
 | model | draw calls (materials) | triangles |
 | --- | --- | --- |
-| decorative `house()`, plain variant | 11 | ~6,900 |
-| decorative `house()`, courtyard variant | 15 | ~7,400 |
+| decorative `house()`, variant 0 | 11 | ~6,900 |
+| decorative `house()`, variant 1 | 10 | ~9,100 |
+| decorative `house()`, variant 2 (courtyard) | 15 | ~7,400 |
 | `temple()` | 8 | ~11,500 |
 | `boat()` | 6 | ~1,000 |
 | `citizen()` | 6 | ~950 |
-| `getBuildingModel('house', 1..3)` | 8–10 | 3,600–8,000 |
-| `getBuildingModel('farm'\|'granary'\|'agora'\|'maintenance')` | 9–10 | 2,800–4,600 |
+| `getBuildingModel('house', 1)` | 8 | ~3,600 |
+| `getBuildingModel('house', 2)` | 10 | ~5,600 |
+| `getBuildingModel('house', 3)` | 10 | ~8,000 |
+| `getBuildingModel('farm')` | 10 | ~4,800 |
+| `getBuildingModel('granary')` | 10 | ~4,600 |
+| `getBuildingModel('agora')` | 3 | ~350 |
+| `getBuildingModel('agora', 1, true)` (with vendor stall) | 9 | ~2,850 |
 | `getBuildingModel('fountain')` | 6 | ~230 |
+| `getBuildingModel('maintenance')` | 9 | ~3,100 |
 
 `src/art/models.test.ts` enforces a ceiling of **16 draw calls** and **12,000
 triangles** per `getBuildingModel()` result — generous headroom above every measured
 model above, tight enough to fail loudly if a future change (e.g. raising a bevel
 segment count, or looping a decoration too many times) quietly balloons a model past
-the prototype's own complexity.
+the existing complexity.
 
 ## Model creation / editing workflow
 
@@ -228,21 +238,23 @@ the prototype's own complexity.
    ```
    or just run `bun test src/art` — the footprint test fails with the offending
    kind/tier named.
-5. Look at it. `/art.html` (the model viewer, built by the parent project around
-   `getBuildingModel()` — pick a kind/tier from the dropdown, see it against a
-   citizen and its dashed footprint outline, with a live triangle/mesh count,
-   wireframe toggle, turn/reset and golden-hour controls) is the fast per-model
-   loop; `/miniature.html` is the full scene and the final check, since a model
-   that's fine alone can still clash once it's sitting between the others.
-6. Compare against `public/art/harbour.png`. If the harbour reads differently at a
-   glance, figure out why before moving on — either the screenshot needs re-capturing
-   deliberately (rare, and worth a note in the commit) or the model regressed.
+5. Look at it. `/art.html` (the model viewer, `src/art-viewer.ts`) — pick a
+   kind/tier from the dropdown, see it against a citizen and its dashed footprint
+   outline, with a live triangle/mesh count, wireframe toggle, turn/reset and
+   golden-hour controls — is the fast per-model loop. `/miniature.html` is the full
+   scene and the final check, since a model that's fine alone can still clash once
+   it's sitting between the others.
+6. Capture before and after with `npm run art:capture` (see
+   `docs/art-tooling.md`) and compare the two sets of screenshots by eye. If the
+   harbour, streets or archipelago views read differently from the previous capture
+   at a glance, figure out why before moving on — either the change is a deliberate,
+   signed-off shift in the scene, or the model regressed.
 
 ## Screenshot acceptance
 
 A model (or a change to `src/art/primitives.ts` that everything else depends on)
-is acceptable when, captured at all three of the prototype's fixed camera views —
-harbour, streets, archipelago (see `main.ts`'s `views`) — it:
+is acceptable when, captured at all three of `/miniature.html`'s fixed camera views
+— harbour, streets, archipelago (`src/miniature/main.ts`'s `views`) — it:
 
 - sits fully inside its footprint with no visible gap or overlap onto neighbouring
   road tiles,
@@ -251,24 +263,7 @@ harbour, streets, archipelago (see `main.ts`'s `views`) — it:
 - keeps the palette above — no new colours, no gradient/texture maps,
 - doesn't change the silhouette or palette of anything not being worked on.
 
-`public/art/harbour.png` is the pinned reference for the harbour view; the streets
-and archipelago views don't have pinned screenshots yet but follow the same bar.
-
-## Validation and capture tooling
-
-- `npm run art:check` — the executable form of the footprint, ground,
-  triangle/draw-call and vertex-integrity rules above: `bun test src/art` (see
-  `src/art/models.test.ts`). Wired in the parent project's `package.json`; run it
-  from there. This worktree's own `package.json` still has the old, unrelated
-  Python/Blender `art:check` entry — that's this worktree's leftover, not a claim
-  about the integrated project.
-- `npm run art:capture` — regenerates `public/art/harbour.png` (and, eventually,
-  the streets/archipelago references) by driving `/miniature.html` headlessly. The
-  parent project's `package.json` points this at `scripts/art-capture.mjs`, but as
-  of this writing **that script has not been written yet** and `public/art/` is
-  still empty — owned by the parent project, which owns the renderer and the
-  headless capture harness (`scripts/smoke.mjs` is the closest existing precedent
-  for driving the page headlessly).
-
-Don't take either bullet above as a claim that capture is done: `art:check` is real
-and passing today; `art:capture` is named and scoped, not yet built.
+There is no screenshot committed to this repo to diff against — `artifacts/` (where
+`npm run art:capture` writes) is gitignored. A reviewer capturing locally, comparing
+the new set against a capture taken before the change, is the review process; see
+`docs/art-tooling.md`.
