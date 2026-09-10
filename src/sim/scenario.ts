@@ -42,6 +42,6 @@ export function buildStarterNeighbourhood(world: World): ActionResult {
   }
 
   const agora = world.buildings.find((building) => building.kind === 'agora');
-  if (!agora) return { ok: false, reason: 'agora missing' };
+  if (!agora) return { ok: false, reason: 'No agora was built.' };
   return setVendor(world, agora.id, true);
 }
