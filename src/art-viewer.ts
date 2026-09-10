@@ -1,5 +1,6 @@
 import * as T from 'three';
-import { citizen, colors, disposeModel, getBuildingModel, type GranaryVariant, type ModelStage } from './art';
+import { animalModel, animateAnimal, animateFigure, boat, citizen, colors, disposeModel, figure, getBuildingModel, type GranaryVariant, type ModelStage } from './art';
+import type { AnimalKind } from './sim/types';
 import { BUILDINGS, footprint } from './sim/catalog';
 import { CELL_SIZE } from './sim/island';
 import type { BuildingKind, Stores } from './sim/types';
@@ -15,8 +16,6 @@ import './art-viewer.css';
 
 function boot(): void {
   const stage = new Stage(document.querySelector<HTMLElement>('#app')!);
-  const view = { target: [-1.2, 1.2, 0], offset: [9, 8, 12], size: 11 };
-  stage.setView(view);
   const ground = new T.Mesh(new T.PlaneGeometry(2000, 2000).rotateX(-Math.PI / 2), new T.MeshStandardMaterial({ color: colors.grass, roughness: .88 }));
   ground.position.y = -.075;
   ground.receiveShadow = true;
@@ -34,6 +33,30 @@ function boot(): void {
   const select = document.querySelector<HTMLSelectElement>('#model')!;
   const wireframe = document.querySelector<HTMLInputElement>('#wireframe')!;
 
+  function buildSelected(id: string): { model: T.Group; footprint: { width: number; depth: number } | null; description: string; animate?: (time: number) => void } {
+    const [kindValue, tierValue, variant = '', granary = 'tower'] = id.split(':');
+    if (kindValue === 'animal') {
+      const kind = tierValue as AnimalKind;
+      const model = animalModel(kind);
+      return { model, footprint: null, description: `${kind[0].toUpperCase()}${kind.slice(1)}. Lives on the island; see src/sim/wildlife.ts for habitat and yield.`, animate: (time) => animateAnimal(model, kind, time, true) };
+    }
+    if (kindValue === 'person') {
+      const load = tierValue === 'jar' ? 'jar' : tierValue === 'bundle' ? 'bundle' : 'none';
+      const model = figure(colors.blue, load).root;
+      return { model, footprint: null, description: 'A citizen. Legs and arms swing while walking.', animate: (time) => animateFigure(model, time * 9, .55) };
+    }
+    if (kindValue === 'boat') {
+      return { model: boat(colors.blue, tierValue !== 'small'), footprint: null, description: 'A merchant boat with a striped sail.' };
+    }
+    const kind = kindValue as BuildingKind;
+    const tier = Number(tierValue) as 1 | 2 | 3;
+    const stores = STORE_VARIANTS[variant] ?? {};
+    const model = getBuildingModel(kind, { tier, vendorEnabled: kind === 'agora' && tier === 2, stage: Number(variant || 3) as ModelStage, stores, granary: granary as GranaryVariant });
+    return { model, footprint: footprint(kind), description: BUILDINGS[kind].description };
+  }
+
+  let animate: ((time: number) => void) | null = null;
+
   function showModel(): void {
     if (model) {
       model.removeFromParent();
@@ -44,11 +67,9 @@ function boot(): void {
       });
       disposeModel(model);
     }
-    const [kindValue, tierValue, variant = '', granary = 'tower'] = select.value.split(':');
-    const kind = kindValue as BuildingKind;
-    const tier = Number(tierValue) as 1 | 2 | 3;
-    const stores = STORE_VARIANTS[variant] ?? {};
-    model = getBuildingModel(kind, { tier, vendorEnabled: kind === 'agora' && tier === 2, stage: Number(variant || 3) as ModelStage, stores, granary: granary as GranaryVariant });
+    const selected = buildSelected(select.value);
+    model = selected.model;
+    animate = selected.animate ?? null;
     model.traverse((child) => {
       if (!(child instanceof T.Mesh)) return;
       const material = (child.material as T.MeshStandardMaterial).clone();
@@ -56,13 +77,20 @@ function boot(): void {
       child.material = material;
     });
     stage.scene.add(model);
-    const size = footprint(kind);
-    const w = size.width * CELL_SIZE / 2;
-    const d = size.depth * CELL_SIZE / 2;
-    border.geometry.dispose();
-    border.geometry = new T.BufferGeometry().setFromPoints([new T.Vector3(-w, -.02, -d), new T.Vector3(w, -.02, -d), new T.Vector3(w, -.02, d), new T.Vector3(-w, -.02, d)]);
-    border.computeLineDistances();
+    const size = selected.footprint;
+    border.visible = size !== null;
+    if (size) {
+      const w = size.width * CELL_SIZE / 2;
+      const d = size.depth * CELL_SIZE / 2;
+      border.geometry.dispose();
+      border.geometry = new T.BufferGeometry().setFromPoints([new T.Vector3(-w, -.02, -d), new T.Vector3(w, -.02, -d), new T.Vector3(w, -.02, d), new T.Vector3(-w, -.02, d)]);
+      border.computeLineDistances();
+    }
     const bounds = new T.Box3().setFromObject(model).getSize(new T.Vector3());
+    const extent = Math.max(bounds.x, bounds.y, bounds.z);
+    stage.setView({ target: [-extent * .25, extent * .25, 0], offset: [9, 8, 12], size: Math.max(2.2, extent * 2.4) });
+    reference.position.set(Math.max(1.1, extent * .7), 0, -Math.max(.9, extent * .5));
+    reference.visible = document.querySelector<HTMLInputElement>('#reference')!.checked && !select.value.startsWith('person');
     let triangles = 0;
     let meshes = 0;
     model.traverse((child) => {
@@ -72,32 +100,51 @@ function boot(): void {
     });
     const metrics = document.querySelector('#metrics')!;
     metrics.replaceChildren();
-    for (const [label, value] of [['Footprint', `${size.width} × ${size.depth} cells`], ['Bounds', `${bounds.x.toFixed(2)} × ${bounds.y.toFixed(2)} × ${bounds.z.toFixed(2)}`], ['Triangles', Math.round(triangles).toLocaleString()], ['Meshes', String(meshes)]]) {
+    for (const [label, value] of [['Footprint', size ? `${size.width} × ${size.depth} cells` : 'none'], ['Bounds', `${bounds.x.toFixed(2)} × ${bounds.y.toFixed(2)} × ${bounds.z.toFixed(2)}`], ['Triangles', Math.round(triangles).toLocaleString()], ['Meshes', String(meshes)]]) {
       const term = document.createElement('dt');
       const detail = document.createElement('dd');
       term.textContent = label;
       detail.textContent = value;
       metrics.append(term, detail);
     }
-    document.querySelector('#description')!.textContent = BUILDINGS[kind].description;
+    document.querySelector('#description')!.textContent = selected.description;
     document.body.dataset.model = select.value;
+    const url = new URL(location.href);
+    url.searchParams.set('model', select.value);
+    history.replaceState(null, '', url);
     stage.shadows();
   }
   select.addEventListener('change', showModel);
   wireframe.addEventListener('change', showModel);
   document.querySelector<HTMLInputElement>('#reference')!.addEventListener('change', (event) => {
-    reference.visible = (event.target as HTMLInputElement).checked;
+    reference.visible = (event.target as HTMLInputElement).checked && !select.value.startsWith('person');
     stage.shadows();
   });
   document.querySelector('#turn')!.addEventListener('click', () => { if (model) model.rotation.y += Math.PI / 2; stage.shadows(); });
-  document.querySelector('#reset')!.addEventListener('click', () => stage.setView(view));
+  document.querySelector('#reset')!.addEventListener('click', () => showModel());
   document.querySelector('#light')!.addEventListener('click', (event) => {
     golden = !golden;
     (event.currentTarget as HTMLButtonElement).setAttribute('aria-pressed', String(golden));
     stage.golden(golden);
   });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) stage.invalidate(); });
+  const requested = new URLSearchParams(location.search).get('model');
+  if (requested && Array.from(select.options).some((option) => option.value === requested)) select.value = requested;
   showModel();
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let previous = 0;
+  let elapsed = 0;
+  function frame(now: number): void {
+    const delta = previous === 0 ? 0 : Math.min((now - previous) / 1000, .05);
+    previous = now;
+    if (animate && !document.hidden && !reducedMotion) {
+      elapsed += delta;
+      animate(elapsed);
+      stage.invalidate();
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
   Reflect.set(window, 'artStudy', { get frames() { return stage.frames; }, get camera() { return [...stage.camera.position.toArray(), ...stage.controls.target.toArray(), stage.camera.zoom]; } });
 }
 

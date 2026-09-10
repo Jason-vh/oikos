@@ -62,6 +62,20 @@ try {
   const staticFrames = await page.evaluate(() => window.artStudy.frames);
   await paint(page, 8);
   assert.equal(await page.evaluate(() => window.artStudy.frames), staticFrames, 'Static atelier keeps rendering');
+  await page.getByLabel('Wireframe', { exact: true }).uncheck();
+  for (const value of ['person:jar', 'animal:boar', 'animal:rabbit', 'animal:fish', 'animal:gull', 'boat:large']) {
+    await page.getByLabel('Model', { exact: true }).selectOption(value);
+    await paint(page, 4);
+    assert.equal(await page.locator('body').getAttribute('data-model'), value);
+    assert.equal(new URL(page.url()).searchParams.get('model'), value, 'Selected model not written to the URL');
+    await page.screenshot({ path: path.join(output, `model-${value.replaceAll(':', '-')}.png`) });
+  }
+  const stillFrames = await page.evaluate(() => window.artStudy.frames);
+  await paint(page, 8);
+  assert.equal(await page.evaluate(() => window.artStudy.frames), stillFrames, 'Reduced motion should keep animated models still');
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForFunction(() => document.body.dataset.ready);
+  assert.equal(await page.locator('body').getAttribute('data-model'), 'boat:large', 'Model selection did not survive a reload');
   await page.setViewportSize({ width: 390, height: 844 });
   await paint(page);
   await page.screenshot({ path: path.join(output, 'atelier-mobile.png') });
