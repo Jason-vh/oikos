@@ -11,6 +11,16 @@ interface BuildingEntry { key: string; model: T.Group; }
 interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; from: T.Vector3; target: T.Vector3; elapsed: number; moving: boolean; working: boolean; facing: number | null; }
 interface AnimalEntry { model: T.Group; from: T.Vector3; target: T.Vector3; heading: number; elapsed: number; moving: boolean; dying: number; }
 
+const RAMP_SPAN = 1;
+
+function rampHeight(from: number, to: number, progress: number): number {
+  if (from === to) return from;
+  const start = .5 - RAMP_SPAN / 2;
+  const t = Math.min(1, Math.max(0, (progress - start) / RAMP_SPAN));
+  const tread = Math.abs(to - from) / 8;
+  return T.MathUtils.lerp(from, to, t) + (t > 0 && t < 1 ? tread / 2 : 0);
+}
+
 function modelStage(building: Building): ModelStage {
   if (building.kind === 'farm') return Math.min(3, Math.floor(building.progress * 4)) as ModelStage;
   return 3;
@@ -62,8 +72,8 @@ export class CityScene {
       if (climb) {
         const [dx, dz] = climb;
         const steps = 8;
-        const span = CELL_SIZE * 1.4;
-        const origin = { x: p.x + dx * (CELL_SIZE / 2 - span / 2 + CELL_SIZE * .45), z: p.z + dz * (CELL_SIZE / 2 - span / 2 + CELL_SIZE * .45) };
+        const span = CELL_SIZE * RAMP_SPAN;
+        const origin = { x: p.x + dx * CELL_SIZE / 2, z: p.z + dz * CELL_SIZE / 2 };
         for (let step = 0; step < steps; step++) {
           const along = (step + .5) / steps - .5;
           const rise = (step + 1) / steps * LEVEL_HEIGHT;
@@ -73,7 +83,13 @@ export class CityScene {
         for (const side of [-1, 1]) {
           box(this.roads, colors.stone, origin.x + (dx === 0 ? side * (CELL_SIZE / 2 - .05) : 0), y + LEVEL_HEIGHT * .5 + .1, origin.z + (dz === 0 ? side * (CELL_SIZE / 2 - .05) : 0), dx === 0 ? .1 : span, LEVEL_HEIGHT + .2, dz === 0 ? .1 : span, .02);
         }
-        box(this.roads, colors.paving, p.x - dx * CELL_SIZE * .3, y + .015, p.z - dz * CELL_SIZE * .3, dx === 0 ? CELL_SIZE : CELL_SIZE * .4, .07, dz === 0 ? CELL_SIZE : CELL_SIZE * .4, .025);
+        box(this.roads, colors.paving, p.x - dx * CELL_SIZE * .35, y + .015, p.z - dz * CELL_SIZE * .35, dx === 0 ? CELL_SIZE : CELL_SIZE * .3, .07, dz === 0 ? CELL_SIZE : CELL_SIZE * .3, .025);
+        continue;
+      }
+      const descent = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dz]) => roads.has(tileIndexOn(this.map, tile.x + dx, tile.z + dz)) && levelOn(this.map, tile.x + dx, tile.z + dz) === level - 1);
+      if (descent) {
+        const [dx, dz] = descent;
+        box(this.roads, colors.paving, p.x - dx * CELL_SIZE * .25, y + .015, p.z - dz * CELL_SIZE * .25, dx === 0 ? CELL_SIZE : CELL_SIZE * .5, .07, dz === 0 ? CELL_SIZE : CELL_SIZE * .5, .025);
         continue;
       }
       box(this.roads, colors.paving, p.x, y + .015, p.z, CELL_SIZE, .07, CELL_SIZE, .025);
@@ -230,7 +246,7 @@ export class CityScene {
     const next = tileAtOn(this.map, walker.path[Math.min(walker.step + 1, walker.path.length - 1)]);
     const a = worldPositionOn(this.map, current.x + .5, current.z + .5);
     const b = worldPositionOn(this.map, next.x + .5, next.z + .5);
-    const y = T.MathUtils.lerp(groundHeight(this.map, current.x, current.z), groundHeight(this.map, next.x, next.z), walker.progress);
+    const y = rampHeight(groundHeight(this.map, current.x, current.z), groundHeight(this.map, next.x, next.z), walker.progress);
     const target = new T.Vector3(T.MathUtils.lerp(a.x, b.x, walker.progress), y + .08, T.MathUtils.lerp(a.z, b.z, walker.progress));
     const load: Resource | null = walker.cargo > 0 ? walker.food : null;
     const key = `${walker.kind}:${load ?? ''}`;
