@@ -17,7 +17,6 @@
     "art:camera": "blender --background --python-exit-code 1 --python pipeline/check_camera.py"
   },
   "dependencies": {
-    "pixi.js": "^8.6.6",
     "three": "^0.186.0"
   },
   "devDependencies": {

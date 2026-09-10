@@ -1,226 +1,61 @@
-export type ServiceKind =
-  | 'food'
-  | 'water'
-  | 'oil'
-  | 'wine'
-  | 'fleece'
-  | 'armour'
-  | 'horses'
-  | 'culture'
-  | 'athletics'
-  | 'drama'
-  | 'tax'
-  | 'health'
-  | 'safety';
-
-export const SERVICE_KINDS: ServiceKind[] = [
-  'food',
-  'water',
-  'oil',
-  'wine',
-  'fleece',
-  'armour',
-  'horses',
-  'culture',
-  'athletics',
-  'drama',
-  'tax',
-  'health',
-  'safety',
-];
-
-export type Good =
-  | 'food'
-  | 'olives'
-  | 'oil'
-  | 'grapes'
-  | 'wine'
-  | 'fleece'
-  | 'wood'
-  | 'marble'
-  | 'bronze'
-  | 'armour'
-  | 'sculpture'
-  | 'horses';
-
-export const GOODS: Good[] = [
-  'food',
-  'olives',
-  'oil',
-  'grapes',
-  'wine',
-  'fleece',
-  'wood',
-  'marble',
-  'bronze',
-  'armour',
-  'sculpture',
-  'horses',
-];
-
-export type GoodStock = Record<Good, number>;
-
-export type BuildingKind =
-  | 'house'
-  | 'estate'
-  | 'wheatFarm'
-  | 'carrotFarm'
-  | 'onionFarm'
-  | 'huntingLodge'
-  | 'fishery'
-  | 'granary'
-  | 'growersLodge'
-  | 'olivePress'
-  | 'agora'
-  | 'grandAgora'
-  | 'college'
-  | 'podium'
-  | 'maintenanceOffice'
-  | 'fountain'
-  | 'statue'
-  | 'taxOffice'
-  | 'palace'
-  | 'tradingPost'
-  | 'infirmary'
-  | 'watchpost'
-  | 'heroHall'
-  | 'tower'
-  | 'vineyard'
-  | 'winery'
-  | 'cardingShed'
-  | 'gymnasium'
-  | 'dramaSchool'
-  | 'theatre'
-  | 'stadium'
-  | 'hippodrome'
-  | 'timberMill'
-  | 'masonryShop'
-  | 'foundry'
-  | 'armoury'
-  | 'sculptureStudio'
-  | 'horseRanch'
-  | 'mint'
-  | 'artisansGuild'
-  | 'monument'
-  | 'sanctuaryZeus'
-  | 'sanctuaryPoseidon'
-  | 'sanctuaryDemeter'
-  | 'sanctuaryAthena'
-  | 'sanctuaryArtemis'
-  | 'sanctuaryApollo'
-  | 'sanctuaryAres'
-  | 'sanctuaryHephaestus'
-  | 'sanctuaryAphrodite'
-  | 'sanctuaryHermes'
-  | 'sanctuaryDionysus'
-  | 'sanctuaryHades'
-  | 'sanctuaryHera'
-  | 'sanctuaryAtlas'
-  | 'pyramidModest'
-  | 'pyramid'
-  | 'pyramidGreat';
-
-export type ServiceSupply = Record<ServiceKind, number>;
-
-export interface Building {
+export type BuildingKind = 'house' | 'farm' | 'granary' | 'agora' | 'fountain' | 'maintenance';
+export type BuildTool = BuildingKind | 'road';
+export type Tool = BuildTool | 'inspect' | 'demolish';
+export type Rotation = 0 | 1 | 2 | 3;
+export type Terrain = 'water' | 'grass' | 'fertile' | 'hill';
+export interface Tile { x: number; z: number; }
+export interface Building extends Tile {
   id: number;
   kind: BuildingKind;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  tier: number;
-  population: number;
-  staff: number;
-  supply: ServiceSupply;
-  stock: GoodStock;
-  stalls: (Good | null)[];
-  roadRow: number;
-  fireRisk: number;
-  damageRisk: number;
-  disease: number;
-  crime: number;
-  productionProgress: number;
-  built: number;
-  spawnTimer: number;
-  walkersOut: number;
+  rotation: Rotation;
+  tier: 1 | 2 | 3;
+  residents: number;
+  food: number;
+  water: number;
+  condition: number;
+  stock: number;
+  progress: number;
+  workers: number;
+  vendorEnabled: boolean;
+  connected: boolean;
+  serviceTimer: number;
+  upgradeTimer: number;
 }
-
-export type WalkerKind =
-  | 'cartPusher'
-  | 'deliveryman'
-  | 'peddler'
-  | 'waterCarrier'
-  | 'philosopher'
-  | 'superintendent'
-  | 'clerk'
-  | 'doctor'
-  | 'watchman'
-  | 'athlete'
-  | 'actor'
-  | 'soldier'
-  | 'invader'
-  | 'artisan'
-  | 'immigrant'
-  | 'emigrant';
-
-export type WalkerState = 'roaming' | 'delivering' | 'returning';
-
+export type WalkerKind = 'cart' | 'buyer' | 'vendor' | 'water' | 'maintenance';
 export interface Walker {
   id: number;
   kind: WalkerKind;
   homeId: number;
-  targetId: number;
-  state: WalkerState;
-  from: number;
-  to: number;
-  prev: number;
+  targetId: number | null;
+  path: number[];
+  step: number;
   progress: number;
-  route: number[];
-  routeIndex: number;
-  stepsLeft: number;
   cargo: number;
-  good: Good;
+  returning: boolean;
 }
-
-export const emptySupply = (): ServiceSupply => (Object.fromEntries(SERVICE_KINDS.map((service) => [service, 0])) as ServiceSupply);
-
-export const FINISHED = 100;
-
-export const NO_ROAD_ROW = -1;
-
-export const emptyStock = (): GoodStock =>
-  Object.fromEntries(GOODS.map((good) => [good, 0])) as GoodStock;
-
-export function createBuilding(
-  id: number,
-  kind: BuildingKind,
-  x: number,
-  y: number,
-  width: number,
-  height = width,
-): Building {
-  return {
-    id,
-    kind,
-    x,
-    y,
-    width,
-    height,
-    tier: 0,
-    population: 0,
-    staff: 0,
-    supply: emptySupply(),
-    stock: emptyStock(),
-    stalls: [],
-    roadRow: NO_ROAD_ROW,
-    fireRisk: 0,
-    damageRisk: 0,
-    disease: 0,
-    crime: 0,
-    productionProgress: 0,
-    built: kind.startsWith('sanctuary') || kind.startsWith('pyramid') ? 0 : FINISHED,
-    spawnTimer: 0,
-    walkersOut: 0,
-  };
+export interface World {
+  version: 1;
+  island: 'thalassa';
+  time: number;
+  remainder: number;
+  money: number;
+  nextId: number;
+  roads: number[];
+  buildings: Building[];
+  walkers: Walker[];
+  produced: number;
+  delivered: number;
+}
+export interface ActionResult { ok: boolean; reason: string; }
+export interface Placement extends ActionResult { cost: number; tiles: number[]; }
+export interface Summary {
+  population: number;
+  workers: number;
+  jobs: number;
+  food: number;
+  income: number;
+  upkeep: number;
+  balance: number;
+  prosperous: number;
+  goal: boolean;
 }
