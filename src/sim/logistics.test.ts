@@ -3,9 +3,11 @@ import { advance, build, createWorld } from './world';
 import { buildStarterNeighbourhood } from './scenario';
 import { buildServiceCircuit, exitTile } from './grid';
 import { ROAD_BUDGET } from './balance';
-import { serviceRoute, walkerRoute } from './logistics';
-import { farCorner, spotFor } from './testing';
-import type { WalkerKind, World } from './types';
+import { deliveryRoutes, serviceRoute, walkerRoute } from './logistics';
+import { connect, farCorner, spotFor } from './testing';
+import { islandFor } from './island';
+import { GATHER_RANGE } from './gathering';
+import type { Tile, Walker, WalkerKind, World } from './types';
 
 function findByKind(world: World, kind: string) {
   return world.buildings.find((building) => building.kind === kind)!;
@@ -80,6 +82,94 @@ describe('serviceRoute', () => {
     const servedKinds = new Set(route!.servedIds.map((id) => world.buildings.find((building) => building.id === id)!.kind));
     expect(servedKinds.has('house')).toBe(true);
     expect([...servedKinds].some((kind) => kind !== 'house')).toBe(true);
+  });
+});
+
+function nearForest(world: World): Tile | null {
+  const map = islandFor(world.seed);
+  for (let z = 0; z < map.depth; z++) {
+    for (let x = 0; x < map.width; x++) {
+      if (map.terrain[z * map.width + x] !== 'forest') continue;
+      const spot = spotFor(world, 'woodcutter', { x, z });
+      if (spot && Math.abs(spot.x - x) + Math.abs(spot.z - z) < GATHER_RANGE / 2) return spot;
+    }
+  }
+  return null;
+}
+
+describe('deliveryRoutes', () => {
+  test('non-supply-chain building kinds have no delivery routes', () => {
+    const world = createWorld();
+    expect(buildStarterNeighbourhood(world).ok).toBe(true);
+    expect(deliveryRoutes(world, findByKind(world, 'house'))).toEqual([]);
+    expect(deliveryRoutes(world, findByKind(world, 'fountain'))).toEqual([]);
+  });
+
+  test('a connected, idle farm shows no route: connectivity alone never implies a delivery', () => {
+    const world = createWorld();
+    expect(buildStarterNeighbourhood(world).ok).toBe(true);
+    const farm = findByKind(world, 'farm');
+    expect(farm.connected).toBe(true);
+    expect(deliveryRoutes(world, farm)).toEqual([]);
+  });
+
+  test('a farm with an outgoing cart shows its actual in-flight path to the granary', () => {
+    const world = createWorld();
+    expect(buildStarterNeighbourhood(world).ok).toBe(true);
+    const farm = findByKind(world, 'farm');
+    const granary = findByKind(world, 'granary');
+    let cart: Walker | undefined;
+    for (let t = 0; t < 200 && !cart; t++) {
+      advance(world, 1);
+      cart = world.walkers.find((walker) => walker.kind === 'cart' && walker.homeId === farm.id);
+    }
+    expect(cart).toBeTruthy();
+    const routes = deliveryRoutes(world, farm);
+    expect(routes).toHaveLength(1);
+    expect(routes[0].path).toEqual(cart!.path);
+    expect(routes[0].otherId).toBe(granary.id);
+    const fromGranary = deliveryRoutes(world, granary);
+    expect(fromGranary).toHaveLength(1);
+    expect(fromGranary[0].otherId).toBe(farm.id);
+  });
+
+  test('a granary shows an active buyer fetching food for the agora', () => {
+    const world = createWorld();
+    expect(buildStarterNeighbourhood(world).ok).toBe(true);
+    const granary = findByKind(world, 'granary');
+    const agora = findByKind(world, 'agora');
+    let buyer: Walker | undefined;
+    for (let t = 0; t < 300 && !buyer; t++) {
+      advance(world, 1);
+      buyer = world.walkers.find((walker) => walker.kind === 'buyer' && walker.targetId === granary.id);
+    }
+    expect(buyer).toBeTruthy();
+    const routes = deliveryRoutes(world, granary);
+    expect(routes.some((route) => route.walkerId === buyer!.id && route.otherId === agora.id)).toBe(true);
+  });
+
+  test('a stockpile shows an incoming cart from a woodcutter', () => {
+    const world = createWorld(1);
+    const spot = nearForest(world)!;
+    expect(spot).not.toBeNull();
+    expect(build(world, 'woodcutter', spot.x, spot.z).ok).toBe(true);
+    const woodcutter = world.buildings[0];
+    expect(connect(world, woodcutter).ok).toBe(true);
+    const pileSpot = spotFor(world, 'stockpile', spot)!;
+    expect(build(world, 'stockpile', pileSpot.x, pileSpot.z).ok).toBe(true);
+    const stockpile = world.buildings[1];
+    expect(connect(world, stockpile).ok).toBe(true);
+    const house = spotFor(world, 'house', islandFor(world.seed).entry)!;
+    expect(build(world, 'house', house.x, house.z).ok).toBe(true);
+    expect(connect(world, world.buildings[2]).ok).toBe(true);
+    let cart: Walker | undefined;
+    for (let t = 0; t < 400 && !cart; t++) {
+      advance(world, 1);
+      cart = world.walkers.find((walker) => walker.kind === 'cart' && walker.targetId === stockpile.id);
+    }
+    expect(cart).toBeTruthy();
+    const routes = deliveryRoutes(world, stockpile);
+    expect(routes.some((route) => route.walkerId === cart!.id && route.otherId === woodcutter.id)).toBe(true);
   });
 });
 

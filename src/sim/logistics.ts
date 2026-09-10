@@ -43,3 +43,25 @@ function plannedCircuit(world: World, building: Building): number[] {
 export function walkerRoute(walker: Walker): number[] {
   return walker.path.slice(walker.step);
 }
+
+const SUPPLY_KINDS = new Set<BuildingKind>(['farm', 'granary', 'stockpile']);
+
+export interface DeliveryRoute {
+  walkerId: number;
+  path: number[];
+  otherId: number;
+}
+
+export function deliveryRoutes(world: World, building: Building): DeliveryRoute[] {
+  if (!SUPPLY_KINDS.has(building.kind)) return [];
+  const routes: DeliveryRoute[] = [];
+  for (const walker of world.walkers) {
+    if (walker.targetId === null) continue;
+    if ((walker.kind === 'cart' || walker.kind === 'buyer') && walker.homeId === building.id) {
+      routes.push({ walkerId: walker.id, path: walker.path, otherId: walker.targetId });
+    } else if ((walker.kind === 'cart' || walker.kind === 'buyer') && walker.targetId === building.id) {
+      routes.push({ walkerId: walker.id, path: walker.path, otherId: walker.homeId });
+    }
+  }
+  return routes;
+}

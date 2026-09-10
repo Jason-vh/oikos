@@ -2,11 +2,14 @@ import * as T from 'three';
 import { bake, colors, disposeModel, houseSupplies, post } from '../art';
 import { footprint } from '../sim/catalog';
 import { CELL_SIZE, groundHeight, tileAtOn, worldPositionOn, type IslandMap } from '../sim/island';
-import { serviceRoute, walkerRoute } from '../sim/logistics';
+import { deliveryRoutes, serviceRoute, walkerRoute } from '../sim/logistics';
 import type { Building, World } from '../sim/types';
 
 const ROUTE_COLOR = colors.blueLight;
+const DELIVERY_COLOR = colors.roof;
 const SERVED_COLOR = colors.gold;
+
+type RouteStyle = 'planned' | 'live' | 'delivery';
 
 function disconnectedMark(depth: number): T.Group {
   const mark = new T.Group();
@@ -61,6 +64,7 @@ export class LogisticsOverlay {
   private readonly unitPlane = new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
   private readonly plannedMaterial = new T.MeshBasicMaterial({ color: ROUTE_COLOR, transparent: true, opacity: .48, depthWrite: false });
   private readonly liveMaterial = new T.MeshBasicMaterial({ color: ROUTE_COLOR, transparent: true, opacity: .68, depthWrite: false });
+  private readonly deliveryMaterial = new T.MeshBasicMaterial({ color: DELIVERY_COLOR, transparent: true, opacity: .55, depthWrite: false });
   private readonly servedMaterial = new T.MeshBasicMaterial({ color: SERVED_COLOR, transparent: true, opacity: .4, depthWrite: false });
   private key = '';
 
@@ -76,29 +80,41 @@ export class LogisticsOverlay {
     }
     const building = buildingId !== null ? world.buildings.find((candidate) => candidate.id === buildingId) ?? null : null;
     if (building) {
-      const route = serviceRoute(world, building);
-      const key = route ? `b:${building.id}:${route.live}:${route.path.join(',')}` : '';
-      this.apply(world, key, route?.path ?? [], route?.servedIds ?? [], route?.live ?? false);
+      const circuit = serviceRoute(world, building);
+      if (circuit) {
+        const key = `b:${building.id}:${circuit.live}:${circuit.path.join(',')}`;
+        this.apply(world, key, [circuit.path], circuit.servedIds, circuit.live ? 'live' : 'planned');
+        return;
+      }
+      const deliveries = deliveryRoutes(world, building);
+      if (deliveries.length > 0) {
+        const key = `d:${building.id}:${deliveries.map((route) => `${route.walkerId}=${route.path.join('-')}`).join(',')}`;
+        this.apply(world, key, deliveries.map((route) => route.path), deliveries.map((route) => route.otherId), 'delivery');
+        return;
+      }
+      this.clear();
       return;
     }
     const walker = walkerId !== null ? world.walkers.find((candidate) => candidate.id === walkerId) ?? null : null;
     if (walker) {
       const path = walkerRoute(walker);
       const key = `w:${walker.id}:${path.join(',')}`;
-      this.apply(world, key, path, [], true);
+      this.apply(world, key, [path], [], 'live');
       return;
     }
     this.clear();
   }
 
-  private apply(world: World, key: string, path: number[], servedIds: number[], live: boolean): void {
+  private apply(world: World, key: string, paths: number[][], servedIds: number[], style: RouteStyle): void {
     if (key === this.key) return;
     this.key = key;
     this.routeTiles.clear();
     this.servedMarks.clear();
     if (key === '') return;
-    const routeMaterial = live ? this.liveMaterial : this.plannedMaterial;
-    for (const index of new Set(path)) {
+    const routeMaterial = style === 'live' ? this.liveMaterial : style === 'delivery' ? this.deliveryMaterial : this.plannedMaterial;
+    const tiles = new Set<number>();
+    for (const path of paths) for (const index of path) tiles.add(index);
+    for (const index of tiles) {
       const tile = tileAtOn(this.map, index);
       const point = worldPositionOn(this.map, tile.x + .5, tile.z + .5);
       const surface = new T.Mesh(this.unitPlane, routeMaterial);
@@ -106,7 +122,7 @@ export class LogisticsOverlay {
       surface.position.set(point.x, groundHeight(this.map, tile.x, tile.z) + .09, point.z);
       this.routeTiles.add(surface);
     }
-    for (const id of servedIds) {
+    for (const id of new Set(servedIds)) {
       const served = world.buildings.find((candidate) => candidate.id === id);
       if (!served) continue;
       const { width, depth } = footprint(served.kind, served.rotation);
@@ -131,6 +147,7 @@ export class LogisticsOverlay {
     this.unitPlane.dispose();
     this.plannedMaterial.dispose();
     this.liveMaterial.dispose();
+    this.deliveryMaterial.dispose();
     this.servedMaterial.dispose();
   }
 }
