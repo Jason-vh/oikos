@@ -5,7 +5,10 @@ import { CELL_SIZE } from '../sim/island';
 import { bake, box, colors, post } from './primitives';
 import { dwelling } from './houses';
 import { wheatFarm } from './vegetation';
-import { granary as granaryModel, fountain as fountainModel, maintenance as maintenanceModel } from './civic';
+import { fountain as fountainModel, maintenance as maintenanceModel } from './civic';
+import { granaryVariant, type GranaryVariant } from './granaries';
+
+export const GRANARY_VARIANT: GranaryVariant = 'pithoi-low';
 import { stall } from './temple';
 
 export function footprintSize(kind: BuildingKind): { width: number; depth: number } {
@@ -26,10 +29,10 @@ function agora(vendorEnabled: boolean, stores: Stores): T.Group {
 
 export type ModelStage = 0 | 1 | 2 | 3;
 
-export interface ModelState { tier?: 1 | 2 | 3; vendorEnabled?: boolean; stage?: ModelStage; stores?: Stores; }
+export interface ModelState { tier?: 1 | 2 | 3; vendorEnabled?: boolean; stage?: ModelStage; stores?: Stores; granary?: GranaryVariant; }
 
 export function getBuildingModel(kind: BuildingKind, state: ModelState = {}): T.Group {
-  const { tier = 1, vendorEnabled = false, stage = 3, stores = {} } = state;
+  const { tier = 1, vendorEnabled = false, stage = 3, stores = {}, granary = GRANARY_VARIANT } = state;
   const model = new T.Group();
   switch (kind) {
     case 'house':
@@ -39,7 +42,7 @@ export function getBuildingModel(kind: BuildingKind, state: ModelState = {}): T.
       model.add(wheatFarm(stage));
       break;
     case 'granary':
-      model.add(granaryModel(stores));
+      model.add(granaryVariant(granary, stores));
       break;
     case 'agora':
       model.add(agora(vendorEnabled, stores));

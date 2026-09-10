@@ -1,7 +1,5 @@
 import * as T from 'three';
-import type { Stores } from '../sim/types';
-import { box, colors, group, lump, post, pot, roof } from './primitives';
-import { bundle, bundlesOf } from './food';
+import { box, colors, lump, post, pot, roof } from './primitives';
 
 export function fountain(): T.Group {
   const basin = new T.Group();
@@ -32,28 +30,4 @@ export function maintenance(): T.Group {
   return shed;
 }
 
-const GRANARY_SLOTS: [number, number][] = [[-1.05, 1.05], [0, 1.05], [1.05, 1.05], [1.05, 0], [1.05, -1.05], [0, -1.05], [-1.05, -1.05], [-1.05, 0]];
-
-export function granary(stores: Stores = {}): T.Group {
-  const store = new T.Group();
-  box(store, colors.stone, 0, .12, 0, 3.5, .24, 3.5);
-  box(store, colors.paving, 0, .25, 0, 3.3, .04, 3.3);
-  for (const [px, pz] of [[-1.7, 0], [1.7, 0]]) box(store, colors.stone, px, .4, pz, .14, .32, 3.5);
-  for (const [px, pz] of [[0, -1.7], [0, 1.7]]) box(store, colors.stone, px, .4, pz, 3.5, .32, .14);
-  const tower = group(store, 0, .27, 0);
-  box(tower, colors.stone, 0, .12, 0, 1.3, .24, 1.3);
-  box(tower, colors.plaster, 0, .95, 0, 1.1, 1.5, 1.1, .06);
-  box(tower, colors.cream, 0, 1.75, 0, 1.28, .14, 1.28);
-  roof(tower, 1.55, 1.55, 1.81, .5, colors.roofDark);
-  for (const [px, pz, angle] of [[0, .56, 0], [.56, 0, Math.PI / 2], [0, -.56, Math.PI], [-.56, 0, -Math.PI / 2]]) {
-    const face = group(tower, px, 0, pz, angle);
-    box(face, colors.wood, 0, .62, 0, .5, .78, .07);
-    box(face, colors.dark, 0, 1.35, 0, .26, .26, .07);
-  }
-  for (const [px, pz] of GRANARY_SLOTS) box(store, colors.earth, px, .285, pz, .82, .03, .82, .01);
-  bundlesOf(stores, GRANARY_SLOTS.length).forEach((food, index) => {
-    const [px, pz] = GRANARY_SLOTS[index];
-    bundle(store, food, px, .3, pz, index);
-  });
-  return store;
-}
+export { towerGranary as granary } from './granaries';
