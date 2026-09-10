@@ -50,9 +50,8 @@ function formatSigned(value: number): string {
 }
 
 function calendar(world: World): { day: number; month: number } {
-  const month = Math.floor(world.time) + 1;
-  const progress = Math.min(Math.max(world.remainder / MONTH_SECONDS, 0), 1);
-  const day = Math.min(30, Math.floor(progress * 30) + 1);
+  const month = Math.floor(world.time / MONTH_SECONDS) + 1;
+  const day = Math.floor((world.time % MONTH_SECONDS) / MONTH_SECONDS * 30) + 1;
   return { day, month };
 }
 
@@ -70,21 +69,21 @@ interface Milestones {
   courtyards: boolean;
 }
 
-function computeMilestones(world: World): Milestones {
+function computeMilestones(world: World, summary: Summary): Milestones {
   const houses = world.buildings.filter((building) => building.kind === 'house');
   const farms = world.buildings.some((building) => building.kind === 'farm');
   const granaries = world.buildings.some((building) => building.kind === 'granary');
   const agoraVendor = world.buildings.some((building) => building.kind === 'agora' && vendorInstalled(building));
   const fountains = world.buildings.some((building) => building.kind === 'fountain');
   const maintenance = world.buildings.some((building) => building.kind === 'maintenance');
-  const courtyards = houses.filter((house) => house.tier === 3 && house.residents > 0).length;
+  const courtyardCount = houses.filter((house) => house.tier === 3).length;
   return {
     houses: houses.length >= 4,
     farmGranary: farms && granaries,
     agoraVendor,
     foodDelivered: world.delivered > 0,
     services: fountains && maintenance,
-    courtyards: courtyards >= 4,
+    courtyards: courtyardCount >= 4 && (summary.goal || summary.balance >= 0),
   };
 }
 
@@ -133,8 +132,8 @@ const SKELETON = `
     </header>
     <nav class="hud-panel hud-controlbar" aria-label="Simulation controls" data-testid="controlbar">
       <div class="hud-group" role="group" aria-label="Simulation speed">
-        <button type="button" data-speed="0" aria-pressed="true">Pause</button>
-        <button type="button" data-speed="1" aria-pressed="false">1\u00d7</button>
+        <button type="button" data-speed="0" aria-pressed="false" aria-label="Pause, shortcut Space">Pause</button>
+        <button type="button" data-speed="1" aria-pressed="true">1\u00d7</button>
         <button type="button" data-speed="3" aria-pressed="false">3\u00d7</button>
       </div>
       <div class="hud-group" role="group" aria-label="Island file">
@@ -194,7 +193,7 @@ const SKELETON = `
   <dialog class="hud-dialog" data-testid="new-island-dialog">
     <form method="dialog">
       <h2>Start a new island?</h2>
-      <p>Your current island will be lost unless you have saved it.</p>
+      <p>This replaces your saved island \u2014 the controller autosaves right away.</p>
       <div class="hud-dialog-actions">
         <button type="submit" value="cancel">Cancel</button>
         <button type="submit" value="confirm" class="hud-primary" autofocus>New island</button>
@@ -369,15 +368,15 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     rowWater.hidden = selected.kind !== 'house';
     if (selected.kind === 'house') {
       field(rowFood, 'inspector-food').textContent = selected.food > 0 ? 'Stocked' : 'Needed';
-      field(rowWater, 'inspector-water').textContent = selected.water > 0 ? 'Stocked' : 'Needed';
+      field(rowWater, 'inspector-water').textContent = selected.water > 0 ? `${Math.round(selected.water)}s left` : 'Needed';
     }
 
     inspectorStatus.textContent = describeStatus(selected);
     updateVendor(selected);
   }
 
-  function updateMilestones(world: World): void {
-    const milestones = computeMilestones(world);
+  function updateMilestones(world: World, summary: Summary): void {
+    const milestones = computeMilestones(world, summary);
     for (const [key, input] of milestoneInputs) {
       input.checked = milestones[key];
     }
@@ -404,7 +403,7 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
       noticesField.hidden = true;
     }
 
-    updateMilestones(world);
+    updateMilestones(world, summary);
     updateInspector(selected);
   }
 
