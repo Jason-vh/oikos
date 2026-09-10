@@ -1,5 +1,6 @@
 import type { Building, Rotation, Summary, Tool, World } from '../sim/types';
 import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, VENDOR_COST } from '../sim/catalog';
+import { toolIcon } from './icons';
 
 export interface HudActions {
   tool(tool: Tool): void;
@@ -10,7 +11,6 @@ export interface HudActions {
   newIsland(): void;
   vendor(id: number, enabled: boolean): void;
   focus(x: number, z: number): void;
-  resetCamera(): void;
   grid(enabled: boolean): void;
 }
 
@@ -20,23 +20,25 @@ export interface Hud {
   setSpeed(speed: 0 | 1 | 3): void;
   notify(message: string, error?: boolean): void;
   setHint(message: string): void;
+  setGrid(enabled: boolean): void;
+  toggleMenu(): boolean;
   dispose(): void;
 }
 
-const TOOL_DEFS: Array<{ tool: Tool; label: string; cost: string | null; key: string }> = [
-  { tool: 'road', label: 'Road', cost: `${ROAD_COST}/tile`, key: '1' },
+const TOOL_DEFS: Array<{ tool: Tool; label: string; cost: string; key: string }> = [
+  { tool: 'road', label: 'Road', cost: `${ROAD_COST} / tile`, key: '1' },
   { tool: 'house', label: BUILDINGS.house.name, cost: String(BUILDINGS.house.cost), key: '2' },
   { tool: 'farm', label: BUILDINGS.farm.name, cost: String(BUILDINGS.farm.cost), key: '3' },
   { tool: 'granary', label: BUILDINGS.granary.name, cost: String(BUILDINGS.granary.cost), key: '4' },
   { tool: 'agora', label: BUILDINGS.agora.name, cost: String(BUILDINGS.agora.cost), key: '5' },
   { tool: 'fountain', label: BUILDINGS.fountain.name, cost: String(BUILDINGS.fountain.cost), key: '6' },
   { tool: 'maintenance', label: BUILDINGS.maintenance.name, cost: String(BUILDINGS.maintenance.cost), key: '7' },
-  { tool: 'demolish', label: 'Demolish', cost: null, key: 'X' },
-  { tool: 'inspect', label: 'Inspect', cost: null, key: 'Esc' },
+  { tool: 'demolish', label: 'Demolish', cost: 'half refunded', key: 'X' },
 ];
 
-const ROTATION_DEGREES: Record<Rotation, number> = { 0: 0, 1: 90, 2: 180, 3: 270 };
 const TOAST_LIFETIME = 3200;
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const FOUNDING_YEAR_BC = 421;
 
 function formatDrachma(value: number): string {
   return `${Math.round(value).toLocaleString('en-US')} dr`;
@@ -49,10 +51,11 @@ function formatSigned(value: number): string {
   return '0 dr';
 }
 
-function calendar(world: World): { day: number; month: number } {
-  const month = Math.floor(world.time / MONTH_SECONDS) + 1;
+function formatDate(world: World): string {
+  const months = Math.floor(world.time / MONTH_SECONDS);
   const day = Math.floor((world.time % MONTH_SECONDS) / MONTH_SECONDS * 30) + 1;
-  return { day, month };
+  const year = FOUNDING_YEAR_BC - Math.floor(months / 12);
+  return `${day} ${MONTHS[months % 12]} ${year} BC`;
 }
 
 function vendorInstalled(building: Building): boolean {
@@ -90,9 +93,7 @@ function computeMilestones(world: World, summary: Summary): Milestones {
 const SKELETON = `
   <div class="hud-top">
     <header class="hud-panel hud-masthead" data-testid="masthead">
-      <div class="hud-identity">
-        <h1>Oikos<span> / Kalliste</span></h1>
-      </div>
+      <h1>Oikos</h1>
       <dl class="hud-resources" aria-label="City resources">
         <div><dt>Population</dt><dd data-field="population">0</dd></div>
         <div><dt>Treasury</dt><dd data-field="treasury">0 dr</dd></div>
@@ -100,31 +101,16 @@ const SKELETON = `
         <div><dt>Balance</dt><dd data-field="balance">0 dr</dd></div>
         <div><dt>Employed</dt><dd data-field="employed">0 / 0</dd></div>
       </dl>
-      <div class="hud-time" aria-label="Calendar">
-        <span class="hud-time-label">Time</span>
-        <strong data-field="time">Month 1 \u00b7 Day 1</strong>
+      <div class="hud-clock">
+        <time data-field="time">1 Jan 421 BC</time>
+        <div class="hud-speed" role="group" aria-label="Simulation speed">
+          <button type="button" data-speed="0" aria-pressed="false" aria-label="Pause, shortcut Space">Pause</button>
+          <button type="button" data-speed="1" aria-pressed="true" aria-label="Normal speed">1\u00d7</button>
+          <button type="button" data-speed="3" aria-pressed="false" aria-label="Fast speed">3\u00d7</button>
+        </div>
+        <button type="button" class="hud-menu-button" data-action="menu" aria-label="Menu, shortcut Escape" data-testid="menu">Menu</button>
       </div>
     </header>
-    <nav class="hud-panel hud-controlbar" aria-label="Simulation controls" data-testid="controlbar">
-      <div class="hud-group" role="group" aria-label="Simulation speed">
-        <button type="button" data-speed="0" aria-pressed="false" aria-label="Pause, shortcut Space">Pause</button>
-        <button type="button" data-speed="1" aria-pressed="true">1\u00d7</button>
-        <button type="button" data-speed="3" aria-pressed="false">3\u00d7</button>
-      </div>
-      <div class="hud-group" role="group" aria-label="Island file">
-        <button type="button" data-action="save" data-testid="save">Save</button>
-        <button type="button" data-action="load" data-testid="load">Load</button>
-        <button type="button" data-action="new-island" data-testid="new-island">New island</button>
-      </div>
-      <div class="hud-group" role="group" aria-label="View">
-        <button type="button" data-action="reset-camera" data-testid="reset-camera">Reset camera</button>
-        <button type="button" data-action="grid" aria-pressed="false" aria-label="Toggle placement grid" data-testid="grid-toggle">Grid</button>
-      </div>
-      <div class="hud-links">
-        <a href="/miniature.html" target="_blank" rel="noopener">Harbour study</a>
-        <a href="/art.html" target="_blank" rel="noopener">Art viewer</a>
-      </div>
-    </nav>
   </div>
   <details class="hud-panel hud-guide" data-testid="guide" open>
     <summary>Guide</summary>
@@ -155,15 +141,30 @@ const SKELETON = `
   </details>
   <div class="hud-bottom">
     <p class="hud-hint" data-field="hint" role="note" hidden></p>
-    <div class="hud-panel hud-toolbar" data-testid="toolbar">
-      <div class="hud-tools" role="group" aria-label="Build tools"></div>
-      <button type="button" class="hud-rotate" data-action="rotate" aria-label="Rotate placement, shortcut R" data-testid="rotate">
-        <span aria-hidden="true">\u21bb</span>
-        <span data-field="rotation">0\u00b0</span>
-      </button>
-    </div>
+    <div class="hud-panel hud-toolbar" role="group" aria-label="Build tools" data-testid="toolbar"></div>
   </div>
   <div class="hud-toast-region" role="status" aria-live="polite" data-testid="toast-region"></div>
+  <dialog class="hud-dialog hud-menu" data-testid="menu-dialog" aria-label="Menu">
+    <form method="dialog">
+      <h2>Oikos</h2>
+      <div class="hud-menu-actions">
+        <button type="submit" value="save" data-testid="save">Save island</button>
+        <button type="submit" value="load" data-testid="load">Load saved island</button>
+        <button type="submit" value="new" data-testid="new-island">New island</button>
+        <button type="submit" value="grid" data-testid="grid-toggle" aria-pressed="false">Placement grid</button>
+      </div>
+      <dl class="hud-keys">
+        <div><dt>1\u20137</dt><dd>Build tools</dd></div>
+        <div><dt>X</dt><dd>Demolish</dd></div>
+        <div><dt>R</dt><dd>Rotate building</dd></div>
+        <div><dt>G</dt><dd>Toggle grid</dd></div>
+        <div><dt>Q</dt><dd>Rotate view</dd></div>
+        <div><dt>Space</dt><dd>Pause</dd></div>
+        <div><dt>Esc</dt><dd>Cancel tool / menu</dd></div>
+      </dl>
+      <p class="hud-menu-footer"><a href="/art.html" target="_blank" rel="noopener">Model atelier</a><button type="submit" value="close">Close</button></p>
+    </form>
+  </dialog>
   <dialog class="hud-dialog" data-testid="new-island-dialog">
     <form method="dialog">
       <h2>Start a new island?</h2>
@@ -204,40 +205,27 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
   const employedField = field(root, 'employed');
   const timeField = field(root, 'time');
 
-  const toolsContainer = root.querySelector<HTMLElement>('.hud-tools')!;
+  const toolbar = root.querySelector<HTMLElement>('.hud-toolbar')!;
   const toolButtons = new Map<Tool, HTMLButtonElement>();
   for (const def of TOOL_DEFS) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'hud-tool';
-    button.dataset.testid = `tool-${def.tool}`;
-    button.setAttribute('aria-pressed', String(def.tool === 'inspect'));
-    button.setAttribute('aria-label', `${def.label}${def.cost ? `, ${def.cost} drachma` : ''}, shortcut ${def.key}`);
-    const top = document.createElement('span');
-    top.className = 'hud-tool-top';
-    const key = document.createElement('kbd');
-    key.className = 'hud-tool-key';
-    key.textContent = def.key;
-    key.setAttribute('aria-hidden', 'true');
-    top.appendChild(key);
+    button.dataset.tool = def.tool;
+    button.setAttribute('aria-pressed', 'false');
+    button.setAttribute('aria-label', `${def.label}, ${def.cost}, shortcut ${def.key}`);
+    button.title = `${def.label} \u00b7 ${def.key}`;
     const label = document.createElement('span');
     label.className = 'hud-tool-label';
     label.textContent = def.label;
-    top.appendChild(label);
-    button.appendChild(top);
-    if (def.cost !== null) {
-      const cost = document.createElement('span');
-      cost.className = 'hud-tool-cost';
-      cost.textContent = def.cost;
-      button.appendChild(cost);
-    }
+    const cost = document.createElement('span');
+    cost.className = 'hud-tool-cost';
+    cost.textContent = def.cost;
+    button.append(toolIcon(def.tool), label, cost);
     button.addEventListener('click', () => actions.tool(def.tool));
-    toolsContainer.appendChild(button);
+    toolbar.appendChild(button);
     toolButtons.set(def.tool, button);
   }
-
-  const rotationField = field(root, 'rotation');
-  action(root, 'rotate').addEventListener('click', () => actions.rotate());
 
   const speedButtons = new Map<0 | 1 | 3, HTMLButtonElement>();
   root.querySelectorAll<HTMLButtonElement>('[data-speed]').forEach((button) => {
@@ -246,24 +234,24 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     button.addEventListener('click', () => actions.speed(speed));
   });
 
-  action(root, 'save').addEventListener('click', () => actions.save());
-  action(root, 'load').addEventListener('click', () => actions.load());
-
-  const gridButton = action(root, 'grid');
-  gridButton.addEventListener('click', () => {
-    const enabled = gridButton.getAttribute('aria-pressed') !== 'true';
-    gridButton.setAttribute('aria-pressed', String(enabled));
-    actions.grid(enabled);
-  });
-
-  action(root, 'reset-camera').addEventListener('click', () => actions.resetCamera());
-
-  const dialog = root.querySelector<HTMLDialogElement>('.hud-dialog')!;
-  action(root, 'new-island').addEventListener('click', () => dialog.showModal());
+  const dialog = root.querySelector<HTMLDialogElement>('[data-testid="new-island-dialog"]')!;
   dialog.addEventListener('close', () => {
     if (dialog.returnValue === 'confirm') actions.newIsland();
     dialog.returnValue = '';
   });
+
+  const menu = root.querySelector<HTMLDialogElement>('.hud-menu')!;
+  const gridButton = root.querySelector<HTMLButtonElement>('[data-testid="grid-toggle"]')!;
+  action(root, 'menu').addEventListener('click', () => menu.showModal());
+  menu.addEventListener('close', () => {
+    const choice = menu.returnValue;
+    menu.returnValue = '';
+    if (choice === 'save') actions.save();
+    else if (choice === 'load') actions.load();
+    else if (choice === 'new') dialog.showModal();
+    else if (choice === 'grid') actions.grid(gridButton.getAttribute('aria-pressed') !== 'true');
+  });
+
 
   const guidePanel = root.querySelector<HTMLDetailsElement>('.hud-guide')!;
   const inspectorPanel = root.querySelector<HTMLDetailsElement>('.hud-inspector')!;
@@ -369,8 +357,7 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     foodField.textContent = summary.food.toLocaleString('en-US');
     balanceField.textContent = formatSigned(summary.balance);
     employedField.textContent = `${summary.workers} / ${summary.jobs}`;
-    const { day, month } = calendar(world);
-    timeField.textContent = `Month ${month} \u00b7 Day ${day}`;
+    timeField.textContent = formatDate(world);
 
     updateMilestones(world, summary);
     updateInspector(selected);
@@ -379,7 +366,24 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
 
   function setTool(tool: Tool, rotation: Rotation): void {
     for (const [key, button] of toolButtons) button.setAttribute('aria-pressed', String(key === tool));
-    rotationField.textContent = `${ROTATION_DEGREES[rotation]}\u00b0`;
+    toolbar.dataset.rotation = String(rotation);
+  }
+
+  function setGrid(enabled: boolean): void {
+    gridButton.setAttribute('aria-pressed', String(enabled));
+  }
+
+  function toggleMenu(): boolean {
+    if (menu.open) {
+      menu.close('close');
+      return false;
+    }
+    if (dialog.open) {
+      dialog.close('cancel');
+      return false;
+    }
+    menu.showModal();
+    return true;
   }
 
   function setSpeed(speed: 0 | 1 | 3): void {
@@ -413,5 +417,5 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     root.replaceChildren();
   }
 
-  return { update, setTool, setSpeed, notify, setHint, dispose };
+  return { update, setTool, setSpeed, notify, setHint, setGrid, toggleMenu, dispose };
 }

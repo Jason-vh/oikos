@@ -62,6 +62,13 @@ function boot(): void {
     stage.invalidate();
   }
 
+  function setGrid(enabled: boolean): void {
+    showGrid = enabled;
+    city.scenery.grid.visible = enabled || tool !== 'inspect';
+    hud.setGrid(enabled);
+    stage.invalidate();
+  }
+
   function setSpeed(next: 0 | 1 | 3): void {
     speed = next;
     accumulator = 0;
@@ -114,8 +121,7 @@ function boot(): void {
     },
     vendor: (id, enabled) => apply(setVendor(world, id, enabled)),
     focus: (x, z) => { const point = worldPosition(x + .5, z + .5); stage.focus(point.x, point.z); },
-    resetCamera: () => stage.setView(DEFAULT_VIEW),
-    grid: (enabled) => { showGrid = enabled; city.scenery.grid.visible = enabled || tool !== 'inspect'; stage.invalidate(); },
+    grid: setGrid,
   });
 
   function apply(result: ActionResult): void {
@@ -224,11 +230,23 @@ function boot(): void {
   stage.canvas.addEventListener('pointerleave', () => { if (!drag) { hover = null; city.hidePreview(); } });
   window.addEventListener('keydown', (event) => {
     if (event.target instanceof HTMLElement && (event.target.closest('input,select,textarea,dialog') || event.target.isContentEditable)) return;
-    const keys: Record<string, Tool> = { '1': 'road', '2': 'house', '3': 'farm', '4': 'granary', '5': 'agora', '6': 'fountain', '7': 'maintenance', x: 'demolish', Escape: 'inspect' };
-    if (keys[event.key]) selectTool(keys[event.key]);
+    const keys: Record<string, Tool> = { '1': 'road', '2': 'house', '3': 'farm', '4': 'granary', '5': 'agora', '6': 'fountain', '7': 'maintenance', x: 'demolish' };
+    if (event.key === 'Escape') {
+      escapeOpensMenu = tool === 'inspect';
+      if (!escapeOpensMenu) selectTool('inspect');
+    } else if (keys[event.key]) selectTool(keys[event.key]);
+    else if (event.key.toLowerCase() === 'g') setGrid(!showGrid);
     else if (event.code === 'Space' && !(event.target instanceof HTMLButtonElement)) { event.preventDefault(); setSpeed(speed === 0 ? 1 : 0); }
     else if (event.key.toLowerCase() === 'r') { rotation = ((rotation + 1) % 4) as Rotation; hud.setTool(tool, rotation); updatePreview(); }
     else if (event.key.toLowerCase() === 'q') stage.rotate();
+  });
+
+  let escapeOpensMenu = false;
+  window.addEventListener('keyup', (event) => {
+    if (event.key !== 'Escape' || !escapeOpensMenu) return;
+    escapeOpensMenu = false;
+    if (event.target instanceof HTMLElement && event.target.closest('dialog')) return;
+    hud.toggleMenu();
   });
 
   let previous = 0;

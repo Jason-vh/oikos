@@ -28,7 +28,7 @@ export class Stage {
     this.scene.fog = new T.FogExp2(0xb1d2cd, .0045);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = T.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = T.PCFShadowMap;
     this.renderer.shadowMap.autoUpdate = false;
     this.renderer.toneMapping = T.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.18;

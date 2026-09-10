@@ -18,7 +18,12 @@ const clickTile = async (page, x, z) => {
   await page.mouse.click(point.x, point.y);
   await paint(page);
 };
-const selectTool = (page, name) => page.getByRole('button', { name: new RegExp(`^${name}`) }).first().click();
+const selectTool = (page, name) => page.getByRole('button', { name: new RegExp(`^${name},`) }).first().click();
+const menuChoice = async (page, testId) => {
+  await page.keyboard.press('Escape');
+  await page.getByTestId(testId).click();
+  await paint(page);
+};
 const advance = async (page, seconds) => {
   await page.evaluate((value) => window.oikos.advance(value), seconds);
   await paint(page);
@@ -34,6 +39,7 @@ try {
   await page.waitForFunction(() => document.body.dataset.ready || document.body.dataset.error);
   assert.equal(await page.locator('body').getAttribute('data-ready'), 'true');
   await page.getByRole('button', { name: /pause/i }).first().click();
+  assert.match(await page.locator('[data-field="time"]').textContent(), /^[1-3] Jan 421 BC$/);
   let world = await state(page);
   assert.equal(world.buildings.length, 0);
   assert(world.roads.length > 20, 'Starter roads missing');
@@ -109,7 +115,7 @@ try {
   await expectChecked(page.locator('[data-milestone="courtyards"]'));
   await page.screenshot({ path: path.join(output, '04-thriving.png') });
 
-  await page.getByTestId('save').click();
+  await menuChoice(page, 'save');
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForFunction(() => document.body.dataset.ready);
   await page.getByRole('button', { name: /pause/i }).first().click();
@@ -117,20 +123,25 @@ try {
   assert.equal(restored.buildings.length, world.buildings.length, 'Save did not restore buildings');
   assert(restored.time >= world.time, 'Save lost simulation time');
   const tampered = await page.evaluate((key) => { localStorage.setItem(key, '{"version":1,"buildings":"nope"}'); return key; }, await page.evaluate(() => window.oikos.saveKey));
-  await page.getByTestId('load').click();
-  await paint(page);
+  await menuChoice(page, 'load');
   assert.equal((await state(page)).buildings.length, restored.buildings.length, 'Corrupt save replaced the island');
   assert(tampered);
-  await page.getByTestId('new-island').click();
+  await menuChoice(page, 'new-island');
   await page.getByRole('button', { name: 'Cancel' }).click();
   assert.equal((await state(page)).buildings.length, restored.buildings.length, 'Cancelled new island cleared the city');
-  await page.getByTestId('new-island').click();
+  await menuChoice(page, 'new-island');
   await page.getByRole('button', { name: 'New island' }).last().click();
   await paint(page);
   assert.equal((await state(page)).buildings.length, 0, 'Confirmed new island kept the old city');
-  await page.getByTestId('load').click();
-  await paint(page);
+  await menuChoice(page, 'load');
   assert.equal((await state(page)).buildings.length, 0, 'New island did not replace the saved island');
+  await page.keyboard.press('g');
+  await menuChoice(page, 'grid-toggle');
+  assert.equal(await page.getByTestId('grid-toggle').getAttribute('aria-pressed'), 'false', 'Grid toggle state not reflected');
+  await page.keyboard.press('Escape');
+  assert.equal(await page.getByTestId('menu-dialog').evaluate((dialog) => dialog.open), true, 'Escape did not open the menu');
+  await page.keyboard.press('Escape');
+  assert.equal(await page.getByTestId('menu-dialog').evaluate((dialog) => dialog.open), false, 'Escape did not close the menu');
   await page.setViewportSize({ width: 390, height: 844 });
   await paint(page);
   await page.screenshot({ path: path.join(output, '05-mobile.png') });

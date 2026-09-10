@@ -22,8 +22,9 @@ homes into cottages and courtyard houses.
 
 Left-click builds or inspects. Drag to lay roads. Right-drag pans; scroll zooms;
 Alt-drag orbits. `1`–`7` select construction tools, `X` demolishes, `R` rotates a
-building, `Q` rotates the camera, `Escape` inspects, and `Space` pauses.
-On touchscreens, use two fingers to pan/zoom.
+building, `G` toggles the grid, `Q` rotates the camera, and `Space` pauses.
+`Escape` cancels the current tool, or opens the menu (save, load, new island,
+model atelier). On touchscreens, use two fingers to pan/zoom.
 
 ## Development
 
