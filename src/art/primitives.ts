@@ -90,7 +90,7 @@ export function bake(source: T.Group): void {
   for (const [surface, parts] of batches) {
     const geometry = mergeGeometries(parts);
     for (const part of parts) part.dispose();
-    if (!geometry) throw new Error('Could not combine miniature geometry');
+    if (!geometry) throw new Error('Could not combine model geometry');
     const result = new T.Mesh(geometry, surface);
     result.castShadow = true;
     result.receiveShadow = true;

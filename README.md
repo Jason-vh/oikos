@@ -2,9 +2,9 @@
 
 Live at <https://oikos.vhtm.eu>.
 
-*Oikos* (οἶκος): the household, root of *economy*. A living Aegean miniature where
-you build a small island neighbourhood around real road-bound food deliveries,
-water carriers, and caretakers. The first island is Kalliste.
+*Oikos* (οἶκος): the household, root of *economy*. A city builder on the Aegean:
+settle an island, feed and water its households along real roads, hunt, fell,
+farm and trade your way to a thriving city. The first island is Kalliste.
 
 ```bash
 npm install

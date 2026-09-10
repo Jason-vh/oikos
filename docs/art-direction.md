@@ -1,4 +1,4 @@
-# Art direction — Oikos miniature
+# Art direction — Oikos
 
 This is the visual contract for `src/art/`. It exists so a future agent can add a
 model, or judge whether one belongs, without re-litigating taste. `/miniature.html`

@@ -8,7 +8,7 @@ Read `README.md`, `docs/gameplay.md`, `docs/art-direction.md`, and
 - Simulation belongs in `src/sim/`; no DOM or Three.js imports there.
 - Rendering reads simulation state. Commands and simulation steps are the only writers.
 - Art is authored in `src/art/`. Reuse the shared palette and primitives.
-- Keep the approved miniature style. Do not add detail to compensate for weak silhouettes.
+- Keep the approved painted-toy art style. Do not add detail to compensate for weak silhouettes.
 - Do not reintroduce the legacy sprite game, extraction pipelines, or original assets.
 - No code comments. Use explicit names and small, direct functions.
 

@@ -34,7 +34,7 @@ export class Stage {
     this.renderer.toneMapping = T.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.18;
     this.canvas = this.renderer.domElement;
-    this.canvas.setAttribute('aria-label', 'Interactive miniature island');
+    this.canvas.setAttribute('aria-label', 'Interactive island');
     root.append(this.canvas);
     this.controls = new OrbitControls(this.camera, this.canvas);
     this.controls.enableDamping = false;
