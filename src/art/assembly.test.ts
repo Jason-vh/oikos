@@ -6,32 +6,44 @@ import { poseAssembly, assemblyDuration } from '../render/assembly';
 import { CELL_SIZE } from '../sim/island';
 import { footprint } from '../sim/catalog';
 
-function vertices(root: T.Group): string[] {
-  root.updateMatrixWorld(true);
-  const result: string[] = [];
-  root.traverse((child) => {
-    if (!(child instanceof T.Mesh)) return;
-    const color = (child.material as T.MeshStandardMaterial).color.getHexString();
-    const positions = child.geometry.getAttribute('position');
-    for (let index = 0; index < positions.count; index++) {
-      const point = new T.Vector3().fromBufferAttribute(positions, index).applyMatrix4(child.matrixWorld);
-      result.push(`${color}:${point.toArray().map((value) => value.toFixed(5)).join(':')}`);
-    }
-  });
-  return result.sort();
+function triangles(root: T.Group): number {
+  let total = 0;
+  root.traverse((child) => { if (child instanceof T.Mesh) total += child.geometry.attributes.position.count / 3; });
+  return total;
 }
 
-test('assembled dwelling matches the baked model exactly', () => {
+function palette(root: T.Group): string[] {
+  const colours = new Set<string>();
+  root.traverse((child) => {
+    if (!(child instanceof T.Mesh)) return;
+    colours.add((child.material as T.MeshStandardMaterial).color.getHexString());
+  });
+  return [...colours].sort();
+}
+
+test('the assembled dwelling stands where the baked model stands, in the same colours', () => {
   const assembly = getBuildingAssembly('house')!;
   const finished = getBuildingModel('house');
   poseAssembly(assembly, assemblyDuration(assembly));
-  expect(vertices(assembly.model)).toEqual(vertices(finished));
+  const raised = new T.Box3().setFromObject(assembly.model);
+  const built = new T.Box3().setFromObject(finished);
+  expect(raised.min.toArray()).toEqual(built.min.toArray());
+  expect(raised.max.toArray()).toEqual(built.max.toArray());
+  expect(palette(assembly.model)).toEqual(palette(finished));
   expect(assembly.parts.map((part) => part.model.name)).toEqual([
     'foundation', 'back-wall', 'left-wall', 'right-wall', 'front-wall', 'cornice', 'roof', 'door', 'shutters', 'pot',
   ]);
   let meshes = 0;
   assembly.model.traverse((child) => { if (child instanceof T.Mesh) meshes++; });
   expect(meshes).toBeLessThanOrEqual(18);
+  disposeModel(assembly.model);
+  disposeModel(finished);
+});
+
+test('the split walls are construction geometry and never reach the finished dwelling', () => {
+  const assembly = getBuildingAssembly('house')!;
+  const finished = getBuildingModel('house');
+  expect(triangles(finished)).toBeLessThan(triangles(assembly.model));
   disposeModel(assembly.model);
   disposeModel(finished);
 });
