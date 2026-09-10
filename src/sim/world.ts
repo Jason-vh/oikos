@@ -1,5 +1,5 @@
 import type { ActionResult, Building, BuildTool, Placement, Rotation, Summary, Tile, Walker, WalkerKind, World } from './types';
-import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, STARTING_MONEY, VENDOR_COST, footprint } from './catalog';
+import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, STARTING_MONEY, VENDOR_COST, footprint } from './catalog';
 import { ENTRY, insideMap, terrainAt, tileAt, tileIndex } from './island';
 import {
   bfsReachable,
@@ -595,28 +595,32 @@ export function getSummary(world: World): Summary {
 }
 
 export function buildingStatus(world: World, building: Building): string[] {
-  void world;
+  if (!building.connected) return ['Not connected to a road; nobody can reach it.'];
   const lines: string[] = [];
-  lines.push(building.connected ? 'Connected to the road network.' : 'Not connected to any road.');
-
   if (building.kind === 'house') {
-    const name = building.residents > 0 ? HOUSE_NAMES[building.tier] : HOUSE_NAMES[0];
-    lines.push(`${name}: ${building.residents}/${HOUSE_CAPACITY[building.tier]} settlers.`);
-    if (building.tier >= 2) lines.push(building.food > 0 ? `Food stored: ${building.food.toFixed(1)}.` : 'Out of food.');
-    if (building.tier >= 3) lines.push(building.water > 0 ? `Water stored: ${building.water.toFixed(1)}.` : 'Out of water.');
-    lines.push(`Condition: ${building.condition.toFixed(0)}%.`);
-    return lines;
+    if (building.residents === 0) lines.push('Waiting for settlers from the harbour.');
+    else if (building.tier === 1) lines.push(building.food > 0 ? 'Fed, and ready to grow into a cottage.' : 'Needs food to grow: an agora vendor must pass by.');
+    else if (building.tier === 2) {
+      if (building.food <= 0) lines.push('Out of food; the household will decline without a vendor.');
+      else lines.push(building.water > 0 ? 'Fed and watered, growing into a courtyard house.' : 'Needs water to grow: a fountain carrier must pass by.');
+    } else {
+      if (building.food <= 0) lines.push('Out of food; the household will decline without a vendor.');
+      else if (building.water <= 0) lines.push('Out of water; the household will decline without a carrier.');
+      else lines.push('A thriving household.');
+    }
+  } else {
+    const jobs = BUILDINGS[building.kind].jobs;
+    if (building.workers < jobs * .999) lines.push(building.workers > 0 ? 'Short of workers; more settlers are needed.' : 'Unstaffed; settlers are needed for work.');
+    if (building.kind === 'farm') lines.push(building.workers > 0 ? `Growing wheat, ${Math.round(building.progress * 100)}% to harvest.` : 'The fields lie idle.');
+    if (building.kind === 'granary') lines.push(building.stock > 0 ? 'Holding food for the agora buyer.' : 'Empty; waiting for a farm cart.');
+    if (building.kind === 'agora') {
+      if (!building.vendorInstalled) lines.push('Add a food vendor to start deliveries.');
+      else if (!building.vendorEnabled) lines.push('The vendor is resting at the market.');
+      else lines.push(building.stock > 0 ? 'The vendor sells food along the streets.' : 'Waiting for the buyer to bring food from a granary.');
+    }
+    if (building.kind === 'fountain') lines.push('A carrier fills jars along the streets.');
+    if (building.kind === 'maintenance') lines.push('A caretaker repairs buildings along the streets.');
   }
-
-  const definition = BUILDINGS[building.kind];
-  lines.push(`Workers: ${building.workers.toFixed(1)}/${definition.jobs}.`);
-  if (building.kind === 'farm') lines.push(`Stock: ${building.stock.toFixed(0)}, growth ${(building.progress * 100).toFixed(0)}%.`);
-  if (building.kind === 'granary') lines.push(`Stock: ${building.stock.toFixed(0)}.`);
-  if (building.kind === 'agora') {
-    lines.push(`Stock: ${building.stock.toFixed(0)}.`);
-    lines.push(building.vendorEnabled ? 'Food vendor active.' : building.vendorInstalled ? 'Food vendor paused.' : 'No food vendor installed.');
-  }
-  lines.push(`Condition: ${building.condition.toFixed(0)}%.`);
+  if (building.condition < 50) lines.push(world.buildings.some((candidate) => candidate.kind === 'maintenance' && candidate.connected) ? 'Neglected; a caretaker will repair it.' : 'Neglected; build a maintenance post.');
   return lines;
 }
-

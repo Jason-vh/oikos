@@ -482,3 +482,26 @@ describe('scenario helper', () => {
     }
   });
 });
+
+describe('building status', () => {
+  test('explains what a house is waiting for', () => {
+    const world = createWorld();
+    build(world, 'house', 10, 17);
+    const house = world.buildings[0];
+    expect(buildingStatus(world, house)).toEqual(['Waiting for settlers from the harbour.']);
+    house.residents = 8;
+    expect(buildingStatus(world, house)[0]).toContain('Needs food');
+    house.food = 10;
+    expect(buildingStatus(world, house)[0]).toContain('ready to grow');
+  });
+
+  test('tells the player how to fix an agora without a vendor', () => {
+    const world = createWorld();
+    build(world, 'agora', 17, 21);
+    const agora = world.buildings[0];
+    agora.workers = BUILDINGS.agora.jobs;
+    expect(buildingStatus(world, agora)).toEqual(['Add a food vendor to start deliveries.']);
+    agora.condition = 20;
+    expect(buildingStatus(world, agora).at(-1)).toBe('Neglected; build a maintenance post.');
+  });
+});
