@@ -172,7 +172,7 @@ function boot(): void {
         }
       } else tiles.push(tileIndex(hover.x, hover.z));
       city.showPreview(tool, hover.x, hover.z, rotation, { ok: false, reason: '', tiles, cost: 0 });
-      hud.setHint('Click to demolish · Half construction cost refunded · Escape cancels');
+      hud.setHint('Click to demolish · Buildings refund half their cost; roads none · Escape cancels');
       return;
     }
     const preview = tool === 'road' ? roadPreview() : placement(world, tool, hover.x, hover.z, rotation);

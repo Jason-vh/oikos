@@ -33,8 +33,8 @@ and connected, by road, back to that entry point.
 Every successful `ActionResult` carries a human-readable `reason`: `'Dwelling
 built.'`, `'Road laid.'`, `'Farm demolished. Refunded 70.'`, `'Food vendor
 added.'`, and so on — suitable for showing directly in a HUD toast. Failed actions
-return a short, lower-case reason for the failure itself (`'insufficient funds'`,
-`'unsuitable terrain'`, `'tile occupied'`, ...).
+carry a player-facing sentence too (`'Not enough drachmas.'`, `'Wheat only grows
+on the fertile eastern fields.'`, `'Something already stands there.'`, ...).
 
 Every building needs flat, unoccupied land: grass or fertile ground, never a hill
 tile or water. A farm additionally needs *every* tile of its footprint to be

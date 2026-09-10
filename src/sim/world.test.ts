@@ -14,7 +14,7 @@ describe('placement validation', () => {
     const world = createWorld();
     const result = placement(world, 'house', 1000, 1000);
     expect(result.ok).toBe(false);
-    expect(result.reason).toBe('out of bounds');
+    expect(result.reason).toBe('That is beyond the island.');
   });
 
   test('farms require fertile ground', () => {
@@ -44,7 +44,7 @@ describe('placement validation', () => {
     world.money = 10;
     const result = placement(world, 'farm', 26, 11);
     expect(result.ok).toBe(false);
-    expect(result.reason).toBe('insufficient funds');
+    expect(result.reason).toBe('Not enough drachmas.');
     expect(result.cost).toBe(BUILDINGS.farm.cost);
     expect(world.money).toBe(10);
   });
@@ -53,7 +53,7 @@ describe('placement validation', () => {
     const world = createWorld();
     expect(build(world, 'house', 10, 17).ok).toBe(true);
     expect(placement(world, 'house', 11, 18).ok).toBe(false);
-    expect(placement(world, 'house', 21, 20).reason).toBe('tile occupied by road');
+    expect(placement(world, 'house', 21, 20).reason).toBe('A road is in the way.');
   });
 
   test('rejects roads on top of buildings', () => {
@@ -61,7 +61,7 @@ describe('placement validation', () => {
     build(world, 'house', 10, 17);
     const result = placement(world, 'road', 11, 18);
     expect(result.ok).toBe(false);
-    expect(result.reason).toBe('tile occupied');
+    expect(result.reason).toBe('Something already stands there.');
   });
 });
 
@@ -115,7 +115,7 @@ describe('demolition', () => {
     const world = createWorld();
     const result = demolish(world, 5, 5);
     expect(result.ok).toBe(false);
-    expect(result.reason).toBe('nothing to demolish');
+    expect(result.reason).toBe('Nothing to demolish there.');
   });
 
   test('removes a building and refunds half its cost', () => {
