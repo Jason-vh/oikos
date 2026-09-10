@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { animalModel, animateAnimal, animateFigure, animateWork, bake, box, bundle, bundleKey, colors, disposeModel, figure, getBuildingModel, lump, post, type ModelStage } from '../art';
+import { animalModel, animateAnimal, animateFigure, animateWork, bake, box, bundle, bundleKey, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, lump, post, type ModelStage } from '../art';
 import { footprint } from '../sim/catalog';
 import { AGORA_SLOTS, GRANARY_SLOTS } from '../sim/balance';
 import { CELL_SIZE, groundHeight, levelOn, LEVEL_HEIGHT, tileAtOn, tileIndexOn, worldPositionOn, type IslandMap } from '../sim/island';
@@ -7,8 +7,9 @@ import type { Animal, AnimalKind, Building, BuildTool, Placement, Resource, Rota
 import type { Stage } from './stage';
 import { IslandScenery } from './island';
 import { LogisticsOverlay, syncDisconnectedMark, syncHouseSupplies } from './logistics';
+import { BuildingConstruction } from './assembly';
 
-interface BuildingEntry { key: string; tier: number; model: T.Group; intro: number; from: number; }
+interface BuildingEntry { key: string; tier: number; model: T.Group; intro: number; from: number; construction: BuildingConstruction | null; }
 interface Departure { model: T.Group; elapsed: number; }
 interface Puff { model: T.Group; material: T.MeshStandardMaterial; elapsed: number; }
 interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; from: T.Vector3; target: T.Vector3; elapsed: number; moving: boolean; working: boolean; heading: number; }
@@ -170,14 +171,20 @@ export class CityScene {
         existing.model.removeFromParent();
         disposeModel(existing.model);
       }
-      const model = getBuildingModel(building.kind, { tier: building.tier, vendorEnabled: building.vendorEnabled, stage, stores: building.stores });
+      const state = { tier: building.tier, vendorEnabled: building.vendorEnabled, stage, stores: building.stores };
+      const finished = getBuildingModel(building.kind, state);
+      const animated = this.motion && this.primed && (!existing || existing.tier !== building.tier);
+      const assembling = animated || (existing?.construction && existing.tier === building.tier);
+      const assembly = assembling ? getBuildingAssembly(building.kind, state) : null;
+      const construction = assembly ? new BuildingConstruction(finished, assembly) : null;
+      if (construction && existing?.construction) construction.advance(existing.construction.elapsed);
+      const model = construction?.model ?? finished;
       const point = worldPositionOn(this.map, building.x + width / 2, building.z + depth / 2);
       model.position.set(point.x, groundHeight(this.map, building.x, building.z), point.z);
       model.rotation.y = -building.rotation * Math.PI / 2;
       model.userData.buildingId = building.id;
       this.stage.scene.add(model);
-      const animated = this.motion && this.primed && (!existing || existing.tier !== building.tier);
-      const entry = { key, tier: building.tier, model, intro: animated ? 0 : INTRO_SECONDS, from: existing ? .85 : .4 };
+      const entry = { key, tier: building.tier, model, intro: animated && !construction ? 0 : INTRO_SECONDS, from: existing ? .85 : .4, construction };
       this.buildings.set(building.id, entry);
       if (animated) this.settle(entry);
       this.stage.shadows();
@@ -400,6 +407,10 @@ export class CityScene {
   transitions(delta: number): boolean {
     let active = false;
     for (const entry of this.buildings.values()) {
+      if (entry.construction) {
+        if (entry.construction.advance(delta)) entry.construction = null;
+        active = true;
+      }
       if (entry.intro >= INTRO_SECONDS) continue;
       entry.intro += delta;
       this.settle(entry);

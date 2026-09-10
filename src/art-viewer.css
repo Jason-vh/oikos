@@ -33,5 +33,10 @@ input { accent-color: #315954; }
 .atelier-buttons { display: flex; flex-wrap: wrap; gap: 4px; margin: 15px 0; }
 .atelier-buttons button { background: #e2e7dc; font-size: 10px; padding: 9px; }
 .atelier-buttons button[aria-pressed='true'] { background: #315954; }
+#construction { border-top: 1px solid #36564a22; padding-top: 12px; }
+#construction button { background: #e2e7dc; width: 100%; margin-bottom: 10px; }
+#construction label { display: block; font-size: 11px; }
+#assembly-progress { width: 100%; margin: 10px 0 0; }
+button:disabled { opacity: .45; cursor: default; }
 .note { opacity: .65; margin-bottom: 0; }
 @media (max-width: 600px) { .atelier { top: auto; left: 20px; right: 20px; bottom: 70px; width: auto; padding: 13px; } .atelier dl, .atelier .note, #description { display: none; } .atelier .check { display: inline-flex; margin-right: 14px; } .atelier-buttons { margin: 10px 0 0; } .masthead { gap: 10px; } }

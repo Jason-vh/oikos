@@ -1,5 +1,6 @@
 import * as T from 'three';
 import { bake, box, colors, group, lump, pot, post, roof } from './primitives';
+import { assemblyPart, type ModelAssembly } from './assembly';
 
 function windowFrame(parent: T.Object3D, x: number, y: number, z: number): void {
   box(parent, colors.cream, x, y, z, .69, .79, .13);
@@ -8,20 +9,36 @@ function windowFrame(parent: T.Object3D, x: number, y: number, z: number): void 
   box(parent, colors.stone, x, y - .4, z + .13, .82, .13, .23);
 }
 
+export function dwellingPieces(): ModelAssembly {
+  const assembly: ModelAssembly = { model: new T.Group(), parts: [] };
+  const width = 1.7, depth = 1.65, height = 1.35;
+  const foundation = assemblyPart(assembly, 'foundation', 0, 0);
+  box(foundation, colors.stone, 0, .09, 0, 2.15, .18, 2.1);
+  const back = assemblyPart(assembly, 'back-wall', .08);
+  box(back, colors.plaster, 0, height / 2 + .18, -(depth - .2) / 2, width, height, .2, .06);
+  const left = assemblyPart(assembly, 'left-wall', .19);
+  box(left, colors.plaster, -(width - .2) / 2, height / 2 + .18, 0, .2, height, depth - .4, .06);
+  const right = assemblyPart(assembly, 'right-wall', .3);
+  box(right, colors.plaster, (width - .2) / 2, height / 2 + .18, 0, .2, height, depth - .4, .06);
+  const front = assemblyPart(assembly, 'front-wall', .41);
+  box(front, colors.plaster, 0, height / 2 + .18, (depth - .2) / 2, width, height, .2, .06);
+  const cornice = assemblyPart(assembly, 'cornice', .58, .2);
+  box(cornice, colors.cream, 0, height + .13, 0, width + .12, .16, depth + .12);
+  const covering = assemblyPart(assembly, 'roof', .72, .4, .34);
+  roof(covering, width + .45, depth + .5, height + .19, .55);
+  const door = assemblyPart(assembly, 'door', .93, .12, .22);
+  box(door, colors.cream, -.32, .62, depth / 2 + .01, .62, 1.06, .12);
+  box(door, colors.wood, -.32, .59, depth / 2 + .09, .44, .96, .07);
+  const window = assemblyPart(assembly, 'shutters', 1.02, .12, .22);
+  windowFrame(window, .5, .95, depth / 2 + .01);
+  const pottery = assemblyPart(assembly, 'pot', 1.13, .16, .22);
+  pot(pottery, .78, .18, depth / 2 + .3, .62);
+  return assembly;
+}
+
 export function dwelling(tier: 1 | 2 | 3): T.Group {
+  if (tier === 1) return dwellingPieces().model;
   const home = new T.Group();
-  if (tier === 1) {
-    const width = 1.7, depth = 1.65, height = 1.35;
-    box(home, colors.stone, 0, .09, 0, 2.15, .18, 2.1);
-    box(home, colors.plaster, 0, height / 2 + .18, 0, width, height, depth, .06);
-    box(home, colors.cream, 0, height + .13, 0, width + .12, .16, depth + .12);
-    roof(home, width + .45, depth + .5, height + .19, .55);
-    box(home, colors.cream, -.32, .62, depth / 2 + .01, .62, 1.06, .12);
-    box(home, colors.wood, -.32, .59, depth / 2 + .09, .44, .96, .07);
-    windowFrame(home, .5, .95, depth / 2 + .01);
-    pot(home, .78, .18, depth / 2 + .3, .62);
-    return home;
-  }
   if (tier === 2) {
     const width = 2.15, depth = 2.05, height = 1.7;
     box(home, colors.stone, 0, .11, 0, 2.6, .22, 2.5);

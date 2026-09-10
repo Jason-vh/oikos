@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { animalModel, animateAnimal, animateFigure, boat, citizen, colors, disposeModel, figure, getBuildingModel, type ModelStage } from './art';
+import { animalModel, animateAnimal, animateFigure, boat, citizen, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, type ModelAssembly, type ModelStage } from './art';
 import type { AnimalKind } from './sim/types';
 import { BUILDINGS, footprint } from './sim/catalog';
 import { CELL_SIZE } from './sim/island';
@@ -13,6 +13,7 @@ const STORE_VARIANTS: Record<string, Stores> = {
   materials: { lumber: 300, clay: 100, stone: 100 },
 };
 import { Stage } from './render/stage';
+import { assemblyDuration, poseAssembly } from './render/assembly';
 import './art-viewer.css';
 
 function boot(): void {
@@ -33,6 +34,15 @@ function boot(): void {
   let golden = false;
   const select = document.querySelector<HTMLSelectElement>('#model')!;
   const wireframe = document.querySelector<HTMLInputElement>('#wireframe')!;
+  const constructionControls = document.querySelector<HTMLElement>('#construction')!;
+  const replay = document.querySelector<HTMLButtonElement>('#replay-construction')!;
+  const progress = document.querySelector<HTMLInputElement>('#assembly-progress')!;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  stage.reducedMotion = reducedMotion;
+  replay.disabled = reducedMotion;
+  let assembly: ModelAssembly | null = null;
+  let constructionElapsed = 0;
+  let constructionPlaying = false;
 
   function buildSelected(id: string): { model: T.Group; footprint: { width: number; depth: number } | null; description: string; animate?: (time: number) => void } {
     const [kindValue, tierValue, variant = ''] = id.split(':');
@@ -58,25 +68,52 @@ function boot(): void {
 
   let animate: ((time: number) => void) | null = null;
 
-  function showModel(): void {
-    if (model) {
-      model.removeFromParent();
-      model.traverse((child) => {
-        if (!(child instanceof T.Mesh)) return;
-        const materials = Array.isArray(child.material) ? child.material : [child.material];
-        for (const material of materials) material.dispose();
-      });
-      disposeModel(model);
-    }
-    const selected = buildSelected(select.value);
-    model = selected.model;
-    animate = selected.animate ?? null;
-    model.traverse((child) => {
+  function disposeStudy(root: T.Group): void {
+    root.removeFromParent();
+    root.traverse((child) => {
+      if (!(child instanceof T.Mesh)) return;
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      for (const material of materials) material.dispose();
+    });
+    disposeModel(root);
+  }
+
+  function styleStudy(root: T.Group): void {
+    root.traverse((child) => {
       if (!(child instanceof T.Mesh)) return;
       const material = (child.material as T.MeshStandardMaterial).clone();
       material.wireframe = wireframe.checked;
       child.material = material;
     });
+  }
+
+  function poseConstruction(seconds: number): void {
+    if (!assembly || !model) return;
+    const duration = assemblyDuration(assembly);
+    constructionElapsed = Math.min(duration, seconds);
+    poseAssembly(assembly, constructionElapsed);
+    model.visible = constructionElapsed >= duration;
+    assembly.model.visible = !model.visible;
+    progress.value = String(Math.round(constructionElapsed / duration * 1000));
+    stage.shadows();
+  }
+
+  function showModel(): void {
+    if (model) disposeStudy(model);
+    if (assembly) disposeStudy(assembly.model);
+    constructionPlaying = false;
+    assembly = null;
+    const selected = buildSelected(select.value);
+    model = selected.model;
+    animate = selected.animate ?? null;
+    styleStudy(model);
+    if (select.value === 'house:1') assembly = getBuildingAssembly('house');
+    constructionControls.hidden = assembly === null;
+    if (assembly) {
+      styleStudy(assembly.model);
+      stage.scene.add(assembly.model);
+      poseConstruction(assemblyDuration(assembly));
+    }
     stage.scene.add(model);
     const size = selected.footprint;
     border.visible = size !== null;
@@ -121,7 +158,21 @@ function boot(): void {
     reference.visible = (event.target as HTMLInputElement).checked && !select.value.startsWith('person');
     stage.shadows();
   });
-  document.querySelector('#turn')!.addEventListener('click', () => { if (model) model.rotation.y += Math.PI / 2; stage.shadows(); });
+  replay.addEventListener('click', () => {
+    if (!assembly || reducedMotion) return;
+    poseConstruction(0);
+    constructionPlaying = true;
+  });
+  progress.addEventListener('input', () => {
+    if (!assembly) return;
+    constructionPlaying = false;
+    poseConstruction(Number(progress.value) / 1000 * assemblyDuration(assembly));
+  });
+  document.querySelector('#turn')!.addEventListener('click', () => {
+    if (model) model.rotation.y += Math.PI / 2;
+    if (assembly) assembly.model.rotation.y += Math.PI / 2;
+    stage.shadows();
+  });
   document.querySelector('#reset')!.addEventListener('click', () => showModel());
   document.querySelector('#light')!.addEventListener('click', (event) => {
     golden = !golden;
@@ -132,12 +183,15 @@ function boot(): void {
   const requested = new URLSearchParams(location.search).get('model');
   if (requested && Array.from(select.options).some((option) => option.value === requested)) select.value = requested;
   showModel();
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let previous = 0;
   let elapsed = 0;
   function frame(now: number): void {
     const delta = previous === 0 ? 0 : Math.min((now - previous) / 1000, .05);
     previous = now;
+    if (constructionPlaying && assembly && !document.hidden && !reducedMotion) {
+      poseConstruction(constructionElapsed + delta);
+      constructionPlaying = constructionElapsed < assemblyDuration(assembly);
+    }
     if (animate && !document.hidden && !reducedMotion) {
       elapsed += delta;
       animate(elapsed);

@@ -11,6 +11,7 @@
     "test": "bun test src",
     "smoke": "node scripts/smoke.mjs",
     "smoke:polish": "node scripts/polish-smoke.mjs",
+    "smoke:construction": "node scripts/construction-smoke.mjs",
     "art:check": "bun test src/art",
     "art:capture": "node scripts/art-capture.mjs",
     "check": "bash scripts/check.sh"

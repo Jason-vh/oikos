@@ -1,7 +1,8 @@
 import * as T from 'three';
 import type { BuildingKind, Stores } from '../sim/types';
 import { bake, box, colors, post } from './primitives';
-import { dwelling } from './houses';
+import { dwelling, dwellingPieces } from './houses';
+import type { ModelAssembly } from './assembly';
 import { wheatFarm } from './vegetation';
 import { fountain as fountainModel, lodge as lodgeModel, maintenance as maintenanceModel, stockpile as stockpileModel, woodcutter as woodcutterModel } from './civic';
 import { granary } from './granaries';
@@ -23,6 +24,13 @@ function agora(vendorEnabled: boolean, stores: Stores): T.Group {
 export type ModelStage = 0 | 1 | 2 | 3;
 
 export interface ModelState { tier?: 1 | 2 | 3; vendorEnabled?: boolean; stage?: ModelStage; stores?: Stores; }
+
+export function getBuildingAssembly(kind: BuildingKind, state: ModelState = {}): ModelAssembly | null {
+  if (kind !== 'house' || (state.tier ?? 1) !== 1) return null;
+  const assembly = dwellingPieces();
+  for (const part of assembly.parts) bake(part.model);
+  return assembly;
+}
 
 export function getBuildingModel(kind: BuildingKind, state: ModelState = {}): T.Group {
   const { tier = 1, vendorEnabled = false, stage = 3, stores = {} } = state;

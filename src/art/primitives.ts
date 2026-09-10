@@ -86,6 +86,7 @@ export function bake(source: T.Group): void {
     list.push(geometry);
     batches.set(child.material, list);
   });
+  disposeModel(source);
   source.clear();
   for (const [surface, parts] of batches) {
     const geometry = mergeGeometries(parts);
