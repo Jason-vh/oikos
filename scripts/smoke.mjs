@@ -28,7 +28,6 @@ const advance = async (page, seconds) => {
   await page.evaluate((value) => window.oikos.advance(value), seconds);
   await paint(page);
 };
-const houseAt = (world, x, z) => world.buildings.find((building) => building.kind === 'house' && building.x === x && building.z === z);
 
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 });
@@ -42,41 +41,66 @@ try {
   assert.match(await page.locator('[data-field="time"]').textContent(), /^[1-3] Jan 421 BC$/);
   let world = await state(page);
   assert.equal(world.buildings.length, 0);
-  assert(world.roads.length > 20, 'Starter roads missing');
+  assert(world.roads.length >= 5, 'Starter roads missing');
   await page.screenshot({ path: path.join(output, '01-empty-island.png') });
 
+  const plan = await page.evaluate(() => window.oikos.plan);
+  assert(plan, 'No starter plan for this island');
+  const island = await page.evaluate(() => window.oikos.map);
+  const waterTile = (() => { for (let z = 0; z < island.depth; z++) for (let x = 0; x < island.width; x++) if (island.terrain[z * island.width + x] === 'water' && x > 4 && z > 4 && x < island.width - 4 && z < island.depth - 4) return [x, z]; })();
+  const grassTile = (() => { for (let z = 0; z < island.depth; z++) for (let x = 0; x < island.width; x++) if (island.terrain[z * island.width + x] === 'grass') return [x, z]; })();
+  const labels = { house: 'Dwelling', farm: 'Wheat farm', granary: 'Granary', agora: 'Agora', fountain: 'Fountain', maintenance: 'Maintenance post' };
+  const roadStrokes = [];
+  let stroke = [];
+  for (const tile of plan.roads) {
+    const last = stroke[stroke.length - 1];
+    if (last && Math.abs(last.x - tile.x) + Math.abs(last.z - tile.z) !== 1) { roadStrokes.push(stroke); stroke = []; }
+    stroke.push(tile);
+  }
+  if (stroke.length) roadStrokes.push(stroke);
+  for (const item of plan.buildings) {
+    await page.evaluate(([x, z]) => window.oikos.focusTile(x, z), [item.x, item.z]);
+    await paint(page);
+    await selectTool(page, labels[item.kind]);
+    await clickTile(page, item.x, item.z);
+    world = await state(page);
+    assert(world.buildings.some((building) => building.kind === item.kind && building.x === item.x && building.z === item.z), `Could not place ${item.kind} at ${item.x},${item.z}`);
+  }
   await selectTool(page, 'Dwelling');
-  const houses = [[10, 17], [14, 17], [18, 21], [24, 21]];
-  for (const [x, z] of houses) await clickTile(page, x, z);
-  world = await state(page);
-  for (const [x, z] of houses) assert(houseAt(world, x, z), `No house at ${x},${z}`);
-  await clickTile(page, 35, 6);
-  assert.equal((await state(page)).buildings.length, 4, 'Placed a house on water');
-  await selectTool(page, 'Wheat farm');
-  await clickTile(page, 10, 12);
-  assert.equal((await state(page)).buildings.length, 4, 'Farm accepted outside fertile ground');
-  await clickTile(page, 26, 11);
-  await selectTool(page, 'Granary');
-  await clickTile(page, 24, 17);
-  await selectTool(page, 'Road');
-  const start = await tilePoint(page, 27, 15);
-  const end = await tilePoint(page, 27, 19);
-  await page.mouse.move(start.x, start.y);
-  await page.mouse.down();
-  await page.mouse.move(end.x, end.y, { steps: 8 });
-  await page.mouse.up();
+  await page.evaluate(([x, z]) => window.oikos.focusTile(x, z), waterTile);
   await paint(page);
+  await clickTile(page, waterTile[0], waterTile[1]);
+  assert.equal((await state(page)).buildings.length, plan.buildings.length, 'Placed a house on water');
+  await selectTool(page, 'Wheat farm');
+  await page.evaluate(([x, z]) => window.oikos.focusTile(x, z), grassTile);
+  await paint(page);
+  await clickTile(page, grassTile[0], grassTile[1]);
+  assert.equal((await state(page)).buildings.length, plan.buildings.length, 'Farm accepted outside fertile ground');
+  await selectTool(page, 'Road');
+  for (const run of roadStrokes) {
+    const straight = run.every((tile) => tile.x === run[0].x) || run.every((tile) => tile.z === run[0].z);
+    const segments = straight ? [run] : run.map((tile) => [tile]);
+    for (const segment of segments) {
+      const first = segment[0];
+      const last = segment[segment.length - 1];
+      await page.evaluate(([x, z]) => window.oikos.focusTile(x, z), [first.x, first.z]);
+      await paint(page);
+      const start = await tilePoint(page, first.x, first.z);
+      const end = await tilePoint(page, last.x, last.z);
+      await page.mouse.move(start.x, start.y);
+      await page.mouse.down();
+      await page.mouse.move(end.x, end.y, { steps: 6 });
+      await page.mouse.up();
+      await paint(page);
+    }
+  }
   world = await state(page);
-  for (const z of [15, 16, 17, 18, 19]) assert(world.roads.includes(z * 40 + 27), `Road missing at 27,${z}`);
-  await selectTool(page, 'Agora');
-  await clickTile(page, 13, 21);
-  await selectTool(page, 'Fountain');
-  await clickTile(page, 19, 17);
-  await selectTool(page, 'Maintenance post');
-  await clickTile(page, 22, 17);
+  for (const tile of plan.roads) assert(world.roads.includes(tile.z * island.width + tile.x), `Road missing at ${tile.x},${tile.z}`);
   await page.keyboard.press('Escape');
   const agora = (await state(page)).buildings.find((building) => building.kind === 'agora');
   assert(agora, 'Agora missing');
+  await page.evaluate(([x, z]) => window.oikos.focusTile(x, z), [agora.x, agora.z]);
+  await paint(page);
   const agoraPoint = await page.evaluate((id) => window.oikos.projectBuilding(id), agora.id);
   await page.mouse.click(agoraPoint.x, agoraPoint.y);
   await paint(page);
@@ -105,7 +129,9 @@ try {
   const roamer = world.walkers.find((walker) => walker.kind === 'vendor' || walker.kind === 'water' || walker.kind === 'maintenance');
   assert(roamer, 'No service walker on the streets');
   const roamerTile = roamer.path[Math.min(roamer.step, roamer.path.length - 1)];
-  const roamerPoint = await tilePoint(page, roamerTile % 40, Math.floor(roamerTile / 40));
+  await page.evaluate(([x, z]) => window.oikos.focusTile(x, z), [roamerTile % island.width, Math.floor(roamerTile / island.width)]);
+  await paint(page);
+  const roamerPoint = await tilePoint(page, roamerTile % island.width, Math.floor(roamerTile / island.width));
   await page.mouse.click(roamerPoint.x, roamerPoint.y - 6);
   await paint(page);
   assert.match(await page.locator('[data-field="inspector-tier"]').textContent(), /vendor|carrier|caretaker/i, 'Clicking a walker did not inspect them');

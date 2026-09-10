@@ -15,7 +15,7 @@ npm run dev
 
 ## Play
 
-Build four dwellings beside the harbour road. Grow wheat on the fertile eastern
+Build four dwellings beside the harbour road. Grow wheat on the fertile striped
 fields, store it in a granary, then add a food vendor to an agora. Connect everything
 with roads. Add a fountain and maintenance post. Reliable food and water evolve
 homes into cottages and courtyard houses.

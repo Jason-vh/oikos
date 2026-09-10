@@ -62,6 +62,7 @@ export class Stage {
     this.ao = new GTAOPass(this.scene, this.camera, 1, 1);
     this.ao.updateGtaoMaterial({ radius: .65, distanceExponent: 1.5, thickness: 1, scale: 1 });
     this.ao.blendIntensity = .65;
+    this.ao.enabled = !new URLSearchParams(location.search).has('noao');
     this.composer.addPass(this.ao);
     this.composer.addPass(new OutputPass());
     this.canvas.addEventListener('webglcontextlost', this.contextLost);

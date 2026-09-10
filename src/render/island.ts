@@ -54,6 +54,9 @@ export class IslandScenery {
           if (seeded(map, x, z, 13) > .45) {
             lump(props, seeded(map, x, z, 14) > .5 ? colors.stone : colors.cream, cx + jitterX, y + .18, cz + jitterZ, .3 + seeded(map, x, z, 15) * .3, .22 + seeded(map, x, z, 16) * .2, .28 + seeded(map, x, z, 17) * .3);
           }
+        } else if (terrain === 'cliff') {
+          if (seeded(map, x, z, 20) > .5) lump(props, seeded(map, x, z, 21) > .6 ? colors.cream : colors.stone, cx + jitterX * .8, y + .12, cz + jitterZ * .8, .26 + seeded(map, x, z, 22) * .22, .16 + seeded(map, x, z, 23) * .18, .24 + seeded(map, x, z, 24) * .22);
+          if (seeded(map, x, z, 25) > .8) lump(props, colors.oliveDark, cx - jitterX, y + .1, cz - jitterZ, .2, .12, .18);
         } else if (terrain === 'fertile') {
           box(props, (x + z) % 2 === 0 ? 0xb9b47a : 0xb2ad74, cx, y - .03, cz, CELL_SIZE, .04, CELL_SIZE, 0);
         } else if (terrain === 'grass' && levelOn(map, x, z) >= 1 && seeded(map, x, z, 18) > .93) {

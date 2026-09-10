@@ -5,6 +5,7 @@ import { BUILDINGS, footprint, ROAD_COST } from './sim/catalog';
 import { CELL_SIZE, groundHeight, islandFor, LEVEL_HEIGHT, terrainOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
 import { advance, build, buildingStatus, createWorld, DEFAULT_SEED, demolish, getSummary, placement, placeRoadPath, setVendor, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
 import { deserializeWorld, serializeWorld } from './sim/save';
+import { planStarterNeighbourhood } from './sim/scenario';
 import type { ActionResult, Placement, Rotation, Tile, Tool } from './sim/types';
 import { createHud } from './ui/hud';
 import './ui/style.css';
@@ -333,6 +334,9 @@ function boot(): void {
         return stage.project(p.x, groundHeight(map(), building.x, building.z) + 1.5, p.z);
       },
       advance: (seconds: number) => { setSpeed(0); advance(world, seconds); refresh(); dirtySave = true; stage.shadows(); },
+      get plan() { return planStarterNeighbourhood(world); },
+      probe: (clientX: number, clientY: number) => city.probe(clientX, clientY),
+      focusTile: (x: number, z: number) => { const point = worldPositionOn(map(), x + .5, z + .5); stage.focus(point.x, point.z); },
       terrainAt: (x: number, z: number) => terrainOn(map(), x, z),
       get map() { const island = map(); return { width: island.width, depth: island.depth, entry: island.entry, terrain: island.terrain, level: Array.from(island.level) }; },
       roadCost: ROAD_COST,

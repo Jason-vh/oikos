@@ -5,13 +5,23 @@ The whole thing lives in `src/sim/` and has no dependency on Three.js or the bro
 `advance(world, seconds)` is the only clock, and the same input always produces the
 same output.
 
+## The island
+
+`generateIsland(seed)` in `src/sim/island.ts` builds the map from a seed: a radial
+mask plus value noise for the coastline, a relief field quantised into three levels
+(lowland, plateau, upland) with cellular smoothing, and soil/wood fields for terrain.
+Terrain kinds: `water`, `sand`, `grass`, `fertile`, `scrub`, `forest`, `rock`, `cliff`.
+Buildings need level ground on grass/fertile/sand/scrub (farms: fertile only); roads
+can also cross forest but never step between levels. `cliff` and `rock` are not
+buildable. The harbour entry is chosen on the widest flat south-facing shore, and the
+ground around it is cleared, with a fertile patch to its north-east. `islandFor(seed)`
+caches maps; the world stores only the seed.
+
 ## Starting a city
 
-`createWorld()` returns a treasury of 1600 drachma, no buildings, and two starter
-roads meeting at the entry flag `(21, 24)`: one running north along `x = 21` up to
-`z = 14`, and one crossing east–west along `z = 20` from `x = 10` to `x = 30`.
-Nobody lives on the island yet — population only arrives once a dwelling is built
-and connected, by road, back to that entry point.
+`createWorld(seed = 1)` returns a treasury of 1600 drachma, no buildings, and a starter
+road running north from the harbour entry. Nobody lives on the island yet — population
+only arrives once a dwelling is built and connected, by road, back to that entry.
 
 ## Placing and removing things
 
@@ -56,33 +66,13 @@ links it back to the entry.
 
 ## The four-house neighbourhood
 
-`src/sim/scenario.ts` exports `buildStarterNeighbourhood(world)`, a ready-made,
-tested layout for a first city: one farm, one granary, one agora with its food
-vendor switched on, one fountain, one maintenance post, and four houses, all built
-on the terrain the map actually offers and wired into the starter roads with one
-short road spur. The exact coordinates (also useful for a renderer or a manual
-playtest):
-
-| Building | Tile (x, z) | Footprint |
-| --- | --- | --- |
-| House | (10, 17) | 3×3 |
-| House | (14, 17) | 3×3 |
-| House | (18, 17) | 3×3 |
-| House | (22, 17) | 3×3 |
-| Farm | (27, 12) | 4×4, on fertile ground |
-| Granary | (27, 17) | 3×3 |
-| Agora (+ vendor) | (17, 21) | 3×3 |
-| Fountain | (22, 21) | 2×2 |
-| Maintenance post | (24, 21) | 2×2 |
-
-Plus a nine-tile road spur at `x = 26, z = 12..20` connecting the farm south to the
-`z = 20` cross road.
-
-Starting from `createWorld()`, this layout reaches its first food delivery in well
-under 90 simulated seconds, its first house upgrade in well under 240 seconds, and
-all four houses settle into fully-inhabited, water-and-food-supplied dwellings
-inside five simulated minutes — after which the neighbourhood runs indefinitely on
-its own income.
+`src/sim/scenario.ts` exports `planStarterNeighbourhood(world)`, which searches the
+ground near the harbour road for a legal spot for each building (farm first, then
+granary, four houses, agora, fountain, maintenance post) and the road needed to
+connect each one, and `buildStarterNeighbourhood(world)` which builds that plan and
+enables the vendor. Seeds 1–8 all yield a plan that reaches its first food in under
+a minute and the goal in two to three simulated minutes. The browser walkthrough
+builds the plan through the real UI.
 
 ## Food and storage
 

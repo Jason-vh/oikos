@@ -132,7 +132,7 @@ const SKELETON = `
       <li><label><input type="checkbox" disabled data-milestone="services" /> A fountain and a maintenance post</label></li>
       <li><label><input type="checkbox" disabled data-milestone="courtyards" /> Four courtyard houses, thriving</label></li>
     </ol>
-    <p class="hud-guide-note">Wheat only takes root in the fertile soil to the island's east.</p>
+    <p class="hud-guide-note">Wheat only takes root in fertile soil: the darker, striped fields.</p>
   </details>
   <details class="hud-panel hud-inspector" data-testid="inspector" hidden>
     <summary>Inspector</summary>
