@@ -46,6 +46,10 @@ export class BakedStructures {
     return this.lookup(kind, variant, 'shadow');
   }
 
+  getExact(kind: StructureKind, variant: number, layer: BakedLayer): StructureSprite | undefined {
+    return this.sprites.get(`${kind}:${variant}:${layer}`);
+  }
+
   private lookup(kind: StructureKind, variant: number, layer: BakedLayer): StructureSprite | undefined {
     return this.sprites.get(`${kind}:${variant}:${layer}`) ?? this.sprites.get(`${kind}:0:${layer}`);
   }

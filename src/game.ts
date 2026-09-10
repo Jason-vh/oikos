@@ -1,5 +1,5 @@
 import { Application, Container, Sprite } from 'pixi.js';
-import { TileAtlas } from './render/atlas';
+import { TileAtlas, type GroundSheet } from './render/atlas';
 import { Camera } from './render/camera';
 import { attachKeyboardPan, attachPointerInput } from './render/input';
 import { footprintAnchor, pickTile, tileToScreen, type Point } from './render/iso';
@@ -50,9 +50,9 @@ export class Game {
   private accumulator = 0;
   private cursorKey = '';
 
-  constructor(app: Application, world = new World(MAP_SIZE, randomSeed())) {
+  constructor(app: Application, world = new World(MAP_SIZE, randomSeed()), ground: GroundSheet | null = null) {
     this.world = world;
-    this.atlas = new TileAtlas();
+    this.atlas = new TileAtlas(ground);
     this.textures = new TextureCache();
     this.scene = new Scene(this.world, this.atlas, this.textures);
     app.renderer.background.color = SEA_COLOUR;

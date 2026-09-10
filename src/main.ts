@@ -1,6 +1,7 @@
 import { Application } from 'pixi.js';
 import { Game } from './game';
 import { loadBakedStructures } from './render/baked';
+import { loadGroundSheet } from './render/ground';
 import { loadCity, saveCity } from './sim/save';
 import { createHud } from './ui/hud';
 
@@ -21,7 +22,8 @@ async function boot(): Promise<void> {
   root.appendChild(app.canvas);
 
   const saved = loadCity();
-  const game = new Game(app, saved?.world);
+  const ground = await loadGroundSheet();
+  const game = new Game(app, saved?.world, ground);
   if (saved) game.restoreView(saved.view);
   const hud = createHud(document.body, game);
 

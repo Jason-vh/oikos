@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Zeus · House study</title>
+    <style>
+      body { margin: 24px; background: #303330; color: #ece4d2; font: 14px system-ui, sans-serif; }
+      h1 { font-size: 22px; margin-bottom: 8px; }
+      p { color: #c6c1b4; }
+      button, select { font: inherit; margin: 0 12px 12px 0; padding: 6px 10px; }
+      canvas { display: block; margin-bottom: 20px; image-rendering: pixelated; }
+      #error { color: #ffb4a4; white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <h1>House study</h1>
+    <p>Private reference · independent models · native 60×30 tile pitch · nearest sampling · fixed frames</p>
+    <p id="study-note"></p>
+    <div id="controls"></div>
+    <div id="bench"></div>
+    <p id="error"></p>
+    <script type="module" src="/src/render/bench.ts"></script>
+  </body>
+</html>

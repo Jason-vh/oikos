@@ -75,6 +75,13 @@ const TERRAIN_PALETTES: Record<number, TerrainPalette> = {
 const WATER_RAMP: Ramp = { colours: [0x155660, 0x185c68, 0x1b616d, 0x1e6672, 0x216b76], scale: 6, jitter: 0.25 };
 const PEBBLE_COLOUR = 0xc0b6a2;
 
+export interface GroundSheet {
+  image: HTMLImageElement;
+  tileWidth: number;
+  tileHeight: number;
+  kinds: Record<string, { first: number; count: number }>;
+}
+
 interface Cell {
   key: string;
   width: number;
@@ -87,8 +94,8 @@ interface Cell {
 export class TileAtlas {
   private readonly textures = new Map<string, Texture>();
 
-  constructor() {
-    const cells = layout(defineCells());
+  constructor(ground: GroundSheet | null = null) {
+    const cells = layout(defineCells(ground));
     const canvas = document.createElement('canvas');
     const width = Math.min(
       ATLAS_MAX_WIDTH,
@@ -158,18 +165,45 @@ export class TileAtlas {
   }
 }
 
-function defineCells(): Cell[] {
+function groundPainter(ground: GroundSheet | null, kind: number): ((ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, variant: number) => void) | null {
+  const entry = ground?.kinds[String(kind)];
+  if (!ground || !entry) return null;
+  const sourceW = ground.tileWidth * 2;
+  const sourceH = ground.tileHeight * 2;
+  return (ctx, x, y, w, h, variant) => {
+    const index = entry.first + (variant % entry.count);
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    ctx.save();
+    diamondPath(ctx, cx, cy, HALF_W, HALF_H);
+    ctx.clip();
+    ctx.imageSmoothingEnabled = false;
+    const left = cx - TILE_WIDTH / 2;
+    const top = cy - TILE_HEIGHT / 2;
+    for (const [dx, dy] of [[-TILE_WIDTH / 2, -TILE_HEIGHT / 2], [TILE_WIDTH / 2, -TILE_HEIGHT / 2], [-TILE_WIDTH / 2, TILE_HEIGHT / 2], [TILE_WIDTH / 2, TILE_HEIGHT / 2], [0, 0]]) {
+      ctx.drawImage(ground.image, index * sourceW, 0, sourceW, sourceH, left + dx, top + dy, TILE_WIDTH, TILE_HEIGHT);
+    }
+    ctx.restore();
+  };
+}
+
+function defineCells(ground: GroundSheet | null): Cell[] {
   const cells: Cell[] = [];
   const tile = (key: string, draw: Cell['draw']) =>
     cells.push({ key, width: CELL_WIDTH, height: CELL_HEIGHT, draw, x: 0, y: 0 });
 
   for (const kind of BLENDABLE) {
+    const painted = groundPainter(ground, kind);
+    const paint = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, variant: number) => {
+      if (painted) painted(ctx, x, y, w, h, variant);
+      else drawTerrain(ctx, x, y, w, h, kind, variant);
+    };
     for (let variant = 0; variant < TERRAIN_VARIANTS; variant++) {
-      tile(`terrain:${kind}:${variant}`, (ctx, x, y, w, h) => drawTerrain(ctx, x, y, w, h, kind, variant));
+      tile(`terrain:${kind}:${variant}`, (ctx, x, y, w, h) => paint(ctx, x, y, w, h, variant));
     }
     for (const direction of DIRECTIONS) {
       tile(`blend:${kind}:${direction}`, (ctx, x, y, w, h) => {
-        drawTerrain(ctx, x, y, w, h, kind, 0);
+        paint(ctx, x, y, w, h, 0);
         maskEdge(ctx, x, y, w, h, direction);
       });
     }
@@ -552,16 +586,19 @@ function maskEdge(
   const normalLength = Math.hypot(ex, ey);
   const seed = 900 + DIRECTIONS.indexOf(direction);
 
-  ctx.globalCompositeOperation = 'destination-in';
-  ctx.fillStyle = 'rgba(0,0,0,1)';
+  ctx.beginPath();
   for (let py = y; py < y + height; py += GRAIN_CELL) {
     for (let px = x; px < x + width; px += GRAIN_CELL) {
       const along = ((px + 1 - cx) * ex + (py + 1 - cy) * ey) / (normalLength * normalLength);
-      const depth = 1 - along;
-      const ragged = fbm(px / 9, py / 4.5, seed) * 1.1 - 0.2;
-      if (depth * 0.85 < ragged) ctx.fillRect(px, py, GRAIN_CELL, GRAIN_CELL);
+      const coverage = Math.min(1, Math.max(0, along * 1.4 - 0.3));
+      const clump = fbm(px / 7, py / 3.5, seed) * 0.6 + 0.1;
+      const speckle = fbm(px / 2.2, py / 1.1, seed + 3);
+      if (speckle < coverage * coverage * clump * 1.8) ctx.rect(px, py, GRAIN_CELL, GRAIN_CELL);
     }
   }
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.fillStyle = 'rgba(0,0,0,1)';
+  ctx.fill();
   ctx.globalCompositeOperation = 'source-over';
 }
 

@@ -3,6 +3,7 @@ dist
 scripts/shot-*.png
 scripts/atlas.png
 pipeline/out
+__pycache__/
 .DS_Store
 scripts/.pilot-profile
 scripts/pilot-shot.png

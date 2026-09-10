@@ -4,6 +4,9 @@ A browser city builder in the spirit of Impressions' *Zeus: Master of Olympus*.
 Isometric, tile-based, and built around the walker model that defines the original:
 buildings do not serve a radius, they send people down roads.
 
+**3D art study:** open [`/miniature.html`](miniature.html) for the independent
+Aegean harbour prototype. See [the study guide](docs/miniature.md).
+
 ```bash
 npm install
 npm run dev      # http://localhost:5180
@@ -139,13 +142,15 @@ Nothing is hand-drawn. Two sources feed the same sprite interface:
 2. **Baked** — `pipeline/` renders 3D models in Blender and packs them into
    `public/assets/structures.png`. If that file exists the game prefers it.
 
-**Lighting is baked, not shaded at runtime.** One fixed sun — 58° up, 125° round —
-lights every model in Blender, which buys directional light and real contact
+**Lighting is baked, not shaded at runtime.** One fixed Blender sun — 50° altitude,
+−25° azimuth — lights every model, which buys directional light and real contact
 shadows without a normal-mapped shader, and works identically for procedural and
 Blender-rendered art.
 
-**There is no post-processing.** No colour grade, no bloom, no vignette. The look is
-measured from the original, not remembered — see [Reference](#reference) — and the
+**There is no runtime colour grade, bloom, or vignette.** The legacy packer applies
+contrast, saturation, and silhouette ink; the house study instead resolves at native
+pixel density and quantises to RGB555. The look is measured from the original — see
+[Reference](#reference) — and the
 numbers in `pipeline/palette.json` are the target:
 
 | | Original | Ours before the reference |
@@ -183,6 +188,47 @@ tufts straddles the lip. Rock terrain, which cannot be built on, carries the sam
 stones scattered loose and outcrops of five boulders where the map generator clusters
 them.
 
+## House fidelity study
+
+Run `npm run dev`, then open `/pipeline/bench.html`. The development-only bench uses
+locally extracted references beside the independently modelled homestead and a new
+courtyard-extension study. References are never bundled. The extension is artwork
+only, not a new gameplay tier.
+
+An optional supplied AI image lives only in the ignored `reference/studies/` directory.
+Prepare it with `python3 pipeline/prepare_study.py reference/studies/ai-house-source.png reference/studies/ai-house.png`.
+The bench adds it beside the original and replacement, uniformly scaled to a
+118-pixel painted footprint without changing its proportions. Placement is approximate;
+the supplied image has only one orientation. The AI sampling selector defaults to
+high-resolution: each enlargement is downsampled directly from the supplied source.
+Original pixel density instead enlarges the 118-pixel version with nearest-neighbour.
+Both occupy the same screen area. No game assets are replaced.
+
+The top strip is native resolution; the lower row offers integer enlargements,
+orientation switching, and an overlay. Pixi uses nearest sampling, fixed DPR 1, and
+no simulation, animation, particles, or saves. Missing frames fail rather than
+falling back. See [the investigation](docs/sprite-fidelity.md).
+
+```bash
+npm run art:check
+npm run art:camera
+blender --background --python-exit-code 1 --python pipeline/iso_render.py -- --out pipeline/out --only house-3,house-3m,house-courtyard-study --device CPU
+npm run pack
+python3 pipeline/compare.py /tmp/homestead.png house:6 --zoom 3 --overlay
+bun scripts/art-bench.mjs http://localhost:5180/pipeline/bench.html /tmp/bench.png
+```
+
+After upgrading the camera calibration, run one full `npm run render` before partial
+renders. The manifest rejects incompatible camera and tile parameters. A render batch
+publishes only after every pass succeeds; older generations remain available in the
+ignored output directory. Remove that directory and render fully to reclaim them.
+`pack.py` accepts `--input` and `--output` directories for isolated experiments.
+
+The house study uses explicit clay-tile geometry, framed plaster, fences, paving,
+and a native-resolution RGB555 finishing pass. It is a first art proof, not a claim
+of indistinguishability. Other models retain the existing procedural materials and
+packing finish.
+
 ## Asset pipeline
 
 ```bash
@@ -214,6 +260,8 @@ One model unit is one tile side, so a 1×1 building's walls should stay inside
 Material colours are written in sRGB and converted to linear at the material
 boundary — passing sRGB straight to Blender is what makes renders look washed out.
 
+The camera uses **horizontal sensor fit**, independent of frame aspect ratio.
+Automatic fit previously enlarged portrait frames and misregistered their shadows.
 The camera is orthographic at yaw 45° and **elevation 30°** — the angle at which one
 tile step projects to exactly `TILE_WIDTH/2` across and `TILE_HEIGHT/2` down, so
 renders drop into the game's metric with no fudging. Anchors are derived
@@ -256,7 +304,7 @@ unzip -q zeus.zip 'Zeus + Poseidon/DATA/*' -d reference && mv 'reference/Zeus + 
 python3 pipeline/sg_extract.py reference/og/DATA/Zeus_General.sg3 reference/og/DATA/Zeus_Terrain.sg3 \
   reference/og/DATA/SprMain.sg3 reference/sprites          # .sg3/.555 -> PNG + contact sheets
 python3 pipeline/sg_look.py /tmp/look.png Zeus_General/Zeus_Housing 781-794 --zoom 3   # zoomed strip
-python3 pipeline/compare.py /tmp/compare.png house granary  # ours beside the original, same diamond
+python3 pipeline/compare.py /tmp/compare.png house granary  # body + shadow, matching tile pitch
 python3 pipeline/palette.py                                 # measure -> pipeline/palette.json
 ```
 

@@ -6,11 +6,14 @@ Anchors are computed analytically from the camera used by iso_render.py, so a
 sprite lands on its tile without anyone eyeballing an offset.
 """
 
+import argparse
 import json
 import math
 import os
 
 from PIL import Image, ImageChops, ImageEnhance, ImageFilter
+
+from render_store import validate_calibration
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 IN_DIR = os.path.join(ROOT, "pipeline", "out")
@@ -53,9 +56,19 @@ def south_vertex_offset(footprint, height, pixels_per_unit):
     return across, down
 
 
-def load_manifest():
-    with open(os.path.join(IN_DIR, "manifest.json")) as handle:
-        return json.load(handle)
+def load_manifest(directory):
+    with open(os.path.join(directory, "manifest.json")) as handle:
+        manifest = json.load(handle)
+    validate_calibration(manifest, {
+        "tileWidth": 120,
+        "tileHeight": 60,
+        "supersample": manifest.get("supersample"),
+        "cameraFit": "HORIZONTAL",
+        "cameraYaw": YAW,
+        "cameraElevation": ELEVATION,
+        "projectionVersion": 1,
+    })
+    return manifest
 
 
 def period_downsample(source, width, height):
@@ -86,12 +99,56 @@ def paint(image):
     return Image.composite(inked_rim, result, rim)
 
 
+def native_finish(source, width, height):
+    image = source.resize((width // PIXEL_GRAIN, height // PIXEL_GRAIN), Image.Resampling.LANCZOS)
+    quantise = [round(round(value * 31 / 255) * 255 / 31) for value in range(256)]
+    channels = [channel.point(quantise) for channel in image.convert("RGB").split()]
+    alpha = image.getchannel("A").point(lambda value: 255 if value >= 128 else 0)
+    image = Image.merge("RGBA", (*channels, alpha))
+    return image.resize((image.width * PIXEL_GRAIN, image.height * PIXEL_GRAIN), Image.Resampling.NEAREST)
+
+
 def drop_faint_alpha(image):
     """A shadow catcher darkens the whole plane a little; clear that so the
     sprite trims down to the shadow itself."""
     alpha = image.getchannel("A").point(lambda value: 0 if value < SHADOW_FLOOR else value)
     image.putalpha(alpha)
     return image
+
+
+def load_overlay(path):
+    """Studies that replace baked bodies: {"house:0": "hut-v1", ...}. Local only."""
+    if not os.path.exists(path):
+        return {}
+    with open(path) as handle:
+        return json.load(handle)
+
+
+def overlay_body(study, directory):
+    """The atlas is stored at PIXEL_GRAIN times game density, so take the study's
+    matching resolution, sampled straight from its source."""
+    with open(os.path.join(directory, f"{study}.json")) as handle:
+        metadata = json.load(handle)
+    resolution = next(r for r in metadata["resolutions"] if r["scale"] == PIXEL_GRAIN)
+    image = Image.open(os.path.join(directory, resolution["image"])).convert("RGBA")
+    return image, metadata["anchorX"], metadata["anchorY"]
+
+
+def apply_overlay(prepared, overlay, directory):
+    """Swap body frames for study images; the odd variant is the mirror of the even one."""
+    for key, study in overlay.items():
+        kind, variant = key.split(":")
+        image, anchor_x, anchor_y = overlay_body(study, directory)
+        for offset, body in ((0, image), (1, image.transpose(Image.FLIP_LEFT_RIGHT))):
+            target = int(variant) + offset
+            matches = [item for item in prepared if item["kind"] == kind and item["variant"] == target and item["layer"] == "body"]
+            if len(matches) != 1:
+                raise ValueError(f"Overlay {key}: expected one baked body for variant {target}, found {len(matches)}")
+            expected = footprint_sides(matches[0]["footprint"])[0] * 59 * PIXEL_GRAIN
+            if body.width != expected:
+                raise ValueError(f"Overlay {key}: body is {body.width} px wide, atlas density needs {expected}")
+            matches[0].update(image=body, anchorX=anchor_x if offset == 0 else 1 - anchor_x, anchorY=anchor_y, study=study)
+    return prepared
 
 
 def shelf_pack(items):
@@ -120,17 +177,24 @@ def shelf_pack(items):
 
 
 def main():
-    manifest = load_manifest()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", default=IN_DIR)
+    parser.add_argument("--output", default=OUT_DIR)
+    parser.add_argument("--studies", default=os.path.join(ROOT, "reference", "studies"))
+    args = parser.parse_args()
+    manifest = load_manifest(args.input)
     supersample = manifest["supersample"]
     pixels_per_unit = manifest["tileWidth"] / math.sqrt(2)
-    os.makedirs(OUT_DIR, exist_ok=True)
+    os.makedirs(args.output, exist_ok=True)
 
     prepared = []
     for sprite in manifest["sprites"]:
-        source = Image.open(os.path.join(IN_DIR, sprite["file"])).convert("RGBA")
+        source = Image.open(os.path.join(args.input, sprite["file"])).convert("RGBA")
         image = period_downsample(source, sprite["width"], sprite["height"])
         if sprite.get("layer") == "shadow":
             image = drop_faint_alpha(image)
+        elif sprite.get("finish") == "native":
+            image = native_finish(source, sprite["width"], sprite["height"])
         else:
             image = paint(image)
 
@@ -141,20 +205,23 @@ def main():
 
         height_units = sprite["heightUnits"]
         across, down = south_vertex_offset(sprite["footprint"], height_units, pixels_per_unit)
-        anchor_x = image.width / 2 + across
-        anchor_y = image.height / 2 + down
+        anchor_x = image.width / 2 + across * image.width * supersample / source.width
+        anchor_y = image.height / 2 + down * image.height * supersample / source.height
 
         prepared.append(
             {
                 "kind": sprite["kind"],
                 "variant": sprite.get("variant", 0),
                 "layer": sprite.get("layer", "body"),
+                "footprint": sprite["footprint"],
                 "image": trimmed,
                 "anchorX": (anchor_x - bbox[0]) / trimmed.width,
                 "anchorY": (anchor_y - bbox[1]) / trimmed.height,
             }
         )
 
+    overlay = load_overlay(os.path.join(args.studies, "overlay.json"))
+    prepared = apply_overlay(prepared, overlay, args.studies)
     placements, size = shelf_pack(prepared)
 
     atlas = Image.new("RGBA", size, (0, 0, 0, 0))
@@ -167,6 +234,7 @@ def main():
                 "kind": item["kind"],
                 "variant": item["variant"],
                 "layer": item["layer"],
+                "footprint": item["footprint"],
                 "x": x,
                 "y": y,
                 "width": item["image"].width,
@@ -176,11 +244,11 @@ def main():
             }
         )
 
-    atlas.save(os.path.join(OUT_DIR, "structures.png"))
-    with open(os.path.join(OUT_DIR, "structures.json"), "w") as handle:
+    atlas.save(os.path.join(args.output, "structures.png"))
+    with open(os.path.join(args.output, "structures.json"), "w") as handle:
         json.dump({"image": "structures.png", "frames": frames}, handle, indent=2)
 
-    print(f"packed {len(frames)} sprites into {atlas.size[0]}x{atlas.size[1]}")
+    print(f"packed {len(frames)} sprites into {atlas.size[0]}x{atlas.size[1]}, {len(overlay)} bodies from studies")
 
 
 if __name__ == "__main__":

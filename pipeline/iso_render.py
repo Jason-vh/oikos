@@ -18,6 +18,9 @@ import sys
 import bpy
 from mathutils import Matrix, Vector
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from render_store import render_batch, validate_calibration
+
 TILE_WIDTH = 120
 TILE_HEIGHT = 60
 SUN_ALTITUDE = math.radians(50)
@@ -660,31 +663,157 @@ def build_house_2():
     return {"kind": "house", "variant": 4, "footprint": 2, "height": 0.86}
 
 
+def homestead_materials():
+    return {
+        "plaster": plaster_material("aged_lime", hex_rgb("c6c5b0"), variation=0.3, scale=5),
+        "timber": plaster_material("aged_oak", hex_rgb("84613c"), variation=0.24, scale=9),
+        "endgrain": material("cut_oak", hex_rgb("c5a36a")),
+        "earth": plaster_material("yard_earth", hex_rgb("c1af64"), variation=0.3, scale=14),
+        "grass": [material(f"yard_grass_{i}", hex_rgb(c)) for i, c in enumerate(("858348", "969653", "6e7337"))],
+        "stone": [plaster_material(f"yard_stone_{i}", hex_rgb(c), variation=0.2, scale=8) for i, c in enumerate(("c5bb94", "a89c73", "d9caa3", "92886e"))],
+        "tile": [material(f"fired_clay_{i}", hex_rgb(c)) for i, c in enumerate(("a5602a", "a9632c", "b06a31", "965325", "aa612b"))],
+        "trim": plaster_material("roof_lime", hex_rgb("d0be8d"), variation=0.22, scale=7),
+        "dark": material("unlit_interior", hex_rgb("222921")),
+        "linen": plaster_material("linen", hex_rgb("ddd6b7"), variation=0.16, scale=12),
+    }
+
+
+def timber_between(name, start, end, radius, mat):
+    start, end = Vector(start), Vector(end)
+    beam = add_cylinder(name, (start + end) / 2, radius, (end - start).length, mat, vertices=5)
+    beam.rotation_euler = (end - start).to_track_quat("Z", "Y").to_euler()
+    return beam
+
+
+def clay_roof(centre, half_x, half_y, rise, mats, rng, rows=3):
+    existing = set(bpy.context.scene.objects)
+    cx, cy, z = centre
+    columns = max(3, round(half_y * 2 / 0.2))
+    for side in (-1, 1):
+        for row in range(rows):
+            for column in range(columns):
+                vertices = []
+                for end in (0, 1):
+                    u = (row + end * 1.12) / rows
+                    x = side * half_x * u
+                    height = z + rise * (1 - u) + 0.04 * u ** 4 + 0.04 * end
+                    for step in range(5):
+                        v = step / 4
+                        y = -half_y + (column + v * 1.05) * half_y * 2 / columns
+                        barrel = math.sin(v * math.pi) * 0.06
+                        vertices.append((cx + x, cy + y, height + barrel + rng.uniform(-0.004, 0.004)))
+                faces = [(i, i + 1, i + 6, i + 5) for i in range(4)]
+                if side > 0:
+                    faces = [face[::-1] for face in faces]
+                mesh = bpy.data.meshes.new("clay_tile")
+                mesh.from_pydata(vertices, [], faces)
+                mesh.update()
+                tile = bpy.data.objects.new("clay_tile", mesh)
+                bpy.context.collection.objects.link(tile)
+                tile.data.materials.append(rng.choice(mats["tile"]))
+        for y in (-half_y - 0.015, half_y + 0.015):
+            timber_between("lime_verge", (cx, cy + y, z + rise + 0.035), (cx + side * half_x * 1.06, cy + y, z + 0.05), 0.023, mats["trim"])
+    timber_between("ridge", (cx, cy - half_y - 0.035, z + rise + 0.04), (cx, cy + half_y + 0.035, z + rise + 0.04), 0.028, mats["trim"])
+    for side in (-1, 1):
+        y = cy + side * (half_y - 0.06)
+        mesh = bpy.data.meshes.new("gable_infill")
+        mesh.from_pydata([(cx - half_x + 0.06, y, z), (cx + half_x - 0.06, y, z), (cx, y, z + rise - 0.02)], [], [(0, 1, 2)])
+        gable = bpy.data.objects.new("gable_infill", mesh)
+        bpy.context.collection.objects.link(gable)
+        gable.data.materials.append(mats["plaster"])
+    rotation = Matrix.Translation((cx, cy, 0)) @ Matrix.Rotation(math.pi / 2, 4, "Z") @ Matrix.Translation((-cx, -cy, 0))
+    for obj in set(bpy.context.scene.objects) - existing:
+        obj.data.transform(rotation @ obj.matrix_basis)
+        obj.matrix_basis = Matrix.Identity(4)
+
+
+def framed_room(centre, width, depth, height, mats, rng):
+    cx, cy = centre
+    half_x, half_y = width / 2, depth / 2
+    walls = add_box("lime_infill", (cx, cy, 0.06 + height / 2), (width, depth, height), mats["plaster"])
+    bevel = walls.modifiers.new("worn_corners", "BEVEL")
+    bevel.width = 0.045
+    bevel.segments = 1
+    for y in (-half_y, half_y):
+        for x in (-half_x, half_x):
+            timber_between("corner_post", (cx + x, cy + y, 0.055), (cx + x * 0.94, cy + y, height + 0.08), 0.035, mats["timber"])
+        timber_between("wall_plate", (cx - half_x - 0.02, cy + y, height + 0.06), (cx + half_x + 0.02, cy + y, height + 0.06), 0.031, mats["endgrain"])
+    for x in (-half_x, half_x):
+        timber_between("side_plate", (cx + x, cy - half_y, height + 0.06), (cx + x, cy + half_y, height + 0.06), 0.034, mats["timber"])
+    for i in range(5):
+        x = cx - half_x + (i + 0.5) * width / 5
+        add_box("footing", (x, cy - half_y - 0.02, 0.07), (width / 5 * 0.94, 0.08, rng.uniform(0.08, 0.12)), rng.choice(mats["stone"]))
+    add_box("side_window", (cx + half_x + 0.002, cy - 0.03, height * 0.63), (0.02, 0.11, 0.18), mats["dark"])
+    for y in (cy - half_y * 0.7, cy + half_y * 0.35):
+        timber_between("side_stud", (cx + half_x + 0.012, y, 0.08), (cx + half_x + 0.012, y + 0.02, height + 0.03), 0.021, mats["endgrain"])
+    timber_between("side_brace", (cx + half_x + 0.016, cy + half_y - 0.03, 0.13), (cx + half_x + 0.016, cy - half_y + 0.03, height), 0.025, mats["timber"])
+
+
+def homestead_ground(mats, rng):
+    add_box("earth_plot", (0, 0, 0.018), (1.96, 1.96, 0.036), mats["earth"])
+    for i in range(190):
+        x, y = rng.uniform(-0.95, 0.95), rng.uniform(-0.95, 0.95)
+        stone = add_cylinder("gravel", (x, y, 0.038), rng.uniform(0.013, 0.035), 0.007, rng.choice(mats["stone"]), vertices=5)
+        stone.scale.y = rng.uniform(0.6, 1.4)
+    for i in range(95):
+        x, y = rng.uniform(-0.9, -0.05), rng.uniform(-0.6, 0.85)
+        tuft = add_pyramid("yard_tuft", (x, y, 0.06), rng.uniform(0.015, 0.035), rng.uniform(0.04, 0.08), rng.choice(mats["grass"]), vertices=3)
+        tuft.rotation_euler[2] = rng.random() * math.tau
+    for row in range(4):
+        for column in range(4):
+            x = 0.18 + column * 0.17 + rng.uniform(-0.02, 0.02)
+            y = -0.83 + row * 0.17 + rng.uniform(-0.02, 0.02)
+            slab = add_cylinder("doorstep_paving", (x, y, 0.04), rng.uniform(0.06, 0.085), 0.007, rng.choice(mats["stone"]), vertices=5)
+            slab.scale.y = 0.7
+            slab.rotation_euler[2] = rng.random() * math.tau
+
+
+def yard_fence(start, end, mats, bays=3):
+    a, b = Vector((*start, 0.04)), Vector((*end, 0.04))
+    for i in range(bays + 1):
+        base = a.lerp(b, i / bays)
+        timber_between("fence_post", base, base + Vector((0.015, 0, 0.35)), 0.025, mats["endgrain"])
+    panel = add_box("wattle_panel", (a + b) / 2 + Vector((0, 0, 0.16)), ((b - a).length, 0.025, 0.17), mats["timber"])
+    panel.rotation_euler[2] = math.atan2(b.y - a.y, b.x - a.x)
+    for z in (0.09, 0.24):
+        timber_between("fence_rail", a + Vector((0, 0, z)), b + Vector((0, 0, z)), 0.021, mats["timber"])
+    for i in range(bays):
+        start = a.lerp(b, i / bays) + Vector((0, 0, 0.09))
+        end = a.lerp(b, (i + 1) / bays) + Vector((0, 0, 0.2))
+        timber_between("fence_brace", start, end, 0.012, mats["timber"])
+
+
+def build_courtyard_house(extended=False):
+    mats = homestead_materials()
+    rng = random.Random(787)
+    homestead_ground(mats, rng)
+    centre = (0.27, 0.2)
+    height = 0.5
+    framed_room(centre, 0.54, 0.62, height, mats, rng)
+    clay_roof((centre[0], centre[1], height + 0.065), 0.35, 0.34, 0.28, mats, rng)
+    add_box("door", (0.27, -0.12, 0.24), (0.18, 0.02, 0.38), mats["dark"])
+    for x in (0.0, 0.54):
+        timber_between("porch_post", (x, -0.69, 0.055), (x + 0.015, -0.67, 0.43), 0.026, mats["timber"])
+    clay_roof((0.27, -0.43, 0.4), 0.29, 0.28, 0.16, mats, rng, rows=3)
+    timber_between("porch_lintel", (-0.02, -0.72, 0.43), (0.58, -0.72, 0.43), 0.025, mats["endgrain"])
+    yard_fence((-0.86, -0.69), (-0.86, 0.8), mats)
+    yard_fence((-0.86, -0.69), (-0.06, -0.69), mats, bays=2)
+    yard_fence((-0.86, 0.8), (0.04, 0.8), mats, bays=2)
+    linen = add_box("folded_linen", (-0.39, -0.75, 0.08), (0.26, 0.19, 0.075), mats["linen"])
+    linen.rotation_euler[2] = 0.12
+    bevel = linen.modifiers.new("folded_corners", "BEVEL")
+    bevel.width = 0.1
+    bevel.segments = 1
+    if extended:
+        framed_room((-0.42, 0.39), 0.58, 0.62, 0.48, mats, rng)
+        clay_roof((-0.42, 0.39, 0.545), 0.36, 0.38, 0.24, mats, rng)
+        add_amphora("storage_jar", (-0.62, -0.32, 0.04), 0.23, mats["tile"][2])
+    variant = 14 if extended else 6
+    return {"kind": "house", "variant": variant, "footprint": 2, "height": 1.0, "finish": "native", "skyStrength": 0.8}
+
+
 def build_house_3():
-    """Homestead: two low tiled ranges round a fenced yard with a well and sacks."""
-    m = house_materials()
-    add_yard(m["earth"])
-
-    ax, ay = -0.36, 0.42
-    add_box("range", (ax, ay, 0.24), (0.96, 0.62, 0.48), m["ochre"])
-    add_gable_roof("range_roof", (ax, ay, 0.48), 0.56, 0.4, 0.24, 0.06, m["terracotta"])
-    add_window_row(0.31, 0.3, (0.1, 0.1), (ax, ay))
-
-    bx, by = 0.46, 0.4
-    add_box("wing", (bx, by, 0.2), (0.6, 0.62, 0.4), m["whitewash"])
-    add_shed_roof("wing_roof", (bx + 0.02, by, 0.46), 0.36, 0.38, 0.06, m["terracotta"], pitch=0.34)
-    add_doorway(0.3, 0.3, (bx, by), width=0.18)
-
-    add_wall("yard_wall_s", (-0.02, -0.84, 0.1), 1.7, 0.2, 0.08, m["stone"], along_x=True)
-    add_wall("yard_wall_w", (-0.86, -0.2, 0.1), 1.24, 0.2, 0.08, m["stone"], along_x=False)
-    add_picket_fence("fence", (0.86, -0.84), (0.86, 0.02), m["wood"], height=0.24)
-
-    add_cylinder("well", (0.34, -0.36, 0.12), 0.14, 0.24, m["stone"], vertices=10)
-    add_sack("sack1", (-0.5, -0.5, 0.0), m["sack"])
-    add_sack("sack2", (-0.3, -0.62, 0.0), m["sack"])
-    add_amphora("jar", (0.7, -0.6, 0.0), 0.22, m["clay"])
-
-    return {"kind": "house", "variant": 6, "footprint": 2, "height": 0.86}
+    return build_courtyard_house()
 
 
 def build_house_4():
@@ -2358,6 +2487,7 @@ MODELS = {
     "fountain": build_fountain,
     "statue": build_statue,
 
+    "house-courtyard-study": lambda: build_courtyard_house(extended=True),
     "house-plot": lambda: build_plot("housePlot", 2),
     "estate-plot": lambda: build_plot("estatePlot", 4),
 }
@@ -2397,6 +2527,7 @@ def add_camera(footprint, height, resolution):
     bpy.ops.object.camera_add(location=(0, 0, 0))
     camera = bpy.context.active_object
     camera.data.type = "ORTHO"
+    camera.data.sensor_fit = "HORIZONTAL"
     camera.rotation_euler = (math.pi / 2 - CAMERA_ELEVATION, 0, CAMERA_YAW)
 
     bpy.context.scene.camera = camera
@@ -2457,6 +2588,7 @@ def render_model(name, spec, out_dir, ground):
     )
     camera = add_camera(spread, spec["height"], resolution)
     add_sun()
+    bpy.context.scene.world.node_tree.nodes["Background"].inputs[1].default_value = spec.get("skyStrength", 0.34)
 
     scene = bpy.context.scene
     scene.render.image_settings.file_format = "PNG"
@@ -2496,7 +2628,16 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
 
     manifest_path = os.path.join(out_dir, "manifest.json")
-    manifest = {"tileWidth": TILE_WIDTH, "tileHeight": TILE_HEIGHT, "supersample": SUPERSAMPLE, "sprites": []}
+    manifest = {
+        "tileWidth": TILE_WIDTH,
+        "tileHeight": TILE_HEIGHT,
+        "supersample": SUPERSAMPLE,
+        "cameraFit": "HORIZONTAL",
+        "cameraYaw": CAMERA_YAW,
+        "cameraElevation": CAMERA_ELEVATION,
+        "projectionVersion": 1,
+        "sprites": [],
+    }
 
     names = args.only.split(",") if args.only else list(MODELS)
     rebuilt = {f"{name}.png" for name in names} | {f"{name}-shadow.png" for name in names}
@@ -2504,28 +2645,28 @@ def main():
     if len(names) < len(MODELS) and os.path.exists(manifest_path):
         with open(manifest_path) as handle:
             existing = json.load(handle)
-        manifest["sprites"] = [s for s in existing["sprites"] if s["file"] not in rebuilt]
+        validate_calibration(existing, manifest)
+        manifest["sprites"] = [s for s in existing["sprites"] if os.path.basename(s["file"]) not in rebuilt]
 
-    for name in names:
-        clear_scene(args.samples, args.device)
-        spec = MODELS[name]()
-        ground = add_ground()
-        for layer, path, resolution in render_model(name, spec, out_dir, ground):
-            manifest["sprites"].append(
-                {
-                    "kind": spec["kind"],
-                    "variant": spec["variant"],
-                    "layer": layer,
-                    "file": os.path.basename(path),
-                    "footprint": spec["footprint"],
-                    "heightUnits": spec["height"],
-                    "width": resolution[0] // SUPERSAMPLE,
-                    "height": resolution[1] // SUPERSAMPLE,
-                }
-            )
-
-    with open(manifest_path, "w") as handle:
-        json.dump(manifest, handle, indent=2)
+    with render_batch(out_dir, manifest) as staging:
+        for name in names:
+            clear_scene(args.samples, args.device)
+            spec = MODELS[name]()
+            ground = add_ground()
+            for layer, path, resolution in render_model(name, spec, staging, ground):
+                manifest["sprites"].append(
+                    {
+                        "kind": spec["kind"],
+                        "variant": spec["variant"],
+                        "layer": layer,
+                        "file": os.path.basename(path),
+                        "footprint": spec["footprint"],
+                        "heightUnits": spec["height"],
+                        "finish": spec.get("finish", "legacy"),
+                        "width": resolution[0] // SUPERSAMPLE,
+                        "height": resolution[1] // SUPERSAMPLE,
+                    }
+                )
     print(f"rendered {len(manifest['sprites'])} sprites to {out_dir}")
 
 
