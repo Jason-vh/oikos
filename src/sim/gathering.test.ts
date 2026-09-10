@@ -104,3 +104,37 @@ describe('woodcutting', () => {
     expect(tileIndexOn(islandFor(1), 0, 0)).toBe(0);
   });
 });
+
+describe('working at the site', () => {
+  test('a woodcutter stands at the tree for FELL_SECONDS before it falls', () => {
+    const world = createWorld(1);
+    const spot = nearForest(world, 'woodcutter')!;
+    build(world, 'woodcutter', spot.x, spot.z);
+    connect(world, world.buildings[0]);
+    const house = spotFor(world, 'house', islandFor(world.seed).entry)!;
+    build(world, 'house', house.x, house.z);
+    connect(world, world.buildings[1]);
+    let working: number | null = null;
+    for (let t = 0; t < 1600 && working === null; t++) {
+      advance(world, .25);
+      const cutter = world.walkers.find((walker) => walker.kind === 'woodcutter' && walker.working > 0);
+      if (cutter) working = cutter.working;
+    }
+    expect(working).not.toBeNull();
+    expect(world.felled.length).toBe(0);
+    advance(world, working! + .25);
+    expect(world.felled.length).toBe(1);
+  });
+
+  test('a cornered animal stops wandering until the hunt ends', () => {
+    const world = createWorld(1);
+    const boar = world.wildlife.find((animal) => animal.kind === 'boar')!;
+    boar.cornered = true;
+    const before = [boar.x, boar.z];
+    advance(world, 5);
+    expect([boar.x, boar.z]).toEqual(before);
+    boar.cornered = false;
+    advance(world, 20);
+    expect(Math.hypot(boar.x - before[0], boar.z - before[1])).toBeGreaterThan(0);
+  });
+});

@@ -3,7 +3,7 @@ export {
   releaseModelGeometries, disposeModel,
 } from './primitives';
 export { tree } from './vegetation';
-export { citizen, figure, animateFigure, type Load } from './people';
+export { citizen, figure, animateFigure, animateWork, type Load } from './people';
 export { boat } from './ships';
 export { temple, stall } from './temple';
 export { house } from './houses';

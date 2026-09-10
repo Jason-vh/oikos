@@ -37,6 +37,7 @@ export interface Animal {
   heading: number;
   phase: number;
   respawn: number;
+  cornered: boolean;
 }
 export type WalkerKind = 'cart' | 'buyer' | 'vendor' | 'water' | 'maintenance' | 'immigrant' | 'hunter' | 'woodcutter';
 export interface Walker {
@@ -52,6 +53,7 @@ export interface Walker {
   returning: boolean;
   overland: number[];
   quarry: number | null;
+  working: number;
 }
 export interface World {
   version: 1;

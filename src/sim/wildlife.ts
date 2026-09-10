@@ -49,6 +49,7 @@ export function spawnWildlife(world: World): Animal[] {
             heading: angle,
             phase: hash(x, z, world.seed + member + 11) * 100,
             respawn: 0,
+            cornered: false,
           });
         }
       }
@@ -81,6 +82,7 @@ export function stepWildlife(world: World, dt: number): void {
       continue;
     }
     animal.phase += dt;
+    if (animal.cornered) continue;
     const wander = Math.sin(animal.phase * .7 + animal.id) * .9 + Math.sin(animal.phase * .23 + animal.id * 2) * .6;
     const toHomeX = animal.homeX - animal.x;
     const toHomeZ = animal.homeZ - animal.z;

@@ -14,6 +14,7 @@ export class IslandScenery {
   private readonly waterTime = { value: 0 };
   private readonly ship = boat(colors.blue, false);
   private readonly decor = new Map<number, T.Group>();
+  private readonly falling = new Map<number, number>();
 
   constructor(scene: T.Scene, readonly map: IslandMap) {
     this.root.add(buildTerrain(map));
@@ -105,8 +106,42 @@ export class IslandScenery {
     this.root.add(water);
   }
 
-  clearDecor(occupied: Set<number>): void {
-    for (const [tile, plant] of this.decor) plant.visible = !occupied.has(tile);
+  clearDecor(occupied: Set<number>, felled: Set<number>): void {
+    for (const [tile, plant] of this.decor) {
+      if (felled.has(tile)) {
+        if (!this.falling.has(tile) && plant.visible && plant.userData.settled !== true) this.falling.set(tile, 0);
+        continue;
+      }
+      plant.visible = !occupied.has(tile);
+      plant.rotation.set(0, 0, 0);
+      plant.userData.settled = false;
+      this.falling.delete(tile);
+    }
+  }
+
+  animateFalls(delta: number): boolean {
+    let active = false;
+    for (const [tile, elapsed] of this.falling) {
+      const plant = this.decor.get(tile);
+      if (!plant) { this.falling.delete(tile); continue; }
+      const next = elapsed + delta;
+      const t = Math.min(1, next / 2.2);
+      const eased = t * t * (3 - 2 * t);
+      const lean = eased * Math.PI * .48;
+      const seed = (tile * 7919) % 360;
+      plant.rotation.set(Math.cos(seed) * lean, 0, Math.sin(seed) * lean);
+      plant.position.y = t > .85 ? -(t - .85) * 4 : 0;
+      if (t >= 1) {
+        plant.visible = false;
+        plant.position.y = 0;
+        plant.userData.settled = true;
+        this.falling.delete(tile);
+      } else {
+        this.falling.set(tile, next);
+        active = true;
+      }
+    }
+    return active;
   }
 
   update(time: number): void {

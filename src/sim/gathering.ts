@@ -129,6 +129,9 @@ export function updateGatherer(world: World, building: Building): void {
   });
 }
 
+export const HUNT_SECONDS = 2;
+export const FELL_SECONDS = 4;
+
 export function gatherArrival(world: World, walker: Walker): boolean {
   if (walker.returning) {
     const home = world.buildings.find((building) => building.id === walker.homeId);
@@ -138,24 +141,50 @@ export function gatherArrival(world: World, walker: Walker): boolean {
   const map = mapOf(world);
   if (walker.kind === 'hunter') {
     const prey = world.wildlife.find((animal) => animal.id === walker.quarry);
-    const here = tileAtOn(map, walker.path[walker.path.length - 1]);
-    if (prey && huntable(prey) && Math.hypot(prey.x - here.x - .5, prey.z - here.z - .5) < CATCH_RADIUS) {
+    if (prey && huntable(prey) && withinReach(map, walker, prey)) {
+      prey.cornered = true;
+      walker.working = HUNT_SECONDS;
+      return false;
+    }
+  } else if (walker.quarry !== null && standingForest(world, map, walker.quarry)) {
+    walker.working = FELL_SECONDS;
+    return false;
+  }
+  turnHome(walker);
+  return false;
+}
+
+export function gatherFinished(world: World, walker: Walker): boolean {
+  const map = mapOf(world);
+  if (walker.kind === 'hunter') {
+    const prey = world.wildlife.find((animal) => animal.id === walker.quarry);
+    if (prey && huntable(prey) && withinReach(map, walker, prey)) {
       walker.cargo = killAnimal(prey);
       walker.food = 'meat';
       world.produced += walker.cargo;
     }
+    if (prey) prey.cornered = false;
   } else if (walker.quarry !== null && standingForest(world, map, walker.quarry)) {
     world.felled.push(walker.quarry);
     walker.cargo = LUMBER_PER_TREE;
     walker.food = 'lumber';
     world.produced += walker.cargo;
   }
+  turnHome(walker);
+  return false;
+}
+
+function withinReach(map: IslandMap, walker: Walker, prey: Animal): boolean {
+  const here = tileAtOn(map, walker.path[walker.path.length - 1]);
+  return Math.hypot(prey.x - here.x - .5, prey.z - here.z - .5) < CATCH_RADIUS;
+}
+
+function turnHome(walker: Walker): void {
   walker.path = [...walker.path].reverse();
   walker.step = 0;
   walker.progress = 0;
   walker.returning = true;
   walker.quarry = null;
-  return false;
 }
 
 export function regrowForest(world: World, dt: number): void {

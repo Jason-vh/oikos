@@ -51,3 +51,25 @@ export function animateFigure(model: T.Object3D, phase: number, stride: number):
   rightArm.rotation.x = swing * .7;
   body.position.y = Math.abs(Math.cos(phase)) * .035 * (stride / .6);
 }
+
+export function animateWork(model: T.Object3D, phase: number, kind: 'chop' | 'thrust'): void {
+  const [body, leftLeg, leftArm, rightLeg, rightArm] = model.children;
+  leftLeg.rotation.x = kind === 'chop' ? .15 : .35;
+  rightLeg.rotation.x = kind === 'chop' ? -.15 : -.35;
+  if (kind === 'chop') {
+    const swing = Math.sin(phase * 5);
+    const raise = swing > 0 ? -2.2 + swing * .3 : -.4 + swing * 1.1;
+    rightArm.rotation.x = raise;
+    leftArm.rotation.x = raise * .85;
+    body.rotation.x = swing > 0 ? -.08 : .18;
+    body.position.y = 0;
+  } else {
+    const lunge = Math.max(0, Math.sin(phase * 4));
+    rightArm.rotation.x = -1.4 - lunge * .5;
+    leftArm.rotation.x = -.4;
+    body.rotation.x = lunge * .25;
+    body.position.y = 0;
+  }
+  const tool = model.children[5];
+  if (tool) tool.rotation.x = rightArm.rotation.x + .3;
+}

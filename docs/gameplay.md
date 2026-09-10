@@ -172,9 +172,13 @@ storage, income, upkeep, balance, and how many tier-3 houses are inhabited.
 passable open ground (grass, scrub, sand, fertile, forest, cliff edges) within
 `GATHER_RANGE` (14 tiles), stepping between levels only across a cliff edge. The
 hunter targets the nearest live boar or rabbit; on arrival, if the quarry is within
-`CATCH_RADIUS`, it is killed (`respawn` set; it reappears at home after 240 s) and
-the hunter carries its `yield` of meat back. The woodcutter targets a tile beside
-standing forest, fells it (`world.felled`), and carries 25 lumber back. Felled
+`CATCH_RADIUS`, the animal is `cornered` (it stops moving) and the hunter works for
+`HUNT_SECONDS`; then it is killed (`respawn` set; it reappears at home after 240 s)
+and the hunter carries its `yield` of meat back. The woodcutter targets a tile beside
+standing forest, works for `FELL_SECONDS`, fells it (`world.felled`), and carries 25
+lumber back. `walker.working` holds the seconds left at the site; the renderer plays
+an axe swing or spear thrust while it is positive, then the tree topples and the
+animal collapses. Felled
 tiles regrow one at a time every 480 s unless built over. Gatherers stock up to 200
 at home; carts take food to a granary and materials to a **stockpile** (3×3, eight
 bays, same court as the granary). Walkers carry `overland` tiles so saves validate

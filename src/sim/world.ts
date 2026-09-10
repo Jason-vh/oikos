@@ -1,7 +1,7 @@
 import type { ActionResult, Building, BuildTool, Food, Placement, Resource, Rotation, Stores, Summary, Tile, Walker, WalkerKind, World } from './types';
 import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, STARTING_MONEY, VENDOR_COST, footprint, isFood } from './catalog';
 import { spawnWildlife, stepWildlife } from './wildlife';
-import { gatherArrival, regrowForest, updateGatherer } from './gathering';
+import { gatherArrival, gatherFinished, regrowForest, updateGatherer } from './gathering';
 import { buildable, insideMapOn, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import {
   accessTiles,
@@ -317,10 +317,10 @@ export function hasActiveWalker(world: World, homeId: number, kind: WalkerKind):
   return world.walkers.some((walker) => walker.homeId === homeId && walker.kind === kind);
 }
 
-type WalkerSeed = Omit<Walker, 'id' | 'overland' | 'quarry'> & Partial<Pick<Walker, 'overland' | 'quarry'>>;
+type WalkerSeed = Omit<Walker, 'id' | 'overland' | 'quarry' | 'working'> & Partial<Pick<Walker, 'overland' | 'quarry' | 'working'>>;
 
 export function spawnWalker(world: World, partial: WalkerSeed): Walker {
-  const walker: Walker = { id: world.nextId++, overland: [], quarry: null, ...partial };
+  const walker: Walker = { id: world.nextId++, overland: [], quarry: null, working: 0, ...partial };
   world.walkers.push(walker);
   return walker;
 }
@@ -538,6 +538,11 @@ function moveWalkers(world: World, dt: number): void {
   for (const walker of world.walkers) {
     const overland = new Set(walker.overland);
     if (walker.path.length === 0 || !walker.path.every((tile) => roads.has(tile) || overland.has(tile))) continue;
+    if (walker.working > 0) {
+      walker.working = Math.max(0, walker.working - dt);
+      if (walker.working > 0 || !gatherFinished(world, walker)) alive.push(walker);
+      continue;
+    }
     if (walker.path.length === 1) {
       if (!onFinalArrival(world, walker)) alive.push(walker);
       continue;

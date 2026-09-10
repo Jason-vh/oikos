@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { animalModel, animateAnimal, animateFigure, bake, box, bundle, bundleKey, colors, disposeModel, figure, getBuildingModel, lump, post, type ModelStage } from '../art';
+import { animalModel, animateAnimal, animateFigure, animateWork, bake, box, bundle, bundleKey, colors, disposeModel, figure, getBuildingModel, lump, post, type ModelStage } from '../art';
 import { footprint } from '../sim/catalog';
 import { AGORA_SLOTS, GRANARY_SLOTS } from '../sim/balance';
 import { CELL_SIZE, groundHeight, levelOn, LEVEL_HEIGHT, tileAtOn, tileIndexOn, worldPositionOn, type IslandMap } from '../sim/island';
@@ -8,8 +8,8 @@ import type { Stage } from './stage';
 import { IslandScenery } from './island';
 
 interface BuildingEntry { key: string; model: T.Group; }
-interface WalkerEntry { key: string; model: T.Group; from: T.Vector3; target: T.Vector3; elapsed: number; moving: boolean; }
-interface AnimalEntry { model: T.Group; from: T.Vector3; target: T.Vector3; heading: number; elapsed: number; moving: boolean; }
+interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; from: T.Vector3; target: T.Vector3; elapsed: number; moving: boolean; working: boolean; facing: number | null; }
+interface AnimalEntry { model: T.Group; from: T.Vector3; target: T.Vector3; heading: number; elapsed: number; moving: boolean; dying: number; }
 
 function modelStage(building: Building): ModelStage {
   if (building.kind === 'farm') return Math.min(3, Math.floor(building.progress * 4)) as ModelStage;
@@ -116,8 +116,7 @@ export class CityScene {
       this.buildings.set(building.id, { key, model });
       this.stage.shadows();
     }
-    for (const tile of world.felled) occupied.add(tile);
-    this.scenery.clearDecor(occupied);
+    this.scenery.clearDecor(occupied, new Set(world.felled));
     const walkerIds = new Set(world.walkers.map((walker) => walker.id));
     for (const [id, entry] of this.walkers) {
       if (walkerIds.has(id)) continue;
@@ -156,9 +155,16 @@ export class CityScene {
       model.userData.kind = animal.kind;
       model.position.copy(target);
       this.stage.scene.add(model);
-      entry = { model, from: target.clone(), target, heading: animal.heading, elapsed: .25, moving: false };
+      entry = { model, from: target.clone(), target, heading: animal.heading, elapsed: .25, moving: false, dying: 0 };
       this.animals.set(animal.id, entry);
+      if (animal.respawn > 0) model.visible = false;
       return;
+    }
+    if (animal.respawn > 0 && entry.model.visible && entry.dying === 0) entry.dying = .01;
+    if (animal.respawn === 0 && !entry.model.visible) {
+      entry.model.visible = true;
+      entry.model.rotation.z = 0;
+      entry.dying = 0;
     }
     entry.from.copy(entry.model.position);
     entry.target.copy(target);
@@ -242,7 +248,7 @@ export class CityScene {
       const model = this.walkerModel(walker.kind, load);
       model.position.copy(target);
       this.stage.scene.add(model);
-      entry = { key, model, from: target.clone(), target, elapsed: .25, moving: false };
+      entry = { key, kind: walker.kind, model, from: target.clone(), target, elapsed: .25, moving: false, working: false, facing: null };
       this.walkers.set(walker.id, entry);
     } else {
       entry.from.copy(entry.model.position);
@@ -250,7 +256,16 @@ export class CityScene {
       entry.elapsed = 0;
       entry.moving = entry.from.distanceToSquared(target) > 1e-6;
     }
-    if (a.x !== b.x || a.z !== b.z) entry.model.rotation.y = Math.atan2(b.x - a.x, b.z - a.z);
+    entry.working = walker.working > 0;
+    entry.facing = null;
+    if (entry.working && walker.quarry !== null) {
+      const quarry = walker.kind === 'hunter' ? this.animals.get(walker.quarry)?.model.position : null;
+      const tile = walker.kind === 'woodcutter' ? tileAtOn(this.map, walker.quarry) : null;
+      const goal = quarry ?? (tile ? new T.Vector3(worldPositionOn(this.map, tile.x + .5, tile.z + .5).x, 0, worldPositionOn(this.map, tile.x + .5, tile.z + .5).z) : null);
+      if (goal) entry.facing = Math.atan2(goal.x - target.x, goal.z - target.z);
+    }
+    if (entry.facing !== null) entry.model.rotation.y = entry.facing;
+    else if (a.x !== b.x || a.z !== b.z) entry.model.rotation.y = Math.atan2(b.x - a.x, b.z - a.z);
   }
 
   animate(time: number, delta: number, speed: number): void {
@@ -260,7 +275,8 @@ export class CityScene {
       walker.model.position.lerpVectors(walker.from, walker.target, Math.min(1, walker.elapsed / .25));
       const stride = walker.moving ? .55 : 0;
       const phase = time * 9 * Math.max(1, speed) + id;
-      animateFigure(walker.model, phase, stride);
+      if (walker.working) animateWork(walker.model, time * Math.max(1, speed) + id, walker.kind === 'hunter' ? 'thrust' : 'chop');
+      else animateFigure(walker.model, phase, stride);
       for (const companion of walker.model.children.slice(5)) {
         if (companion.children.length >= 5) animateFigure(companion, phase + 1.3, stride);
       }
@@ -270,8 +286,20 @@ export class CityScene {
       animal.model.position.lerpVectors(animal.from, animal.target, Math.min(1, animal.elapsed / .25));
       const kind = this.kindOf(animal.model);
       animal.model.rotation.y = -animal.heading + Math.PI / 2;
+      if (animal.dying > 0) {
+        animal.dying += delta * speed;
+        const t = Math.min(1, animal.dying / .9);
+        animal.model.rotation.z = t * Math.PI / 2;
+        animal.model.position.y = animal.target.y + Math.sin(t * Math.PI) * .12;
+        if (t >= 1) {
+          animal.model.visible = false;
+          animal.dying = 0;
+        }
+        continue;
+      }
       animateAnimal(animal.model, kind, time * Math.max(1, speed) + id, animal.moving);
     }
+    if (this.scenery.animateFalls(delta * speed)) this.stage.shadows();
     this.followSelection();
     this.stage.invalidate();
   }

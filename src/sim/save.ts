@@ -132,7 +132,8 @@ function pathIsAdjacent(map: IslandMap, path: number[], roads: Set<number>, over
 
 function validateWalker(map: IslandMap, raw: unknown, roads: Set<number>, buildingIds: Set<number>): Walker | null {
   if (!isPlainObject(raw)) return null;
-  const { id, kind, homeId, targetId, path, step, progress, food, cargo, returning, overland, quarry } = raw;
+  const { id, kind, homeId, targetId, path, step, progress, food, cargo, returning, overland, quarry, working } = raw;
+  if (!isNonNegativeFinite(working)) return null;
   const parsedOverland = Array.isArray(overland) && overland.every((tile) => tileInBounds(map, tile)) ? (overland as number[]) : null;
   if (!parsedOverland) return null;
   if (quarry !== null && !isInteger(quarry)) return null;
@@ -161,6 +162,7 @@ function validateWalker(map: IslandMap, raw: unknown, roads: Set<number>, buildi
     food: food as Resource | null,
     overland: parsedOverland,
     quarry: quarry === null ? null : (quarry as number),
+    working: working as number,
     cargo: cargo as number,
     returning: returning as boolean,
   };
@@ -261,11 +263,11 @@ function parseStores(raw: unknown): Stores | null {
 
 function validateAnimal(map: IslandMap, raw: unknown): Animal | null {
   if (!isPlainObject(raw)) return null;
-  const { id, kind, x, z, homeX, homeZ, heading, phase, respawn } = raw;
+  const { id, kind, x, z, homeX, homeZ, heading, phase, respawn, cornered } = raw;
   if (!isInteger(id) || id <= 0) return null;
   if (typeof kind !== 'string' || !ANIMAL_KINDS.includes(kind as AnimalKind)) return null;
   for (const value of [x, homeX]) if (!isFiniteNumber(value) || value < 0 || value > map.width) return null;
   for (const value of [z, homeZ]) if (!isFiniteNumber(value) || value < 0 || value > map.depth) return null;
-  if (!isFiniteNumber(heading) || !isFiniteNumber(phase) || !isNonNegativeFinite(respawn)) return null;
-  return { id, kind: kind as AnimalKind, x: x as number, z: z as number, homeX: homeX as number, homeZ: homeZ as number, heading: heading as number, phase: phase as number, respawn: respawn as number };
+  if (!isFiniteNumber(heading) || !isFiniteNumber(phase) || !isNonNegativeFinite(respawn) || typeof cornered !== 'boolean') return null;
+  return { id, kind: kind as AnimalKind, x: x as number, z: z as number, homeX: homeX as number, homeZ: homeZ as number, heading: heading as number, phase: phase as number, respawn: respawn as number, cornered };
 }
