@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: zeus-${{ github.ref }}
+  group: oikos-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -45,10 +45,10 @@ jobs:
     name: Deploy to exe.dev VM
     needs: check
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    runs-on: [self-hosted, linux, zeus-prod]
+    runs-on: [self-hosted, linux, oikos-prod]
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-      DEPLOY_DIR: /home/exedev/apps/zeus
+      DEPLOY_DIR: /home/exedev/apps/oikos
     steps:
       - name: Check out repository
         uses: actions/checkout@v4

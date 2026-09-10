@@ -1,5 +1,7 @@
 # Oikos
 
+Live at <https://oikos.vhtm.eu>.
+
 *Oikos* (οἶκος): the household, root of *economy*. A living Aegean miniature where
 you build a small island neighbourhood around real road-bound food deliveries,
 water carriers, and caretakers. The first island is Kalliste.
@@ -41,5 +43,5 @@ npm run art:capture -- http://localhost:5180    # benchmark and model captures i
 
 `src/sim/` owns serializable, deterministic game state; `src/render/` reads it.
 `src/art/` owns procedural models; `src/ui/` provides the interface. No original
-Zeus assets or sprite pipelines are used. Legacy work is preserved at Git tag
-`archive/pre-miniature-restart`.
+Zeus assets or sprite pipelines are used. The project began as a Zeus: Master of
+Olympus homage; that work is preserved at Git tag `archive/pre-miniature-restart`.
