@@ -155,6 +155,17 @@ button[aria-pressed='true'] { background: var(--sage); color: #fffdf0; }
   white-space: nowrap;
   font-size: 11.5px;
 }
+.hud-tool-top { display: flex; align-items: center; gap: 5px; }
+.hud-tool-key {
+  font: inherit;
+  font-size: 9px;
+  font-family: Georgia, serif;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(41, 75, 74, .08);
+  color: var(--ink-soft);
+}
+.hud-tool[aria-pressed='true'] .hud-tool-key { background: rgba(255, 255, 255, .25); color: #fffdf0; }
 .hud-tool-cost { font-size: 9.5px; opacity: .6; }
 .hud-tool[aria-pressed='true'] .hud-tool-cost { opacity: .85; }
 .hud-rotate {

@@ -23,16 +23,16 @@ export interface Hud {
   dispose(): void;
 }
 
-const TOOL_DEFS: Array<{ tool: Tool; label: string; cost: string | null }> = [
-  { tool: 'road', label: 'Road', cost: `${ROAD_COST}/tile` },
-  { tool: 'house', label: BUILDINGS.house.name, cost: String(BUILDINGS.house.cost) },
-  { tool: 'farm', label: BUILDINGS.farm.name, cost: String(BUILDINGS.farm.cost) },
-  { tool: 'granary', label: BUILDINGS.granary.name, cost: String(BUILDINGS.granary.cost) },
-  { tool: 'agora', label: BUILDINGS.agora.name, cost: String(BUILDINGS.agora.cost) },
-  { tool: 'fountain', label: BUILDINGS.fountain.name, cost: String(BUILDINGS.fountain.cost) },
-  { tool: 'maintenance', label: BUILDINGS.maintenance.name, cost: String(BUILDINGS.maintenance.cost) },
-  { tool: 'demolish', label: 'Demolish', cost: null },
-  { tool: 'inspect', label: 'Inspect', cost: null },
+const TOOL_DEFS: Array<{ tool: Tool; label: string; cost: string | null; key: string }> = [
+  { tool: 'road', label: 'Road', cost: `${ROAD_COST}/tile`, key: '1' },
+  { tool: 'house', label: BUILDINGS.house.name, cost: String(BUILDINGS.house.cost), key: '2' },
+  { tool: 'farm', label: BUILDINGS.farm.name, cost: String(BUILDINGS.farm.cost), key: '3' },
+  { tool: 'granary', label: BUILDINGS.granary.name, cost: String(BUILDINGS.granary.cost), key: '4' },
+  { tool: 'agora', label: BUILDINGS.agora.name, cost: String(BUILDINGS.agora.cost), key: '5' },
+  { tool: 'fountain', label: BUILDINGS.fountain.name, cost: String(BUILDINGS.fountain.cost), key: '6' },
+  { tool: 'maintenance', label: BUILDINGS.maintenance.name, cost: String(BUILDINGS.maintenance.cost), key: '7' },
+  { tool: 'demolish', label: 'Demolish', cost: null, key: 'X' },
+  { tool: 'inspect', label: 'Inspect', cost: null, key: 'Esc' },
 ];
 
 const ROTATION_DEGREES: Record<Rotation, number> = { 0: 0, 1: 90, 2: 180, 3: 270 };
@@ -184,7 +184,7 @@ const SKELETON = `
     <p class="hud-hint" data-field="hint" role="note" hidden></p>
     <div class="hud-panel hud-toolbar" data-testid="toolbar">
       <div class="hud-tools" role="group" aria-label="Build tools"></div>
-      <button type="button" class="hud-rotate" data-action="rotate" aria-label="Rotate placement" data-testid="rotate">
+      <button type="button" class="hud-rotate" data-action="rotate" aria-label="Rotate placement, shortcut R" data-testid="rotate">
         <span aria-hidden="true">\u21bb</span>
         <span data-field="rotation">0\u00b0</span>
       </button>
@@ -240,10 +240,19 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     button.className = 'hud-tool';
     button.dataset.testid = `tool-${def.tool}`;
     button.setAttribute('aria-pressed', String(def.tool === 'inspect'));
+    button.setAttribute('aria-label', `${def.label}${def.cost ? `, ${def.cost} drachma` : ''}, shortcut ${def.key}`);
+    const top = document.createElement('span');
+    top.className = 'hud-tool-top';
+    const key = document.createElement('kbd');
+    key.className = 'hud-tool-key';
+    key.textContent = def.key;
+    key.setAttribute('aria-hidden', 'true');
+    top.appendChild(key);
     const label = document.createElement('span');
     label.className = 'hud-tool-label';
     label.textContent = def.label;
-    button.appendChild(label);
+    top.appendChild(label);
+    button.appendChild(top);
     if (def.cost !== null) {
       const cost = document.createElement('span');
       cost.className = 'hud-tool-cost';
