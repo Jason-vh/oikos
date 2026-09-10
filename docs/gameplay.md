@@ -30,11 +30,19 @@ and connected, by road, back to that entry point.
   starter roads — so there's no way to profit by paving and immediately tearing up
   a tile.
 
-Every successful `ActionResult` carries a human-readable `reason`: `'Dwelling
-built.'`, `'Road laid.'`, `'Farm demolished. Refunded 70.'`, `'Food vendor
-added.'`, and so on — suitable for showing directly in a HUD toast. Failed actions
-carry a player-facing sentence too (`'Not enough drachmas.'`, `'Wheat only grows
-on the fertile eastern fields.'`, `'Something already stands there.'`, ...).
+Every `ActionResult` carries a human-readable `reason`, suitable for a HUD toast
+as-is:
+
+- Success: `'Dwelling built.'`, `'Road laid.'`, `'Food vendor added.'`,
+  `'Vendor paused.'` / `'Vendor resumed.'` / `'Vendor already active.'`,
+  `'Demolished, 70 drachmas refunded.'` (or `'Demolished. Roads are not
+  refunded.'` for a road).
+- Failure: a full sentence too — `'Farms need fertile ground.'`,
+  `'Not enough drachmas.'`, `'Out of bounds.'`, `'That tile is occupied.'`,
+  `'That tile is occupied by a road.'`, and so on.
+
+`Placement.reason` is only ever populated on failure; a valid preview's `reason`
+stays `''`.
 
 Every building needs flat, unoccupied land: grass or fertile ground, never a hill
 tile or water. A farm additionally needs *every* tile of its footprint to be

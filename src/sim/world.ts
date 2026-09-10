@@ -58,6 +58,18 @@ export function createWorld(): World {
   return world;
 }
 
+const REASON = {
+  outOfBounds: 'Out of bounds.',
+  unsuitableTerrain: 'Unsuitable terrain.',
+  needsFertileGround: 'Farms need fertile ground.',
+  tileOccupied: 'That tile is occupied.',
+  tileOccupiedByRoad: 'That tile is occupied by a road.',
+  notEnoughMoney: 'Not enough drachmas.',
+  nothingToDemolish: 'Nothing to demolish there.',
+  noSuchBuilding: 'No such building.',
+  onlyAgoraHostsVendor: 'Only an agora can host a vendor.',
+} as const;
+
 function buildingAt(world: World, tile: number): Building | undefined {
   return world.buildings.find((building) => footprintTiles(building).includes(tile));
 }
@@ -70,13 +82,13 @@ function terrainAllows(kind: BuildTool, x: number, z: number): boolean {
 
 function evaluatePlacement(world: World, tool: BuildTool, x: number, z: number, rotation: Rotation): Placement {
   if (tool === 'road') {
-    if (!insideMap(x, z)) return { ok: false, reason: 'That is beyond the island.', cost: 0, tiles: [] };
+    if (!insideMap(x, z)) return { ok: false, reason: REASON.outOfBounds, cost: 0, tiles: [] };
     const tile = tileIndex(x, z);
-    if (!terrainAllows(tool, x, z)) return { ok: false, reason: 'Buildings need flat, dry ground.', cost: 0, tiles: [tile] };
-    if (buildingAt(world, tile)) return { ok: false, reason: 'Something already stands there.', cost: 0, tiles: [tile] };
+    if (!terrainAllows(tool, x, z)) return { ok: false, reason: REASON.unsuitableTerrain, cost: 0, tiles: [tile] };
+    if (buildingAt(world, tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: [tile] };
     const already = world.roads.includes(tile);
     const cost = already ? 0 : ROAD_COST;
-    if (cost > world.money) return { ok: false, reason: 'Not enough drachmas.', cost, tiles: [tile] };
+    if (cost > world.money) return { ok: false, reason: REASON.notEnoughMoney, cost, tiles: [tile] };
     return { ok: true, reason: '', cost, tiles: [tile] };
   }
 
@@ -87,20 +99,20 @@ function evaluatePlacement(world: World, tool: BuildTool, x: number, z: number, 
     for (let dx = 0; dx < width; dx++) {
       const tx = x + dx;
       const tz = z + dz;
-      if (!insideMap(tx, tz)) return { ok: false, reason: 'That is beyond the island.', cost: definition.cost, tiles: [] };
+      if (!insideMap(tx, tz)) return { ok: false, reason: REASON.outOfBounds, cost: definition.cost, tiles: [] };
       tiles.push(tileIndex(tx, tz));
     }
   }
   for (const tile of tiles) {
     const { x: tx, z: tz } = tileAt(tile);
     if (!terrainAllows(tool, tx, tz)) {
-      const reason = tool === 'farm' ? 'Wheat only grows on the fertile eastern fields.' : 'Buildings need flat, dry ground.';
+      const reason = tool === 'farm' ? REASON.needsFertileGround : REASON.unsuitableTerrain;
       return { ok: false, reason, cost: definition.cost, tiles };
     }
-    if (world.roads.includes(tile)) return { ok: false, reason: 'A road is in the way.', cost: definition.cost, tiles };
-    if (buildingAt(world, tile)) return { ok: false, reason: 'Something already stands there.', cost: definition.cost, tiles };
+    if (world.roads.includes(tile)) return { ok: false, reason: REASON.tileOccupiedByRoad, cost: definition.cost, tiles };
+    if (buildingAt(world, tile)) return { ok: false, reason: REASON.tileOccupied, cost: definition.cost, tiles };
   }
-  if (definition.cost > world.money) return { ok: false, reason: 'Not enough drachmas.', cost: definition.cost, tiles };
+  if (definition.cost > world.money) return { ok: false, reason: REASON.notEnoughMoney, cost: definition.cost, tiles };
   return { ok: true, reason: '', cost: definition.cost, tiles };
 }
 
@@ -150,19 +162,19 @@ export function placeRoadPath(world: World, tiles: Tile[]): ActionResult {
   const seen = new Set<number>();
   const indices: number[] = [];
   for (const { x, z } of tiles) {
-    if (!insideMap(x, z)) return { ok: false, reason: 'That is beyond the island.' };
+    if (!insideMap(x, z)) return { ok: false, reason: REASON.outOfBounds };
     const tile = tileIndex(x, z);
     if (seen.has(tile)) continue;
     seen.add(tile);
-    if (!terrainAllows('road', x, z)) return { ok: false, reason: 'Buildings need flat, dry ground.' };
-    if (buildingAt(world, tile)) return { ok: false, reason: 'Something already stands there.' };
+    if (!terrainAllows('road', x, z)) return { ok: false, reason: REASON.unsuitableTerrain };
+    if (buildingAt(world, tile)) return { ok: false, reason: REASON.tileOccupied };
     indices.push(tile);
   }
 
   const existing = new Set(world.roads);
   const fresh = indices.filter((tile) => !existing.has(tile));
   const cost = fresh.length * ROAD_COST;
-  if (cost > world.money) return { ok: false, reason: 'Not enough drachmas.' };
+  if (cost > world.money) return { ok: false, reason: REASON.notEnoughMoney };
 
   world.money -= cost;
   for (const tile of fresh) world.roads.push(tile);
@@ -171,25 +183,24 @@ export function placeRoadPath(world: World, tiles: Tile[]): ActionResult {
 }
 
 export function demolish(world: World, x: number, z: number): ActionResult {
-  if (!insideMap(x, z)) return { ok: false, reason: 'That is beyond the island.' };
+  if (!insideMap(x, z)) return { ok: false, reason: REASON.outOfBounds };
   const tile = tileIndex(x, z);
 
   const building = buildingAt(world, tile);
   if (building) {
     const refund = Math.floor((BUILDINGS[building.kind].cost + (building.vendorInstalled ? VENDOR_COST : 0)) / 2);
     world.money += refund;
-    const name = BUILDINGS[building.kind].name;
     removeBuilding(world, building.id);
     recomputeConnectivity(world);
-    return { ok: true, reason: `${name} demolished. Refunded ${refund}.` };
+    return { ok: true, reason: `Demolished, ${refund} drachmas refunded.` };
   }
 
   const index = world.roads.indexOf(tile);
-  if (index === -1) return { ok: false, reason: 'Nothing to demolish there.' };
+  if (index === -1) return { ok: false, reason: REASON.nothingToDemolish };
   world.roads.splice(index, 1);
   dropStrandedWalkers(world);
   recomputeConnectivity(world);
-  return { ok: true, reason: 'Road removed. No refund for roads.' };
+  return { ok: true, reason: 'Demolished. Roads are not refunded.' };
 }
 
 function removeBuilding(world: World, id: number): void {
@@ -213,23 +224,23 @@ function dropStrandedWalkers(world: World): void {
 
 export function setVendor(world: World, id: number, enabled: boolean): ActionResult {
   const building = world.buildings.find((candidate) => candidate.id === id);
-  if (!building) return { ok: false, reason: 'That building no longer exists.' };
-  if (building.kind !== 'agora') return { ok: false, reason: 'Only an agora can host a vendor.' };
+  if (!building) return { ok: false, reason: REASON.noSuchBuilding };
+  if (building.kind !== 'agora') return { ok: false, reason: REASON.onlyAgoraHostsVendor };
 
   if (!enabled) {
     building.vendorEnabled = false;
-    return { ok: true, reason: 'Food vendor disabled.' };
+    return { ok: true, reason: 'Vendor paused.' };
   }
-  if (building.vendorEnabled) return { ok: true, reason: 'Food vendor already active.' };
+  if (building.vendorEnabled) return { ok: true, reason: 'Vendor already active.' };
   if (!building.vendorInstalled) {
-    if (world.money < VENDOR_COST) return { ok: false, reason: 'Not enough drachmas.' };
+    if (world.money < VENDOR_COST) return { ok: false, reason: REASON.notEnoughMoney };
     world.money -= VENDOR_COST;
     building.vendorInstalled = true;
     building.vendorEnabled = true;
     return { ok: true, reason: 'Food vendor added.' };
   }
   building.vendorEnabled = true;
-  return { ok: true, reason: 'Food vendor enabled.' };
+  return { ok: true, reason: 'Vendor resumed.' };
 }
 
 export function recomputeConnectivity(world: World): void {

@@ -14,14 +14,14 @@ describe('placement validation', () => {
     const world = createWorld();
     const result = placement(world, 'house', 1000, 1000);
     expect(result.ok).toBe(false);
-    expect(result.reason).toBe('That is beyond the island.');
+    expect(result.reason).toBe('Out of bounds.');
   });
 
   test('farms require fertile ground', () => {
     const world = createWorld();
     const onGrass = placement(world, 'farm', 12, 17);
     expect(onGrass.ok).toBe(false);
-    expect(onGrass.reason).toContain('fertile');
+    expect(onGrass.reason).toBe('Farms need fertile ground.');
 
     const onFertile = placement(world, 'farm', 26, 11);
     expect(onFertile.ok).toBe(true);
@@ -53,7 +53,7 @@ describe('placement validation', () => {
     const world = createWorld();
     expect(build(world, 'house', 10, 17).ok).toBe(true);
     expect(placement(world, 'house', 11, 18).ok).toBe(false);
-    expect(placement(world, 'house', 21, 20).reason).toBe('A road is in the way.');
+    expect(placement(world, 'house', 21, 20).reason).toBe('That tile is occupied by a road.');
   });
 
   test('rejects roads on top of buildings', () => {
@@ -61,7 +61,7 @@ describe('placement validation', () => {
     build(world, 'house', 10, 17);
     const result = placement(world, 'road', 11, 18);
     expect(result.ok).toBe(false);
-    expect(result.reason).toBe('Something already stands there.');
+    expect(result.reason).toBe('That tile is occupied.');
   });
 });
 
@@ -125,7 +125,7 @@ describe('demolition', () => {
     expect(world.buildings.length).toBe(1);
     const result = demolish(world, 27, 12);
     expect(result.ok).toBe(true);
-    expect(result.reason).toBe(`${BUILDINGS.farm.name} demolished. Refunded ${Math.floor(BUILDINGS.farm.cost / 2)}.`);
+    expect(result.reason).toBe(`Demolished, ${Math.floor(BUILDINGS.farm.cost / 2)} drachmas refunded.`);
     expect(world.buildings.length).toBe(0);
     expect(world.money).toBe(beforeDemolish + Math.floor(BUILDINGS.farm.cost / 2));
   });
@@ -148,7 +148,7 @@ describe('demolition', () => {
     const beforeDemolish = world.money;
     const result = demolish(world, 21, 20);
     expect(result.ok).toBe(true);
-    expect(result.reason).toBe('Road removed. No refund for roads.');
+    expect(result.reason).toBe('Demolished. Roads are not refunded.');
     expect(world.roads.includes(tileIndex(21, 20))).toBe(false);
     expect(world.money).toBe(beforeDemolish);
   });
@@ -169,6 +169,24 @@ describe('demolition', () => {
   });
 });
 
+describe('valid placements need no reason text', () => {
+  test('placement leaves reason empty on success', () => {
+    const world = createWorld();
+    expect(placement(world, 'farm', 26, 11).reason).toBe('');
+    expect(placement(world, 'road', 15, 21).reason).toBe('');
+  });
+});
+
+describe('failure reasons are full sentences', () => {
+  test('matches the agreed phrasing for common failures', () => {
+    const world = createWorld();
+    world.money = 10;
+    expect(placement(world, 'farm', 26, 11).reason).toBe('Not enough drachmas.');
+    expect(placement(world, 'farm', 12, 17).reason).toBe('Farms need fertile ground.');
+    expect(placement(world, 'house', 1000, 1000).reason).toBe('Out of bounds.');
+  });
+});
+
 describe('human-readable action results', () => {
   test('build reports what was built', () => {
     const world = createWorld();
@@ -181,9 +199,9 @@ describe('human-readable action results', () => {
     build(world, 'agora', 13, 21);
     const agora = findByKind(world, 'agora');
     expect(setVendor(world, agora.id, true).reason).toBe('Food vendor added.');
-    expect(setVendor(world, agora.id, true).reason).toBe('Food vendor already active.');
-    expect(setVendor(world, agora.id, false).reason).toBe('Food vendor disabled.');
-    expect(setVendor(world, agora.id, true).reason).toBe('Food vendor enabled.');
+    expect(setVendor(world, agora.id, true).reason).toBe('Vendor already active.');
+    expect(setVendor(world, agora.id, false).reason).toBe('Vendor paused.');
+    expect(setVendor(world, agora.id, true).reason).toBe('Vendor resumed.');
   });
 });
 
