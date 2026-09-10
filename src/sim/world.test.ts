@@ -212,7 +212,7 @@ describe('connectivity', () => {
     expect(result.ok).toBe(true);
     const farm = findByKind(world, 'farm');
     expect(farm.connected).toBe(false);
-    expect(buildingStatus(world, farm)[0]).toContain('Not connected');
+    expect(buildingStatus(world, farm)).toEqual(['Not linked to a road; nobody can reach it.']);
   });
 
   test('a road island that does not reach the entry is not connected', () => {
@@ -470,6 +470,138 @@ describe('determinism', () => {
     advance(world, 0.4);
     expect(world.time).toBeCloseTo(0.5, 10);
     expect(world.remainder).toBeCloseTo(0, 10);
+  });
+});
+
+describe('player-facing building status', () => {
+  test('a disconnected building only says so', () => {
+    const world = createWorld();
+    build(world, 'farm', 30, 9);
+    const farm = findByKind(world, 'farm');
+    expect(buildingStatus(world, farm)).toEqual(['Not linked to a road; nobody can reach it.']);
+  });
+
+  test('an empty connected house is waiting for settlers', () => {
+    const world = createWorld();
+    build(world, 'house', 10, 17);
+    const house = findByKind(world, 'house');
+    expect(buildingStatus(world, house)).toEqual(['Waiting for settlers from the harbour.']);
+  });
+
+  test('a full tier-1 house without food is blocked from growing', () => {
+    const world = createWorld();
+    build(world, 'house', 10, 17);
+    const house = findByKind(world, 'house');
+    house.residents = 8;
+    expect(buildingStatus(world, house)).toEqual(['Needs food to grow: add an agora vendor nearby.']);
+  });
+
+  test('a full, fed tier-2 house without water cannot become a courtyard house', () => {
+    const world = createWorld();
+    build(world, 'house', 10, 17);
+    const house = findByKind(world, 'house');
+    house.tier = 2;
+    house.residents = 12;
+    house.food = 10;
+    house.water = 0;
+    expect(buildingStatus(world, house)).toEqual(['Needs water to become a courtyard house.']);
+  });
+
+  test('a tier-2 house that has run out of food is in distress, not just growth-blocked', () => {
+    const world = createWorld();
+    build(world, 'house', 10, 17);
+    const house = findByKind(world, 'house');
+    house.tier = 2;
+    house.residents = 5;
+    house.food = 0;
+    expect(buildingStatus(world, house)).toEqual(['Out of food; a vendor visit is needed.']);
+  });
+
+  test('a tier-3 house that has run dry needs water, not food', () => {
+    const world = createWorld();
+    build(world, 'house', 10, 17);
+    const house = findByKind(world, 'house');
+    house.tier = 3;
+    house.residents = 15;
+    house.food = 5;
+    house.water = 0;
+    expect(buildingStatus(world, house)).toEqual(['Out of water; a fountain visit is needed.']);
+  });
+
+  test('a full, satisfied tier-3 house is described as thriving', () => {
+    const world = createWorld();
+    build(world, 'house', 10, 17);
+    const house = findByKind(world, 'house');
+    house.tier = 3;
+    house.residents = 20;
+    house.food = 5;
+    house.water = 5;
+    expect(buildingStatus(world, house)).toEqual(['A thriving courtyard house.']);
+  });
+
+  test('low condition adds a neglect warning alongside the primary line', () => {
+    const world = createWorld();
+    build(world, 'house', 10, 17);
+    const house = findByKind(world, 'house');
+    house.tier = 3;
+    house.residents = 20;
+    house.food = 5;
+    house.water = 5;
+    house.condition = 20;
+    expect(buildingStatus(world, house)).toEqual(['A thriving courtyard house.', 'Neglected; a caretaker will repair it.']);
+  });
+
+  test('an unstaffed workplace says so before anything else', () => {
+    const world = createWorld();
+    build(world, 'farm', 26, 11);
+    const farm = findByKind(world, 'farm');
+    farm.connected = true;
+    expect(buildingStatus(world, farm)).toEqual(['Unstaffed: more settlers needed.']);
+  });
+
+  test('a staffed farm reports harvest progress', () => {
+    const world = createWorld();
+    build(world, 'farm', 26, 11);
+    const farm = findByKind(world, 'farm');
+    farm.connected = true;
+    farm.workers = BUILDINGS.farm.jobs;
+    farm.progress = 0.4;
+    expect(buildingStatus(world, farm)).toEqual(['Growing wheat, 40% to harvest.']);
+  });
+
+  test('an empty granary is waiting for a cart, a stocked one is ready', () => {
+    const world = createWorld();
+    build(world, 'granary', 24, 17);
+    const granary = findByKind(world, 'granary');
+    granary.workers = BUILDINGS.granary.jobs;
+    expect(buildingStatus(world, granary)).toEqual(['Empty; waiting for a farm cart.']);
+    granary.stock = 50;
+    expect(buildingStatus(world, granary)).toEqual(['Stocked and ready for buyers.']);
+  });
+
+  test('an agora without a vendor asks for one', () => {
+    const world = createWorld();
+    build(world, 'agora', 13, 21);
+    const agora = findByKind(world, 'agora');
+    agora.workers = BUILDINGS.agora.jobs;
+    expect(buildingStatus(world, agora)).toEqual(['Add a food vendor to start deliveries.']);
+  });
+
+  test('an installed but idle vendor is resting, an active one is on the streets', () => {
+    const world = createWorld();
+    buildStarterNeighbourhood(world);
+    const agora = findByKind(world, 'agora');
+
+    let sawResting = false;
+    let sawActive = false;
+    for (let i = 0; i < 300 && !(sawResting && sawActive); i++) {
+      advance(world, 1);
+      const line = buildingStatus(world, agora)[0];
+      if (line === 'Vendor resting at market.') sawResting = true;
+      if (line === 'Vendor on the streets.') sawActive = true;
+    }
+    expect(sawResting).toBe(true);
+    expect(sawActive).toBe(true);
   });
 });
 

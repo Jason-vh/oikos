@@ -136,6 +136,25 @@ Building condition decays slowly regardless of tier, and is repaired by a
 maintenance caretaker's visits; nothing about condition alone forces a house to
 devolve in this slice.
 
+## Status messages
+
+`buildingStatus(world, building)` returns short, player-facing lines about what a
+building needs or is doing right now — not a dump of its raw fields (the UI already
+shows residents, stock, workers and condition numbers directly). A disconnected
+building only ever reports that:
+
+> 'Not linked to a road; nobody can reach it.'
+
+Otherwise it says what a house is waiting on or growing into — `'Waiting for
+settlers from the harbour.'`, `'Needs food to grow: add an agora vendor
+nearby.'`, `'Needs water to become a courtyard house.'`, `'Out of food; a vendor
+visit is needed.'`, `'A thriving courtyard house.'` — or what a workplace is doing
+— `'Unstaffed: more settlers needed.'`, `'Growing wheat, 40% to harvest.'`,
+`'Empty; waiting for a farm cart.'`, `'Add a food vendor to start deliveries.'`,
+`'Vendor on the streets.'` / `'Vendor resting at market.'` — with a trailing
+`'Neglected; a caretaker will repair it.'` appended whenever condition has dropped
+below half.
+
 ## Money
 
 Building, paving and the vendor's installation fee are one-off costs. Ongoing

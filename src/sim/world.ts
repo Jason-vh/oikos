@@ -1,5 +1,5 @@
 import type { ActionResult, Building, BuildTool, Placement, Rotation, Summary, Tile, Walker, WalkerKind, World } from './types';
-import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, STARTING_MONEY, VENDOR_COST, footprint } from './catalog';
+import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, STARTING_MONEY, VENDOR_COST, footprint } from './catalog';
 import { ENTRY, insideMap, terrainAt, tileAt, tileIndex } from './island';
 import {
   bfsReachable,
@@ -594,29 +594,60 @@ export function getSummary(world: World): Summary {
   return { population, workers, jobs, food, income, upkeep, balance, prosperous, goal };
 }
 
-export function buildingStatus(world: World, building: Building): string[] {
-  void world;
+function houseStatus(building: Building): string[] {
   const lines: string[] = [];
-  lines.push(building.connected ? 'Connected to the road network.' : 'Not connected to any road.');
+  const capacity = HOUSE_CAPACITY[building.tier];
+  const needsFoodNow = building.tier >= 2;
+  const needsWaterNow = building.tier >= 3;
+  const satisfiedNow = (!needsFoodNow || building.food > 0) && (!needsWaterNow || building.water > 0);
 
-  if (building.kind === 'house') {
-    const name = building.residents > 0 ? HOUSE_NAMES[building.tier] : HOUSE_NAMES[0];
-    lines.push(`${name}: ${building.residents}/${HOUSE_CAPACITY[building.tier]} settlers.`);
-    if (building.tier >= 2) lines.push(building.food > 0 ? `Food stored: ${building.food.toFixed(1)}.` : 'Out of food.');
-    if (building.tier >= 3) lines.push(building.water > 0 ? `Water stored: ${building.water.toFixed(1)}.` : 'Out of water.');
-    lines.push(`Condition: ${building.condition.toFixed(0)}%.`);
-    return lines;
+  if (building.residents === 0) {
+    lines.push('Waiting for settlers from the harbour.');
+  } else if (!satisfiedNow) {
+    lines.push(needsWaterNow && building.water <= 0 ? 'Out of water; a fountain visit is needed.' : 'Out of food; a vendor visit is needed.');
+  } else if (building.residents < capacity) {
+    lines.push('Waiting for settlers from the harbour.');
+  } else if (building.tier < 3) {
+    const nextTier = building.tier + 1;
+    if (nextTier >= 2 && building.food <= 0) lines.push('Needs food to grow: add an agora vendor nearby.');
+    else if (nextTier >= 3 && building.water <= 0) lines.push('Needs water to become a courtyard house.');
+    else lines.push('Ready to grow.');
+  } else {
+    lines.push('A thriving courtyard house.');
   }
+
+  if (building.condition < 50) lines.push('Neglected; a caretaker will repair it.');
+  return lines;
+}
+
+export function buildingStatus(world: World, building: Building): string[] {
+  if (!building.connected) return ['Not linked to a road; nobody can reach it.'];
+  if (building.kind === 'house') return houseStatus(building);
 
   const definition = BUILDINGS[building.kind];
-  lines.push(`Workers: ${building.workers.toFixed(1)}/${definition.jobs}.`);
-  if (building.kind === 'farm') lines.push(`Stock: ${building.stock.toFixed(0)}, growth ${(building.progress * 100).toFixed(0)}%.`);
-  if (building.kind === 'granary') lines.push(`Stock: ${building.stock.toFixed(0)}.`);
-  if (building.kind === 'agora') {
-    lines.push(`Stock: ${building.stock.toFixed(0)}.`);
-    lines.push(building.vendorEnabled ? 'Food vendor active.' : building.vendorInstalled ? 'Food vendor paused.' : 'No food vendor installed.');
+  const lines: string[] = [];
+
+  if (building.workers < definition.jobs) {
+    lines.push('Unstaffed: more settlers needed.');
+  } else if (building.kind === 'farm') {
+    if (building.stock > 0 && !hasActiveWalker(world, building.id, 'cart')) {
+      lines.push('Harvest ready, but no granary to send it to.');
+    } else {
+      lines.push(`Growing wheat, ${Math.round(building.progress * 100)}% to harvest.`);
+    }
+  } else if (building.kind === 'granary') {
+    lines.push(building.stock > 0 ? 'Stocked and ready for buyers.' : 'Empty; waiting for a farm cart.');
+  } else if (building.kind === 'agora') {
+    if (!building.vendorInstalled) lines.push('Add a food vendor to start deliveries.');
+    else if (hasActiveWalker(world, building.id, 'vendor')) lines.push('Vendor on the streets.');
+    else lines.push('Vendor resting at market.');
+  } else if (building.kind === 'fountain') {
+    lines.push(hasActiveWalker(world, building.id, 'water') ? 'Water carrier making the rounds.' : 'Water carrier resting at the fountain.');
+  } else if (building.kind === 'maintenance') {
+    lines.push(hasActiveWalker(world, building.id, 'maintenance') ? 'Caretaker doing rounds.' : 'Caretaker resting at the post.');
   }
-  lines.push(`Condition: ${building.condition.toFixed(0)}%.`);
+
+  if (building.condition < 50) lines.push('Neglected; a caretaker will repair it.');
   return lines;
 }
 
