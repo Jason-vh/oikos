@@ -8,11 +8,12 @@ How models are built, wired and checked. Read `art-direction.md` first.
 src/art/
   primitives.ts   colours, cached materials, box/post/lump/group/mesh, roof, pot,
                   bake(), disposeModel()
-  houses.ts       dwelling(tier), dwellingPieces() construction choreography
-  assembly.ts     named assembly parts and timing
-  civic.ts        fountain, maintenance, lodge, woodcutter, stockpile
-  granaries.ts    granary(stores)
-  stall.ts        stall() — the agora's market stall
+  houses.ts       dwelling(tier), dwellingPieces()
+  assembly.ts     assemblyPart() timing, shellWalls() overlapping wall layout
+  scaffolding.ts  scaffolding(width, depth, height) — struck once a building stands
+  civic.ts        fountain, maintenance, lodge, woodcutter, stockpile, and their pieces
+  granaries.ts    granary(stores), granaryPieces(stores)
+  stall.ts        the agora's market stall, counter/posts/awning/goods
   food.ts         resource bundles (wheat, carrots, fish, meat, olives, lumber, clay,
                   stone), bundlesOf(stores, slots), bundleKey()
   vegetation.ts   tree(), wheatFarm(stage)
@@ -38,13 +39,31 @@ src/art/
   building's state key changes.
 - `bake()` releases the source's owned geometry after copying it; shared primitive
   templates and palette materials remain untouched.
-- Dwelling construction temporarily uses individually baked architectural groups.
-  `src/render/assembly.ts` seats them over 1.35 seconds, then disposes them and shows
-  the normal material-batched model. Assembly stays within the 18-mesh budget.
-  Other buildings retain their existing placement animation. Loaded cities and
-  reduced-motion placement show completed models; paused placement still assembles.
-  Checkpoint/import restores reset the scene, preserving the camera on the same island.
-  Construction is presentation only, never saved or used as a simulation timer.
+- A construction assembly is temporary geometry, owned by its `BuildingConstruction`
+  and disposed the moment the building stands.
+
+## Construction
+
+Every placeable kind is raised piece by piece. `<model>Pieces()` names the parts and
+their timing; `src/render/assembly.ts` seats them, raises the scaffolding and puffs
+dust as each piece lands, then swaps to the ordinary material-batched model.
+
+- The choreography is a **parallel authoring**, not a decomposition. The finished
+  model must never pay for it: build both from the same dimension constants and the
+  same finishing helpers, and keep the split geometry out of `getBuildingModel`.
+- **Overlap, never butt.** A piece's cut ends belong inside its neighbour, or the two
+  bevels leave a groove down the middle of a face and the shading shifts at the swap.
+  `shellWalls()` lays out four overlapping walls for anything with a box body.
+- `modelAssembly(false)` for what is laid out rather than raised — the farm, the
+  agora — which skips the scaffolding.
+- `dust: true` marks a piece heavy enough to raise dust; finishing touches do not.
+- Tier upgrades keep the old settle-in pop: an evolution is not a construction. The
+  harbour is never placed, so it has no choreography.
+- Loaded cities and reduced-motion placement show completed models; paused placement
+  still assembles. Construction is presentation only, never saved and never a
+  simulation timer.
+- `src/art/assembly.test.ts` holds every kind to the finished model's bounds and
+  palette, and to its footprint at every pose and rotation.
 
 ## Adding a model
 
@@ -58,17 +77,18 @@ src/art/
 
 - **`/art.html`** (`src/art-viewer.ts`): the atelier. Footprint border, grid, scale
   citizen, wireframe, turntable, golden hour, animated walk/flap cycles. The chosen
-  model is kept in `?model=…` so reloads and links preserve it. The dwelling includes
-  construction replay and a reversible progress slider. Replay is disabled for
-  reduced motion; manual scrubbing remains available without autoplay.
+  model is kept in `?model=…` so reloads and links preserve it. Every placeable
+  building offers construction replay and a reversible progress slider, scaffolding
+  and dust included — this is where timing is judged. Replay is disabled for reduced
+  motion; manual scrubbing remains available without autoplay.
 - **`npm run art:check`**: `bun test src/art`.
 - **`npm run art:capture -- <base url>`**: captures every atelier model to
   `artifacts/art/` and asserts the atelier stays still when nothing animates, keeps
   the selection in the URL across a reload, and never touches the game's save.
-- **`npm run smoke:construction -- <base url>`**: dwelling assembly captures from
-  four sides and at city zoom, replay/scrub checks, idle rendering, reduced motion,
-  paused placement, same-island checkpoint restore and atelier save isolation.
-  Output: `artifacts/construction/`.
+- **`npm run smoke:construction -- <base url>`**: assembly captures from four sides
+  and at city zoom, one midway capture per kind, replay/scrub checks, idle rendering,
+  reduced motion, paused placement, same-island checkpoint restore and atelier save
+  isolation. Output: `artifacts/construction/`.
 - **`npm run smoke`** and **`npm run check`**: the gameplay walkthrough
   (`scripts/smoke.mjs`), which is where models are judged in context.
 

@@ -8,10 +8,10 @@ import type { Stage } from './stage';
 import { IslandScenery } from './island';
 import { LogisticsOverlay, syncDisconnectedMark, syncHouseSupplies } from './logistics';
 import { BuildingConstruction } from './assembly';
+import { DustField } from './dust';
 
 interface BuildingEntry { key: string; tier: number; model: T.Group; intro: number; from: number; construction: BuildingConstruction | null; }
 interface Departure { model: T.Group; elapsed: number; }
-interface Puff { model: T.Group; material: T.MeshStandardMaterial; elapsed: number; }
 interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; from: T.Vector3; target: T.Vector3; elapsed: number; moving: boolean; working: boolean; heading: number; }
 interface AnimalEntry { model: T.Group; from: T.Vector3; target: T.Vector3; heading: number; elapsed: number; moving: boolean; dying: number; }
 
@@ -19,27 +19,12 @@ const RAMP_SPAN = 1;
 const TURN_RATE = 14;
 const INTRO_SECONDS = .45;
 const EXIT_SECONDS = .3;
-const PUFF_SECONDS = .7;
-const PUFF_GEOMETRY = new T.DodecahedronGeometry(1, 0);
+
 
 function backOut(t: number): number {
   const overshoot = 1.6;
   const shifted = t - 1;
   return 1 + shifted * shifted * ((overshoot + 1) * shifted + overshoot);
-}
-
-function dustPuff(x: number, y: number, z: number, width: number, depth: number): Puff {
-  const model = new T.Group();
-  const material = new T.MeshStandardMaterial({ color: colors.cream, roughness: .88, transparent: true, opacity: .75, depthWrite: false });
-  for (let index = 0; index < 7; index++) {
-    const angle = index / 7 * Math.PI * 2;
-    const cloud = new T.Mesh(PUFF_GEOMETRY, material);
-    cloud.position.set(Math.cos(angle) * width * .38, .15, Math.sin(angle) * depth * .38);
-    cloud.scale.setScalar(.22 + (index % 3) * .08);
-    model.add(cloud);
-  }
-  model.position.set(x, y, z);
-  return { model, material, elapsed: 0 };
 }
 
 function turnToward(current: number, goal: number, delta: number): number {
@@ -75,7 +60,7 @@ export class CityScene {
   private readonly animals = new Map<number, AnimalEntry>();
   private readonly animalTemplates = new Map<AnimalKind, T.Group>();
   private readonly departures: Departure[] = [];
-  private readonly puffs: Puff[] = [];
+  private readonly dust: DustField;
   private readonly roads = new T.Group();
   private readonly hoverMark = new T.Mesh(new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new T.MeshBasicMaterial({ color: 0xffefae, transparent: true, opacity: .18, depthWrite: false }));
   private primed = false;
@@ -94,6 +79,7 @@ export class CityScene {
   constructor(private readonly stage: Stage, readonly map: IslandMap, private readonly motion = true) {
     this.scenery = new IslandScenery(stage.scene, map);
     this.logistics = new LogisticsOverlay(stage.scene, map);
+    this.dust = new DustField(stage.scene);
     this.selection.visible = false;
     this.hoverMark.visible = false;
     stage.scene.add(this.roads, this.selection, this.hoverMark, this.preview);
@@ -143,9 +129,15 @@ export class CityScene {
   }
 
   reload(world: World): void {
+    for (const departure of this.departures) {
+      departure.model.removeFromParent();
+      disposeModel(departure.model);
+    }
+    this.departures.length = 0;
+    this.dust.clear();
     const ids = new Set([...world.buildings, world.harbour].map((building) => building.id));
     for (const [id, entry] of this.buildings) {
-      entry.construction?.advance(Infinity);
+      entry.construction?.settle();
       entry.construction = null;
       if (ids.has(id)) continue;
       this.buildings.delete(id);
@@ -190,7 +182,9 @@ export class CityScene {
       const animated = this.motion && this.primed && (!existing || existing.tier !== building.tier);
       const assembling = animated || (existing?.construction && existing.tier === building.tier);
       const assembly = assembling ? getBuildingAssembly(building.kind, state) : null;
-      const construction = assembly ? new BuildingConstruction(finished, assembly) : null;
+      const plot = footprint(building.kind, 0);
+      const site = { width: plot.width * CELL_SIZE, depth: plot.depth * CELL_SIZE, dust: this.dust };
+      const construction = assembly ? new BuildingConstruction(finished, assembly, site) : null;
       if (construction && existing?.construction) construction.advance(existing.construction.elapsed);
       const model = construction?.model ?? finished;
       const point = worldPositionOn(this.map, building.x + width / 2, building.z + depth / 2);
@@ -404,11 +398,8 @@ export class CityScene {
   }
 
   private depart(model: T.Group): void {
-    const bounds = new T.Box3().setFromObject(model);
-    const size = bounds.getSize(new T.Vector3());
-    const puff = dustPuff(model.position.x, model.position.y, model.position.z, size.x, size.z);
-    this.stage.scene.add(puff.model);
-    this.puffs.push(puff);
+    const size = new T.Box3().setFromObject(model).getSize(new T.Vector3());
+    this.dust.puff(model.position.clone(), size.x, size.z);
     this.departures.push({ model, elapsed: 0 });
   }
 
@@ -422,7 +413,10 @@ export class CityScene {
     let active = false;
     for (const entry of this.buildings.values()) {
       if (entry.construction) {
-        if (entry.construction.advance(delta)) entry.construction = null;
+        if (entry.construction.advance(delta)) {
+          entry.construction.settle();
+          entry.construction = null;
+        }
         active = true;
       }
       if (entry.intro >= INTRO_SECONDS) continue;
@@ -441,20 +435,7 @@ export class CityScene {
       }
       active = true;
     }
-    for (const puff of [...this.puffs]) {
-      puff.elapsed += delta;
-      const t = Math.min(1, puff.elapsed / PUFF_SECONDS);
-      const spread = 1 + t * 1.6;
-      puff.model.scale.set(spread, 1 + t * .8, spread);
-      puff.model.position.y += delta * .35;
-      puff.material.opacity = .75 * (1 - t) * (1 - t);
-      if (t >= 1) {
-        puff.model.removeFromParent();
-        puff.material.dispose();
-        this.puffs.splice(this.puffs.indexOf(puff), 1);
-      }
-      active = true;
-    }
+    if (this.dust.advance(delta)) active = true;
     if (active) this.stage.shadows();
     return active;
   }
@@ -609,11 +590,7 @@ export class CityScene {
       disposeModel(departure.model);
     }
     this.departures.length = 0;
-    for (const puff of this.puffs) {
-      puff.model.removeFromParent();
-      puff.material.dispose();
-    }
-    this.puffs.length = 0;
+    this.dust.clear();
     disposeModel(this.roads);
     this.roads.removeFromParent();
     this.logistics.dispose();

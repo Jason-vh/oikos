@@ -51,7 +51,14 @@ try {
   assert.equal(await atelier.evaluate(() => window.artStudy.frames), frames, 'Completed construction keeps rendering');
   await atelier.getByRole('button', { name: 'Replay construction', exact: true }).click();
   await atelier.clock.runFor(200);
-  await atelier.getByLabel('Model', { exact: true }).selectOption('fountain:1');
+  for (const model of ['granary:1:mixed', 'agora:2:mixed', 'woodcutter:1', 'fountain:1', 'farm:1:0']) {
+    await atelier.getByLabel('Model', { exact: true }).selectOption(model);
+    await atelier.clock.runFor(100);
+    assert.equal(await atelier.locator('#construction').isVisible(), true, `${model} has no construction`);
+    await scrub(atelier, 550);
+    await atelier.screenshot({ path: path.join(output, `atelier-${model.split(':')[0]}-midway.png`) });
+  }
+  await atelier.getByLabel('Model', { exact: true }).selectOption('house:3');
   await atelier.clock.runFor(100);
   assert.equal(await atelier.locator('#construction').isVisible(), false);
   assert.deepEqual(await atelier.evaluate(() => ({ ...localStorage })), { 'construction-sentinel': 'untouched' });

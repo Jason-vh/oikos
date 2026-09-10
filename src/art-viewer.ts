@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { animalModel, animateAnimal, animateFigure, boat, citizen, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, type ModelAssembly, type ModelStage } from './art';
+import { animalModel, animateAnimal, animateFigure, boat, citizen, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, type ModelStage, type ModelState } from './art';
 import type { AnimalKind } from './sim/types';
 import { BUILDINGS, footprint } from './sim/catalog';
 import { CELL_SIZE } from './sim/island';
@@ -13,7 +13,10 @@ const STORE_VARIANTS: Record<string, Stores> = {
   materials: { lumber: 300, clay: 100, stone: 100 },
 };
 import { Stage } from './render/stage';
-import { assemblyDuration, poseAssembly } from './render/assembly';
+import { BuildingConstruction } from './render/assembly';
+import { DustField } from './render/dust';
+
+interface Site { kind: BuildingKind; state: ModelState; }
 import './art-viewer.css';
 
 function boot(): void {
@@ -40,11 +43,12 @@ function boot(): void {
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   stage.reducedMotion = reducedMotion;
   replay.disabled = reducedMotion;
-  let assembly: ModelAssembly | null = null;
-  let constructionElapsed = 0;
+  const dust = new DustField(stage.scene);
+  let construction: BuildingConstruction | null = null;
+  let site: Site | null = null;
   let constructionPlaying = false;
 
-  function buildSelected(id: string): { model: T.Group; footprint: { width: number; depth: number } | null; description: string; animate?: (time: number) => void } {
+  function buildSelected(id: string): { model: T.Group; footprint: { width: number; depth: number } | null; description: string; animate?: (time: number) => void; site?: Site } {
     const [kindValue, tierValue, variant = ''] = id.split(':');
     if (kindValue === 'animal') {
       const kind = tierValue as AnimalKind;
@@ -62,8 +66,8 @@ function boot(): void {
     const kind = kindValue as BuildingKind;
     const tier = Number(tierValue) as 1 | 2 | 3;
     const stores = STORE_VARIANTS[variant] ?? {};
-    const model = getBuildingModel(kind, { tier, vendorEnabled: kind === 'agora' && tier === 2, stage: Number(variant || 3) as ModelStage, stores });
-    return { model, footprint: footprint(kind), description: BUILDINGS[kind].description };
+    const state: ModelState = { tier, vendorEnabled: kind === 'agora' && tier === 2, stage: Number(variant || 3) as ModelStage, stores };
+    return { model: getBuildingModel(kind, state), footprint: footprint(kind), description: BUILDINGS[kind].description, site: { kind, state } };
   }
 
   let animate: ((time: number) => void) | null = null;
@@ -87,34 +91,49 @@ function boot(): void {
     });
   }
 
+  function raiseConstruction(): BuildingConstruction | null {
+    if (!site || !model) return null;
+    const assembly = getBuildingAssembly(site.kind, site.state);
+    if (!assembly) return null;
+    const plot = footprint(site.kind);
+    return new BuildingConstruction(model, assembly, { width: plot.width * CELL_SIZE, depth: plot.depth * CELL_SIZE, dust });
+  }
+
   function poseConstruction(seconds: number): void {
-    if (!assembly || !model) return;
-    const duration = assemblyDuration(assembly);
-    constructionElapsed = Math.min(duration, seconds);
-    poseAssembly(assembly, constructionElapsed);
-    model.visible = constructionElapsed >= duration;
-    assembly.model.visible = !model.visible;
-    progress.value = String(Math.round(constructionElapsed / duration * 1000));
+    if (!construction) return;
+    construction.seek(seconds);
+    progress.value = String(Math.round(construction.elapsed / construction.duration * 1000));
     stage.shadows();
   }
 
+  function replayConstruction(): void {
+    if (!model) return;
+    model.removeFromParent();
+    if (construction) disposeStudy(construction.model);
+    construction = raiseConstruction();
+    if (!construction) return;
+    styleStudy(construction.model);
+    stage.scene.add(construction.model);
+    poseConstruction(0);
+  }
+
   function showModel(): void {
+    if (construction) {
+      model?.removeFromParent();
+      disposeStudy(construction.model);
+      construction = null;
+    }
     if (model) disposeStudy(model);
-    if (assembly) disposeStudy(assembly.model);
     constructionPlaying = false;
-    assembly = null;
     const selected = buildSelected(select.value);
     model = selected.model;
     animate = selected.animate ?? null;
-    styleStudy(model);
-    if (select.value === 'house:1') assembly = getBuildingAssembly('house');
-    constructionControls.hidden = assembly === null;
-    if (assembly) {
-      styleStudy(assembly.model);
-      stage.scene.add(assembly.model);
-      poseConstruction(assemblyDuration(assembly));
-    }
-    stage.scene.add(model);
+    site = selected.site ?? null;
+    construction = raiseConstruction();
+    constructionControls.hidden = construction === null;
+    styleStudy(construction?.model ?? model);
+    stage.scene.add(construction?.model ?? model);
+    if (construction) poseConstruction(construction.duration);
     const size = selected.footprint;
     border.visible = size !== null;
     if (size) {
@@ -159,18 +178,17 @@ function boot(): void {
     stage.shadows();
   });
   replay.addEventListener('click', () => {
-    if (!assembly || reducedMotion) return;
-    poseConstruction(0);
-    constructionPlaying = true;
+    if (!site || reducedMotion) return;
+    replayConstruction();
+    constructionPlaying = construction !== null;
   });
   progress.addEventListener('input', () => {
-    if (!assembly) return;
+    if (!construction) return;
     constructionPlaying = false;
-    poseConstruction(Number(progress.value) / 1000 * assemblyDuration(assembly));
+    poseConstruction(Number(progress.value) / 1000 * construction.duration);
   });
   document.querySelector('#turn')!.addEventListener('click', () => {
-    if (model) model.rotation.y += Math.PI / 2;
-    if (assembly) assembly.model.rotation.y += Math.PI / 2;
+    (construction?.model ?? model)!.rotation.y += Math.PI / 2;
     stage.shadows();
   });
   document.querySelector('#reset')!.addEventListener('click', () => showModel());
@@ -188,10 +206,13 @@ function boot(): void {
   function frame(now: number): void {
     const delta = previous === 0 ? 0 : Math.min((now - previous) / 1000, .05);
     previous = now;
-    if (constructionPlaying && assembly && !document.hidden && !reducedMotion) {
-      poseConstruction(constructionElapsed + delta);
-      constructionPlaying = constructionElapsed < assemblyDuration(assembly);
+    if (constructionPlaying && construction && !document.hidden && !reducedMotion) {
+      const done = construction.advance(delta);
+      progress.value = String(Math.round(construction.elapsed / construction.duration * 1000));
+      constructionPlaying = !done;
+      stage.shadows();
     }
+    if (dust.advance(document.hidden || reducedMotion ? 0 : delta)) stage.invalidate();
     if (animate && !document.hidden && !reducedMotion) {
       elapsed += delta;
       animate(elapsed);

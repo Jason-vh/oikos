@@ -1,6 +1,6 @@
 import * as T from 'three';
 import { bake, box, colors, group, lump, pot, post, roof } from './primitives';
-import { assemblyPart, type ModelAssembly } from './assembly';
+import { assemblyPart, modelAssembly, shellWalls, type ModelAssembly } from './assembly';
 
 function windowFrame(parent: T.Object3D, x: number, y: number, z: number): void {
   box(parent, colors.cream, x, y, z, .69, .79, .13);
@@ -13,7 +13,7 @@ const DWELLING_WIDTH = 1.7;
 const DWELLING_DEPTH = 1.65;
 const DWELLING_HEIGHT = 1.35;
 const WALL_THICKNESS = .2;
-const SHELL_OVERLAP = .04;
+const SHELL_DELAYS = [.08, .19, .3, .41];
 
 function dwellingPlinth(parent: T.Object3D): void {
   box(parent, colors.stone, 0, .09, 0, 2.15, .18, 2.1);
@@ -49,21 +49,17 @@ function dwellingPot(parent: T.Object3D): void {
 }
 
 export function dwellingPieces(): ModelAssembly {
-  const assembly: ModelAssembly = { model: new T.Group(), parts: [] };
-  const sideDepth = DWELLING_DEPTH - SHELL_OVERLAP;
-  const endWidth = DWELLING_WIDTH - SHELL_OVERLAP;
-  const sideX = (DWELLING_WIDTH - WALL_THICKNESS) / 2;
-  const endZ = (DWELLING_DEPTH - WALL_THICKNESS) / 2;
-  dwellingPlinth(assemblyPart(assembly, 'foundation', 0, 0));
-  dwellingWall(assemblyPart(assembly, 'back-wall', .08), 0, -endZ, endWidth, WALL_THICKNESS);
-  dwellingWall(assemblyPart(assembly, 'left-wall', .19), -sideX, 0, WALL_THICKNESS, sideDepth);
-  dwellingWall(assemblyPart(assembly, 'right-wall', .3), sideX, 0, WALL_THICKNESS, sideDepth);
-  dwellingWall(assemblyPart(assembly, 'front-wall', .41), 0, endZ, endWidth, WALL_THICKNESS);
-  dwellingCornice(assemblyPart(assembly, 'cornice', .58, .2));
-  dwellingRoof(assemblyPart(assembly, 'roof', .72, .4, .34));
-  dwellingDoor(assemblyPart(assembly, 'door', .93, .12, .22));
-  dwellingShutters(assemblyPart(assembly, 'shutters', 1.02, .12, .22));
-  dwellingPot(assemblyPart(assembly, 'pot', 1.13, .16, .22));
+  const assembly = modelAssembly();
+  dwellingPlinth(assemblyPart(assembly, { name: 'foundation', at: 0, lift: 0, dust: true }));
+  shellWalls(DWELLING_WIDTH, DWELLING_DEPTH, WALL_THICKNESS).forEach((wall, index) => {
+    const part = assemblyPart(assembly, { name: wall.name, at: SHELL_DELAYS[index], dust: true });
+    dwellingWall(part, wall.x, wall.z, wall.width, wall.depth);
+  });
+  dwellingCornice(assemblyPart(assembly, { name: 'cornice', at: .58, lift: .2 }));
+  dwellingRoof(assemblyPart(assembly, { name: 'roof', at: .72, lift: .4, duration: .34, dust: true }));
+  dwellingDoor(assemblyPart(assembly, { name: 'door', at: .93, lift: .12, duration: .22 }));
+  dwellingShutters(assemblyPart(assembly, { name: 'shutters', at: 1.02, lift: .12, duration: .22 }));
+  dwellingPot(assemblyPart(assembly, { name: 'pot', at: 1.13, lift: .16, duration: .22 }));
   return assembly;
 }
 

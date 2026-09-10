@@ -40,6 +40,10 @@ existing one reads correctly at city zoom.
   (`post()`); foliage and rocks are dodecahedra (`lump()`).
 - Models are built from these primitives, then `bake()`d into one mesh per material.
   `disposeModel()` frees baked geometry only.
+- A placed building is raised piece by piece inside timber scaffolding, set down by
+  hand as a painted toy would be. The construction is authored beside the model, never
+  cut out of it: see Construction in `art-tooling.md`. Keep it under two seconds, and
+  keep the finished silhouette the thing the player waits for.
 
 ## Scale and footprints
 

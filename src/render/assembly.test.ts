@@ -2,12 +2,16 @@ import { expect, test } from 'bun:test';
 import * as T from 'three';
 import { getBuildingAssembly, getBuildingModel, disposeModel } from '../art';
 import { BuildingConstruction, assemblyDuration, poseAssembly } from './assembly';
+import { DustField } from './dust';
 
 function fixture() {
   const finished = getBuildingModel('house');
   const assembly = getBuildingAssembly('house')!;
-  const construction = new BuildingConstruction(finished, assembly);
-  return { finished, assembly, construction };
+  const scene = new T.Scene();
+  const dust = new DustField(scene);
+  const construction = new BuildingConstruction(finished, assembly, { width: 2.5, depth: 2.5, dust });
+  scene.add(construction.model);
+  return { finished, assembly, construction, dust };
 }
 
 test('foundation confirms placement immediately; walls, roof and finishes follow in order', () => {
@@ -25,6 +29,43 @@ test('foundation confirms placement immediately; walls, roof and finishes follow
   disposeModel(construction.model);
 });
 
+test('scaffolding stands over the work and is struck once the building is up', () => {
+  const { assembly, construction } = fixture();
+  const scaffold = () => construction.model.children.find((child) => child !== assembly.model && child.name === '')!;
+  const raised = assemblyDuration(assembly);
+  expect(construction.duration).toBeGreaterThan(raised);
+  construction.seek(.5);
+  expect(scaffold().scale.y).toBe(1);
+  construction.seek(raised + (construction.duration - raised) / 2);
+  expect(scaffold().scale.y).toBeCloseTo(.5, 2);
+  construction.advance(10);
+  construction.settle();
+  expect(construction.model.children.map((child) => child.type)).toEqual(['Group']);
+  disposeModel(construction.model);
+});
+
+test('a laid-out kind has no scaffolding to raise', () => {
+  const finished = getBuildingModel('farm', { stage: 0 });
+  const assembly = getBuildingAssembly('farm', { stage: 0 })!;
+  const construction = new BuildingConstruction(finished, assembly, { width: 5, depth: 5, dust: new DustField(new T.Scene()) });
+  expect(assembly.scaffolded).toBe(false);
+  expect(construction.duration).toBe(assemblyDuration(assembly));
+  expect(construction.model.children).toEqual([finished, assembly.model]);
+  disposeModel(construction.model);
+});
+
+test('each landing raises one puff, and only going forwards', () => {
+  const { construction, assembly, dust } = fixture();
+  const dusty = assembly.parts.filter((part) => part.dust).length;
+  expect(dusty).toBeGreaterThan(0);
+  construction.advance(10);
+  expect(dust.count).toBe(dusty);
+  construction.seek(0);
+  construction.advance(10);
+  expect(dust.count).toBe(dusty);
+  disposeModel(construction.model);
+});
+
 test('completion swaps to the baked model and releases temporary geometry exactly once', () => {
   const { finished, assembly, construction } = fixture();
   let owned = 0;
@@ -35,11 +76,12 @@ test('completion swaps to the baked model and releases temporary geometry exactl
     child.geometry.addEventListener('dispose', () => { disposed++; });
   });
   expect(construction.advance(10)).toBe(true);
-  expect(construction.elapsed).toBe(assemblyDuration(assembly));
+  expect(construction.elapsed).toBe(construction.duration);
+  construction.settle();
   expect(construction.model.children).toEqual([finished]);
   expect(finished.visible).toBe(true);
   expect(disposed).toBe(owned);
-  expect(construction.advance(10)).toBe(true);
+  construction.settle();
   disposeModel(construction.model);
   expect(disposed).toBe(owned);
 });
