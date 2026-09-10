@@ -13,7 +13,7 @@ const DWELLING_WIDTH = 1.7;
 const DWELLING_DEPTH = 1.65;
 const DWELLING_HEIGHT = 1.35;
 const WALL_THICKNESS = .2;
-const SHELL_BEVEL = .02;
+const SHELL_OVERLAP = .04;
 
 function dwellingPlinth(parent: T.Object3D): void {
   box(parent, colors.stone, 0, .09, 0, 2.15, .18, 2.1);
@@ -24,7 +24,7 @@ function dwellingWalls(parent: T.Object3D): void {
 }
 
 function dwellingWall(parent: T.Object3D, x: number, z: number, width: number, depth: number): void {
-  box(parent, colors.plaster, x, DWELLING_HEIGHT / 2 + .18, z, width, DWELLING_HEIGHT, depth, SHELL_BEVEL);
+  box(parent, colors.plaster, x, DWELLING_HEIGHT / 2 + .18, z, width, DWELLING_HEIGHT, depth, .06);
 }
 
 function dwellingCornice(parent: T.Object3D): void {
@@ -50,13 +50,15 @@ function dwellingPot(parent: T.Object3D): void {
 
 export function dwellingPieces(): ModelAssembly {
   const assembly: ModelAssembly = { model: new T.Group(), parts: [] };
-  const span = DWELLING_DEPTH - WALL_THICKNESS * 2;
-  const offset = (DWELLING_DEPTH - WALL_THICKNESS) / 2;
+  const sideDepth = DWELLING_DEPTH - SHELL_OVERLAP;
+  const endWidth = DWELLING_WIDTH - SHELL_OVERLAP;
+  const sideX = (DWELLING_WIDTH - WALL_THICKNESS) / 2;
+  const endZ = (DWELLING_DEPTH - WALL_THICKNESS) / 2;
   dwellingPlinth(assemblyPart(assembly, 'foundation', 0, 0));
-  dwellingWall(assemblyPart(assembly, 'back-wall', .08), 0, -offset, DWELLING_WIDTH, WALL_THICKNESS);
-  dwellingWall(assemblyPart(assembly, 'left-wall', .19), -(DWELLING_WIDTH - WALL_THICKNESS) / 2, 0, WALL_THICKNESS, span);
-  dwellingWall(assemblyPart(assembly, 'right-wall', .3), (DWELLING_WIDTH - WALL_THICKNESS) / 2, 0, WALL_THICKNESS, span);
-  dwellingWall(assemblyPart(assembly, 'front-wall', .41), 0, offset, DWELLING_WIDTH, WALL_THICKNESS);
+  dwellingWall(assemblyPart(assembly, 'back-wall', .08), 0, -endZ, endWidth, WALL_THICKNESS);
+  dwellingWall(assemblyPart(assembly, 'left-wall', .19), -sideX, 0, WALL_THICKNESS, sideDepth);
+  dwellingWall(assemblyPart(assembly, 'right-wall', .3), sideX, 0, WALL_THICKNESS, sideDepth);
+  dwellingWall(assemblyPart(assembly, 'front-wall', .41), 0, endZ, endWidth, WALL_THICKNESS);
   dwellingCornice(assemblyPart(assembly, 'cornice', .58, .2));
   dwellingRoof(assemblyPart(assembly, 'roof', .72, .4, .34));
   dwellingDoor(assemblyPart(assembly, 'door', .93, .12, .22));
