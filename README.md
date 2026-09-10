@@ -22,10 +22,12 @@ with roads. Add a fountain and maintenance post. Reliable food and water evolve
 homes into cottages and courtyard houses.
 
 Left-click builds or inspects. Drag to lay roads. WASD / arrow keys or right-drag
-pan; scroll zooms; Alt-drag orbits. `1`–`7` select construction tools, `X` demolishes, `R` rotates a
-building, `G` toggles the grid, `Q` rotates the camera, and `Space` pauses.
-`Escape` cancels the current tool, or opens the menu (save, load, new island,
-model atelier). On touchscreens, use two fingers to pan/zoom.
+pan; scroll zooms; Alt-drag orbits. `1`–`0` select construction tools, `X` demolishes, `R` rotates a
+building, `G` toggles the grid, `Q` rotates the camera, `H` returns to the village,
+and `Space` pauses. `Shift` switches the bend while laying roads.
+`Escape` cancels the current tool or opens the menu, pausing the city until closed.
+The menu holds checkpoints, import/export, sound, and the model atelier.
+Autosaves never replace your manual checkpoint. Camera and sound preferences stay local.
 
 ## Development
 

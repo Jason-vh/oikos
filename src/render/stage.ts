@@ -5,7 +5,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
-export interface View { target: number[]; offset: number[]; size: number; }
+export interface View { target: number[]; offset: number[]; size: number; zoom?: number; }
 
 const UP = new T.Vector3(0, 1, 0);
 
@@ -24,6 +24,7 @@ export class Stage {
   private request = 0;
   private lost = false;
   private readonly goal = { target: new T.Vector3(), spin: 0, active: false };
+  reducedMotion = false;
   frames = 0;
 
   constructor(root: HTMLElement, interactive = true) {
@@ -131,17 +132,26 @@ export class Stage {
   setView(view: View): void {
     this.controls.target.fromArray(view.target);
     this.camera.position.copy(this.controls.target).add(new T.Vector3().fromArray(view.offset));
-    this.camera.zoom = 1;
+    this.camera.zoom = view.zoom ?? 1;
     this.size = view.size;
     this.settle();
     this.controls.update();
     this.resize();
   }
 
+  getView(): View {
+    return {
+      target: this.controls.target.toArray(),
+      offset: this.camera.position.clone().sub(this.controls.target).toArray(),
+      size: this.size,
+      zoom: this.camera.zoom,
+    };
+  }
+
   focus(x: number, z: number, immediate = false): void {
     this.goal.target.set(x, 1.15, z);
     this.goal.active = true;
-    if (immediate) this.update(Infinity);
+    if (immediate || this.reducedMotion) this.update(Infinity);
     this.invalidate();
   }
 
@@ -185,6 +195,7 @@ export class Stage {
     if (!this.goal.active) this.goal.target.copy(this.controls.target);
     this.goal.spin += Math.PI / 2;
     this.goal.active = true;
+    if (this.reducedMotion) this.update(Infinity);
     this.invalidate();
   }
 

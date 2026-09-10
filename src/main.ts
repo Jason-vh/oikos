@@ -9,9 +9,14 @@ import { animalName, animalStatus } from './sim/wildlife';
 import { buildStarterNeighbourhood, planStarterNeighbourhood } from './sim/scenario';
 import type { ActionResult, BuildTool, Placement, Rotation, Tile, Tool } from './sim/types';
 import { createHud } from './ui/hud';
+import { AUTOSAVE_KEY, islandFilename, readCheckpoint, writeAutosave, writeCheckpoint } from './ui/save-slots';
+import { createSound } from './ui/sound';
+import { celebration, cityMilestones, rememberMilestones } from './ui/celebrations';
+import { parseView, VIEW_KEY } from './ui/view';
+import { canUndoConstruction, undoConstruction } from './sim/history';
 import './ui/style.css';
 
-const SAVE_KEY = 'oikos.island.v1';
+const SAVE_KEY = AUTOSAVE_KEY;
 
 function boot(): void {
   let world = createWorld();
@@ -33,14 +38,19 @@ function boot(): void {
   }
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const stage = new Stage(document.querySelector<HTMLElement>('#app')!, false);
+  stage.reducedMotion = reducedMotion;
   let city = new CityScene(stage, islandFor(world.seed), !reducedMotion);
   const map = () => city.map;
   function viewFor(seed: number): { target: number[]; offset: number[]; size: number } {
     const island = islandFor(seed);
-    const harbour = worldPositionOn(island, island.entry.x + .5, island.entry.z + .5);
-    return { target: [harbour.x * .35, 0, harbour.z * .45], offset: [35, 38, 48], size: Math.max(island.width, island.depth) * CELL_SIZE * .62 };
+    const harbour = worldPositionOn(island, island.entry.x + .5, island.entry.z - 7);
+    return { target: [harbour.x, GROUND_Y, harbour.z], offset: [35, 38, 48], size: 36 };
   }
   stage.setView(viewFor(world.seed));
+  try {
+    const saved = parseView(localStorage.getItem(VIEW_KEY), world.seed);
+    if (saved) stage.setView(saved);
+  } catch {}
   function rebuildScene(): void {
     city.dispose();
     city = new CityScene(stage, islandFor(world.seed), !reducedMotion);
@@ -58,6 +68,13 @@ function boot(): void {
   let showGrid = false;
   let artTime = 0;
   let inDebt = false;
+  let menuSpeed: 0 | 1 | 3 | null = null;
+  let importing = false;
+  let undoCheckpoint: typeof world | null = null;
+  let milestones = cityMilestones(world);
+  const sound = createSound();
+  window.addEventListener('pointerdown', sound.unlock, { capture: true });
+  window.addEventListener('keydown', sound.unlock, { capture: true });
   const panVelocity = { right: 0, forward: 0 };
 
   function refresh(): void {
@@ -73,6 +90,14 @@ function boot(): void {
     const debt = world.money < 0;
     if (debt && !inDebt) hud.notify('The treasury is in debt: upkeep outweighs income.', true);
     inDebt = debt;
+    const nextMilestones = cityMilestones(world);
+    const event = celebration(milestones, nextMilestones);
+    milestones = rememberMilestones(milestones, nextMilestones);
+    hud.setUndo(canUndoConstruction(world, undoCheckpoint));
+    if (event) {
+      hud.notify(event.message);
+      sound.play(event.sound);
+    }
   }
 
   function selectTool(next: Tool): void {
@@ -101,14 +126,45 @@ function boot(): void {
   function save(manual = true): void {
     if (!manual && !autoSaveEnabled) return;
     try {
-      localStorage.setItem(SAVE_KEY, serializeWorld(world));
+      if (manual) writeCheckpoint(localStorage, world);
+      writeAutosave(localStorage, world);
       dirtySave = false;
       autoSaveEnabled = true;
-      if (manual) hud.notify('Island saved.');
+      hud.setSaved();
+      if (manual) hud.notify('Checkpoint saved. Autosaves will not replace it.');
     } catch {
       autoSaveEnabled = false;
       hud.notify('Could not save. Browser storage may be full or unavailable.', true);
     }
+  }
+
+  function restore(saved: typeof world): void {
+    const previousSeed = world.seed;
+    world = saved;
+    undoCheckpoint = null;
+    milestones = cityMilestones(world);
+    selectedId = null;
+    accumulator = 0;
+    dirtySave = true;
+    autoSaveEnabled = true;
+    if (world.seed !== previousSeed) rebuildScene();
+    selectTool('inspect');
+    setSpeed(0);
+    refresh();
+    save(false);
+  }
+
+  function focusVillage(): void {
+    const homes = world.buildings.filter((building) => building.kind === 'house');
+    if (homes.length === 0) {
+      const view = viewFor(world.seed);
+      stage.focus(view.target[0], view.target[2]);
+      return;
+    }
+    const x = homes.reduce((sum, home) => sum + home.x + 1.5, 0) / homes.length;
+    const z = homes.reduce((sum, home) => sum + home.z + 1.5, 0) / homes.length;
+    const point = worldPositionOn(map(), x, z);
+    stage.focus(point.x, point.z);
   }
 
   const hud = createHud(document.querySelector<HTMLElement>('#ui')!, {
@@ -118,24 +174,18 @@ function boot(): void {
     save: () => save(),
     load: () => {
       try {
-        const raw = localStorage.getItem(SAVE_KEY);
-        const saved = raw ? deserializeWorld(raw) : null;
-        if (!saved) { hud.notify('No valid saved island found. Your current island is unchanged.', true); return; }
-        const previousSeed = world.seed;
-        world = saved;
-        selectedId = null;
-        accumulator = 0;
-        dirtySave = false;
-        autoSaveEnabled = true;
-        if (world.seed !== previousSeed) rebuildScene();
-        refresh();
-        updatePreview();
-        hud.notify('Saved island restored.');
+        const saved = readCheckpoint(localStorage);
+        if (!saved) { hud.notify('No valid checkpoint found. Your current island is unchanged.', true); return; }
+        restore(saved);
+        hud.notify('Checkpoint restored. Paused for you to look around.');
       } catch { hud.notify('Browser storage is unavailable.', true); }
     },
     newIsland: () => {
       const seed = world.seed === DEFAULT_SEED ? 2 : (world.seed * 1103515245 + 12345) % 0x7fffffff;
       world = createWorld(seed);
+      undoCheckpoint = null;
+      milestones = cityMilestones(world);
+      autoSaveEnabled = true;
       selectedId = null;
       accumulator = 0;
       rebuildScene();
@@ -148,15 +198,91 @@ function boot(): void {
     vendor: (id, enabled) => apply(setVendor(world, id, enabled)),
     focus: (x, z) => { const point = worldPositionOn(map(), x + .5, z + .5); stage.focus(point.x, point.z); },
     grid: setGrid,
+    home: focusVillage,
+    undo: undoLastConstruction,
+    menu: (open) => {
+      if (open) {
+        if (menuSpeed === null) menuSpeed = speed;
+        setSpeed(0);
+        held.clear();
+        panVelocity.right = 0;
+        panVelocity.forward = 0;
+        drag = null;
+      } else if (menuSpeed !== null) {
+        const previousSpeed = menuSpeed;
+        menuSpeed = null;
+        setSpeed(previousSpeed);
+      }
+    },
+    sound: (enabled) => { sound.setEnabled(enabled); hud.setSound(enabled); },
+    export: () => {
+      const url = URL.createObjectURL(new Blob([serializeWorld(world)], { type: 'application/json' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = islandFilename(world);
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    },
+    import: async (file) => {
+      if (importing) return;
+      if (file.size > 5_000_000) { hud.notify('That file is too large to be an island save.', true); return; }
+      importing = true;
+      const previousSpeed = speed;
+      setSpeed(0);
+      try {
+        const saved = deserializeWorld(await file.text());
+        if (!saved) {
+          hud.notify('That island could not be read. Your current island is unchanged.', true);
+          setSpeed(previousSpeed);
+          return;
+        }
+        restore(saved);
+        hud.notify('Island imported. Your checkpoint is unchanged.');
+      } catch {
+        hud.notify('Could not read that file. Your current island is unchanged.', true);
+        setSpeed(previousSpeed);
+      } finally {
+        importing = false;
+      }
+    },
   });
 
   function apply(result: ActionResult): void {
     hud.notify(result.reason, !result.ok);
+    if (!result.ok) sound.play('error');
+    else if (tool === 'road') sound.play('road');
+    else if (tool === 'demolish') sound.play('remove');
+    else sound.play('build');
     if (result.ok) {
+      undoCheckpoint = null;
       dirtySave = true;
       refresh();
       updatePreview();
     }
+  }
+
+  function construct(command: () => ActionResult): ActionResult {
+    const before = structuredClone(world);
+    const result = command();
+    apply(result);
+    if (result.ok) {
+      undoCheckpoint = before;
+      hud.setUndo(true);
+    }
+    return result;
+  }
+
+  function undoLastConstruction(): void {
+    const restored = undoConstruction(world, undoCheckpoint);
+    if (!restored) return;
+    world = restored;
+    undoCheckpoint = null;
+    selectedId = null;
+    dirtySave = true;
+    refresh();
+    updatePreview();
+    sound.play('remove');
+    hud.notify('Construction undone.');
   }
 
   function atPointer(event: PointerEvent): Tile | null {
@@ -250,12 +376,15 @@ function boot(): void {
         if (tool === 'inspect') {
           selectedId = picked.walker ?? picked.animal ?? picked.building;
           refresh();
-        } else apply(demolish(world, hit?.x ?? hover.x, hit?.z ?? hover.z));
-      } else if (tool === 'road') apply(placeRoadPath(world, roadPath()));
+        } else construct(() => demolish(world, hit?.x ?? hover!.x, hit?.z ?? hover!.z));
+      } else if (tool === 'road') construct(() => placeRoadPath(world, roadPath()));
       else {
-        const result = build(world, tool, hover.x, hover.z, rotation);
-        if (result.ok) selectedId = world.buildings.find((building) => building.x === hover!.x && building.z === hover!.z)?.id ?? null;
-        apply(result);
+        const buildingTool = tool;
+        const result = construct(() => build(world, buildingTool, hover!.x, hover!.z, rotation));
+        if (result.ok) {
+          selectedId = world.buildings.find((building) => building.x === hover!.x && building.z === hover!.z)?.id ?? null;
+          refresh();
+        }
       }
     }
     drag = null;
@@ -277,6 +406,14 @@ function boot(): void {
   });
   window.addEventListener('keydown', (event) => {
     if (event.target instanceof HTMLElement && (event.target.closest('input,select,textarea,dialog') || event.target.isContentEditable)) return;
+    if (event.metaKey || event.ctrlKey) {
+      if (event.key.toLowerCase() === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        undoLastConstruction();
+      }
+      return;
+    }
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
     const keys: Record<string, Tool> = { '1': 'road', '2': 'house', '3': 'farm', '4': 'granary', '5': 'agora', '6': 'fountain', '7': 'maintenance', '8': 'lodge', '9': 'woodcutter', '0': 'stockpile', x: 'demolish' };
     if (event.key === 'Escape') {
       escapeOpensMenu = tool === 'inspect';
@@ -286,6 +423,7 @@ function boot(): void {
     else if (event.code === 'Space' && !(event.target instanceof HTMLButtonElement)) { event.preventDefault(); setSpeed(speed === 0 ? 1 : 0); }
     else if (event.key.toLowerCase() === 'r') { rotation = ((rotation + 1) % 4) as Rotation; hud.setTool(tool, rotation); updatePreview(); }
     else if (event.key.toLowerCase() === 'q') stage.rotate();
+    else if (event.key.toLowerCase() === 'h') focusVillage();
   });
 
   let escapeOpensMenu = false;
@@ -351,9 +489,14 @@ function boot(): void {
     requestAnimationFrame(frame);
   }
   document.addEventListener('visibilitychange', () => { previous = 0; if (!document.hidden) stage.invalidate(); });
-  window.addEventListener('pagehide', () => { if (dirtySave) save(false); });
+  function saveView(): void {
+    try { localStorage.setItem(VIEW_KEY, JSON.stringify({ seed: world.seed, view: stage.getView() })); } catch {}
+  }
+  window.addEventListener('pagehide', () => { if (dirtySave) save(false); saveView(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) saveView(); });
   selectTool('inspect');
   hud.setSpeed(speed);
+  hud.setSound(sound.enabled);
   refresh();
   stage.shadows();
   if (storageWarning) hud.notify(storageWarning, true);

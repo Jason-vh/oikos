@@ -1,5 +1,6 @@
 import type { Building, Rotation, Summary, Tool, World } from '../sim/types';
 import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, VENDOR_COST } from '../sim/catalog';
+import { FOOD_CONSUMPTION_PER_RESIDENT, WATER_DECAY_PER_SECOND } from '../sim/balance';
 import { toolIcon } from './icons';
 
 export interface HudActions {
@@ -12,6 +13,12 @@ export interface HudActions {
   vendor(id: number, enabled: boolean): void;
   focus(x: number, z: number): void;
   grid(enabled: boolean): void;
+  menu(open: boolean): void;
+  home(): void;
+  export(): void;
+  import(file: File): void;
+  sound(enabled: boolean): void;
+  undo(): void;
 }
 
 export type Selection =
@@ -25,6 +32,9 @@ export interface Hud {
   notify(message: string, error?: boolean): void;
   setHint(message: string): void;
   setGrid(enabled: boolean): void;
+  setSound(enabled: boolean): void;
+  setSaved(): void;
+  setUndo(available: boolean): void;
   toggleMenu(): boolean;
   dispose(): void;
 }
@@ -81,20 +91,20 @@ interface Milestones {
 }
 
 function computeMilestones(world: World, summary: Summary): Milestones {
-  const houses = world.buildings.filter((building) => building.kind === 'house');
-  const farms = world.buildings.some((building) => building.kind === 'farm');
-  const granaries = world.buildings.some((building) => building.kind === 'granary');
-  const agoraVendor = world.buildings.some((building) => building.kind === 'agora' && building.vendorInstalled);
-  const fountains = world.buildings.some((building) => building.kind === 'fountain');
-  const maintenance = world.buildings.some((building) => building.kind === 'maintenance');
-  const courtyardCount = houses.filter((house) => house.tier === 3).length;
+  const connected = world.buildings.filter((building) => building.connected);
+  const houses = connected.filter((building) => building.kind === 'house');
+  const farms = connected.some((building) => building.kind === 'farm');
+  const granaries = connected.some((building) => building.kind === 'granary');
+  const agoraVendor = connected.some((building) => building.kind === 'agora' && building.vendorEnabled);
+  const fountains = connected.some((building) => building.kind === 'fountain');
+  const maintenance = connected.some((building) => building.kind === 'maintenance');
   return {
     houses: houses.length >= 4,
     farmGranary: farms && granaries,
     agoraVendor,
     foodDelivered: world.delivered > 0,
     services: fountains && maintenance,
-    courtyards: courtyardCount >= 4 && (summary.goal || summary.balance >= 0),
+    courtyards: summary.goal,
   };
 }
 
@@ -106,7 +116,7 @@ const SKELETON = `
         <div><dt>Population</dt><dd data-field="population">0</dd></div>
         <div><dt>Treasury</dt><dd data-field="treasury">0 dr</dd></div>
         <div><dt>Food</dt><dd data-field="food">0</dd></div>
-        <div><dt>Balance</dt><dd data-field="balance">0 dr</dd></div>
+        <div><dt>Balance / month</dt><dd data-field="balance">0 dr</dd></div>
         <div><dt>Employed</dt><dd data-field="employed">0 / 0</dd></div>
       </dl>
       <div class="hud-clock">
@@ -116,6 +126,7 @@ const SKELETON = `
           <button type="button" data-speed="1" aria-pressed="true" aria-label="Normal speed">1\u00d7</button>
           <button type="button" data-speed="3" aria-pressed="false" aria-label="Fast speed">3\u00d7</button>
         </div>
+        <button type="button" class="hud-menu-button" data-action="home" aria-label="Return to village, shortcut H">Village</button>
         <button type="button" class="hud-menu-button" data-action="menu" aria-label="Menu, shortcut Escape" data-testid="menu">Menu</button>
       </div>
     </header>
@@ -123,7 +134,7 @@ const SKELETON = `
   <details class="hud-panel hud-guide" data-testid="guide" open>
     <summary>Guide</summary>
     <ol class="hud-milestones" data-testid="milestones">
-      <li><label><input type="checkbox" disabled data-milestone="houses" /> Four houses built</label></li>
+      <li><label><input type="checkbox" disabled data-milestone="houses" /> Four homes linked to the harbour</label></li>
       <li><label><input type="checkbox" disabled data-milestone="farmGranary" /> A wheat farm and a granary</label></li>
       <li><label><input type="checkbox" disabled data-milestone="agoraVendor" /> An agora with a vendor</label></li>
       <li><label><input type="checkbox" disabled data-milestone="foodDelivered" /> Food delivered to your houses</label></li>
@@ -148,6 +159,7 @@ const SKELETON = `
     <button type="button" class="hud-vendor" data-action="vendor" hidden data-testid="vendor-toggle"></button>
   </details>
   <div class="hud-bottom">
+    <button type="button" class="hud-panel hud-undo" data-action="undo" data-testid="undo" hidden>Undo construction · Ctrl / ⌘ Z</button>
     <p class="hud-hint" data-field="hint" role="note" hidden></p>
     <div class="hud-panel hud-toolbar" role="group" aria-label="Build tools" data-testid="toolbar"></div>
   </div>
@@ -156,18 +168,23 @@ const SKELETON = `
     <form method="dialog">
       <h2 lang="grc">Οἶκος</h2>
       <div class="hud-menu-actions">
-        <button type="submit" value="save" data-testid="save">Save island</button>
-        <button type="submit" value="load" data-testid="load">Load saved island</button>
+        <button type="submit" value="save" data-testid="save">Save checkpoint</button>
+        <button type="submit" value="load" data-testid="load">Restore checkpoint</button>
+        <button type="submit" value="export" data-testid="export">Export island</button>
+        <button type="submit" value="import" data-testid="import">Import island</button>
         <button type="submit" value="new" data-testid="new-island">New island</button>
         <button type="submit" value="grid" data-testid="grid-toggle" aria-pressed="false">Placement grid</button>
+        <button type="button" data-action="sound" data-testid="sound-toggle" aria-pressed="true">Sound on</button>
       </div>
+      <p class="hud-save-status" data-field="saved">Autosaves locally. Checkpoints stay until you replace them.</p>
       <dl class="hud-keys">
         <div><dt>1\u20130</dt><dd>Build tools</dd></div>
         <div><dt>X</dt><dd>Demolish</dd></div>
         <div><dt>R</dt><dd>Rotate building</dd></div>
         <div><dt>G</dt><dd>Toggle grid</dd></div>
         <div><dt>WASD / \u2190\u2191\u2192\u2193</dt><dd>Pan the view</dd></div>
-        <div><dt>Q</dt><dd>Rotate view</dd></div>
+        <div><dt>Q / H</dt><dd>Rotate / return to village</dd></div>
+        <div><dt>Shift</dt><dd>Switch road bend</dd></div>
         <div><dt>Space</dt><dd>Pause</dd></div>
         <div><dt>Esc</dt><dd>Cancel tool / menu</dd></div>
       </dl>
@@ -177,13 +194,14 @@ const SKELETON = `
   <dialog class="hud-dialog" data-testid="new-island-dialog">
     <form method="dialog">
       <h2>Start a new island?</h2>
-      <p>This replaces your saved island \u2014 the controller autosaves right away.</p>
+      <p>This replaces your autosave. Save a checkpoint or export first to keep this island.</p>
       <div class="hud-dialog-actions">
-        <button type="submit" value="cancel">Cancel</button>
-        <button type="submit" value="confirm" class="hud-primary" autofocus>New island</button>
+        <button type="submit" value="cancel" autofocus>Cancel</button>
+        <button type="submit" value="confirm" class="hud-primary">New island</button>
       </div>
     </form>
   </dialog>
+  <input type="file" data-testid="import-file" accept=".json,application/json" hidden />
 `;
 
 function field(root: ParentNode, name: string): HTMLElement {
@@ -245,19 +263,36 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
 
   const dialog = root.querySelector<HTMLDialogElement>('[data-testid="new-island-dialog"]')!;
   dialog.addEventListener('close', () => {
+    actions.menu(false);
     if (dialog.returnValue === 'confirm') actions.newIsland();
     dialog.returnValue = '';
   });
 
   const menu = root.querySelector<HTMLDialogElement>('.hud-menu')!;
   const gridButton = root.querySelector<HTMLButtonElement>('[data-testid="grid-toggle"]')!;
-  action(root, 'menu').addEventListener('click', () => menu.showModal());
+  function openMenu(): void {
+    actions.menu(true);
+    menu.showModal();
+  }
+  const importFile = root.querySelector<HTMLInputElement>('[data-testid="import-file"]')!;
+  importFile.addEventListener('change', () => {
+    const file = importFile.files?.[0];
+    if (file) actions.import(file);
+    importFile.value = '';
+  });
+  action(root, 'home').addEventListener('click', actions.home);
+  action(root, 'undo').addEventListener('click', actions.undo);
+  action(root, 'sound').addEventListener('click', () => actions.sound(action(root, 'sound').getAttribute('aria-pressed') !== 'true'));
+  action(root, 'menu').addEventListener('click', openMenu);
   menu.addEventListener('close', () => {
     const choice = menu.returnValue;
     menu.returnValue = '';
+    if (choice !== 'new') actions.menu(false);
     if (choice === 'save') actions.save();
     else if (choice === 'load') actions.load();
     else if (choice === 'new') dialog.showModal();
+    else if (choice === 'export') actions.export();
+    else if (choice === 'import') importFile.click();
     else if (choice === 'grid') actions.grid(gridButton.getAttribute('aria-pressed') !== 'true');
   });
 
@@ -359,8 +394,13 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     rowFood.hidden = selected.kind !== 'house';
     rowWater.hidden = selected.kind !== 'house';
     if (selected.kind === 'house') {
-      field(rowFood, 'inspector-food').textContent = selected.food > 0 ? 'Stocked' : 'Needed';
-      field(rowWater, 'inspector-water').textContent = selected.water > 0 ? `${Math.round(selected.water)}s left` : 'Needed';
+      let foodReserve = 'Needed';
+      if (selected.food > 0) {
+        foodReserve = 'Stocked';
+        if (selected.residents > 0) foodReserve = `${Math.ceil(selected.food / (selected.residents * FOOD_CONSUMPTION_PER_RESIDENT))}s reserve`;
+      }
+      field(rowFood, 'inspector-food').textContent = foodReserve;
+      field(rowWater, 'inspector-water').textContent = selected.water > 0 ? `${Math.ceil(selected.water / WATER_DECAY_PER_SECOND)}s reserve` : 'Needed';
     }
 
     updateVendor(selected);
@@ -371,6 +411,17 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     for (const [key, input] of milestoneInputs) {
       input.checked = milestones[key];
     }
+    const steps: Array<[keyof Milestones, string]> = [
+      ['houses', 'Build four dwellings beside roads linked to the harbour.'],
+      ['farmGranary', 'The striped soil grows wheat. Connect a farm and a granary.'],
+      ['agoraVendor', 'Build an agora, then select it to open its food stall.'],
+      ['foodDelivered', 'Follow the carts: farm, granary, market, then homes.'],
+      ['services', 'Connect a fountain and a maintenance post to supply your streets.'],
+      ['courtyards', 'Keep four homes fed and watered. Watch them become courtyard houses.'],
+    ];
+    const next = steps.find(([key]) => !milestones[key]);
+    guidePanel.querySelector('summary')!.textContent = summary.goal ? 'Kalliste is thriving' : 'A home on Kalliste';
+    guidePanel.querySelector('.hud-guide-note')!.textContent = next?.[1] ?? 'Your neighbourhood is thriving. Keep building at your own pace.';
   }
 
   const hintElement = field(root, 'hint');
@@ -409,7 +460,7 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
       dialog.close('cancel');
       return false;
     }
-    menu.showModal();
+    openMenu();
     return true;
   }
 
@@ -444,5 +495,19 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     root.replaceChildren();
   }
 
-  return { update, setTool, setSpeed, notify, setHint, setGrid, toggleMenu, dispose };
+  function setSound(enabled: boolean): void {
+    const button = action(root, 'sound');
+    button.setAttribute('aria-pressed', String(enabled));
+    button.textContent = enabled ? 'Sound on' : 'Sound off';
+  }
+
+  function setSaved(): void {
+    field(root, 'saved').textContent = 'Autosaved locally. Your checkpoint is kept separately.';
+  }
+
+  function setUndo(available: boolean): void {
+    action(root, 'undo').hidden = !available;
+  }
+
+  return { update, setTool, setSpeed, notify, setHint, setGrid, setSound, setSaved, setUndo, toggleMenu, dispose };
 }

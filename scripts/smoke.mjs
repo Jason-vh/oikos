@@ -155,10 +155,11 @@ try {
   const restored = await state(page);
   assert.equal(restored.buildings.length, world.buildings.length, 'Save did not restore buildings');
   assert(restored.time >= world.time, 'Save lost simulation time');
-  const tampered = await page.evaluate((key) => { localStorage.setItem(key, '{"version":1,"buildings":"nope"}'); return key; }, await page.evaluate(() => window.oikos.saveKey));
+  const tampered = await page.evaluate(() => { const key = 'oikos.checkpoint.v1'; localStorage.setItem(key, '{"version":1,"buildings":"nope"}'); return key; });
   await menuChoice(page, 'load');
   assert.equal((await state(page)).buildings.length, restored.buildings.length, 'Corrupt save replaced the island');
   assert(tampered);
+  await menuChoice(page, 'save');
   await menuChoice(page, 'new-island');
   await page.getByRole('button', { name: 'Cancel' }).click();
   assert.equal((await state(page)).buildings.length, restored.buildings.length, 'Cancelled new island cleared the city');
@@ -167,7 +168,7 @@ try {
   await paint(page);
   assert.equal((await state(page)).buildings.length, 0, 'Confirmed new island kept the old city');
   await menuChoice(page, 'load');
-  assert.equal((await state(page)).buildings.length, 0, 'New island did not replace the saved island');
+  assert.equal((await state(page)).buildings.length, restored.buildings.length, 'New island destroyed the manual checkpoint');
   const beforePan = await page.evaluate(() => window.oikos.camera);
   await page.keyboard.down('d');
   await paint(page, 12);
