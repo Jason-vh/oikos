@@ -49,11 +49,11 @@ try {
   await page.goto(new URL('/art.html', base).href, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => document.body.dataset.ready || document.body.dataset.error);
   assert.equal(await page.locator('body').getAttribute('data-ready'), 'true');
-  for (const value of ['house:1', 'house:2', 'house:3', 'farm:1', 'granary:1', 'agora:1', 'agora:2', 'fountain:1', 'maintenance:1']) {
+  for (const value of ['house:1', 'house:2', 'house:3', 'farm:1:0', 'farm:1:2', 'farm:1:3', 'granary:1:0', 'granary:1:3', 'agora:1', 'agora:2:0', 'agora:2:3', 'fountain:1', 'maintenance:1']) {
     await page.getByLabel('Model', { exact: true }).selectOption(value);
     await paint(page);
     assert.equal(await page.locator('body').getAttribute('data-model'), value);
-    await page.screenshot({ path: path.join(output, `model-${value.replace(':', '-')}.png`) });
+    await page.screenshot({ path: path.join(output, `model-${value.replaceAll(':', '-')}.png`) });
   }
   await page.getByLabel('Wireframe', { exact: true }).check();
   await page.getByRole('button', { name: 'Turn model', exact: true }).click();

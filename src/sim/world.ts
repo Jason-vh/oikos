@@ -2,7 +2,9 @@ import type { ActionResult, Building, BuildTool, Placement, Rotation, Summary, T
 import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, STARTING_MONEY, VENDOR_COST, footprint } from './catalog';
 import { ENTRY, insideMap, terrainAt, tileAt, tileIndex } from './island';
 import {
+  accessTiles,
   bfsReachable,
+  bfsShortest,
   buildServiceCircuit,
   entryTileIndex,
   exitTile,
@@ -13,6 +15,7 @@ import {
 import {
   AGORA_CAP,
   ARRIVAL_INTERVAL,
+  IMMIGRANT_PARTY,
   BUYER_FETCH_CAPACITY,
   CART_CAPACITY,
   CONDITION_DECAY_PER_SECOND,
@@ -422,6 +425,11 @@ function serviceTileVisit(world: World, walker: Walker): void {
 }
 
 function onFinalArrival(world: World, walker: Walker): boolean {
+  if (walker.kind === 'immigrant') {
+    const house = world.buildings.find((building) => building.id === walker.targetId);
+    if (house && house.kind === 'house') house.residents = Math.min(HOUSE_CAPACITY[house.tier], house.residents + walker.cargo);
+    return true;
+  }
   if (walker.kind === 'cart') {
     if (walker.returning) return true;
     const granary = world.buildings.find((building) => building.id === walker.targetId);
@@ -485,6 +493,30 @@ function moveWalkers(world: World, dt: number): void {
   world.walkers = alive;
 }
 
+function arrivingResidents(world: World, houseId: number): number {
+  return world.walkers
+    .filter((walker) => walker.kind === 'immigrant' && walker.targetId === houseId)
+    .reduce((sum, walker) => sum + walker.cargo, 0);
+}
+
+function sendImmigrants(world: World, house: Building, party: number): void {
+  if (party <= 0) return;
+  const roads = new Set(world.roads);
+  const goals = new Set(accessTiles(world, house));
+  const path = bfsShortest(roads, entryTileIndex(), (tile) => goals.has(tile));
+  if (!path) return;
+  spawnWalker(world, {
+    kind: 'immigrant',
+    homeId: house.id,
+    targetId: house.id,
+    path,
+    step: 0,
+    progress: 0,
+    cargo: party,
+    returning: false,
+  });
+}
+
 function meetsTierNeed(tier: number, food: number, water: number): boolean {
   const needsFood = tier >= 2;
   const needsWater = tier >= 3;
@@ -521,14 +553,16 @@ function tickHouse(world: World, house: Building, dt: number): void {
   }
 
   const capacity = HOUSE_CAPACITY[house.tier];
-  if (house.residents < capacity) {
+  const expected = arrivingResidents(world, house.id);
+  if (house.residents + expected < capacity) {
     house.upgradeTimer += dt;
-    while (house.upgradeTimer >= ARRIVAL_INTERVAL && house.residents < capacity) {
-      house.upgradeTimer -= ARRIVAL_INTERVAL;
-      house.residents += 1;
+    if (house.upgradeTimer >= ARRIVAL_INTERVAL) {
+      house.upgradeTimer = 0;
+      sendImmigrants(world, house, Math.min(IMMIGRANT_PARTY, capacity - house.residents - expected));
     }
     return;
   }
+  if (house.residents < capacity) return;
 
   if (house.tier >= 3) {
     house.upgradeTimer = 0;

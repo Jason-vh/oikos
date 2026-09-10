@@ -17,7 +17,7 @@ export function tree(parent: T.Object3D, x: number, y: number, z: number, scale 
   lump(plant, colors.oliveLight, -.05, 2.17, -.27, .75, .61, .76);
 }
 
-export function wheatFarm(): T.Group {
+export function wheatFarm(stage = 3): T.Group {
   const plot = new T.Group();
   const shed = group(plot, -1.35, 0, -1.55);
   box(shed, colors.stone, 0, .08, 0, 1.55, .16, 1.3);
@@ -28,13 +28,16 @@ export function wheatFarm(): T.Group {
   post(shed, colors.wood, .55, .48, .62, .035, .96);
   box(shed, colors.dark, 0, .9, .62, 1.15, .05, .05);
   box(plot, colors.earth, .35, .05, .3, 4.1, .1, 3.9, .02);
+  const height = [0, .12, .22, .26][stage];
+  const crop = [colors.oliveLight, colors.oliveLight, 0xc9bd6a, colors.gold][stage];
   for (let row = 0; row < 7; row++) {
     const z = -1.35 + row * .55;
     const width = row < 3 ? 2.35 : 4;
     const x = row < 3 ? 1.15 : .35;
     box(plot, 0xd9c98a, x, .15, z, width, .12, .22, .02);
-    box(plot, colors.gold, x, .34, z, width - .08, .26, .18, .03);
-    box(plot, 0xe6c463, x, .5, z, width - .12, .09, .12, .02);
+    if (stage === 0) continue;
+    box(plot, crop, x, .21 + height / 2, z, width - .08, height, .18, .03);
+    if (stage === 3) box(plot, 0xe6c463, x, .5, z, width - .12, .09, .12, .02);
   }
   box(plot, colors.stone, .35, .12, 2.3, 4.1, .1, .12);
   for (const px of [-1.6, -.35, .9, 2.15]) post(plot, colors.wood, px, .27, 2.3, .035, .48);

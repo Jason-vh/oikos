@@ -3,8 +3,8 @@ export {
   releaseModelGeometries, disposeModel,
 } from './primitives';
 export { tree } from './vegetation';
-export { citizen } from './people';
+export { citizen, figure, animateFigure, type Load } from './people';
 export { boat } from './ships';
 export { temple, stall } from './temple';
 export { house } from './houses';
-export { getBuildingModel, footprintSize } from './buildings';
+export { getBuildingModel, footprintSize, type ModelStage } from './buildings';

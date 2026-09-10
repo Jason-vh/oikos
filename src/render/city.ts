@@ -1,13 +1,21 @@
 import * as T from 'three';
-import { bake, box, citizen, colors, disposeModel, getBuildingModel, lump, post } from '../art';
+import { animateFigure, bake, box, colors, disposeModel, figure, getBuildingModel, lump, post, type ModelStage } from '../art';
 import { footprint } from '../sim/catalog';
+import { AGORA_CAP, GRANARY_CAP } from '../sim/balance';
 import { CELL_SIZE, GROUND_Y, MAP_WIDTH, tileAt, tileIndex, worldPosition } from '../sim/island';
 import type { Building, BuildTool, Placement, Rotation, Walker, WalkerKind, World } from '../sim/types';
 import type { Stage } from './stage';
 import { IslandScenery } from './island';
 
 interface BuildingEntry { key: string; model: T.Group; }
-interface WalkerEntry { model: T.Group; from: T.Vector3; target: T.Vector3; elapsed: number; }
+interface WalkerEntry { model: T.Group; from: T.Vector3; target: T.Vector3; elapsed: number; moving: boolean; }
+
+function modelStage(building: Building): ModelStage {
+  if (building.kind === 'farm') return Math.min(3, Math.floor(building.progress * 4)) as ModelStage;
+  if (building.kind === 'granary') return Math.min(3, Math.ceil(building.stock / GRANARY_CAP * 3)) as ModelStage;
+  if (building.kind === 'agora') return Math.min(3, Math.ceil(building.stock / AGORA_CAP * 3)) as ModelStage;
+  return 3;
+}
 
 export class CityScene {
   readonly scenery: IslandScenery;
@@ -63,14 +71,15 @@ export class CityScene {
       for (let z = building.z; z < building.z + depth; z++) {
         for (let x = building.x; x < building.x + width; x++) occupied.add(tileIndex(x, z));
       }
-      const key = `${building.kind}:${building.tier}:${building.vendorEnabled}:${building.rotation}:${building.x}:${building.z}`;
+      const stage = modelStage(building);
+      const key = `${building.kind}:${building.tier}:${building.vendorEnabled}:${stage}:${building.rotation}:${building.x}:${building.z}`;
       const existing = this.buildings.get(building.id);
       if (existing?.key === key) continue;
       if (existing) {
         existing.model.removeFromParent();
         disposeModel(existing.model);
       }
-      const model = getBuildingModel(building.kind, building.tier, building.vendorEnabled);
+      const model = getBuildingModel(building.kind, building.tier, building.vendorEnabled, stage);
       const point = worldPosition(building.x + width / 2, building.z + depth / 2);
       model.position.set(point.x, GROUND_Y, point.z);
       model.rotation.y = -building.rotation * Math.PI / 2;
@@ -94,8 +103,9 @@ export class CityScene {
   private walkerModel(kind: WalkerKind): T.Group {
     const existing = this.walkerTemplates.get(kind);
     if (existing) return existing.clone();
-    const color = { cart: colors.gold, buyer: colors.roof, vendor: colors.blue, water: colors.blueLight, maintenance: colors.oliveDark }[kind];
-    const model = citizen(color, kind === 'water' || kind === 'buyer' || kind === 'vendor');
+    const colour: Record<WalkerKind, number> = { cart: colors.gold, buyer: colors.roof, vendor: colors.blue, water: colors.blueLight, maintenance: colors.oliveDark, immigrant: colors.linen };
+    const load = kind === 'water' || kind === 'buyer' || kind === 'vendor' ? 'jar' : kind === 'immigrant' ? 'bundle' : 'none';
+    const model = figure(colour[kind], load).root;
     if (kind === 'cart') {
       const cart = new T.Group();
       box(cart, colors.wood, 0, .4, -.62, .62, .38, .68);
@@ -106,6 +116,14 @@ export class CityScene {
       lump(cart, colors.gold, 0, .64, -.62, .3, .18, .3);
       bake(cart);
       model.add(cart);
+    }
+    if (kind === 'immigrant') {
+      const companion = figure(colors.roof, 'bundle').root;
+      companion.position.set(.34, 0, -.42);
+      const child = figure(colors.oliveLight, 'none').root;
+      child.scale.setScalar(.7);
+      child.position.set(-.3, 0, -.36);
+      model.add(companion, child);
     }
     model.scale.setScalar(.83);
     this.walkerTemplates.set(kind, model);
@@ -123,12 +141,13 @@ export class CityScene {
       const model = this.walkerModel(walker.kind);
       model.position.copy(target);
       this.stage.scene.add(model);
-      entry = { model, from: target.clone(), target, elapsed: .25 };
+      entry = { model, from: target.clone(), target, elapsed: .25, moving: false };
       this.walkers.set(walker.id, entry);
     } else {
       entry.from.copy(entry.model.position);
       entry.target.copy(target);
       entry.elapsed = 0;
+      entry.moving = entry.from.distanceToSquared(target) > 1e-6;
     }
     if (a.x !== b.x || a.z !== b.z) entry.model.rotation.y = Math.atan2(b.x - a.x, b.z - a.z);
   }
@@ -138,7 +157,12 @@ export class CityScene {
     for (const [id, walker] of this.walkers) {
       walker.elapsed += delta * speed;
       walker.model.position.lerpVectors(walker.from, walker.target, Math.min(1, walker.elapsed / .25));
-      walker.model.position.y += Math.abs(Math.sin(time * 7 + id)) * .022;
+      const stride = walker.moving ? .55 : 0;
+      const phase = time * 9 * Math.max(1, speed) + id;
+      animateFigure(walker.model, phase, stride);
+      for (const companion of walker.model.children.slice(5)) {
+        if (companion.children.length >= 5) animateFigure(companion, phase + 1.3, stride);
+      }
     }
     this.stage.invalidate();
   }

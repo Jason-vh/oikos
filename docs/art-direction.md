@@ -267,3 +267,12 @@ There is no screenshot committed to this repo to diff against — `artifacts/` (
 `npm run art:capture` writes) is gitignored. A reviewer capturing locally, comparing
 the new set against a capture taken before the change, is the review process; see
 `docs/art-tooling.md`.
+
+## Model stages
+
+`getBuildingModel(kind, tier, vendorEnabled, stage)` takes a `ModelStage` (0–3) that
+the renderer derives from simulation state: wheat height and colour on a farm
+(`progress`), grain baskets by the granary doors (`stock / GRANARY_CAP`), and
+crates on the agora stall (`stock / AGORA_CAP`). A stage change swaps the model,
+so keep stage variants cheap and confined to the footprint. Citizens are built by
+`figure()` with separate leg and arm groups; `animateFigure()` swings them.

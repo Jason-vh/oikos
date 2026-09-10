@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { citizen, colors, disposeModel, getBuildingModel } from './art';
+import { citizen, colors, disposeModel, getBuildingModel, type ModelStage } from './art';
 import { BUILDINGS, footprint } from './sim/catalog';
 import { CELL_SIZE } from './sim/island';
 import type { BuildingKind } from './sim/types';
@@ -37,10 +37,11 @@ function boot(): void {
       });
       disposeModel(model);
     }
-    const [kindValue, tierValue] = select.value.split(':');
+    const [kindValue, tierValue, stageValue = '3'] = select.value.split(':');
     const kind = kindValue as BuildingKind;
     const tier = Number(tierValue) as 1 | 2 | 3;
-    model = getBuildingModel(kind, tier, kind === 'agora' && tier === 2);
+    const modelStage = Number(stageValue) as ModelStage;
+    model = getBuildingModel(kind, tier, kind === 'agora' && tier === 2, modelStage);
     model.traverse((child) => {
       if (!(child instanceof T.Mesh)) return;
       const material = (child.material as T.MeshStandardMaterial).clone();

@@ -116,8 +116,9 @@ off and back on again doesn't charge a second time.
 
 ## Living in a house
 
-A house starts empty. Once it's connected to the road network, settlers arrive on
-their own, filling it to 8 (tier 1, no requirements) quite quickly. From there:
+A house starts empty. Once it's connected to the road network, parties of settlers
+walk in from the harbour flag along the roads; they count as residents only when
+they arrive. A house fills to 8 (tier 1, no requirements) quite quickly. From there:
 
 - **Tier 2** (12 settlers) needs food. A house with food in store keeps growing
   toward 12; once full and fed for a short confirmation window, it upgrades.

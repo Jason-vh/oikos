@@ -22,7 +22,7 @@ export interface Building extends Tile {
   serviceTimer: number;
   upgradeTimer: number;
 }
-export type WalkerKind = 'cart' | 'buyer' | 'vendor' | 'water' | 'maintenance';
+export type WalkerKind = 'cart' | 'buyer' | 'vendor' | 'water' | 'maintenance' | 'immigrant';
 export interface Walker {
   id: number;
   kind: WalkerKind;

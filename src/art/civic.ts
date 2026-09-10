@@ -30,7 +30,7 @@ export function maintenance(): T.Group {
   return shed;
 }
 
-export function granary(): T.Group {
+export function granary(stage = 0): T.Group {
   const store = new T.Group();
   box(store, colors.stone, 0, .12, 0, 3.15, .24, 3.0);
   box(store, colors.plaster, 0, 1.02, 0, 2.75, 1.6, 2.55, .07);
@@ -41,7 +41,13 @@ export function granary(): T.Group {
   box(store, colors.dark, 0, .78, 1.31, .1, 1.4, .06);
   box(store, colors.gold, -.2, .78, 1.35, .06, .06, .04);
   box(store, colors.gold, .2, .78, 1.35, .06, .06, .04);
-  box(store, colors.paving, 0, .1, 1.55, 1.8, .2, .4);
-  for (const [px, pz] of [[-1.25, 1.0], [1.25, 1.0], [-1.25, -1.05]]) pot(store, px, .18, pz, .9);
+  box(store, colors.paving, 0, .1, 1.5, 3.3, .2, .5);
+  pot(store, -1.25, .18, -1.05, .9);
+  const baskets = [[1.22, 0, 1.55], [.8, 0, 1.55], [1.22, 0, 1.15], [-1.22, 0, 1.55], [-.8, 0, 1.55], [-1.22, 0, 1.15], [1.0, .42, 1.55], [-1.0, .42, 1.55], [1.22, .42, 1.15]];
+  for (const [px, py, pz] of baskets.slice(0, stage * 3)) {
+    post(store, 0xd9c48f, px, .21 + py, pz, .24, .42);
+    post(store, colors.wood, px, .4 + py, pz, .25, .04);
+    lump(store, colors.gold, px, .46 + py, pz, .2, .09, .2);
+  }
   return store;
 }

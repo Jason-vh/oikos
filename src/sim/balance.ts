@@ -25,3 +25,4 @@ export const CONDITION_DECAY_PER_SECOND = 100 / (20 * 60);
 export const GRACE_SECONDS = 45;
 export const UPGRADE_GRACE = 8;
 export const ARRIVAL_INTERVAL = 2.5;
+export const IMMIGRANT_PARTY = 4;

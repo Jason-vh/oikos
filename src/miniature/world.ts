@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { bake, boat, box, citizen, colors, group, house, lump, mesh, post, pot, releaseModelGeometries, stall, temple, tree } from '../art';
+import { animateFigure, bake, boat, box, citizen, colors, group, house, lump, mesh, post, pot, releaseModelGeometries, stall, temple, tree } from '../art';
 
 const shoreline: [number, number][] = [
   [-22, -1], [-21, -5], [-18, -9], [-13, -12], [-8, -12.8], [-4, -11.5],
@@ -259,7 +259,7 @@ export function createWorld(scene: T.Scene): MiniatureWorld {
         const length = start.distanceTo(end);
         if (remaining <= length) {
           walker.body.position.lerpVectors(start, end, remaining / length);
-          walker.body.position.y += Math.abs(Math.sin(time * 7 + walker.speed * 20)) * .045;
+          animateFigure(walker.body, time * 4.5 + walker.speed * 20, .5);
           walker.body.rotation.y = Math.atan2(end.x - start.x, end.z - start.z);
           break;
         }

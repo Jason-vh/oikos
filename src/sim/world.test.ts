@@ -641,3 +641,32 @@ describe('building status', () => {
     expect(buildingStatus(world, agora).at(-1)).toBe('Neglected; build a maintenance post.');
   });
 });
+
+describe('immigration', () => {
+  test('settlers walk from the harbour before they count as residents', () => {
+    const world = createWorld();
+    build(world, 'house', 10, 17);
+    const house = findByKind(world, 'house');
+    advance(world, 3);
+    const party = world.walkers.find((walker) => walker.kind === 'immigrant');
+    expect(party).toBeDefined();
+    expect(party!.path[0]).toBe(tileIndex(21, 24));
+    expect(party!.targetId).toBe(house.id);
+    expect(house.residents).toBe(0);
+    advance(world, 30);
+    expect(house.residents).toBeGreaterThan(0);
+    advance(world, 60);
+    expect(house.residents).toBe(8);
+    expect(world.walkers.filter((walker) => walker.kind === 'immigrant')).toHaveLength(0);
+  });
+
+  test('a house that loses its road stops attracting settlers', () => {
+    const world = createWorld();
+    build(world, 'house', 10, 17);
+    advance(world, 1);
+    demolish(world, 21, 22);
+    advance(world, 10);
+    expect(world.walkers.filter((walker) => walker.kind === 'immigrant')).toHaveLength(0);
+    expect(findByKind(world, 'house').residents).toBe(0);
+  });
+});
