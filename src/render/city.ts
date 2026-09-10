@@ -6,6 +6,7 @@ import { CELL_SIZE, groundHeight, levelOn, LEVEL_HEIGHT, tileAtOn, tileIndexOn, 
 import type { Animal, AnimalKind, Building, BuildTool, Placement, Resource, Rotation, Walker, WalkerKind, World } from '../sim/types';
 import type { Stage } from './stage';
 import { IslandScenery } from './island';
+import { LogisticsOverlay, syncDisconnectedMark, syncHouseSupplies } from './logistics';
 
 interface BuildingEntry { key: string; tier: number; model: T.Group; intro: number; from: number; }
 interface Departure { model: T.Group; elapsed: number; }
@@ -82,12 +83,15 @@ export class CityScene {
   private previewKey = '';
   private ghost: T.Group | null = null;
   private selectedWalker: number | null = null;
+  private lastWorld: World | null = null;
+  private readonly logistics: LogisticsOverlay;
   private readonly validMaterial = new T.MeshBasicMaterial({ color: 0x79b58b, transparent: true, opacity: .38, depthWrite: false });
   private readonly invalidMaterial = new T.MeshBasicMaterial({ color: 0xd3664e, transparent: true, opacity: .45, depthWrite: false });
   private readonly tileGeometry = new T.PlaneGeometry(CELL_SIZE - .06, CELL_SIZE - .06).rotateX(-Math.PI / 2);
 
   constructor(private readonly stage: Stage, readonly map: IslandMap, private readonly motion = true) {
     this.scenery = new IslandScenery(stage.scene, map);
+    this.logistics = new LogisticsOverlay(stage.scene, map);
     this.selection.visible = false;
     this.hoverMark.visible = false;
     stage.scene.add(this.roads, this.selection, this.hoverMark, this.preview);
@@ -137,6 +141,7 @@ export class CityScene {
   }
 
   sync(world: World): void {
+    this.lastWorld = world;
     this.roadModels(world);
     const ids = new Set(world.buildings.map((building) => building.id));
     const occupied = new Set(world.roads);
@@ -174,6 +179,12 @@ export class CityScene {
       this.buildings.set(building.id, entry);
       if (animated) this.settle(entry);
       this.stage.shadows();
+    }
+    for (const building of world.buildings) {
+      const entry = this.buildings.get(building.id);
+      if (!entry) continue;
+      syncHouseSupplies(entry.model, building);
+      syncDisconnectedMark(entry.model, building);
     }
     this.primed = true;
     this.scenery.clearDecor(occupied, new Set(world.felled));
@@ -449,6 +460,7 @@ export class CityScene {
   }
 
   select(building: Building | null, walkerId: number | null = null): void {
+    this.logistics.update(this.lastWorld, building ? building.id : null, walkerId);
     this.selectedWalker = walkerId;
     this.selection.visible = building !== null || walkerId !== null;
     if (walkerId !== null) {
@@ -576,6 +588,7 @@ export class CityScene {
     this.puffs.length = 0;
     disposeModel(this.roads);
     this.roads.removeFromParent();
+    this.logistics.dispose();
     this.selection.removeFromParent();
     this.hoverMark.removeFromParent();
     this.preview.removeFromParent();

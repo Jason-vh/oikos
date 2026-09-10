@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { box, colors, group, pot, roof } from './primitives';
+import { bake, box, colors, group, lump, pot, post, roof } from './primitives';
 
 function windowFrame(parent: T.Object3D, x: number, y: number, z: number): void {
   box(parent, colors.cream, x, y, z, .69, .79, .13);
@@ -69,4 +69,30 @@ export function dwelling(tier: 1 | 2 | 3): T.Group {
   pot(home, width / 2 - .3, .18, yardZ + yardDepth / 2 - .1, .55);
   pot(home, 1.02, .2, depth / 2 + .32, .75);
   return home;
+}
+
+function basket(parent: T.Object3D, x: number, z: number, full: boolean): void {
+  box(parent, colors.wood, x, .12, z, .32, .2, .3, .05);
+  box(parent, colors.wood, x, .23, z, .36, .04, .34, .02);
+  if (!full) return;
+  for (const [dx, dz] of [[-.07, -.04], [.08, -.02], [0, .06]]) {
+    post(parent, 0xd9c48f, x + dx, .2, z + dz, .05, .2);
+    lump(parent, colors.gold, x + dx, .33, z + dz, .09, .08, .09);
+  }
+}
+
+const SUPPLIES_LAYOUT: Record<1 | 2 | 3, { depth: number; basketX: number; jarX: number; frontGap: number }> = {
+  1: { depth: 1.65, basketX: .05, jarX: .38, frontGap: .28 },
+  2: { depth: 2.05, basketX: .15, jarX: .5, frontGap: .32 },
+  3: { depth: 2.2, basketX: .15, jarX: .5, frontGap: .28 },
+};
+
+export function houseSupplies(tier: 1 | 2 | 3, hasFood: boolean, hasWater: boolean): T.Group {
+  const supplies = new T.Group();
+  const { depth, basketX, jarX, frontGap } = SUPPLIES_LAYOUT[tier];
+  const z = depth / 2 + frontGap;
+  basket(supplies, basketX, z, hasFood);
+  pot(supplies, jarX, 0, z, hasWater ? .5 : .32, hasWater ? colors.blueLight : colors.stone);
+  bake(supplies);
+  return supplies;
 }
