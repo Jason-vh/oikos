@@ -45,7 +45,7 @@ export const DEFAULT_SEED = 1;
 
 export function createWorld(seed = DEFAULT_SEED): World {
   const world: World = {
-    version: 1,
+    version: 2,
     island: 'kalliste',
     seed,
     time: 0,

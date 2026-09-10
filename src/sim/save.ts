@@ -6,13 +6,14 @@ import { BUILDINGS, HOUSE_CAPACITY, RESOURCES } from './catalog';
 import { islandFor, insideMapOn, type IslandMap } from './island';
 import { neighbours } from './grid';
 import { recomputeConnectivity } from './world';
+import { CURRENT_VERSION, migrateSave } from './save-migrations';
 
 export function serializeWorld(world: World): string {
   return JSON.stringify(world);
 }
 
-const BUILDING_KINDS: BuildingKind[] = ['house', 'farm', 'granary', 'agora', 'fountain', 'maintenance'];
-const WALKER_KINDS: WalkerKind[] = ['cart', 'buyer', 'vendor', 'water', 'maintenance', 'immigrant'];
+const BUILDING_KINDS: BuildingKind[] = ['house', 'farm', 'granary', 'agora', 'fountain', 'maintenance', 'lodge', 'woodcutter', 'stockpile'];
+const WALKER_KINDS: WalkerKind[] = ['cart', 'buyer', 'vendor', 'water', 'maintenance', 'immigrant', 'hunter', 'woodcutter'];
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
@@ -176,9 +177,11 @@ export function deserializeWorld(raw: string): World | null {
     return null;
   }
   if (!isPlainObject(parsed)) return null;
-  const { version, island, seed, time, remainder, money, nextId, roads: rawRoads, buildings: rawBuildings, walkers: rawWalkers, wildlife: rawWildlife, felled: rawFelled, regrowth, produced, delivered } = parsed;
+  const migrated = migrateSave(parsed);
+  if (!migrated) return null;
+  const { version, island, seed, time, remainder, money, nextId, roads: rawRoads, buildings: rawBuildings, walkers: rawWalkers, wildlife: rawWildlife, felled: rawFelled, regrowth, produced, delivered } = migrated;
 
-  if (version !== 1) return null;
+  if (version !== CURRENT_VERSION) return null;
   if (island !== 'kalliste') return null;
   if (!isInteger(seed) || seed < 0 || seed > 0xffffffff) return null;
   const map = islandFor(seed as number);
@@ -231,7 +234,7 @@ export function deserializeWorld(raw: string): World | null {
   if (!isNonNegativeFinite(regrowth)) return null;
 
   const world: World = {
-    version: 1,
+    version: CURRENT_VERSION,
     island: 'kalliste',
     seed: seed as number,
     time: time as number,

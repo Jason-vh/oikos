@@ -1,13 +1,29 @@
 import { describe, expect, test } from 'bun:test';
 import { deserializeWorld, serializeWorld } from './save';
-import { advance, createWorld } from './world';
+import { advance, build, createWorld } from './world';
 import { buildStarterNeighbourhood } from './scenario';
 import { islandFor, tileIndexOn } from './island';
+import { connect, spotFor } from './testing';
 
 function advancedWorld() {
   const world = createWorld();
   buildStarterNeighbourhood(world);
   advance(world, 40);
+  return world;
+}
+
+function huntingWorld() {
+  const world = createWorld(1);
+  const boar = world.wildlife.find((animal) => animal.kind === 'boar')!;
+  const lodgeSpot = spotFor(world, 'lodge', { x: Math.floor(boar.homeX), z: Math.floor(boar.homeZ) })!;
+  build(world, 'lodge', lodgeSpot.x, lodgeSpot.z);
+  connect(world, world.buildings[0]);
+  const granarySpot = spotFor(world, 'granary', lodgeSpot)!;
+  build(world, 'granary', granarySpot.x, granarySpot.z);
+  connect(world, world.buildings[1]);
+  const houseSpot = spotFor(world, 'house', islandFor(world.seed).entry)!;
+  build(world, 'house', houseSpot.x, houseSpot.z);
+  connect(world, world.buildings[2]);
   return world;
 }
 
@@ -55,15 +71,78 @@ describe('round trip', () => {
   });
 });
 
+describe('gathering saves', () => {
+  test('a save with a lodge and stockpile round-trips', () => {
+    const world = huntingWorld();
+    const stockpileSpot = spotFor(world, 'stockpile', islandFor(world.seed).entry)!;
+    build(world, 'stockpile', stockpileSpot.x, stockpileSpot.z);
+    connect(world, world.buildings[3]);
+    const restored = deserializeWorld(serializeWorld(world));
+    expect(restored).not.toBeNull();
+    expect(restored).toEqual(world);
+  });
+
+  test('a hunter walking overland to game round-trips mid-work', () => {
+    const world = huntingWorld();
+    let working = false;
+    for (let t = 0; t < 1600 && !working; t++) {
+      advance(world, .25);
+      working = world.walkers.some((walker) => walker.kind === 'hunter' && walker.working > 0);
+    }
+    expect(working).toBe(true);
+    const restored = deserializeWorld(serializeWorld(world));
+    expect(restored).not.toBeNull();
+    expect(restored).toEqual(world);
+
+    advance(world, 200);
+    advance(restored!, 200);
+    expect(restored!.time).toBe(world.time);
+    expect(restored!.wildlife).toEqual(world.wildlife);
+  });
+
+  test('a woodcutter carrying lumber home round-trips mid-work', () => {
+    const world = createWorld(1);
+    const map = islandFor(world.seed);
+    let spot = null;
+    for (let z = 0; z < map.depth && !spot; z++) {
+      for (let x = 0; x < map.width && !spot; x++) {
+        if (map.terrain[tileIndexOn(map, x, z)] !== 'forest') continue;
+        const candidate = spotFor(world, 'woodcutter', { x, z });
+        if (candidate && Math.abs(candidate.x - x) + Math.abs(candidate.z - z) < 7) spot = candidate;
+      }
+    }
+    expect(spot).not.toBeNull();
+    build(world, 'woodcutter', spot!.x, spot!.z);
+    connect(world, world.buildings[0]);
+    const pileSpot = spotFor(world, 'stockpile', spot!)!;
+    build(world, 'stockpile', pileSpot.x, pileSpot.z);
+    connect(world, world.buildings[1]);
+    const houseSpot = spotFor(world, 'house', map.entry)!;
+    build(world, 'house', houseSpot.x, houseSpot.z);
+    connect(world, world.buildings[2]);
+
+    let carrying = false;
+    for (let t = 0; t < 1600 && !carrying; t++) {
+      advance(world, .25);
+      carrying = world.walkers.some((walker) => walker.kind === 'woodcutter' && walker.returning && walker.cargo > 0);
+    }
+    expect(carrying).toBe(true);
+    expect(world.felled.length).toBeGreaterThan(0);
+    const restored = deserializeWorld(serializeWorld(world));
+    expect(restored).not.toBeNull();
+    expect(restored).toEqual(world);
+  });
+});
+
 describe('corruption rejection', () => {
   test('rejects invalid JSON', () => {
     expect(deserializeWorld('not json')).toBeNull();
   });
 
-  test('rejects an unsupported version', () => {
+  test('rejects a future save version', () => {
     const world = advancedWorld();
     const raw = JSON.parse(serializeWorld(world));
-    raw.version = 2;
+    raw.version = 3;
     expect(deserializeWorld(JSON.stringify(raw))).toBeNull();
   });
 
