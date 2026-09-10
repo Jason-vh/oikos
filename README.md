@@ -31,8 +31,8 @@ model atelier). On touchscreens, use two fingers to pan/zoom.
 ## Development
 
 ```bash
-npm run check                                   # build, tests, browser walkthrough, art captures
-npm run smoke -- http://localhost:5180/?debug   # gameplay walkthrough against a running dev server
+npm run check                                   # build, tests, browser walkthrough, art captures (run before merging; CI runs tests and build only)
+npm run smoke -- http://localhost:5180/?debug   # gameplay walkthrough against a running dev server (append &lean for a fast, unshaded run)
 npm run art:capture -- http://localhost:5180    # benchmark and model captures into artifacts/art
 ```
 

@@ -9,5 +9,5 @@ npx vite preview --host 127.0.0.1 --port "$PORT" --strictPort &
 SERVER=$!
 trap 'kill $SERVER' EXIT
 npx wait-on "http://127.0.0.1:$PORT"
-node scripts/smoke.mjs "http://127.0.0.1:$PORT/?debug" artifacts/smoke
+node scripts/smoke.mjs "http://127.0.0.1:$PORT/?debug${LEAN:+&lean}" artifacts/smoke
 node scripts/art-capture.mjs "http://127.0.0.1:$PORT" artifacts/art

@@ -26,8 +26,9 @@ export class Stage {
   constructor(root: HTMLElement, interactive = true) {
     this.scene.background = new T.Color(0xb1d2cd);
     this.scene.fog = new T.FogExp2(0xb1d2cd, .0045);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    this.renderer.shadowMap.enabled = true;
+    const lean = new URLSearchParams(location.search).has('lean');
+    this.renderer.setPixelRatio(lean ? 1 : Math.min(window.devicePixelRatio, 1.5));
+    this.renderer.shadowMap.enabled = !lean;
     this.renderer.shadowMap.type = T.PCFShadowMap;
     this.renderer.shadowMap.autoUpdate = false;
     this.renderer.toneMapping = T.ACESFilmicToneMapping;
@@ -62,7 +63,7 @@ export class Stage {
     this.ao = new GTAOPass(this.scene, this.camera, 1, 1);
     this.ao.updateGtaoMaterial({ radius: .65, distanceExponent: 1.5, thickness: 1, scale: 1 });
     this.ao.blendIntensity = .65;
-    this.ao.enabled = !new URLSearchParams(location.search).has('noao');
+    this.ao.enabled = !lean && !new URLSearchParams(location.search).has('noao');
     this.composer.addPass(this.ao);
     this.composer.addPass(new OutputPass());
     this.canvas.addEventListener('webglcontextlost', this.contextLost);

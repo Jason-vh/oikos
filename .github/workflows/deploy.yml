@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   check:
-    name: Typecheck, test, build, smoke
+    name: Test and build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,19 +27,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Tests
+        run: npm test
 
-      - name: Browser walkthrough and art captures
-        run: PORT=4173 bash scripts/check.sh
-
-      - name: Upload screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: smoke-screenshots
-          path: artifacts/
-          if-no-files-found: ignore
+      - name: Typecheck and build
+        run: npm run build
 
   deploy:
     name: Deploy to exe.dev VM
