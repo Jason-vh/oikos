@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { deserializeWorld, serializeWorld } from './save';
 import { advance, createWorld } from './world';
 import { buildStarterNeighbourhood } from './scenario';
+import { islandFor, tileIndexOn } from './island';
 
 function advancedWorld() {
   const world = createWorld();
@@ -105,8 +106,22 @@ describe('corruption rejection', () => {
   test('rejects a building overlapping a road tile', () => {
     const world = advancedWorld();
     const raw = JSON.parse(serializeWorld(world));
-    raw.buildings[0].x = raw.buildings[0].x;
-    raw.roads.push(raw.buildings[0].z * 40 + raw.buildings[0].x);
+    const map = islandFor(raw.seed);
+    raw.roads.push(tileIndexOn(map, raw.buildings[0].x, raw.buildings[0].z));
+    expect(deserializeWorld(JSON.stringify(raw))).toBeNull();
+  });
+
+  test('rejects a seed outside the valid range', () => {
+    const world = advancedWorld();
+    const raw = JSON.parse(serializeWorld(world));
+    raw.seed = -1;
+    expect(deserializeWorld(JSON.stringify(raw))).toBeNull();
+  });
+
+  test('rejects a non-integer seed', () => {
+    const world = advancedWorld();
+    const raw = JSON.parse(serializeWorld(world));
+    raw.seed = 1.5;
     expect(deserializeWorld(JSON.stringify(raw))).toBeNull();
   });
 
