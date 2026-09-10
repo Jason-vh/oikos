@@ -179,7 +179,7 @@ Both share `Stage` (`src/render/stage.ts`) with the playable game.
   extra frames over several animation frames, and "Resume life" makes it render
   again; `/art.html` reaches `data-ready`/`data-model` correctly for every
   selection; the static model viewer never renders on its own; neither page reads
-  or writes the game's own save key, and neither leaks `window.thalassa` onto
+  or writes the game's own save key, and neither leaks `window.oikos` onto
   itself. A failing assertion here is a real regression, not a flaky screenshot
   diff.
 
