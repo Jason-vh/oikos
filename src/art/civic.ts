@@ -1,5 +1,7 @@
 import * as T from 'three';
-import { box, colors, lump, post, pot, roof } from './primitives';
+import type { Stores } from '../sim/types';
+import { box, colors, group, lump, post, pot, roof } from './primitives';
+import { bundle, bundlesOf } from './food';
 
 const HIDE = 0x5c4433;
 
@@ -73,4 +75,44 @@ export function woodcutter(): T.Group {
   axe.rotation.z = .5;
   box(cabin, colors.stone, .68, .72, .8, .14, .1, .04);
   return cabin;
+}
+
+const YARD_SLOTS: [number, number][] = [[-1.15, -.95], [-.4, -.95], [.4, -.95], [1.15, -.95], [-1.15, .3], [-.4, .3], [.4, .3], [1.15, .3]];
+
+export function stockpile(stores: Stores = {}): T.Group {
+  const yard = new T.Group();
+  box(yard, colors.stone, 0, .1, 0, 3.5, .2, 3.5);
+  for (let i = 0; i < 9; i++) box(yard, i % 2 ? 0xc9ad84 : 0xbfa27a, 0, .23, -1.6 + i * .4, 3.35, .06, .36, .01);
+  for (const px of [-1.55, -.5, .5, 1.55]) {
+    post(yard, colors.wood, px, .8, -1.55, .07, 1.2);
+    post(yard, colors.wood, px, .95, -.35, .07, 1.5);
+  }
+  box(yard, colors.wood, 0, 1.68, -.35, 3.35, .08, .08);
+  box(yard, colors.wood, 0, 1.38, -1.55, 3.35, .08, .08);
+  for (let i = 0; i < 7; i++) {
+    const rafter = box(yard, colors.wood, -1.5 + i * .5, 1.53, -.95, .06, .06, 1.35);
+    rafter.rotation.x = -.245;
+  }
+  const shade = box(yard, colors.roofDark, 0, 1.6, -.95, 3.5, .05, 1.45, .01);
+  shade.rotation.x = -.245;
+  for (let i = 0; i < 11; i++) {
+    const batten = box(yard, colors.roofLight, -1.65 + i * .33, 1.635, -.95, .07, .05, 1.45, .01);
+    batten.rotation.x = -.245;
+  }
+  for (const [px, pz] of [[-1.62, 1.62], [1.62, 1.62], [-1.62, .95], [1.62, .95]]) post(yard, colors.stone, px, .36, pz, .08, .3);
+  for (let i = 0; i < 4; i++) box(yard, colors.wood, -1.2 + i * .8, .27, 1.62, .04, .08, .4);
+  const crane = group(yard, 1.35, .26, 1.2);
+  for (const side of [-1, 1]) {
+    const leg = post(crane, colors.wood, side * .3, .8, 0, .05, 1.7);
+    leg.rotation.z = -side * .32;
+  }
+  post(crane, colors.wood, 0, 1.6, 0, .05, .08);
+  post(crane, colors.linen, 0, 1.15, .02, .015, .9);
+  lump(crane, colors.stone, 0, .68, .02, .16, .12, .14);
+  for (const [px, pz] of YARD_SLOTS) box(yard, colors.earth, px, .27, pz, .62, .02, .62, .01);
+  bundlesOf(stores, YARD_SLOTS.length).forEach((food, index) => {
+    const [px, pz] = YARD_SLOTS[index];
+    bundle(yard, food, px, .28, pz, index);
+  });
+  return yard;
 }

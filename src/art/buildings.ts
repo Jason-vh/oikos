@@ -5,7 +5,7 @@ import { CELL_SIZE } from '../sim/island';
 import { bake, box, colors, post } from './primitives';
 import { dwelling } from './houses';
 import { wheatFarm } from './vegetation';
-import { fountain as fountainModel, lodge as lodgeModel, maintenance as maintenanceModel, woodcutter as woodcutterModel } from './civic';
+import { fountain as fountainModel, lodge as lodgeModel, maintenance as maintenanceModel, stockpile as stockpileModel, woodcutter as woodcutterModel } from './civic';
 import { granaryVariant, type GranaryVariant } from './granaries';
 
 export const GRANARY_VARIANT: GranaryVariant = 'pithoi-low';
@@ -60,7 +60,7 @@ export function getBuildingModel(kind: BuildingKind, state: ModelState = {}): T.
       model.add(woodcutterModel());
       break;
     case 'stockpile':
-      model.add(granaryVariant('pithoi-low', stores));
+      model.add(stockpileModel(stores));
       break;
   }
   bake(model);
