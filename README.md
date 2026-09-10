@@ -28,11 +28,9 @@ On touchscreens, use two fingers to pan/zoom.
 ## Development
 
 ```bash
-npm test
-npm run build
-npm run art:check
-npm run smoke -- http://localhost:5180/?debug
-npm run art:capture -- http://localhost:5180
+npm run check                                   # build, tests, browser walkthrough, art captures
+npm run smoke -- http://localhost:5180/?debug   # gameplay walkthrough against a running dev server
+npm run art:capture -- http://localhost:5180    # benchmark and model captures into artifacts/art
 ```
 
 - [Gameplay and first-island scope](docs/gameplay.md)

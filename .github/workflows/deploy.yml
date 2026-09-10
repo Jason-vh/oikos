@@ -27,21 +27,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Unit tests
-        run: npm run test
-
-      - name: Typecheck and build
-        run: npm run build
-
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Smoke test the production bundle
-        run: |
-          npx vite preview --port 4173 &
-          npx wait-on http://localhost:4173
-          node scripts/smoke.mjs "http://localhost:4173/?debug"
-          node scripts/art-capture.mjs "http://localhost:4173"
+      - name: Browser walkthrough and art captures
+        run: PORT=4173 bash scripts/check.sh
 
       - name: Upload screenshots
         if: always()
