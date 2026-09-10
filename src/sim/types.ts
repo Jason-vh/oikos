@@ -24,6 +24,17 @@ export interface Building extends Tile {
   serviceTimer: number;
   upgradeTimer: number;
 }
+export type AnimalKind = 'boar' | 'rabbit' | 'fish' | 'gull';
+export interface Animal {
+  id: number;
+  kind: AnimalKind;
+  x: number;
+  z: number;
+  homeX: number;
+  homeZ: number;
+  heading: number;
+  phase: number;
+}
 export type WalkerKind = 'cart' | 'buyer' | 'vendor' | 'water' | 'maintenance' | 'immigrant';
 export interface Walker {
   id: number;
@@ -48,6 +59,7 @@ export interface World {
   roads: number[];
   buildings: Building[];
   walkers: Walker[];
+  wildlife: Animal[];
   produced: number;
   delivered: number;
 }

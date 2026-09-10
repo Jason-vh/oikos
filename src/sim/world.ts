@@ -1,5 +1,6 @@
 import type { ActionResult, Building, BuildTool, Food, Placement, Rotation, Stores, Summary, Tile, Walker, WalkerKind, World } from './types';
 import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, STARTING_MONEY, VENDOR_COST, footprint } from './catalog';
+import { spawnWildlife, stepWildlife } from './wildlife';
 import { buildable, insideMapOn, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import {
   accessTiles,
@@ -53,6 +54,7 @@ export function createWorld(seed = DEFAULT_SEED): World {
     roads: [],
     buildings: [],
     walkers: [],
+    wildlife: [],
     produced: 0,
     delivered: 0,
   };
@@ -60,6 +62,7 @@ export function createWorld(seed = DEFAULT_SEED): World {
   const roads = new Set<number>();
   for (let z = map.entry.z; z >= map.entry.z - 8 && terrainOn(map, map.entry.x, z) !== 'water'; z--) roads.add(tileIndexOn(map, map.entry.x, z));
   world.roads = [...roads];
+  world.wildlife = spawnWildlife(world);
   recomputeConnectivity(world);
   return world;
 }
@@ -645,6 +648,7 @@ function simulationStep(world: World, dt: number): void {
     else if (building.kind === 'maintenance') updateCircuitDispatch(world, building, 'maintenance');
   }
   moveWalkers(world, dt);
+  stepWildlife(world, dt);
   for (const building of world.buildings) {
     if (building.kind === 'house') tickHouse(world, building, dt);
   }

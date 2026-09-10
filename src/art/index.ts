@@ -10,3 +10,4 @@ export { house } from './houses';
 export { getBuildingModel, footprintSize, GRANARY_VARIANT, type ModelStage, type ModelState } from './buildings';
 export { GRANARY_VARIANTS, type GranaryVariant } from './granaries';
 export { bundle, bundleKey, bundlesOf, FOOD_ORDER } from './food';
+export { animalModel, animateAnimal } from './animals';

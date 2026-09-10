@@ -164,6 +164,16 @@ expressed as a rate per `MONTH_SECONDS` (60 simulated seconds) and settled every
 tick. `getSummary(world)` reports the current population, employment, food in
 storage, income, upkeep, balance, and how many tier-3 houses are inhabited.
 
+## Wildlife
+
+`src/sim/wildlife.ts` seeds animals from the map at `createWorld`: boar in forest,
+rabbits in scrub, shoals of fish in coastal shallows, gulls over sand and shore.
+Each animal (`world.wildlife`) wanders deterministically around a home tile within
+its species' range, staying on terrain it can roam and off roads and buildings;
+they are saved with the world. `SPECIES` declares each animal's `food` and `yield`
+(boar 40 meat, rabbit 8 meat, a shoal 30 fish, gulls nothing) for the hunters and
+fishers to come. Animals can be inspected like people.
+
 ## People
 
 Every walker can be inspected: `walkerName(walker)` gives a stable name from its id,

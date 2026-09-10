@@ -27,7 +27,7 @@ function mulberry(seed: number): () => number {
   };
 }
 
-function hash(x: number, z: number, seed: number): number {
+export function hash(x: number, z: number, seed: number): number {
   let h = Math.imul(x, 374761393) + Math.imul(z, 668265263) + Math.imul(seed, 2246822519);
   h = Math.imul(h ^ (h >>> 13), 1274126177);
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;

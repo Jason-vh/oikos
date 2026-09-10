@@ -1,4 +1,6 @@
-import type { Building, BuildingKind, Food, Stores, Walker, WalkerKind, World } from './types';
+import type { Animal, AnimalKind, Building, BuildingKind, Food, Stores, Walker, WalkerKind, World } from './types';
+
+const ANIMAL_KINDS: AnimalKind[] = ['boar', 'rabbit', 'fish', 'gull'];
 
 const FOODS: Food[] = ['wheat', 'carrots', 'fish', 'meat', 'olives'];
 import { BUILDINGS, HOUSE_CAPACITY } from './catalog';
@@ -168,7 +170,7 @@ export function deserializeWorld(raw: string): World | null {
     return null;
   }
   if (!isPlainObject(parsed)) return null;
-  const { version, island, seed, time, remainder, money, nextId, roads: rawRoads, buildings: rawBuildings, walkers: rawWalkers, produced, delivered } = parsed;
+  const { version, island, seed, time, remainder, money, nextId, roads: rawRoads, buildings: rawBuildings, walkers: rawWalkers, wildlife: rawWildlife, produced, delivered } = parsed;
 
   if (version !== 1) return null;
   if (island !== 'kalliste') return null;
@@ -208,6 +210,16 @@ export function deserializeWorld(raw: string): World | null {
     walkers.push(walker);
   }
 
+  if (!Array.isArray(rawWildlife)) return null;
+  const wildlife: Animal[] = [];
+  for (const entry of rawWildlife) {
+    const animal = validateAnimal(map, entry);
+    if (!animal) return null;
+    if (usedIds.has(animal.id) || animal.id >= (nextId as number)) return null;
+    usedIds.add(animal.id);
+    wildlife.push(animal);
+  }
+
   const world: World = {
     version: 1,
     island: 'kalliste',
@@ -219,6 +231,7 @@ export function deserializeWorld(raw: string): World | null {
     roads,
     buildings,
     walkers,
+    wildlife,
     produced: produced as number,
     delivered: delivered as number,
   };
@@ -234,4 +247,15 @@ function parseStores(raw: unknown): Stores | null {
     if ((amount as number) > 0) stores[food as Food] = amount as number;
   }
   return stores;
+}
+
+function validateAnimal(map: IslandMap, raw: unknown): Animal | null {
+  if (!isPlainObject(raw)) return null;
+  const { id, kind, x, z, homeX, homeZ, heading, phase } = raw;
+  if (!isInteger(id) || id <= 0) return null;
+  if (typeof kind !== 'string' || !ANIMAL_KINDS.includes(kind as AnimalKind)) return null;
+  for (const value of [x, homeX]) if (!isFiniteNumber(value) || value < 0 || value > map.width) return null;
+  for (const value of [z, homeZ]) if (!isFiniteNumber(value) || value < 0 || value > map.depth) return null;
+  if (!isFiniteNumber(heading) || !isFiniteNumber(phase)) return null;
+  return { id, kind: kind as AnimalKind, x: x as number, z: z as number, homeX: homeX as number, homeZ: homeZ as number, heading: heading as number, phase: phase as number };
 }

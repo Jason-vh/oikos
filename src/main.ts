@@ -5,6 +5,7 @@ import { BUILDINGS, footprint, ROAD_COST } from './sim/catalog';
 import { CELL_SIZE, groundHeight, islandFor, LEVEL_HEIGHT, terrainOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
 import { advance, build, buildingStatus, createWorld, DEFAULT_SEED, demolish, getSummary, placement, placeRoadPath, setVendor, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
 import { deserializeWorld, serializeWorld } from './sim/save';
+import { animalName, animalStatus } from './sim/wildlife';
 import { planStarterNeighbourhood } from './sim/scenario';
 import type { ActionResult, Placement, Rotation, Tile, Tool } from './sim/types';
 import { createHud } from './ui/hud';
@@ -60,9 +61,11 @@ function boot(): void {
   function refresh(): void {
     const selected = world.buildings.find((building) => building.id === selectedId) ?? null;
     const walker = selected ? null : world.walkers.find((candidate) => candidate.id === selectedId) ?? null;
+    const animal = selected || walker ? null : world.wildlife.find((candidate) => candidate.id === selectedId) ?? null;
     city.sync(world);
-    city.select(selected, walker?.id ?? null);
+    city.select(selected, walker?.id ?? animal?.id ?? null);
     if (walker) hud.update(world, getSummary(world), { kind: 'person', name: walkerName(walker), role: WALKER_ROLES[walker.kind], status: walkerStatus(world, walker) });
+    else if (animal) hud.update(world, getSummary(world), { kind: 'person', name: animalName(animal), role: 'Wildlife', status: animalStatus(animal) });
     else if (selected) hud.update(world, getSummary(world), { kind: 'building', building: selected, status: buildingStatus(world, selected) });
     else hud.update(world, getSummary(world), null);
   }
@@ -236,7 +239,7 @@ function boot(): void {
         const picked = city.pick(event.clientX, event.clientY);
         const hit = world.buildings.find((building) => building.id === picked.building);
         if (tool === 'inspect') {
-          selectedId = picked.walker ?? picked.building;
+          selectedId = picked.walker ?? picked.animal ?? picked.building;
           refresh();
         } else apply(demolish(world, hit?.x ?? hover.x, hit?.z ?? hover.z));
       } else if (tool === 'road') apply(placeRoadPath(world, roadPath()));
@@ -326,6 +329,7 @@ function boot(): void {
       get frames() { return stage.frames; },
       get camera() { return [...stage.camera.position.toArray(), ...stage.controls.target.toArray(), stage.camera.zoom]; },
       projectTile: (x: number, z: number) => { const p = worldPositionOn(map(), x + .5, z + .5); return stage.project(p.x, groundHeight(map(), x, z), p.z); },
+      projectPoint: (x: number, z: number, y = 0) => { const p = worldPositionOn(map(), x, z); return stage.project(p.x, groundHeight(map(), Math.floor(x), Math.floor(z)) + y, p.z); },
       projectBuilding: (id: number) => {
         const building = world.buildings.find((candidate) => candidate.id === id);
         if (!building) return null;

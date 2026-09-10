@@ -1,14 +1,15 @@
 import * as T from 'three';
-import { animateFigure, bake, box, bundle, bundleKey, colors, disposeModel, figure, getBuildingModel, post, type ModelStage } from '../art';
+import { animalModel, animateAnimal, animateFigure, bake, box, bundle, bundleKey, colors, disposeModel, figure, getBuildingModel, post, type ModelStage } from '../art';
 import { footprint } from '../sim/catalog';
 import { AGORA_SLOTS, GRANARY_SLOTS } from '../sim/balance';
 import { CELL_SIZE, groundHeight, tileAtOn, tileIndexOn, worldPositionOn, type IslandMap } from '../sim/island';
-import type { Building, BuildTool, Food, Placement, Rotation, Walker, WalkerKind, World } from '../sim/types';
+import type { Animal, AnimalKind, Building, BuildTool, Food, Placement, Rotation, Walker, WalkerKind, World } from '../sim/types';
 import type { Stage } from './stage';
 import { IslandScenery } from './island';
 
 interface BuildingEntry { key: string; model: T.Group; }
 interface WalkerEntry { key: string; model: T.Group; from: T.Vector3; target: T.Vector3; elapsed: number; moving: boolean; }
+interface AnimalEntry { model: T.Group; from: T.Vector3; target: T.Vector3; heading: number; elapsed: number; moving: boolean; }
 
 function modelStage(building: Building): ModelStage {
   if (building.kind === 'farm') return Math.min(3, Math.floor(building.progress * 4)) as ModelStage;
@@ -26,6 +27,8 @@ export class CityScene {
   private readonly buildings = new Map<number, BuildingEntry>();
   private readonly walkers = new Map<number, WalkerEntry>();
   private readonly walkerTemplates = new Map<string, T.Group>();
+  private readonly animals = new Map<number, AnimalEntry>();
+  private readonly animalTemplates = new Map<AnimalKind, T.Group>();
   private readonly roads = new T.Group();
   private readonly selection = new T.Mesh(new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new T.MeshBasicMaterial({ color: 0xffefae, transparent: true, opacity: .4, depthWrite: false }));
   private readonly preview = new T.Group();
@@ -101,7 +104,46 @@ export class CityScene {
       this.walkers.delete(id);
     }
     for (const walker of world.walkers) this.syncWalker(walker);
+    const animalIds = new Set(world.wildlife.map((animal) => animal.id));
+    for (const [id, entry] of this.animals) {
+      if (animalIds.has(id)) continue;
+      entry.model.removeFromParent();
+      this.animals.delete(id);
+    }
+    for (const animal of world.wildlife) this.syncAnimal(animal);
     this.stage.invalidate();
+  }
+
+  private animalPosition(animal: Animal): T.Vector3 {
+    const point = worldPositionOn(this.map, animal.x, animal.z);
+    if (animal.kind === 'fish') return new T.Vector3(point.x, -.03, point.z);
+    if (animal.kind === 'gull') return new T.Vector3(point.x, 7.5 + Math.sin(animal.phase * .8) * .6, point.z);
+    return new T.Vector3(point.x, groundHeight(this.map, Math.floor(animal.x), Math.floor(animal.z)), point.z);
+  }
+
+  private syncAnimal(animal: Animal): void {
+    const target = this.animalPosition(animal);
+    let entry = this.animals.get(animal.id);
+    if (!entry) {
+      let template = this.animalTemplates.get(animal.kind);
+      if (!template) {
+        template = animalModel(animal.kind);
+        template.scale.setScalar(animal.kind === 'boar' ? 1.15 : animal.kind === 'rabbit' ? 1.25 : animal.kind === 'gull' ? .9 : 1.1);
+        this.animalTemplates.set(animal.kind, template);
+      }
+      const model = template.clone();
+      model.userData.kind = animal.kind;
+      model.position.copy(target);
+      this.stage.scene.add(model);
+      entry = { model, from: target.clone(), target, heading: animal.heading, elapsed: .25, moving: false };
+      this.animals.set(animal.id, entry);
+      return;
+    }
+    entry.from.copy(entry.model.position);
+    entry.target.copy(target);
+    entry.heading = animal.heading;
+    entry.elapsed = 0;
+    entry.moving = entry.from.distanceToSquared(target) > 1e-5;
   }
 
   private walkerModel(kind: WalkerKind, load: Food | null): T.Group {
@@ -187,8 +229,19 @@ export class CityScene {
         if (companion.children.length >= 5) animateFigure(companion, phase + 1.3, stride);
       }
     }
+    for (const [id, animal] of this.animals) {
+      animal.elapsed += delta * speed;
+      animal.model.position.lerpVectors(animal.from, animal.target, Math.min(1, animal.elapsed / .25));
+      const kind = this.kindOf(animal.model);
+      animal.model.rotation.y = -animal.heading + Math.PI / 2;
+      animateAnimal(animal.model, kind, time * Math.max(1, speed) + id, animal.moving);
+    }
     this.followSelection();
     this.stage.invalidate();
+  }
+
+  private kindOf(model: T.Object3D): AnimalKind {
+    return model.userData.kind as AnimalKind;
   }
 
   select(building: Building | null, walkerId: number | null = null): void {
@@ -260,12 +313,12 @@ export class CityScene {
 
   private followSelection(): void {
     if (this.selectedWalker === null) return;
-    const entry = this.walkers.get(this.selectedWalker);
+    const entry = this.walkers.get(this.selectedWalker) ?? this.animals.get(this.selectedWalker);
     if (!entry) return;
     this.selection.position.set(entry.model.position.x, entry.model.position.y - .015, entry.model.position.z);
   }
 
-  pick(clientX: number, clientY: number): { building: number | null; walker: number | null } {
+  pick(clientX: number, clientY: number): { building: number | null; walker: number | null; animal: number | null } {
     const bounds = this.stage.canvas.getBoundingClientRect();
     const ray = new T.Raycaster();
     ray.setFromCamera(new T.Vector2((clientX - bounds.left) / bounds.width * 2 - 1, -(clientY - bounds.top) / bounds.height * 2 + 1), this.stage.camera);
@@ -276,14 +329,21 @@ export class CityScene {
       const distance = ray.ray.distanceToPoint(centre);
       if (distance < .75 && (!nearest || distance < nearest.distance)) nearest = { id, distance };
     }
-    if (nearest) return { building: null, walker: nearest.id };
+    if (nearest) return { building: null, walker: nearest.id, animal: null };
+    let nearestAnimal: { id: number; distance: number } | null = null;
+    for (const [id, entry] of this.animals) {
+      centre.copy(entry.model.position).setY(entry.model.position.y + .25);
+      const distance = ray.ray.distanceToPoint(centre);
+      if (distance < .7 && (!nearestAnimal || distance < nearestAnimal.distance)) nearestAnimal = { id, distance };
+    }
+    if (nearestAnimal) return { building: null, walker: null, animal: nearestAnimal.id };
     const hits = ray.intersectObjects([...this.buildings.values()].map((entry) => entry.model), true);
     let object: T.Object3D | null = hits[0]?.object ?? null;
     while (object) {
-      if (typeof object.userData.buildingId === 'number') return { building: object.userData.buildingId, walker: null };
+      if (typeof object.userData.buildingId === 'number') return { building: object.userData.buildingId, walker: null, animal: null };
       object = object.parent;
     }
-    return { building: null, walker: null };
+    return { building: null, walker: null, animal: null };
   }
 
   dispose(): void {
@@ -294,6 +354,10 @@ export class CityScene {
     this.buildings.clear();
     for (const entry of this.walkers.values()) entry.model.removeFromParent();
     this.walkers.clear();
+    for (const entry of this.animals.values()) entry.model.removeFromParent();
+    this.animals.clear();
+    for (const template of this.animalTemplates.values()) disposeModel(template);
+    this.animalTemplates.clear();
     for (const template of this.walkerTemplates.values()) disposeModel(template);
     this.walkerTemplates.clear();
     disposeModel(this.roads);
