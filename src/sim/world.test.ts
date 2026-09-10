@@ -118,21 +118,72 @@ describe('demolition', () => {
     expect(result.reason).toBe('nothing to demolish');
   });
 
-  test('removes a building', () => {
+  test('removes a building and refunds half its cost', () => {
     const world = createWorld();
-    build(world, 'house', 10, 17);
+    build(world, 'farm', 26, 11);
+    const beforeDemolish = world.money;
     expect(world.buildings.length).toBe(1);
-    const result = demolish(world, 11, 18);
+    const result = demolish(world, 27, 12);
     expect(result.ok).toBe(true);
+    expect(result.reason).toBe(`${BUILDINGS.farm.name} demolished. Refunded ${Math.floor(BUILDINGS.farm.cost / 2)}.`);
     expect(world.buildings.length).toBe(0);
+    expect(world.money).toBe(beforeDemolish + Math.floor(BUILDINGS.farm.cost / 2));
   });
 
-  test('removes a road tile', () => {
+  test('refunds an installed vendor along with the agora', () => {
+    const world = createWorld();
+    build(world, 'agora', 13, 21);
+    const agora = findByKind(world, 'agora');
+    setVendor(world, agora.id, true);
+    const beforeDemolish = world.money;
+    const expected = Math.floor((BUILDINGS.agora.cost + VENDOR_COST) / 2);
+    const result = demolish(world, 14, 22);
+    expect(result.ok).toBe(true);
+    expect(world.money).toBe(beforeDemolish + expected);
+  });
+
+  test('removes a road tile with no refund', () => {
     const world = createWorld();
     expect(world.roads.includes(tileIndex(21, 20))).toBe(true);
+    const beforeDemolish = world.money;
     const result = demolish(world, 21, 20);
     expect(result.ok).toBe(true);
+    expect(result.reason).toBe('Road removed. No refund for roads.');
     expect(world.roads.includes(tileIndex(21, 20))).toBe(false);
+    expect(world.money).toBe(beforeDemolish);
+  });
+
+  test('cannot profit by paving and immediately demolishing a road', () => {
+    const world = createWorld();
+    const before = world.money;
+    build(world, 'road', 15, 21);
+    demolish(world, 15, 21);
+    expect(world.money).toBe(before - ROAD_COST);
+  });
+
+  test('demolishing a starter road never yields a refund', () => {
+    const world = createWorld();
+    const before = world.money;
+    demolish(world, 21, 20);
+    expect(world.money).toBe(before);
+  });
+});
+
+describe('human-readable action results', () => {
+  test('build reports what was built', () => {
+    const world = createWorld();
+    expect(build(world, 'house', 10, 17).reason).toBe('Dwelling built.');
+    expect(build(world, 'road', 15, 21).reason).toBe('Road laid.');
+  });
+
+  test('setVendor reports install, enable and disable distinctly', () => {
+    const world = createWorld();
+    build(world, 'agora', 13, 21);
+    const agora = findByKind(world, 'agora');
+    expect(setVendor(world, agora.id, true).reason).toBe('Food vendor added.');
+    expect(setVendor(world, agora.id, true).reason).toBe('Food vendor already active.');
+    expect(setVendor(world, agora.id, false).reason).toBe('Food vendor disabled.');
+    expect(setVendor(world, agora.id, true).reason).toBe('Food vendor enabled.');
   });
 });
 

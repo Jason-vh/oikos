@@ -24,8 +24,17 @@ and connected, by road, back to that entry point.
   tile in the batch is invalid the whole thing is rejected and nothing is charged.
   Tiles that are already roads cost nothing, whether placed one at a time or as part
   of a path.
-- `demolish(world, x, z)` removes whatever is on that tile — a building or a road —
-  for free (no refund).
+- `demolish(world, x, z)` removes whatever is on that tile. Demolishing a building
+  refunds half its base cost (plus half the vendor fee, if one was installed on an
+  agora being torn down). Demolishing a road never refunds anything — including the
+  starter roads — so there's no way to profit by paving and immediately tearing up
+  a tile.
+
+Every successful `ActionResult` carries a human-readable `reason`: `'Dwelling
+built.'`, `'Road laid.'`, `'Farm demolished. Refunded 70.'`, `'Food vendor
+added.'`, and so on — suitable for showing directly in a HUD toast. Failed actions
+return a short, lower-case reason for the failure itself (`'insufficient funds'`,
+`'unsuitable terrain'`, `'tile occupied'`, ...).
 
 Every building needs flat, unoccupied land: grass or fertile ground, never a hill
 tile or water. A farm additionally needs *every* tile of its footprint to be
@@ -48,17 +57,17 @@ playtest):
 
 | Building | Tile (x, z) | Footprint |
 | --- | --- | --- |
-| Farm | (26, 11) | 4×4, on fertile ground |
-| Granary | (24, 17) | 3×3 |
-| Agora (+ vendor) | (13, 21) | 3×3 |
-| Fountain | (19, 17) | 2×2 |
-| Maintenance post | (22, 17) | 2×2 |
 | House | (10, 17) | 3×3 |
 | House | (14, 17) | 3×3 |
-| House | (18, 21) | 3×3 |
-| House | (24, 21) | 3×3 |
+| House | (18, 17) | 3×3 |
+| House | (22, 17) | 3×3 |
+| Farm | (27, 12) | 4×4, on fertile ground |
+| Granary | (27, 17) | 3×3 |
+| Agora (+ vendor) | (17, 21) | 3×3 |
+| Fountain | (22, 21) | 2×2 |
+| Maintenance post | (24, 21) | 2×2 |
 
-Plus a five-tile road spur at `x = 27, z = 15..19` connecting the farm south to the
+Plus a nine-tile road spur at `x = 26, z = 12..20` connecting the farm south to the
 `z = 20` cross road.
 
 Starting from `createWorld()`, this layout reaches its first food delivery in well

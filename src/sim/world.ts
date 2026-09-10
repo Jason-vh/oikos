@@ -113,10 +113,13 @@ export function build(world: World, tool: BuildTool, x: number, z: number, rotat
   if (!result.ok) return result;
 
   world.money -= result.cost;
+  let reason: string;
   if (tool === 'road') {
     const tile = result.tiles[0];
     if (!world.roads.includes(tile)) world.roads.push(tile);
+    reason = 'Road laid.';
   } else {
+    reason = `${BUILDINGS[tool].name} built.`;
     const building: Building = {
       id: world.nextId++,
       x,
@@ -140,7 +143,7 @@ export function build(world: World, tool: BuildTool, x: number, z: number, rotat
     world.buildings.push(building);
   }
   recomputeConnectivity(world);
-  return { ok: true, reason: '' };
+  return { ok: true, reason };
 }
 
 export function placeRoadPath(world: World, tiles: Tile[]): ActionResult {
@@ -164,7 +167,7 @@ export function placeRoadPath(world: World, tiles: Tile[]): ActionResult {
   world.money -= cost;
   for (const tile of fresh) world.roads.push(tile);
   recomputeConnectivity(world);
-  return { ok: true, reason: '' };
+  return { ok: true, reason: 'Road laid.' };
 }
 
 export function demolish(world: World, x: number, z: number): ActionResult {
@@ -173,9 +176,12 @@ export function demolish(world: World, x: number, z: number): ActionResult {
 
   const building = buildingAt(world, tile);
   if (building) {
+    const refund = Math.floor((BUILDINGS[building.kind].cost + (building.vendorInstalled ? VENDOR_COST : 0)) / 2);
+    world.money += refund;
+    const name = BUILDINGS[building.kind].name;
     removeBuilding(world, building.id);
     recomputeConnectivity(world);
-    return { ok: true, reason: '' };
+    return { ok: true, reason: `${name} demolished. Refunded ${refund}.` };
   }
 
   const index = world.roads.indexOf(tile);
@@ -183,7 +189,7 @@ export function demolish(world: World, x: number, z: number): ActionResult {
   world.roads.splice(index, 1);
   dropStrandedWalkers(world);
   recomputeConnectivity(world);
-  return { ok: true, reason: '' };
+  return { ok: true, reason: 'Road removed. No refund for roads.' };
 }
 
 function removeBuilding(world: World, id: number): void {
@@ -212,16 +218,18 @@ export function setVendor(world: World, id: number, enabled: boolean): ActionRes
 
   if (!enabled) {
     building.vendorEnabled = false;
-    return { ok: true, reason: '' };
+    return { ok: true, reason: 'Food vendor disabled.' };
   }
-  if (building.vendorEnabled) return { ok: true, reason: '' };
+  if (building.vendorEnabled) return { ok: true, reason: 'Food vendor already active.' };
   if (!building.vendorInstalled) {
     if (world.money < VENDOR_COST) return { ok: false, reason: 'insufficient funds' };
     world.money -= VENDOR_COST;
     building.vendorInstalled = true;
+    building.vendorEnabled = true;
+    return { ok: true, reason: 'Food vendor added.' };
   }
   building.vendorEnabled = true;
-  return { ok: true, reason: '' };
+  return { ok: true, reason: 'Food vendor enabled.' };
 }
 
 export function recomputeConnectivity(world: World): void {

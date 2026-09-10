@@ -2,11 +2,15 @@ import type { ActionResult, BuildTool, Rotation, Tile, World } from './types';
 import { build, placeRoadPath, setVendor } from './world';
 
 export const STARTER_ROAD_SPUR: Tile[] = [
-  { x: 27, z: 15 },
-  { x: 27, z: 16 },
-  { x: 27, z: 17 },
-  { x: 27, z: 18 },
-  { x: 27, z: 19 },
+  { x: 26, z: 12 },
+  { x: 26, z: 13 },
+  { x: 26, z: 14 },
+  { x: 26, z: 15 },
+  { x: 26, z: 16 },
+  { x: 26, z: 17 },
+  { x: 26, z: 18 },
+  { x: 26, z: 19 },
+  { x: 26, z: 20 },
 ];
 
 export interface ScenarioBuilding {
@@ -17,15 +21,15 @@ export interface ScenarioBuilding {
 }
 
 export const STARTER_NEIGHBOURHOOD: ScenarioBuilding[] = [
-  { tool: 'farm', x: 26, z: 11 },
-  { tool: 'granary', x: 24, z: 17 },
-  { tool: 'agora', x: 13, z: 21 },
-  { tool: 'fountain', x: 19, z: 17 },
-  { tool: 'maintenance', x: 22, z: 17 },
   { tool: 'house', x: 10, z: 17 },
   { tool: 'house', x: 14, z: 17 },
-  { tool: 'house', x: 18, z: 21 },
-  { tool: 'house', x: 24, z: 21 },
+  { tool: 'house', x: 18, z: 17 },
+  { tool: 'house', x: 22, z: 17 },
+  { tool: 'farm', x: 27, z: 12 },
+  { tool: 'granary', x: 27, z: 17 },
+  { tool: 'agora', x: 17, z: 21 },
+  { tool: 'fountain', x: 22, z: 21 },
+  { tool: 'maintenance', x: 24, z: 21 },
 ];
 
 export function buildStarterNeighbourhood(world: World): ActionResult {
