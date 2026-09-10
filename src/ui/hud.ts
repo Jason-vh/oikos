@@ -1,0 +1,435 @@
+import type { Building, Rotation, Summary, Tool, World } from '../sim/types';
+import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, VENDOR_COST } from '../sim/catalog';
+
+export interface HudActions {
+  tool(tool: Tool): void;
+  rotate(): void;
+  speed(speed: 0 | 1 | 3): void;
+  save(): void;
+  load(): void;
+  newIsland(): void;
+  vendor(id: number, enabled: boolean): void;
+  focus(x: number, z: number): void;
+  resetCamera(): void;
+  grid(enabled: boolean): void;
+}
+
+export interface Hud {
+  update(world: World, summary: Summary, selected: Building | null, status: string[]): void;
+  setTool(tool: Tool, rotation: Rotation): void;
+  setSpeed(speed: 0 | 1 | 3): void;
+  notify(message: string, error?: boolean): void;
+  setHint(message: string): void;
+  dispose(): void;
+}
+
+const TOOL_DEFS: Array<{ tool: Tool; label: string; cost: string | null }> = [
+  { tool: 'road', label: 'Road', cost: `${ROAD_COST}/tile` },
+  { tool: 'house', label: BUILDINGS.house.name, cost: String(BUILDINGS.house.cost) },
+  { tool: 'farm', label: BUILDINGS.farm.name, cost: String(BUILDINGS.farm.cost) },
+  { tool: 'granary', label: BUILDINGS.granary.name, cost: String(BUILDINGS.granary.cost) },
+  { tool: 'agora', label: BUILDINGS.agora.name, cost: String(BUILDINGS.agora.cost) },
+  { tool: 'fountain', label: BUILDINGS.fountain.name, cost: String(BUILDINGS.fountain.cost) },
+  { tool: 'maintenance', label: BUILDINGS.maintenance.name, cost: String(BUILDINGS.maintenance.cost) },
+  { tool: 'demolish', label: 'Demolish', cost: null },
+  { tool: 'inspect', label: 'Inspect', cost: null },
+];
+
+const ROTATION_DEGREES: Record<Rotation, number> = { 0: 0, 1: 90, 2: 180, 3: 270 };
+const TOAST_LIFETIME = 3200;
+
+function formatDrachma(value: number): string {
+  return `${Math.round(value).toLocaleString('en-US')} dr`;
+}
+
+function formatSigned(value: number): string {
+  const rounded = Math.round(value);
+  if (rounded > 0) return `+${rounded.toLocaleString('en-US')} dr`;
+  if (rounded < 0) return `\u2212${Math.abs(rounded).toLocaleString('en-US')} dr`;
+  return '0 dr';
+}
+
+function calendar(world: World): { day: number; month: number } {
+  const month = Math.floor(world.time) + 1;
+  const progress = Math.min(Math.max(world.remainder / MONTH_SECONDS, 0), 1);
+  const day = Math.min(30, Math.floor(progress * 30) + 1);
+  return { day, month };
+}
+
+function vendorInstalled(building: Building): boolean {
+  const record = building as Building & { vendorInstalled?: boolean };
+  return record.vendorInstalled ?? building.vendorEnabled;
+}
+
+interface Milestones {
+  houses: boolean;
+  farmGranary: boolean;
+  agoraVendor: boolean;
+  foodDelivered: boolean;
+  services: boolean;
+  courtyards: boolean;
+}
+
+function computeMilestones(world: World): Milestones {
+  const houses = world.buildings.filter((building) => building.kind === 'house');
+  const farms = world.buildings.some((building) => building.kind === 'farm');
+  const granaries = world.buildings.some((building) => building.kind === 'granary');
+  const agoraVendor = world.buildings.some((building) => building.kind === 'agora' && vendorInstalled(building));
+  const fountains = world.buildings.some((building) => building.kind === 'fountain');
+  const maintenance = world.buildings.some((building) => building.kind === 'maintenance');
+  const courtyards = houses.filter((house) => house.tier === 3 && house.residents > 0).length;
+  return {
+    houses: houses.length >= 4,
+    farmGranary: farms && granaries,
+    agoraVendor,
+    foodDelivered: world.delivered > 0,
+    services: fountains && maintenance,
+    courtyards: courtyards >= 4,
+  };
+}
+
+function describeStatus(building: Building): string {
+  if (!building.connected) return 'Not linked to a road \u2014 nobody can reach it.';
+  switch (building.kind) {
+    case 'house':
+      if (building.residents === 0) return 'An empty plot, waiting for settlers.';
+      if (building.food <= 0) return 'Hungry \u2014 needs food carried in along the road.';
+      if (building.water <= 0) return 'Thirsty \u2014 needs a fountain nearby.';
+      return 'Content, and asking for more to grow.';
+    case 'farm':
+      if (building.workers < BUILDINGS.farm.jobs) return 'Understaffed \u2014 hire more hands to grow more wheat.';
+      return 'Growing wheat on the fertile ground, cart by cart to the granary.';
+    case 'granary':
+      return building.stock > 0 ? 'Holding food for vendors and carts to collect.' : 'Empty \u2014 waiting on a farm to fill it.';
+    case 'agora':
+      if (!vendorInstalled(building)) return 'An empty market. Add a vendor to put it to work.';
+      return building.vendorEnabled ? 'A vendor is out selling food along the roads.' : 'The vendor is resting.';
+    case 'fountain':
+      return 'A water carrier walks the roads, filling jars along the way.';
+    case 'maintenance':
+      return 'A caretaker patrols nearby, keeping buildings sound.';
+    default:
+      return '';
+  }
+}
+
+const SKELETON = `
+  <div class="hud-top">
+    <header class="hud-panel hud-masthead" data-testid="masthead">
+      <div class="hud-identity">
+        <h1>Thalassa<span> / First island</span></h1>
+      </div>
+      <dl class="hud-resources" aria-label="City resources">
+        <div><dt>Population</dt><dd data-field="population">0</dd></div>
+        <div><dt>Treasury</dt><dd data-field="treasury">0 dr</dd></div>
+        <div><dt>Food</dt><dd data-field="food">0</dd></div>
+        <div><dt>Balance</dt><dd data-field="balance">0 dr</dd></div>
+        <div><dt>Employed</dt><dd data-field="employed">0 / 0</dd></div>
+      </dl>
+      <div class="hud-time" aria-label="Calendar">
+        <span class="hud-time-label">Time</span>
+        <strong data-field="time">Month 1 \u00b7 Day 1</strong>
+      </div>
+    </header>
+    <nav class="hud-panel hud-controlbar" aria-label="Simulation controls" data-testid="controlbar">
+      <div class="hud-group" role="group" aria-label="Simulation speed">
+        <button type="button" data-speed="0" aria-pressed="true">Pause</button>
+        <button type="button" data-speed="1" aria-pressed="false">1\u00d7</button>
+        <button type="button" data-speed="3" aria-pressed="false">3\u00d7</button>
+      </div>
+      <div class="hud-group" role="group" aria-label="Island file">
+        <button type="button" data-action="save" data-testid="save">Save</button>
+        <button type="button" data-action="load" data-testid="load">Load</button>
+        <button type="button" data-action="new-island" data-testid="new-island">New island</button>
+      </div>
+      <div class="hud-group" role="group" aria-label="View">
+        <button type="button" data-action="reset-camera" data-testid="reset-camera">Reset camera</button>
+        <button type="button" data-action="grid" aria-pressed="false" aria-label="Toggle placement grid" data-testid="grid-toggle">Grid</button>
+      </div>
+      <div class="hud-links">
+        <a href="/miniature.html" target="_blank" rel="noopener">Harbour study</a>
+        <a href="/art.html" target="_blank" rel="noopener">Art viewer</a>
+      </div>
+    </nav>
+    <p class="hud-notices" data-field="notices" hidden></p>
+  </div>
+  <details class="hud-panel hud-guide" data-testid="guide" open>
+    <summary>Guide</summary>
+    <ol class="hud-milestones" data-testid="milestones">
+      <li><label><input type="checkbox" disabled data-milestone="houses" /> Four houses built</label></li>
+      <li><label><input type="checkbox" disabled data-milestone="farmGranary" /> A wheat farm and a granary</label></li>
+      <li><label><input type="checkbox" disabled data-milestone="agoraVendor" /> An agora with a vendor</label></li>
+      <li><label><input type="checkbox" disabled data-milestone="foodDelivered" /> Food delivered to your houses</label></li>
+      <li><label><input type="checkbox" disabled data-milestone="services" /> A fountain and a maintenance post</label></li>
+      <li><label><input type="checkbox" disabled data-milestone="courtyards" /> Four courtyard houses, thriving</label></li>
+    </ol>
+    <p class="hud-guide-note">Wheat only takes root in the fertile soil to the island's east.</p>
+  </details>
+  <details class="hud-panel hud-inspector" data-testid="inspector" hidden>
+    <summary>Inspector</summary>
+    <h3 data-field="inspector-title"></h3>
+    <p class="hud-inspector-tier" data-field="inspector-tier" hidden></p>
+    <dl class="hud-inspector-stats">
+      <div data-row="residents" hidden><dt>Residents</dt><dd data-field="inspector-residents"></dd></div>
+      <div data-row="condition"><dt>Condition</dt><dd data-field="inspector-condition"></dd></div>
+      <div data-row="stock" hidden><dt>Stock</dt><dd data-field="inspector-stock"></dd></div>
+      <div data-row="workers" hidden><dt>Workers</dt><dd data-field="inspector-workers"></dd></div>
+      <div data-row="food" hidden><dt>Food</dt><dd data-field="inspector-food"></dd></div>
+      <div data-row="water" hidden><dt>Water</dt><dd data-field="inspector-water"></dd></div>
+    </dl>
+    <p class="hud-inspector-note" data-field="inspector-status"></p>
+    <button type="button" class="hud-vendor" data-action="vendor" hidden data-testid="vendor-toggle"></button>
+  </details>
+  <div class="hud-bottom">
+    <p class="hud-hint" data-field="hint" role="note" hidden></p>
+    <div class="hud-panel hud-toolbar" data-testid="toolbar">
+      <div class="hud-tools" role="group" aria-label="Build tools"></div>
+      <button type="button" class="hud-rotate" data-action="rotate" aria-label="Rotate placement" data-testid="rotate">
+        <span aria-hidden="true">\u21bb</span>
+        <span data-field="rotation">0\u00b0</span>
+      </button>
+    </div>
+  </div>
+  <div class="hud-toast-region" role="status" aria-live="polite" data-testid="toast-region"></div>
+  <dialog class="hud-dialog" data-testid="new-island-dialog">
+    <form method="dialog">
+      <h2>Start a new island?</h2>
+      <p>Your current island will be lost unless you have saved it.</p>
+      <div class="hud-dialog-actions">
+        <button type="submit" value="cancel">Cancel</button>
+        <button type="submit" value="confirm" class="hud-primary" autofocus>New island</button>
+      </div>
+    </form>
+  </dialog>
+`;
+
+function field(root: ParentNode, name: string): HTMLElement {
+  const element = root.querySelector<HTMLElement>(`[data-field="${name}"]`);
+  if (!element) throw new Error(`hud: missing field "${name}"`);
+  return element;
+}
+
+function action(root: ParentNode, name: string): HTMLButtonElement {
+  const element = root.querySelector<HTMLButtonElement>(`[data-action="${name}"]`);
+  if (!element) throw new Error(`hud: missing action "${name}"`);
+  return element;
+}
+
+function row(root: ParentNode, name: string): HTMLElement {
+  const element = root.querySelector<HTMLElement>(`[data-row="${name}"]`);
+  if (!element) throw new Error(`hud: missing row "${name}"`);
+  return element;
+}
+
+export function createHud(root: HTMLElement, actions: HudActions): Hud {
+  root.innerHTML = SKELETON;
+
+  const populationField = field(root, 'population');
+  const treasuryField = field(root, 'treasury');
+  const foodField = field(root, 'food');
+  const balanceField = field(root, 'balance');
+  const employedField = field(root, 'employed');
+  const timeField = field(root, 'time');
+  const noticesField = field(root, 'notices');
+
+  const toolsContainer = root.querySelector<HTMLElement>('.hud-tools')!;
+  const toolButtons = new Map<Tool, HTMLButtonElement>();
+  for (const def of TOOL_DEFS) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'hud-tool';
+    button.dataset.testid = `tool-${def.tool}`;
+    button.setAttribute('aria-pressed', String(def.tool === 'inspect'));
+    const label = document.createElement('span');
+    label.className = 'hud-tool-label';
+    label.textContent = def.label;
+    button.appendChild(label);
+    if (def.cost !== null) {
+      const cost = document.createElement('span');
+      cost.className = 'hud-tool-cost';
+      cost.textContent = def.cost;
+      button.appendChild(cost);
+    }
+    button.addEventListener('click', () => actions.tool(def.tool));
+    toolsContainer.appendChild(button);
+    toolButtons.set(def.tool, button);
+  }
+
+  const rotationField = field(root, 'rotation');
+  action(root, 'rotate').addEventListener('click', () => actions.rotate());
+
+  const speedButtons = new Map<0 | 1 | 3, HTMLButtonElement>();
+  root.querySelectorAll<HTMLButtonElement>('[data-speed]').forEach((button) => {
+    const speed = Number(button.dataset.speed) as 0 | 1 | 3;
+    speedButtons.set(speed, button);
+    button.addEventListener('click', () => actions.speed(speed));
+  });
+
+  action(root, 'save').addEventListener('click', () => actions.save());
+  action(root, 'load').addEventListener('click', () => actions.load());
+
+  const gridButton = action(root, 'grid');
+  gridButton.addEventListener('click', () => {
+    const enabled = gridButton.getAttribute('aria-pressed') !== 'true';
+    gridButton.setAttribute('aria-pressed', String(enabled));
+    actions.grid(enabled);
+  });
+
+  action(root, 'reset-camera').addEventListener('click', () => actions.resetCamera());
+
+  const dialog = root.querySelector<HTMLDialogElement>('.hud-dialog')!;
+  action(root, 'new-island').addEventListener('click', () => dialog.showModal());
+  dialog.addEventListener('close', () => {
+    if (dialog.returnValue === 'confirm') actions.newIsland();
+    dialog.returnValue = '';
+  });
+
+  const guidePanel = root.querySelector<HTMLDetailsElement>('.hud-guide')!;
+  const inspectorPanel = root.querySelector<HTMLDetailsElement>('.hud-inspector')!;
+  const isNarrow = window.matchMedia('(max-width: 860px)').matches;
+  if (isNarrow) guidePanel.open = false;
+
+  const milestoneInputs = new Map<keyof Milestones, HTMLInputElement>();
+  root.querySelectorAll<HTMLInputElement>('[data-milestone]').forEach((input) => {
+    milestoneInputs.set(input.dataset.milestone as keyof Milestones, input);
+  });
+
+  const inspectorTitle = field(root, 'inspector-title');
+  const inspectorTier = field(root, 'inspector-tier');
+  const inspectorStatus = field(root, 'inspector-status');
+  const rowResidents = row(root, 'residents');
+  const rowCondition = row(root, 'condition');
+  const rowStock = row(root, 'stock');
+  const rowWorkers = row(root, 'workers');
+  const rowFood = row(root, 'food');
+  const rowWater = row(root, 'water');
+  const vendorButton = action(root, 'vendor');
+
+  let lastSelectedId: number | null = null;
+
+  function updateVendor(building: Building): void {
+    if (building.kind !== 'agora') {
+      vendorButton.hidden = true;
+      return;
+    }
+    vendorButton.hidden = false;
+    if (!vendorInstalled(building)) {
+      vendorButton.textContent = `Add food vendor \u00b7 ${VENDOR_COST}`;
+      vendorButton.setAttribute('aria-pressed', 'false');
+      vendorButton.onclick = () => actions.vendor(building.id, true);
+      return;
+    }
+    vendorButton.textContent = building.vendorEnabled ? 'Pause vendor' : 'Resume vendor';
+    vendorButton.setAttribute('aria-pressed', String(building.vendorEnabled));
+    vendorButton.onclick = () => actions.vendor(building.id, !building.vendorEnabled);
+  }
+
+  function updateInspector(selected: Building | null): void {
+    if (!selected) {
+      inspectorPanel.hidden = true;
+      lastSelectedId = null;
+      return;
+    }
+    if (selected.id !== lastSelectedId) {
+      inspectorPanel.open = true;
+      lastSelectedId = selected.id;
+    }
+    inspectorPanel.hidden = false;
+
+    const definition = BUILDINGS[selected.kind];
+    inspectorTitle.textContent = selected.kind === 'house' ? HOUSE_NAMES[selected.tier] : definition.name;
+    inspectorTier.hidden = selected.kind !== 'house';
+    if (selected.kind === 'house') inspectorTier.textContent = `Tier ${selected.tier}`;
+
+    rowResidents.hidden = selected.kind !== 'house';
+    if (selected.kind === 'house') {
+      field(rowResidents, 'inspector-residents').textContent = `${selected.residents} / ${HOUSE_CAPACITY[selected.tier]}`;
+    }
+
+    field(rowCondition, 'inspector-condition').textContent = `${Math.round(selected.condition)}%`;
+
+    const hasStock = selected.kind === 'farm' || selected.kind === 'granary' || selected.kind === 'agora';
+    rowStock.hidden = !hasStock;
+    if (hasStock) field(rowStock, 'inspector-stock').textContent = String(Math.round(selected.stock));
+
+    const hasWorkers = definition.jobs > 0;
+    rowWorkers.hidden = !hasWorkers;
+    if (hasWorkers) field(rowWorkers, 'inspector-workers').textContent = `${selected.workers} / ${definition.jobs}`;
+
+    rowFood.hidden = selected.kind !== 'house';
+    rowWater.hidden = selected.kind !== 'house';
+    if (selected.kind === 'house') {
+      field(rowFood, 'inspector-food').textContent = selected.food > 0 ? 'Stocked' : 'Needed';
+      field(rowWater, 'inspector-water').textContent = selected.water > 0 ? 'Stocked' : 'Needed';
+    }
+
+    inspectorStatus.textContent = describeStatus(selected);
+    updateVendor(selected);
+  }
+
+  function updateMilestones(world: World): void {
+    const milestones = computeMilestones(world);
+    for (const [key, input] of milestoneInputs) {
+      input.checked = milestones[key];
+    }
+  }
+
+  const hintElement = field(root, 'hint');
+  const toastRegion = root.querySelector<HTMLElement>('.hud-toast-region')!;
+  const toastTimers = new Set<number>();
+
+  function update(world: World, summary: Summary, selected: Building | null, status: string[]): void {
+    populationField.textContent = summary.population.toLocaleString('en-US');
+    treasuryField.textContent = formatDrachma(world.money);
+    foodField.textContent = summary.food.toLocaleString('en-US');
+    balanceField.textContent = formatSigned(summary.balance);
+    employedField.textContent = `${summary.workers} / ${summary.jobs}`;
+    const { day, month } = calendar(world);
+    timeField.textContent = `Month ${month} \u00b7 Day ${day}`;
+
+    if (status.length > 0) {
+      noticesField.hidden = false;
+      noticesField.textContent = status.join(' \u00b7 ');
+      noticesField.title = status.join('\n');
+    } else {
+      noticesField.hidden = true;
+    }
+
+    updateMilestones(world);
+    updateInspector(selected);
+  }
+
+  function setTool(tool: Tool, rotation: Rotation): void {
+    for (const [key, button] of toolButtons) button.setAttribute('aria-pressed', String(key === tool));
+    rotationField.textContent = `${ROTATION_DEGREES[rotation]}\u00b0`;
+  }
+
+  function setSpeed(speed: 0 | 1 | 3): void {
+    for (const [key, button] of speedButtons) button.setAttribute('aria-pressed', String(key === speed));
+  }
+
+  function notify(message: string, error = false): void {
+    const toast = document.createElement('div');
+    toast.className = error ? 'hud-toast hud-toast-error' : 'hud-toast';
+    toast.textContent = message;
+    toastRegion.appendChild(toast);
+    const timer = window.setTimeout(() => {
+      toast.remove();
+      toastTimers.delete(timer);
+    }, TOAST_LIFETIME);
+    toastTimers.add(timer);
+  }
+
+  function setHint(message: string): void {
+    hintElement.textContent = message;
+    hintElement.hidden = message.length === 0;
+  }
+
+  function dispose(): void {
+    for (const timer of toastTimers) window.clearTimeout(timer);
+    toastTimers.clear();
+    root.replaceChildren();
+  }
+
+  return { update, setTool, setSpeed, notify, setHint, dispose };
+}
