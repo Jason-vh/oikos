@@ -87,31 +87,6 @@ function computeMilestones(world: World, summary: Summary): Milestones {
   };
 }
 
-function describeStatus(building: Building): string {
-  if (!building.connected) return 'Not linked to a road \u2014 nobody can reach it.';
-  switch (building.kind) {
-    case 'house':
-      if (building.residents === 0) return 'An empty plot, waiting for settlers.';
-      if (building.food <= 0) return 'Hungry \u2014 needs food carried in along the road.';
-      if (building.water <= 0) return 'Thirsty \u2014 needs a fountain nearby.';
-      return 'Content, and asking for more to grow.';
-    case 'farm':
-      if (building.workers < BUILDINGS.farm.jobs) return 'Understaffed \u2014 hire more hands to grow more wheat.';
-      return 'Growing wheat on the fertile ground, cart by cart to the granary.';
-    case 'granary':
-      return building.stock > 0 ? 'Holding food for vendors and carts to collect.' : 'Empty \u2014 waiting on a farm to fill it.';
-    case 'agora':
-      if (!vendorInstalled(building)) return 'An empty market. Add a vendor to put it to work.';
-      return building.vendorEnabled ? 'A vendor is out selling food along the roads.' : 'The vendor is resting.';
-    case 'fountain':
-      return 'A water carrier walks the roads, filling jars along the way.';
-    case 'maintenance':
-      return 'A caretaker patrols nearby, keeping buildings sound.';
-    default:
-      return '';
-  }
-}
-
 const SKELETON = `
   <div class="hud-top">
     <header class="hud-panel hud-masthead" data-testid="masthead">
@@ -150,7 +125,6 @@ const SKELETON = `
         <a href="/art.html" target="_blank" rel="noopener">Art viewer</a>
       </div>
     </nav>
-    <p class="hud-notices" data-field="notices" hidden></p>
   </div>
   <details class="hud-panel hud-guide" data-testid="guide" open>
     <summary>Guide</summary>
@@ -229,7 +203,6 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
   const balanceField = field(root, 'balance');
   const employedField = field(root, 'employed');
   const timeField = field(root, 'time');
-  const noticesField = field(root, 'notices');
 
   const toolsContainer = root.querySelector<HTMLElement>('.hud-tools')!;
   const toolButtons = new Map<Tool, HTMLButtonElement>();
@@ -294,8 +267,13 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
 
   const guidePanel = root.querySelector<HTMLDetailsElement>('.hud-guide')!;
   const inspectorPanel = root.querySelector<HTMLDetailsElement>('.hud-inspector')!;
-  const isNarrow = window.matchMedia('(max-width: 860px)').matches;
-  if (isNarrow) guidePanel.open = false;
+  let lastSelectedId: number | null = null;
+  const narrow = window.matchMedia('(max-width: 860px)');
+  if (narrow.matches) guidePanel.open = false;
+  narrow.addEventListener('change', (event) => {
+    if (event.matches) guidePanel.open = false;
+    if (lastSelectedId !== null) guidePanel.hidden = event.matches;
+  });
 
   const milestoneInputs = new Map<keyof Milestones, HTMLInputElement>();
   root.querySelectorAll<HTMLInputElement>('[data-milestone]').forEach((input) => {
@@ -312,8 +290,6 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
   const rowFood = row(root, 'food');
   const rowWater = row(root, 'water');
   const vendorButton = action(root, 'vendor');
-
-  let lastSelectedId: number | null = null;
 
   function updateVendor(building: Building): void {
     if (building.kind !== 'agora') {
@@ -335,6 +311,7 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
   function updateInspector(selected: Building | null): void {
     if (!selected) {
       inspectorPanel.hidden = true;
+      guidePanel.hidden = false;
       lastSelectedId = null;
       return;
     }
@@ -343,6 +320,7 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
       lastSelectedId = selected.id;
     }
     inspectorPanel.hidden = false;
+    guidePanel.hidden = narrow.matches;
 
     const definition = BUILDINGS[selected.kind];
     inspectorTitle.textContent = selected.kind === 'house' ? HOUSE_NAMES[selected.tier] : definition.name;
@@ -371,7 +349,6 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
       field(rowWater, 'inspector-water').textContent = selected.water > 0 ? `${Math.round(selected.water)}s left` : 'Needed';
     }
 
-    inspectorStatus.textContent = describeStatus(selected);
     updateVendor(selected);
   }
 
@@ -395,16 +372,9 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     const { day, month } = calendar(world);
     timeField.textContent = `Month ${month} \u00b7 Day ${day}`;
 
-    if (status.length > 0) {
-      noticesField.hidden = false;
-      noticesField.textContent = status.join(' \u00b7 ');
-      noticesField.title = status.join('\n');
-    } else {
-      noticesField.hidden = true;
-    }
-
     updateMilestones(world, summary);
     updateInspector(selected);
+    inspectorStatus.textContent = status.join(' ');
   }
 
   function setTool(tool: Tool, rotation: Rotation): void {
@@ -417,6 +387,10 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
   }
 
   function notify(message: string, error = false): void {
+    if (message.length === 0) return;
+    const latest = toastRegion.lastElementChild;
+    if (latest?.textContent === message) latest.remove();
+    while (toastRegion.children.length >= 2) toastRegion.firstElementChild?.remove();
     const toast = document.createElement('div');
     toast.className = error ? 'hud-toast hud-toast-error' : 'hud-toast';
     toast.textContent = message;

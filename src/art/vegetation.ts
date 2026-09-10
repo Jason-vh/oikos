@@ -27,15 +27,17 @@ export function wheatFarm(): T.Group {
   post(shed, colors.wood, -.55, .48, .62, .035, .96);
   post(shed, colors.wood, .55, .48, .62, .035, .96);
   box(shed, colors.dark, 0, .9, .62, 1.15, .05, .05);
-  for (let row = 0; row < 5; row++) {
-    const z = -.85 + row * .68;
-    for (let col = 0; col < 6; col++) {
-      const x = -1.95 + col * .7;
-      const tuft = lump(plot, (row + col) % 3 === 0 ? colors.gold : colors.oliveLight, x, .32, z, .32, .3, .32);
-      tuft.rotation.y = (row * 3 + col) * .7;
-    }
+  box(plot, colors.earth, .35, .05, .3, 4.1, .1, 3.9, .02);
+  for (let row = 0; row < 7; row++) {
+    const z = -1.35 + row * .55;
+    const width = row < 3 ? 2.35 : 4;
+    const x = row < 3 ? 1.15 : .35;
+    box(plot, 0xd9c98a, x, .15, z, width, .12, .22, .02);
+    box(plot, colors.gold, x, .34, z, width - .08, .26, .18, .03);
+    box(plot, 0xe6c463, x, .5, z, width - .12, .09, .12, .02);
   }
-  box(plot, colors.earth, 0, .06, 1.1, 4.4, .12, .45);
-  for (const [px, pz] of [[-2.0, 1.1], [2.0, 1.1]]) post(plot, colors.wood, px, .2, pz, .03, .4);
+  box(plot, colors.stone, .35, .12, 2.3, 4.1, .1, .12);
+  for (const px of [-1.6, -.35, .9, 2.15]) post(plot, colors.wood, px, .27, 2.3, .035, .48);
+  box(plot, colors.wood, .35, .44, 2.3, 4.05, .05, .05);
   return plot;
 }

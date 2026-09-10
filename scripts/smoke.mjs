@@ -44,7 +44,7 @@ try {
   for (const [x, z] of houses) await clickTile(page, x, z);
   world = await state(page);
   for (const [x, z] of houses) assert(houseAt(world, x, z), `No house at ${x},${z}`);
-  await clickTile(page, 30, 6);
+  await clickTile(page, 35, 6);
   assert.equal((await state(page)).buildings.length, 4, 'Placed a house on water');
   await selectTool(page, 'Wheat farm');
   await clickTile(page, 10, 12);
@@ -124,6 +124,13 @@ try {
   await page.getByTestId('new-island').click();
   await page.getByRole('button', { name: 'Cancel' }).click();
   assert.equal((await state(page)).buildings.length, restored.buildings.length, 'Cancelled new island cleared the city');
+  await page.getByTestId('new-island').click();
+  await page.getByRole('button', { name: 'New island' }).last().click();
+  await paint(page);
+  assert.equal((await state(page)).buildings.length, 0, 'Confirmed new island kept the old city');
+  await page.getByTestId('load').click();
+  await paint(page);
+  assert.equal((await state(page)).buildings.length, 0, 'New island did not replace the saved island');
   await page.setViewportSize({ width: 390, height: 844 });
   await paint(page);
   await page.screenshot({ path: path.join(output, '05-mobile.png') });
