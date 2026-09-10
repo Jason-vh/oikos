@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import { deserializeWorld, serializeWorld } from './save';
 import { CURRENT_VERSION, migrateSave } from './save-migrations';
-import { advance, createWorld } from './world';
+import { advance, build, createWorld } from './world';
 import { buildStarterNeighbourhood } from './scenario';
+import { islandFor, tileIndexOn } from './island';
 
 function currentRaw(): Record<string, any> {
   const world = createWorld();
@@ -60,7 +61,7 @@ describe('legacy fixtures', () => {
     const restored = deserializeWorld(JSON.stringify(raw));
     expect(restored).not.toBeNull();
     expect(restored!.version).toBe(CURRENT_VERSION);
-    expect(restored!.wildlife).toEqual([]);
+    expect(restored!.wildlife.length).toBeGreaterThan(0);
     expect(restored!.felled).toEqual([]);
     expect(restored!.regrowth).toBe(0);
     for (const walker of restored!.walkers) {
@@ -110,6 +111,61 @@ describe('legacy fixtures', () => {
     expect(restored).not.toBeNull();
     for (const animal of restored!.wildlife) expect(animal.cornered).toBe(false);
     for (const walker of restored!.walkers) expect(walker.working).toBe(0);
+  });
+});
+
+describe('wildlife backfill for saves that genuinely predate it', () => {
+  test('seeds wildlife deterministically from the validated seed when the field never existed', () => {
+    const raw = currentRaw();
+    raw.version = 1;
+    delete raw.wildlife;
+
+    const first = deserializeWorld(JSON.stringify(raw));
+    const second = deserializeWorld(JSON.stringify(raw));
+    expect(first).not.toBeNull();
+    expect(first!.wildlife.length).toBeGreaterThan(0);
+    expect(second).toEqual(first);
+  });
+
+  test('allocates fresh ids from the validated nextId, colliding with nothing', () => {
+    const raw = currentRaw();
+    raw.version = 1;
+    delete raw.wildlife;
+
+    const restored = deserializeWorld(JSON.stringify(raw))!;
+    const allIds = [...restored.buildings.map((b) => b.id), ...restored.walkers.map((w) => w.id), ...restored.wildlife.map((a) => a.id)];
+    expect(new Set(allIds).size).toBe(allIds.length);
+    expect(restored.wildlife.every((animal) => animal.id > 0 && animal.id < restored.nextId)).toBe(true);
+  });
+
+  test('skips animals whose home tile is now a road or covered by a building', () => {
+    const world = createWorld(1);
+    const map = islandFor(1);
+    const boar = world.wildlife.find((animal) => animal.kind === 'boar')!;
+    const boarTile = tileIndexOn(map, Math.floor(boar.homeX), Math.floor(boar.homeZ));
+    const rabbit = world.wildlife.find((animal) => animal.kind === 'rabbit' && build(world, 'maintenance', Math.floor(animal.homeX), Math.floor(animal.homeZ)).ok)!;
+    const rabbitTile = tileIndexOn(map, Math.floor(rabbit.homeX), Math.floor(rabbit.homeZ));
+
+    const raw = JSON.parse(serializeWorld(world));
+    raw.version = 1;
+    raw.roads.push(boarTile);
+    delete raw.wildlife;
+
+    const restored = deserializeWorld(JSON.stringify(raw));
+    expect(restored).not.toBeNull();
+    expect(restored!.wildlife.length).toBeGreaterThan(0);
+    const tiles = restored!.wildlife.map((animal) => tileIndexOn(map, Math.floor(animal.homeX), Math.floor(animal.homeZ)));
+    expect(tiles).not.toContain(boarTile);
+    expect(tiles).not.toContain(rabbitTile);
+  });
+
+  test('leaves an explicit empty wildlife array on a current-version save untouched', () => {
+    const raw = currentRaw();
+    raw.wildlife = [];
+
+    const restored = deserializeWorld(JSON.stringify(raw));
+    expect(restored).not.toBeNull();
+    expect(restored!.wildlife).toEqual([]);
   });
 });
 

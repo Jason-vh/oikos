@@ -3,9 +3,10 @@ import type { Animal, AnimalKind, Building, BuildingKind, Resource, Stores, Walk
 const ANIMAL_KINDS: AnimalKind[] = ['boar', 'rabbit', 'fish', 'gull'];
 
 import { BUILDINGS, HOUSE_CAPACITY, RESOURCES } from './catalog';
-import { islandFor, insideMapOn, type IslandMap } from './island';
-import { neighbours } from './grid';
+import { islandFor, insideMapOn, tileIndexOn, type IslandMap } from './island';
+import { footprintTiles, neighbours } from './grid';
 import { recomputeConnectivity } from './world';
+import { spawnWildlife } from './wildlife';
 import { CURRENT_VERSION, migrateSave } from './save-migrations';
 
 export function serializeWorld(world: World): string {
@@ -177,6 +178,7 @@ export function deserializeWorld(raw: string): World | null {
     return null;
   }
   if (!isPlainObject(parsed)) return null;
+  const wildlifeWasMissing = parsed.version === 1 && parsed.wildlife === undefined;
   const migrated = migrateSave(parsed);
   if (!migrated) return null;
   const { version, island, seed, time, remainder, money, nextId, roads: rawRoads, buildings: rawBuildings, walkers: rawWalkers, wildlife: rawWildlife, felled: rawFelled, regrowth, produced, delivered } = migrated;
@@ -250,8 +252,16 @@ export function deserializeWorld(raw: string): World | null {
     produced: produced as number,
     delivered: delivered as number,
   };
+  if (wildlifeWasMissing) world.wildlife = seedMissingWildlife(world);
   recomputeConnectivity(world);
   return world;
+}
+
+function seedMissingWildlife(world: World): Animal[] {
+  const map = islandFor(world.seed);
+  const occupied = new Set(world.roads);
+  for (const building of world.buildings) for (const tile of footprintTiles(map, building)) occupied.add(tile);
+  return spawnWildlife(world).filter((animal) => !occupied.has(tileIndexOn(map, Math.floor(animal.homeX), Math.floor(animal.homeZ))));
 }
 
 function parseStores(raw: unknown): Stores | null {
