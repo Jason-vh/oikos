@@ -142,6 +142,20 @@ export class CityScene {
     this.stage.shadows();
   }
 
+  reload(world: World): void {
+    const ids = new Set([...world.buildings, world.harbour].map((building) => building.id));
+    for (const [id, entry] of this.buildings) {
+      entry.construction?.advance(Infinity);
+      entry.construction = null;
+      if (ids.has(id)) continue;
+      this.buildings.delete(id);
+      entry.model.removeFromParent();
+      disposeModel(entry.model);
+    }
+    this.primed = false;
+    this.sync(world);
+  }
+
   sync(world: World): void {
     this.lastWorld = world;
     this.roadModels(world);

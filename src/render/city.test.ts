@@ -92,6 +92,27 @@ test('demolition during assembly cleans up both models after the departure', () 
   }
 });
 
+test('a restored checkpoint shows its buildings standing, never rebuilding them', () => {
+  const { city, world, placeHouse, model } = fixture();
+  try {
+    city.sync(world);
+    const checkpoint = structuredClone(world);
+    const house = placeHouse();
+    city.transitions(.4);
+    expect(model(house.id).getObjectByName('roof')).toBeDefined();
+
+    city.reload(checkpoint);
+    expect(model(house.id)).toBeUndefined();
+    expect(city.transitions(.1)).toBe(false);
+
+    city.reload(world);
+    expect(model(house.id).getObjectByName('roof')).toBeUndefined();
+    expect(city.transitions(.1)).toBe(false);
+  } finally {
+    city.dispose();
+  }
+});
+
 test('loaded buildings and reduced-motion placement appear complete', () => {
   const loaded = fixture();
   const reduced = fixture(false);

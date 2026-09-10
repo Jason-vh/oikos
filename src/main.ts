@@ -146,7 +146,6 @@ function boot(): void {
 
   function restore(saved: typeof world): void {
     const previousSeed = world.seed;
-    const previousView = stage.getView();
     world = saved;
     undoCheckpoint = null;
     milestones = cityMilestones(world);
@@ -154,8 +153,8 @@ function boot(): void {
     accumulator = 0;
     dirtySave = true;
     autoSaveEnabled = true;
-    rebuildScene();
-    if (world.seed === previousSeed) stage.setView(previousView);
+    if (world.seed !== previousSeed) rebuildScene();
+    else city.reload(world);
     selectTool('inspect');
     setSpeed(0);
     refresh();
