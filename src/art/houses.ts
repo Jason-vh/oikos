@@ -1,55 +1,11 @@
 import * as T from 'three';
-import { box, colors, group, post, pot, roof } from './primitives';
-import { tree } from './vegetation';
+import { box, colors, group, pot, roof } from './primitives';
 
 function windowFrame(parent: T.Object3D, x: number, y: number, z: number): void {
   box(parent, colors.cream, x, y, z, .69, .79, .13);
   box(parent, colors.dark, x, y, z + .08, .43, .56, .06);
   for (const side of [-1, 1]) box(parent, colors.blue, x + side * .27, y, z + .14, .2, .6, .09);
   box(parent, colors.stone, x, y - .4, z + .13, .82, .13, .23);
-}
-
-export function house(parent: T.Object3D, x: number, y: number, z: number, variant = 0, rotation = 0): void {
-  const home = group(parent, x, y, z, rotation);
-  const tall = variant % 3 === 1;
-  const width = 2.6;
-  const depth = 2.55;
-  const height = tall ? 3.25 : 1.95;
-  box(home, colors.stone, 0, .13, 0, width + .25, .26, depth + .25);
-  box(home, variant % 3 === 2 ? 0xe2cfa7 : colors.plaster, 0, height / 2 + .2, 0, width, height, depth, .07);
-  box(home, colors.cream, 0, height + .15, 0, width + .15, .2, depth + .15);
-  roof(home, width + .55, depth + .6, height + .22, .86);
-  box(home, colors.cream, -.45, .82, depth / 2 + .02, .88, 1.5, .15);
-  box(home, colors.wood, -.45, .78, depth / 2 + .115, .64, 1.37, .08);
-  box(home, colors.gold, -.25, .77, depth / 2 + .17, .06, .06, .04);
-  box(home, colors.paving, -.45, .12, depth / 2 + .32, 1.03, .22, .64);
-  windowFrame(home, .73, 1.25, depth / 2 + .01);
-  if (tall) {
-    windowFrame(home, -.65, 2.58, depth / 2 + .01);
-    windowFrame(home, .73, 2.58, depth / 2 + .01);
-    box(home, colors.blue, 0, 1.94, depth / 2 + .12, width + .04, .12, .18);
-  }
-  for (const [sx, sz, angle] of [[width / 2 + .01, -.2, Math.PI / 2], [-width / 2 - .01, .2, -Math.PI / 2], [.2, -depth / 2 - .01, Math.PI]]) {
-    const side = group(home, sx, 0, sz, angle);
-    windowFrame(side, 0, 1.2, 0);
-    if (tall) windowFrame(side, 0, 2.58, 0);
-  }
-  box(home, colors.plaster, .72, height + .6, -.62, .43, 1.1, .43);
-  box(home, colors.cream, .72, height + 1.16, -.62, .54, .15, .54);
-  if (variant % 2 === 0) {
-    for (let stripe = 0; stripe < 5; stripe++) {
-      const cloth = box(home, stripe % 2 ? colors.linen : colors.blue, -.75 + stripe * .3, 1.91, depth / 2 + .57, .3, .055, 1.1, .02);
-      cloth.rotation.x = .15;
-    }
-    for (const px of [-.92, .63]) post(home, colors.wood, px, .95, depth / 2 + 1.07, .045, 1.9);
-  }
-  pot(home, 1.1, .2, depth / 2 + .45, .8);
-  if (variant % 3 === 2) {
-    box(home, colors.paving, -2.08, .08, .1, 1.5, .16, 2.6);
-    box(home, colors.plaster, -2.8, .47, .1, .16, .94, 2.6);
-    box(home, colors.plaster, -2.05, .47, -1.12, 1.6, .94, .16);
-    tree(home, -2.05, .16, -.48, .62);
-  }
 }
 
 export function dwelling(tier: 1 | 2 | 3): T.Group {

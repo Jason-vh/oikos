@@ -34,7 +34,6 @@ export function maintenance(): T.Group {
   return shed;
 }
 
-export { towerGranary as granary } from './granaries';
 
 export function lodge(): T.Group {
   const hut = new T.Group();
@@ -93,15 +92,15 @@ export function stockpile(stores: Stores = {}): T.Group {
     const rafter = box(yard, colors.wood, -1.5 + i * .5, 1.53, -.95, .06, .06, 1.35);
     rafter.rotation.x = -.245;
   }
-  const shade = box(yard, colors.roofDark, 0, 1.6, -.95, 3.5, .05, 1.45, .01);
+  const shade = box(yard, colors.roofDark, 0, 1.6, -.95, 3.4, .05, 1.45, .01);
   shade.rotation.x = -.245;
   for (let i = 0; i < 11; i++) {
-    const batten = box(yard, colors.roofLight, -1.65 + i * .33, 1.635, -.95, .07, .05, 1.45, .01);
+    const batten = box(yard, colors.roofLight, -1.6 + i * .32, 1.635, -.95, .07, .05, 1.45, .01);
     batten.rotation.x = -.245;
   }
   for (const [px, pz] of [[-1.62, 1.62], [1.62, 1.62], [-1.62, .95], [1.62, .95]]) post(yard, colors.stone, px, .36, pz, .08, .3);
   for (let i = 0; i < 4; i++) box(yard, colors.wood, -1.2 + i * .8, .27, 1.62, .04, .08, .4);
-  const crane = group(yard, 1.35, .26, 1.2);
+  const crane = group(yard, 1.25, .26, 1.2);
   for (const side of [-1, 1]) {
     const leg = post(crane, colors.wood, side * .3, .8, 0, .05, 1.7);
     leg.rotation.z = -side * .32;

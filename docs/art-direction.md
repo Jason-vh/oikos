@@ -1,280 +1,77 @@
-# Art direction — Oikos
+# Art direction — Οἶκος
 
-This is the visual contract for `src/art/`. It exists so a future agent can add a
-model, or judge whether one belongs, without re-litigating taste. `/miniature.html`
-(`src/miniature/world.ts`) is the approved reference scene: chunky, sun-bleached,
-hand-built low-poly Aegean harbour. **The user has explicitly said no more
-detailing.** Every rule below exists to keep new work at the same level of finish as
-that scene — not above it.
+The visual contract for everything in `src/art/`. Read it before adding or changing
+a model. The game itself (`/`, seed 1) is the reference scene; there is no separate
+benchmark. Judge new work in the game at normal play zoom, then in the atelier.
 
-`src/art/` is the only source of models in this repo. `src/miniature/world.ts`
-imports its decorative models (`house`, `temple`, `boat`, `citizen`, `tree`, `stall`,
-etc.) straight from `../art` and renders them as the fixed harbour benchmark. The
-playable game (`src/render/city.ts`) calls `getBuildingModel()` from the same library
-to place buildings per tile. There is no second model source, and no pending swap —
-this is the integrated state.
+## Intent
 
-## What this is not
+A painted wooden toy city under a warm sun. Chunky, low-poly, matte, bevelled.
+Buildings are cream plaster with terracotta roofs and painted blue accents; land is
+sun-bleached; the sea is turquoise near the shore. Everything reads first by
+silhouette and colour, second by a single distinguishing feature, never by detail.
+**Do not add detail to compensate for a weak silhouette.**
 
-- Not sprites, not billboards, not photo textures. Every surface is a flat-shaded
-  `MeshStandardMaterial` picked from the palette below.
-- Not externally generated (no AI image/model generation, no downloaded asset packs).
-  Every mesh is built in code from primitives in `src/art/primitives.ts`.
-- Not photoreal. No PBR texture maps, no normal maps, no decals. Bevels and vertex
-  colour are the entire toolkit for surface interest.
-- Not a target for "more detail". A model that already reads correctly at the
-  camera distances below (see "Lighting, camera and shading budget") is finished.
-  Additional geometry that doesn't change the read at those distances is scope
-  creep, not craft.
+## Palette (`colors` in `src/art/primitives.ts`)
 
-## Palette
-
-Defined once in `src/art/primitives.ts` as `colors`, keyed by name, and never
-duplicated as a raw hex elsewhere. Every model call picks a name, not a value.
-
-| name | hex | role |
+| Name | Hex | Use |
 | --- | --- | --- |
-| `plaster` | `#f3dfb5` | wall render, most common surface |
-| `cream` | `#ffefcb` | trim, cornices, paving highlights |
-| `stone` | `#c9b689` | plinths, bases, kerbs |
-| `paving` | `#e1d0a7` | ground paving, courtyards |
-| `roof` | `#b85e41` | terracotta roof body |
-| `roofLight` | `#cf7851` | roof tile highlight / ridge |
-| `roofDark` | `#9c503b` | roof shadow tone |
-| `blue` | `#426f83` | Aegean-blue painted accents (shutters, banding, cloth) |
-| `blueLight` | `#68919c` | secondary blue accent |
-| `dark` | `#364d48` | deep shadow fill (door gaps, window recess) |
-| `wood` | `#846347` | timber, posts, crates |
-| `olive` | `#879557` | foliage mid tone |
-| `oliveLight` | `#a2ae70` | foliage highlight |
-| `oliveDark` | `#627a50` | foliage shadow |
-| `grass` | `#a7ac73` | terrain grass band |
-| `earth` | `#b0a17b` | terrain earth band, furrows |
-| `gold` | `#d6ab53` | brass fittings, wheat, accents |
-| `linen` | `#ffedc5` | sails, awning cloth |
+| plaster | `f3dfb5` | walls |
+| cream | `ffefcb` | trims, columns, steps |
+| stone | `c9b689` | plinths, walls, cliffs |
+| paving | `e1d0a7` | roads, courts |
+| roof / roofLight / roofDark | `b85e41` / `cf7851` / `9c503b` | tiles |
+| blue / blueLight | `426f83` / `68919c` | shutters, awnings, sails |
+| dark | `364d48` | doorways, openings |
+| wood | `846347` | timber, trunks, carts |
+| olive / oliveLight / oliveDark | `879557` / `a2ae70` / `627a50` | foliage |
+| grass / earth | `a7ac73` / `b0a17b` | ground |
+| gold / linen | `d6ab53` / `ffedc5` | grain, cloth |
 
-Do not introduce a new colour without a reason a reviewer can see in the model it
-serves; do not reuse a name for a different hex. If a model needs vertex colour
-(the sail is the one precedent — see `src/art/ships.ts`), tint from this same
-palette.
+Terrain surface colours live in `src/render/terrain.ts` (`SURFACE`). Food and
+material bundle colours live in `src/art/food.ts`. Add a colour only when no
+existing one reads correctly at city zoom.
 
-## Material and geometry conventions
+## Materials and geometry
 
-- Every material is `MeshStandardMaterial({ color, roughness: 0.88 })`, cached once
-  per colour in `primitives.ts`'s `material()`. Nothing sets `metalness` except the
-  hand-tuned water shader in `src/miniature/world.ts` (outside `src/art`) — buildings
-  and props stay matte.
-- Bevels: `box()` defaults to a `0.045` bevel radius, clamped to a quarter of the
-  smallest dimension so thin members don't self-intersect. Pass a different one only
-  for a specific reason — the roof ridge cap and the window mullions use a tighter
-  `0.02`/`0.01` bevel, the way the existing code already does.
-- `RoundedBoxGeometry` is built with a single segment (`1`) — the facets are visible
-  and that's correct. Do not raise segment counts to "smooth out" a bevel; that reads
-  as a style change, not a bugfix.
-- `post()` (cylinder, 8 radial segments) and `lump()` (dodecahedron) are the only
-  round/organic primitives. They're deliberately faceted, not smoothed.
+- `MeshStandardMaterial`, roughness `.88`, no textures, no emissive, no transparency
+  except placement ghosts. Materials are cached per colour; never dispose them.
+- Boxes are `RoundedBoxGeometry` with bevel `.045` (`box()`); cylinders are 8-sided
+  (`post()`); foliage and rocks are dodecahedra (`lump()`).
+- Models are built from these primitives, then `bake()`d into one mesh per material.
+  `disposeModel()` frees baked geometry only.
 
-## Scale
+## Scale and footprints
 
-- `CELL_SIZE = 1.25` (`src/sim/island.ts`) — one simulation tile in world units.
-- `GROUND_Y = 1.15` (`src/sim/island.ts`) — the height of the playable island's
-  ground plane. Models from `getBuildingModel()` are built with their own ground at
-  local `y = 0`; the renderer (`src/render/city.ts`) places that group at world
-  `y = GROUND_Y`. `src/art` never bakes `GROUND_Y` into a model's geometry.
-- A citizen (`citizen()` in `src/art/people.ts`) stands about **1.1** units tall.
-  Every other model is scaled to read correctly next to that figure — a door a
-  citizen can walk through, a table at roughly waist height. When adding a model,
-  eyeball it against `citizen()` before anything else.
+- One cell is `CELL_SIZE = 1.25`; ground is `GROUND_Y = 1.15` plus `LEVEL_HEIGHT =
+  1.6` per terrace. A citizen is ~1.1 tall.
+- `getBuildingModel(kind, state)` returns a model centred on its footprint, ground at
+  `y = 0`, front facing `+Z`, strictly inside `catalog width × depth × CELL_SIZE`
+  (tested in `src/art/models.test.ts`). Nothing may overhang into a road.
+- Housing tiers must differ in silhouette: dwelling (low, one storey), cottage
+  (taller, awning), courtyard house (two storeys, balcony).
+- Storage shows its contents: granary and stockpile expose eight bays, agora stall
+  three; one bundle per 100 units, in that resource's signature (`food.ts`).
 
-## Footprint and orientation
+## Lighting and camera (`src/render/stage.ts`)
 
-Every playable building has a footprint defined once, in the simulation catalog
-(`src/sim/catalog.ts`'s `BUILDINGS`, in whole tiles) and converted to world units by
-multiplying by `CELL_SIZE`. `src/art/buildings.ts`'s `footprintSize(kind)` does this
-conversion; nothing in `src/art` hardcodes a footprint size independently of it.
+Orthographic camera; hemisphere light `e7f1ee`/`b4a075` at 2.1; sun `ffe6bd` at 3.5
+from `(-25, 42, 24)`; ACES tone mapping at 1.18; 2× MSAA; GTAO at 70% resolution;
+shadows refreshed on change, not per frame. Golden hour swaps the sun to `ffc083`
+lower in the sky. Do not add bloom, vignette or outlines.
 
-| kind | tiles | world units |
-| --- | --- | --- |
-| `house` | 3×3 | 3.75×3.75 |
-| `farm` | 4×4 | 5×5 |
-| `granary` | 3×3 | 3.75×3.75 |
-| `agora` | 3×3 | 3.75×3.75 |
-| `fountain` | 2×2 | 2.5×2.5 |
-| `maintenance` | 2×2 | 2.5×2.5 |
+## Budgets
 
-Rules that every `getBuildingModel()` result follows, and that `src/art/models.test.ts`
-enforces on every kind and tier:
+Keep a placeable building under 18 draw calls and ~9,000 triangles; walkers and
+animals under 6 meshes. `models.test.ts` enforces the building budgets.
 
-- The model is centred at the origin (`x = 0, z = 0`) and its whole bounding box —
-  walls, roof overhang, awnings, pots, crop rows, everything — sits inside that
-  footprint. **No mesh may protrude into the tile outside it**, because that tile may
-  be a road, and nothing here should overlap traffic. A 1cm tolerance is allowed for
-  floating point, nothing more.
-- The model's lowest point sits at `y ≈ 0` (within ~2cm) — it stands on its own
-  footprint, doesn't float and doesn't sink.
-- The model faces **+Z**. Doors, windows, awnings, stalls, crop rows — whatever
-  reads as "front" — face positive Z. `src/render/city.ts` rotates the whole group
-  per the building's placed `rotation` in the world; `src/art` never bakes a
-  rotation in.
+## Acceptance
 
-Decorative, non-catalog models (`tree`, `citizen`, `boat`, `temple`, `stall`, the
-decorative `house()`) don't carry a simulation footprint and aren't subject to this
-rule — they were part of the original approved scene and are preserved exactly as
-they were.
+A model is done when, in the game at the default zoom:
 
-## Housing tiers
-
-`house` is the only kind whose look changes with `tier` (the other kinds are
-functionally distinct enough — a farm vs. a granary — that they don't need a second
-axis of visual change). The three tiers, built by `dwelling(tier)` in
-`src/art/houses.ts`, are genuinely different massing, not palette swaps, while
-staying inside the same footprint and the same visual language as the approved
-prototype:
-
-1. **Small dwelling** — one room, low eaves, a single window. The plainest silhouette.
-2. **Cottage** — larger footprint, taller eaves, a door canopy, shutters on two
-   faces. Reads as a step up without changing material language.
-3. **Taller courtyard house** — two storeys (upper-floor windows, a banding course
-   between floors) with a small paved rear yard behind a low wall. This is *not* the
-   decorative scene's wide courtyard extension (`house()` variant 2, in
-   `houses.ts`, preserved unchanged for `/miniature.html`) — that shape is wider
-   than a 3×3 footprint allows. The playable tier keeps the two-storey silhouette
-   and the idea of a private yard, sized to fit.
-
-## Lighting, camera and shading budget
-
-Set by the shared `Stage` (`src/render/stage.ts`), used by the game (`/`, built
-around `src/render/city.ts` + `src/render/island.ts`), the harbour benchmark
-(`/miniature.html`, `src/miniature/world.ts`), and the model viewer (`/art.html`,
-`src/art-viewer.ts`). A model built without knowing how it'll be lit will look wrong
-under it, so these are the settings all three run under:
-
-- **Camera**: orthographic, `(-30, 30, 20, -20, .1, 350)`. `/miniature.html` has
-  three fixed views — harbour (`target [-2,0,-4]`, closest), streets
-  (`target [-1,1.5,2]`, closer still), archipelago (`target [4,0,-18]`, furthest);
-  the model viewer uses its own close-in view (`target [-1.2,1.2,0]`, `size 11`)
-  built for judging one building against a citizen. A model has to read at all of
-  these; the model viewer's distance and the benchmark's streets view are the
-  harshest tests.
-- **Key light**: one `DirectionalLight` (`0xffe6bd`, intensity `3.5`) from
-  `(-25, 42, 24)`, casting shadows (`2048²` shadow map, `PCFSoftShadowMap`,
-  `shadowMap.autoUpdate = false`, refreshed on demand via `Stage.shadows()`).
-- **Fill**: one `HemisphereLight` (`0xe7f1ee` / `0xb4a075`, intensity `2.1`).
-- **Golden hour** (both benchmark and viewer have a toggle, `Stage.golden()`): sun
-  colour `0xffc083`, position `y 22` (lower angle), intensity `3.8`; ambient
-  intensity drops to `1.55`. A model should still read correctly under this, not
-  just the default noon light.
-- **Ambient occlusion**: a `GTAOPass` (radius `.65`, distance exponent `1.5`,
-  thickness `1`, blend intensity `.65`), rendered at **70% of the display
-  resolution** and upscaled — contact shadow is a cheap post-process, not geometry.
-  Don't add extra small geometry purely to fake contact shadow; the AO pass is the
-  budget for that.
-- **Anti-aliasing**: 2x MSAA on a half-float render target (`EffectComposer`'s
-  target has `samples: 2`), not a higher sample count — edges on a model are
-  expected to show some aliasing at this budget, not to be perfectly smooth.
-- **Tone mapping**: ACES Filmic, exposure `1.18`.
-- **Render loop**: the renderer only redraws on invalidation (an orbit change, a
-  world update, a toggled control), not continuously. While the game is running and
-  unpaused, world state updates and the resulting redraw are capped to 30fps —
-  there is no budget for a model whose *appearance* depends on being drawn at a
-  higher frame rate (no per-frame shader animation beyond the existing water/sail
-  treatment in `world.ts`, which isn't part of `src/art`).
-
-None of this is `src/art`'s to change — it's recorded here so a new model can be
-sanity-checked against it (e.g. "does this read under a low, warm key light from the
-west, at 70%-resolution AO") without booting the renderer.
-
-## Topology and draw-call budget
-
-Every primitive call (`box`, `post`, `lump`, `roof`, `pot`, …) that shares a colour
-shares a material; `bake()` merges everything of one material into one draw call.
-Measured against the current models (reproducible with the snippets in
-`docs/art-tooling.md`):
-
-| model | draw calls (materials) | triangles |
-| --- | --- | --- |
-| decorative `house()`, variant 0 | 11 | ~6,900 |
-| decorative `house()`, variant 1 | 10 | ~9,100 |
-| decorative `house()`, variant 2 (courtyard) | 15 | ~7,400 |
-| `temple()` | 8 | ~11,500 |
-| `boat()` | 6 | ~1,000 |
-| `citizen()` | 6 | ~950 |
-| `getBuildingModel('house', 1)` | 8 | ~3,600 |
-| `getBuildingModel('house', 2)` | 10 | ~5,600 |
-| `getBuildingModel('house', 3)` | 10 | ~8,000 |
-| `getBuildingModel('farm')` | 10 | ~4,800 |
-| `getBuildingModel('granary')` | 10 | ~4,600 |
-| `getBuildingModel('agora')` | 3 | ~350 |
-| `getBuildingModel('agora', 1, true)` (with vendor stall) | 9 | ~2,850 |
-| `getBuildingModel('fountain')` | 6 | ~230 |
-| `getBuildingModel('maintenance')` | 9 | ~3,100 |
-
-`src/art/models.test.ts` enforces a ceiling of **16 draw calls** and **12,000
-triangles** per `getBuildingModel()` result — generous headroom above every measured
-model above, tight enough to fail loudly if a future change (e.g. raising a bevel
-segment count, or looping a decoration too many times) quietly balloons a model past
-the existing complexity.
-
-## Model creation / editing workflow
-
-1. Decide which file the model belongs in (see "Library layout" in
-   `docs/art-tooling.md`) and sketch its shape against a citizen and its footprint
-   (see above) before writing geometry.
-2. Build with the primitives in `src/art/primitives.ts` only — `box`, `post`, `lump`,
-   `roof`, `pot`, `group`, `mesh` — picking colours from `colors`. Don't reach for a
-   raw `THREE.BoxGeometry` or a literal hex unless the primitive genuinely can't do
-   the job (the boat hull, the sail, the temple pediment are the existing precedents
-   for a bespoke `Shape`/`ExtrudeGeometry`).
-3. If the model is a `getBuildingModel()` kind, build it inside its own
-   `T.Group()` with everything centred on the origin and the front on +Z, then call
-   `bake()` on the top-level group before returning it (see `buildings.ts` for the
-   pattern) — this is what makes `disposeModel()` safe (see `docs/art-tooling.md`).
-4. Check it against its footprint. The fastest way, with no renderer needed:
-   ```ts
-   import * as T from 'three';
-   import { getBuildingModel } from './src/art/buildings';
-   const box = new T.Box3().setFromObject(getBuildingModel('house', 3));
-   console.log(box.min, box.max);
-   ```
-   or just run `bun test src/art` — the footprint test fails with the offending
-   kind/tier named.
-5. Look at it. `/art.html` (the model viewer, `src/art-viewer.ts`) — pick a
-   kind/tier from the dropdown, see it against a citizen and its dashed footprint
-   outline, with a live triangle/mesh count, wireframe toggle, turn/reset and
-   golden-hour controls — is the fast per-model loop. `/miniature.html` is the full
-   scene and the final check, since a model that's fine alone can still clash once
-   it's sitting between the others.
-6. Capture before and after with `npm run art:capture` (see
-   `docs/art-tooling.md`) and compare the two sets of screenshots by eye. If the
-   harbour, streets or archipelago views read differently from the previous capture
-   at a glance, figure out why before moving on — either the change is a deliberate,
-   signed-off shift in the scene, or the model regressed.
-
-## Screenshot acceptance
-
-A model (or a change to `src/art/primitives.ts` that everything else depends on)
-is acceptable when, captured at all three of `/miniature.html`'s fixed camera views
-— harbour, streets, archipelago (`src/miniature/main.ts`'s `views`) — it:
-
-- sits fully inside its footprint with no visible gap or overlap onto neighbouring
-  road tiles,
-- reads at the same level of finish as the buildings already in the scene: no
-  smoother, no flatter, no more or less ornamented,
-- keeps the palette above — no new colours, no gradient/texture maps,
-- doesn't change the silhouette or palette of anything not being worked on.
-
-There is no screenshot committed to this repo to diff against — `artifacts/` (where
-`npm run art:capture` writes) is gitignored. A reviewer capturing locally, comparing
-the new set against a capture taken before the change, is the review process; see
-`docs/art-tooling.md`.
-
-## Model stages
-
-`getBuildingModel(kind, { tier, vendorEnabled, stage, stores })` builds the model
-for a simulation state: `stage` (0–3) drives wheat height and colour on a farm;
-`stores` fills the granary yard (nine slots) and the agora stall (three slots) with
-one bundle per 100 units of a food. `src/art/food.ts` owns each food's signature
-(wheat sheaves, carrot crates, fish and meat racks, olive jars) — keep bundles under
-a cell wide and readable at city zoom. A state change swaps the model, so variants
-must stay cheap and inside the footprint. Citizens are built by
-`figure()` with separate leg and arm groups; `animateFigure()` swings them.
+1. it is identifiable by silhouette among its neighbours;
+2. its state is readable (crop height, stock bays, cargo);
+3. it fits its footprint from all four rotations;
+4. it does not introduce a new colour or material;
+5. `npm run art:check` and `npm run art:capture` pass, and the captures in
+   `artifacts/art/` look right beside the previous ones.

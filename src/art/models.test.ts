@@ -3,15 +3,15 @@ import * as T from 'three';
 import type { BuildingKind } from '../sim/types';
 import { BUILDINGS } from '../sim/catalog';
 import { CELL_SIZE } from '../sim/island';
-import { box, colors, disposeModel, group, lump, material, post, releaseModelGeometries } from './primitives';
-import { house } from './houses';
-import { temple, stall } from './temple';
+import { box, colors, disposeModel, group, lump, material, post } from './primitives';
+import { dwelling } from './houses';
+import { stall } from './stall';
 import { tree } from './vegetation';
 import { citizen } from './people';
 import { boat } from './ships';
-import { getBuildingModel, footprintSize } from './buildings';
+import { getBuildingModel } from './buildings';
 
-const KINDS: BuildingKind[] = ['house', 'farm', 'granary', 'agora', 'fountain', 'maintenance'];
+const KINDS: BuildingKind[] = ['house', 'farm', 'granary', 'agora', 'fountain', 'maintenance', 'lodge', 'woodcutter', 'stockpile'];
 const FOOTPRINT_EPSILON = 0.01;
 const GROUND_EPSILON = 0.02;
 const TRIANGLE_BUDGET = 12000;
@@ -70,13 +70,6 @@ describe('getBuildingModel footprints', () => {
     });
   }
 
-  test('footprintSize matches catalog width/depth times CELL_SIZE', () => {
-    for (const kind of KINDS) {
-      const size = footprintSize(kind);
-      expect(size.width).toBeCloseTo(BUILDINGS[kind].width * CELL_SIZE, 6);
-      expect(size.depth).toBeCloseTo(BUILDINGS[kind].depth * CELL_SIZE, 6);
-    }
-  });
 });
 
 describe('getBuildingModel ground contact', () => {
@@ -107,13 +100,9 @@ describe('getBuildingModel drawcall and triangle budgets', () => {
   }
 });
 
-describe('approved decorative models still build', () => {
-  test('house(), temple(), stall() and tree() produce finite, non-empty geometry', () => {
+describe('decorative models still build', () => {
+  test('stall() and tree() produce finite, non-empty geometry', () => {
     const scene = new T.Group();
-    house(scene, 0, 0, 0, 0, 0);
-    house(scene, 3, 0, 0, 1, Math.PI / 2);
-    house(scene, -3, 0, 0, 2, 0);
-    temple(scene, 0, 0, -6);
     stall(scene, 6, 0, 0, colors.blue);
     tree(scene, 8, 0, 0, 1, false);
     tree(scene, 9, 0, 0, 1, true);
@@ -191,12 +180,11 @@ describe('disposeModel resource ownership', () => {
     for (const geometry of sharedGeometries) expect(geometry.userData.sharedPrimitive).toBe(true);
   });
 
-  test('leaves shared caches usable after disposal and after releaseModelGeometries', () => {
+  test('leaves shared caches usable after disposal', () => {
     const first = getBuildingModel('maintenance');
     disposeModel(first);
     const second = getBuildingModel('maintenance');
     assertFiniteVertices(second);
-    releaseModelGeometries();
     const third = getBuildingModel('maintenance');
     assertFiniteVertices(third);
     const bounds = new T.Box3().setFromObject(third);
@@ -206,10 +194,10 @@ describe('disposeModel resource ownership', () => {
 });
 
 describe('group() rotation helper', () => {
-  test('rotates a house without changing its footprint size', () => {
+  test('rotates a dwelling without changing its footprint size', () => {
     const scene = new T.Group();
     const wrapper = group(scene, 0, 0, 0, Math.PI / 2);
-    house(wrapper, 0, 0, 0, 1, 0);
+    wrapper.add(dwelling(2));
     const bounds = new T.Box3().setFromObject(scene);
     expect(bounds.isEmpty()).toBe(false);
   });

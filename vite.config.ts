@@ -4,6 +4,6 @@ export default defineConfig({
   server: { port: 5180 },
   build: {
     target: 'es2022',
-    rollupOptions: { input: { game: 'index.html', miniature: 'miniature.html', art: 'art.html' } },
+    rollupOptions: { input: { game: 'index.html', art: 'art.html' } },
   },
 });

@@ -1,20 +1,12 @@
 import * as T from 'three';
 import type { BuildingKind, Stores } from '../sim/types';
-import { BUILDINGS } from '../sim/catalog';
-import { CELL_SIZE } from '../sim/island';
 import { bake, box, colors, post } from './primitives';
 import { dwelling } from './houses';
 import { wheatFarm } from './vegetation';
 import { fountain as fountainModel, lodge as lodgeModel, maintenance as maintenanceModel, stockpile as stockpileModel, woodcutter as woodcutterModel } from './civic';
-import { granaryVariant, type GranaryVariant } from './granaries';
+import { granary } from './granaries';
+import { stall } from './stall';
 
-export const GRANARY_VARIANT: GranaryVariant = 'pithoi-low';
-import { stall } from './temple';
-
-export function footprintSize(kind: BuildingKind): { width: number; depth: number } {
-  const definition = BUILDINGS[kind];
-  return { width: definition.width * CELL_SIZE, depth: definition.depth * CELL_SIZE };
-}
 
 function agora(vendorEnabled: boolean, stores: Stores): T.Group {
   const market = new T.Group();
@@ -29,10 +21,10 @@ function agora(vendorEnabled: boolean, stores: Stores): T.Group {
 
 export type ModelStage = 0 | 1 | 2 | 3;
 
-export interface ModelState { tier?: 1 | 2 | 3; vendorEnabled?: boolean; stage?: ModelStage; stores?: Stores; granary?: GranaryVariant; }
+export interface ModelState { tier?: 1 | 2 | 3; vendorEnabled?: boolean; stage?: ModelStage; stores?: Stores; }
 
 export function getBuildingModel(kind: BuildingKind, state: ModelState = {}): T.Group {
-  const { tier = 1, vendorEnabled = false, stage = 3, stores = {}, granary = GRANARY_VARIANT } = state;
+  const { tier = 1, vendorEnabled = false, stage = 3, stores = {} } = state;
   const model = new T.Group();
   switch (kind) {
     case 'house':
@@ -42,7 +34,7 @@ export function getBuildingModel(kind: BuildingKind, state: ModelState = {}): T.
       model.add(wheatFarm(stage));
       break;
     case 'granary':
-      model.add(granaryVariant(granary, stores));
+      model.add(granary(stores));
       break;
     case 'agora':
       model.add(agora(vendorEnabled, stores));

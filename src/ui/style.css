@@ -55,7 +55,7 @@ button:focus-visible { outline: 2px solid var(--terracotta); outline-offset: 2px
 button[aria-pressed='true'] { background: var(--sage); color: #fffdf0; }
 
 .hud-masthead { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 28px; padding: 12px 22px; }
-.hud-masthead h1 { font-family: Georgia, 'Times New Roman', serif; font-weight: 400; font-size: 26px; letter-spacing: -.6px; margin: 0 6px 0 0; }
+.hud-masthead h1 { font-family: Georgia, 'Times New Roman', serif; font-weight: 400; font-size: 26px; margin: 0 6px 0 0; }
 
 .hud-resources { display: flex; flex-wrap: wrap; gap: 18px; margin: 0; }
 .hud-resources > div { display: flex; flex-direction: column; gap: 2px; }

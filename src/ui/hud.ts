@@ -106,7 +106,7 @@ function computeMilestones(world: World, summary: Summary): Milestones {
 const SKELETON = `
   <div class="hud-top">
     <header class="hud-panel hud-masthead" data-testid="masthead">
-      <h1>Oikos</h1>
+      <h1 lang="grc">Οἶκος</h1>
       <dl class="hud-resources" aria-label="City resources">
         <div><dt>Population</dt><dd data-field="population">0</dd></div>
         <div><dt>Treasury</dt><dd data-field="treasury">0 dr</dd></div>
@@ -159,7 +159,7 @@ const SKELETON = `
   <div class="hud-toast-region" role="status" aria-live="polite" data-testid="toast-region"></div>
   <dialog class="hud-dialog hud-menu" data-testid="menu-dialog" aria-label="Menu">
     <form method="dialog">
-      <h2>Oikos</h2>
+      <h2 lang="grc">Οἶκος</h2>
       <div class="hud-menu-actions">
         <button type="submit" value="save" data-testid="save">Save island</button>
         <button type="submit" value="load" data-testid="load">Load saved island</button>

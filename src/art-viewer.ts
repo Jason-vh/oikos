@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { animalModel, animateAnimal, animateFigure, boat, citizen, colors, disposeModel, figure, getBuildingModel, type GranaryVariant, type ModelStage } from './art';
+import { animalModel, animateAnimal, animateFigure, boat, citizen, colors, disposeModel, figure, getBuildingModel, type ModelStage } from './art';
 import type { AnimalKind } from './sim/types';
 import { BUILDINGS, footprint } from './sim/catalog';
 import { CELL_SIZE } from './sim/island';
@@ -35,7 +35,7 @@ function boot(): void {
   const wireframe = document.querySelector<HTMLInputElement>('#wireframe')!;
 
   function buildSelected(id: string): { model: T.Group; footprint: { width: number; depth: number } | null; description: string; animate?: (time: number) => void } {
-    const [kindValue, tierValue, variant = '', granary = 'tower'] = id.split(':');
+    const [kindValue, tierValue, variant = ''] = id.split(':');
     if (kindValue === 'animal') {
       const kind = tierValue as AnimalKind;
       const model = animalModel(kind);
@@ -52,7 +52,7 @@ function boot(): void {
     const kind = kindValue as BuildingKind;
     const tier = Number(tierValue) as 1 | 2 | 3;
     const stores = STORE_VARIANTS[variant] ?? {};
-    const model = getBuildingModel(kind, { tier, vendorEnabled: kind === 'agora' && tier === 2, stage: Number(variant || 3) as ModelStage, stores, granary: granary as GranaryVariant });
+    const model = getBuildingModel(kind, { tier, vendorEnabled: kind === 'agora' && tier === 2, stage: Number(variant || 3) as ModelStage, stores });
     return { model, footprint: footprint(kind), description: BUILDINGS[kind].description };
   }
 

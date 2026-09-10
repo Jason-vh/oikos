@@ -98,12 +98,6 @@ export function bake(source: T.Group): void {
   }
 }
 
-export function releaseModelGeometries(): void {
-  for (const geometry of geometries.values()) geometry.dispose();
-  geometries.clear();
-  cylinder.dispose();
-  foliage.dispose();
-}
 
 export function disposeModel(model: T.Object3D): void {
   model.traverse((child) => {

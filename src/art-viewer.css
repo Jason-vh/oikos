@@ -1,4 +1,25 @@
-@import './miniature/style.css';
+:root { font-family: 'Avenir Next', Avenir, 'Segoe UI', sans-serif; color: #294b4a; background: #9dcac9; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; overflow: hidden; }
+#app, canvas { display: block; width: 100%; height: 100dvh; }
+.masthead { position: absolute; inset: 30px 38px auto; display: flex; align-items: center; justify-content: space-between; gap: 24px; pointer-events: none; }
+.eyebrow { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; }
+h1 { font-family: Georgia, serif; font-size: 36px; font-weight: 400; letter-spacing: -1.3px; margin: 5px 0 0; }
+h1 a { color: inherit; text-decoration: none; pointer-events: auto; }
+h1 span { font-family: Georgia, serif; font-size: 17px; letter-spacing: 0; opacity: .52; margin-left: 9px; }
+nav { display: flex; padding: 5px; border: 1px solid #ffffff75; border-radius: 8px; background: #f5f5eccc; box-shadow: 0 3px 20px #254e4b09; pointer-events: auto; }
+button { font: inherit; font-size: 12px; color: inherit; border: 0; background: transparent; padding: 11px 17px; border-radius: 5px; cursor: pointer; transition: background .2s, color .2s; }
+button:hover { background: #d7e1d8; }
+button:focus-visible { outline: 2px solid #b66b44; outline-offset: 3px; }
+button[aria-pressed='true'] { background: #315954; color: #fffdf0; }
+footer { position: absolute; bottom: 0; left: 0; right: 0; min-height: 68px; padding: 16px 38px; display: flex; align-items: center; gap: 24px; background: linear-gradient(transparent, #dce9debd); font-size: 10px; }
+.controls { opacity: .8; }
+.controls b { padding: 0 8px; font-weight: 400; opacity: .5; }
+.tools { display: flex; gap: 3px; margin-left: auto; padding: 3px; background: #f5f5ecbb; border: 1px solid #ffffff65; border-radius: 6px; }
+.tools button { padding: 8px 12px; font-size: 10px; }
+#status { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 20px 30px; background: #fff9ed; border-radius: 8px; font-size: 14px; max-width: 90vw; }
+#status[hidden] { display: none; }
+@media (max-width: 600px) { .masthead { inset: 20px 20px auto; align-items: flex-start; flex-direction: column; gap: 15px; } h1 { font-size: 28px; } .eyebrow { font-size: 8px; } footer { padding: 12px 20px; flex-wrap: wrap; gap: 9px; } .controls { width: 100%; font-size: 9px; } }
 nav a { text-decoration: none; color: inherit; padding: 11px 17px; font-size: 12px; pointer-events: auto; }
 nav a:hover { background: #d7e1d8; border-radius: 5px; }
 .atelier { position: absolute; top: 155px; left: 38px; width: 225px; padding: 22px; border-radius: 8px; background: #f7f2e6e8; box-shadow: 0 3px 24px #36564a12; }

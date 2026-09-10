@@ -1,8 +1,8 @@
-# Oikos
+# Οἶκος
 
 Live at <https://oikos.vhtm.eu>.
 
-*Oikos* (οἶκος): the household, root of *economy*. A city builder on the Aegean:
+*Οἶκος* (oikos): the household, root of *economy*. A city builder on the Aegean:
 settle an island, feed and water its households along real roads, hunt, fell,
 farm and trade your way to a thriving city. The first island is Kalliste.
 
@@ -12,7 +12,6 @@ npm run dev
 ```
 
 - `/` — playable island; autosaves locally, never to a server.
-- `/miniature.html` — approved harbour composition benchmark.
 - `/art.html` — isolated model viewer.
 
 ## Play
@@ -33,7 +32,7 @@ model atelier). On touchscreens, use two fingers to pan/zoom.
 ```bash
 npm run check                                   # build, tests, browser walkthrough, art captures (run before merging; CI runs tests and build only)
 npm run smoke -- http://localhost:5180/?debug   # gameplay walkthrough against a running dev server (append &lean for a fast, unshaded run)
-npm run art:capture -- http://localhost:5180    # benchmark and model captures into artifacts/art
+npm run art:capture -- http://localhost:5180    # model captures into artifacts/art
 ```
 
 - [Gameplay and first-island scope](docs/gameplay.md)
