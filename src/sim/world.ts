@@ -715,3 +715,43 @@ export function buildingStatus(world: World, building: Building): string[] {
   return lines;
 }
 
+
+const NAMES = ['Alexios', 'Dorotheos', 'Eirene', 'Helena', 'Ione', 'Kallias', 'Lysandra', 'Myron', 'Nikias', 'Phaedra', 'Theron', 'Xanthe', 'Zosime', 'Demos', 'Chloe', 'Philon'];
+
+export const WALKER_ROLES: Record<WalkerKind, string> = {
+  cart: 'Farm carter',
+  buyer: 'Agora buyer',
+  vendor: 'Food vendor',
+  water: 'Water carrier',
+  maintenance: 'Caretaker',
+  immigrant: 'Settlers',
+};
+
+export function walkerName(walker: Walker): string {
+  if (walker.kind === 'immigrant') return `${NAMES[walker.id % NAMES.length]} and family`;
+  return NAMES[walker.id % NAMES.length];
+}
+
+export function walkerStatus(world: World, walker: Walker): string[] {
+  const home = world.buildings.find((building) => building.id === walker.homeId);
+  const target = world.buildings.find((building) => building.id === walker.targetId);
+  const named = (building: Building | undefined) => building ? (building.kind === 'house' ? 'a house' : `the ${BUILDINGS[building.kind].name.toLowerCase()}`) : 'home';
+  const load = walker.food ? `${Math.round(walker.cargo)} ${walker.food}` : '';
+  switch (walker.kind) {
+    case 'immigrant':
+      return [`${walker.cargo} settlers walking from the harbour to their new home.`];
+    case 'cart':
+      if (walker.returning) return ['Cart empty, heading back to the farm.'];
+      return [`Carting ${load} to ${named(target)}.`];
+    case 'buyer':
+      if (walker.returning) return [`Bringing ${load} back to ${named(home)}.`];
+      return [`Off to ${named(target)} to fetch food.`];
+    case 'vendor':
+      if (walker.cargo > 0) return [`Selling ${load} door to door.`];
+      return ['Sold out; returning to the agora.'];
+    case 'water':
+      return ['Filling jars at every house along the way.'];
+    case 'maintenance':
+      return ['Checking and repairing buildings along the way.'];
+  }
+}

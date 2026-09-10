@@ -102,6 +102,13 @@ try {
     delivered = world.delivered > 0;
   }
   assert(delivered, 'No food was delivered within 12 simulated minutes');
+  const roamer = world.walkers.find((walker) => walker.kind === 'vendor' || walker.kind === 'water' || walker.kind === 'maintenance');
+  assert(roamer, 'No service walker on the streets');
+  const roamerTile = roamer.path[Math.min(roamer.step, roamer.path.length - 1)];
+  const roamerPoint = await tilePoint(page, roamerTile % 40, Math.floor(roamerTile / 40));
+  await page.mouse.click(roamerPoint.x, roamerPoint.y - 6);
+  await paint(page);
+  assert.match(await page.locator('[data-field="inspector-tier"]').textContent(), /vendor|carrier|caretaker/i, 'Clicking a walker did not inspect them');
   assert(world.walkers.length > 0 || world.produced > 0, 'Nothing moved');
   await page.screenshot({ path: path.join(output, '03-first-deliveries.png') });
   let goal = false;

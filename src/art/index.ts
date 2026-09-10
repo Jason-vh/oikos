@@ -8,4 +8,4 @@ export { boat } from './ships';
 export { temple, stall } from './temple';
 export { house } from './houses';
 export { getBuildingModel, footprintSize, type ModelStage, type ModelState } from './buildings';
-export { bundleKey, bundlesOf, FOOD_ORDER } from './food';
+export { bundle, bundleKey, bundlesOf, FOOD_ORDER } from './food';

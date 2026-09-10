@@ -3,7 +3,7 @@ import { Stage } from './render/stage';
 import { CityScene } from './render/city';
 import { BUILDINGS, footprint, ROAD_COST } from './sim/catalog';
 import { CELL_SIZE, GROUND_Y, MAP_DEPTH, MAP_WIDTH, terrainAt, tileIndex, worldPosition } from './sim/island';
-import { advance, build, buildingStatus, createWorld, demolish, getSummary, placement, placeRoadPath, setVendor } from './sim/world';
+import { advance, build, buildingStatus, createWorld, demolish, getSummary, placement, placeRoadPath, setVendor, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
 import { deserializeWorld, serializeWorld } from './sim/save';
 import type { ActionResult, Placement, Rotation, Tile, Tool } from './sim/types';
 import { createHud } from './ui/hud';
@@ -47,9 +47,12 @@ function boot(): void {
 
   function refresh(): void {
     const selected = world.buildings.find((building) => building.id === selectedId) ?? null;
+    const walker = selected ? null : world.walkers.find((candidate) => candidate.id === selectedId) ?? null;
     city.sync(world);
-    city.select(selected);
-    hud.update(world, getSummary(world), selected, selected ? buildingStatus(world, selected) : []);
+    city.select(selected, walker?.id ?? null);
+    if (walker) hud.update(world, getSummary(world), { kind: 'person', name: walkerName(walker), role: WALKER_ROLES[walker.kind], status: walkerStatus(world, walker) });
+    else if (selected) hud.update(world, getSummary(world), { kind: 'building', building: selected, status: buildingStatus(world, selected) });
+    else hud.update(world, getSummary(world), null);
   }
 
   function selectTool(next: Tool): void {
@@ -210,10 +213,10 @@ function boot(): void {
     const moved = Math.hypot(event.clientX - drag.x, event.clientY - drag.y);
     if (hover && (tool === 'road' || moved < 9)) {
       if (tool === 'inspect' || tool === 'demolish') {
-        const hitId = city.pickBuilding(event.clientX, event.clientY);
-        const hit = world.buildings.find((building) => building.id === hitId);
+        const picked = city.pick(event.clientX, event.clientY);
+        const hit = world.buildings.find((building) => building.id === picked.building);
         if (tool === 'inspect') {
-          selectedId = hitId;
+          selectedId = picked.walker ?? picked.building;
           refresh();
         } else apply(demolish(world, hit?.x ?? hover.x, hit?.z ?? hover.z));
       } else if (tool === 'road') apply(placeRoadPath(world, roadPath()));

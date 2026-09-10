@@ -32,25 +32,28 @@ export function maintenance(): T.Group {
   return shed;
 }
 
+const GRANARY_SLOTS: [number, number][] = [[-1.05, 1.05], [0, 1.05], [1.05, 1.05], [1.05, 0], [1.05, -1.05], [0, -1.05], [-1.05, -1.05], [-1.05, 0]];
+
 export function granary(stores: Stores = {}): T.Group {
   const store = new T.Group();
-  box(store, colors.stone, 0, .12, 0, 3.4, .24, 3.3);
-  box(store, colors.paving, 0, .25, .2, 3.15, .04, 2.65);
-  const shed = group(store, 0, 0, -1.1);
-  box(shed, colors.plaster, 0, .95, 0, 3.2, 1.4, 1.1, .06);
-  box(shed, colors.cream, 0, 1.68, 0, 3.35, .14, 1.25);
-  roof(shed, 3.5, 1.4, 1.74, .55, colors.roofDark);
-  box(shed, colors.wood, -.7, .82, .56, .7, 1.05, .08);
-  box(shed, colors.wood, .7, .82, .56, .7, 1.05, .08);
-  for (const px of [-1.35, 1.35]) box(store, colors.stone, px, .4, .55, .16, .32, 2.3);
-  box(store, colors.stone, 0, .4, 1.62, 2.85, .32, .16);
-  for (let row = 0; row < 3; row++) {
-    for (let col = 0; col < 3; col++) {
-      box(store, colors.earth, -.85 + col * .85, .285, -.15 + row * .72, .7, .03, .58, .01);
-    }
+  box(store, colors.stone, 0, .12, 0, 3.5, .24, 3.5);
+  box(store, colors.paving, 0, .25, 0, 3.3, .04, 3.3);
+  for (const [px, pz] of [[-1.7, 0], [1.7, 0]]) box(store, colors.stone, px, .4, pz, .14, .32, 3.5);
+  for (const [px, pz] of [[0, -1.7], [0, 1.7]]) box(store, colors.stone, px, .4, pz, 3.5, .32, .14);
+  const tower = group(store, 0, .27, 0);
+  box(tower, colors.stone, 0, .12, 0, 1.3, .24, 1.3);
+  box(tower, colors.plaster, 0, .95, 0, 1.1, 1.5, 1.1, .06);
+  box(tower, colors.cream, 0, 1.75, 0, 1.28, .14, 1.28);
+  roof(tower, 1.55, 1.55, 1.81, .5, colors.roofDark);
+  for (const [px, pz, angle] of [[0, .56, 0], [.56, 0, Math.PI / 2], [0, -.56, Math.PI], [-.56, 0, -Math.PI / 2]]) {
+    const face = group(tower, px, 0, pz, angle);
+    box(face, colors.wood, 0, .62, 0, .5, .78, .07);
+    box(face, colors.dark, 0, 1.35, 0, .26, .26, .07);
   }
-  bundlesOf(stores, 9).forEach((food, index) => {
-    bundle(store, food, -.85 + (index % 3) * .85, .3, 1.3 - Math.floor(index / 3) * .72, index);
+  for (const [px, pz] of GRANARY_SLOTS) box(store, colors.earth, px, .285, pz, .82, .03, .82, .01);
+  bundlesOf(stores, GRANARY_SLOTS.length).forEach((food, index) => {
+    const [px, pz] = GRANARY_SLOTS[index];
+    bundle(store, food, px, .3, pz, index);
   });
   return store;
 }

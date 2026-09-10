@@ -1,14 +1,14 @@
 import * as T from 'three';
-import { animateFigure, bake, box, bundleKey, colors, disposeModel, figure, getBuildingModel, lump, post, type ModelStage } from '../art';
+import { animateFigure, bake, box, bundle, bundleKey, colors, disposeModel, figure, getBuildingModel, post, type ModelStage } from '../art';
 import { footprint } from '../sim/catalog';
 import { AGORA_SLOTS, GRANARY_SLOTS } from '../sim/balance';
 import { CELL_SIZE, GROUND_Y, MAP_WIDTH, tileAt, tileIndex, worldPosition } from '../sim/island';
-import type { Building, BuildTool, Placement, Rotation, Walker, WalkerKind, World } from '../sim/types';
+import type { Building, BuildTool, Food, Placement, Rotation, Walker, WalkerKind, World } from '../sim/types';
 import type { Stage } from './stage';
 import { IslandScenery } from './island';
 
 interface BuildingEntry { key: string; model: T.Group; }
-interface WalkerEntry { model: T.Group; from: T.Vector3; target: T.Vector3; elapsed: number; moving: boolean; }
+interface WalkerEntry { key: string; model: T.Group; from: T.Vector3; target: T.Vector3; elapsed: number; moving: boolean; }
 
 function modelStage(building: Building): ModelStage {
   if (building.kind === 'farm') return Math.min(3, Math.floor(building.progress * 4)) as ModelStage;
@@ -25,14 +25,14 @@ export class CityScene {
   readonly scenery: IslandScenery;
   private readonly buildings = new Map<number, BuildingEntry>();
   private readonly walkers = new Map<number, WalkerEntry>();
-  private readonly walkerTemplates = new Map<WalkerKind, T.Group>();
+  private readonly walkerTemplates = new Map<string, T.Group>();
   private readonly roads = new T.Group();
   private readonly selection = new T.Mesh(new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new T.MeshBasicMaterial({ color: 0xffefae, transparent: true, opacity: .4, depthWrite: false }));
   private readonly preview = new T.Group();
   private roadKey = '';
   private previewKey = '';
   private ghost: T.Group | null = null;
-  private selected: number | null = null;
+  private selectedWalker: number | null = null;
   private readonly validMaterial = new T.MeshBasicMaterial({ color: 0x79b58b, transparent: true, opacity: .38, depthWrite: false });
   private readonly invalidMaterial = new T.MeshBasicMaterial({ color: 0xd3664e, transparent: true, opacity: .45, depthWrite: false });
   private readonly tileGeometry = new T.PlaneGeometry(CELL_SIZE - .06, CELL_SIZE - .06).rotateX(-Math.PI / 2);
@@ -100,16 +100,16 @@ export class CityScene {
       this.walkers.delete(id);
     }
     for (const walker of world.walkers) this.syncWalker(walker);
-    this.select(world.buildings.find((building) => building.id === this.selected) ?? null);
     this.stage.invalidate();
   }
 
-  private walkerModel(kind: WalkerKind): T.Group {
-    const existing = this.walkerTemplates.get(kind);
+  private walkerModel(kind: WalkerKind, load: Food | null): T.Group {
+    const key = `${kind}:${load ?? ''}`;
+    const existing = this.walkerTemplates.get(key);
     if (existing) return existing.clone();
     const colour: Record<WalkerKind, number> = { cart: colors.gold, buyer: colors.roof, vendor: colors.blue, water: colors.blueLight, maintenance: colors.oliveDark, immigrant: colors.linen };
-    const load = kind === 'water' || kind === 'buyer' || kind === 'vendor' ? 'jar' : kind === 'immigrant' ? 'bundle' : 'none';
-    const model = figure(colour[kind], load).root;
+    const carries = kind === 'water' || (load !== null && kind !== 'cart');
+    const model = figure(colour[kind], carries ? 'jar' : kind === 'immigrant' ? 'bundle' : 'none').root;
     if (kind === 'cart') {
       const cart = new T.Group();
       box(cart, colors.wood, 0, .4, -.62, .62, .38, .68);
@@ -117,7 +117,13 @@ export class CityScene {
         const wheel = post(cart, colors.dark, side * .36, .24, -.62, .19, .09);
         wheel.rotation.z = Math.PI / 2;
       }
-      lump(cart, colors.gold, 0, .64, -.62, .3, .18, .3);
+      if (load) {
+        const heap = new T.Group();
+        heap.position.set(0, .48, -.62);
+        heap.scale.setScalar(.8);
+        bundle(heap, load, 0, 0, 0, 1);
+        cart.add(heap);
+      }
       bake(cart);
       model.add(cart);
     }
@@ -130,7 +136,7 @@ export class CityScene {
       model.add(companion, child);
     }
     model.scale.setScalar(.83);
-    this.walkerTemplates.set(kind, model);
+    this.walkerTemplates.set(key, model);
     return model.clone();
   }
 
@@ -140,12 +146,23 @@ export class CityScene {
     const a = worldPosition(current.x + .5, current.z + .5);
     const b = worldPosition(next.x + .5, next.z + .5);
     const target = new T.Vector3(T.MathUtils.lerp(a.x, b.x, walker.progress), GROUND_Y + .08, T.MathUtils.lerp(a.z, b.z, walker.progress));
+    const load = walker.cargo > 0 ? walker.food : null;
+    const key = `${walker.kind}:${load ?? ''}`;
     let entry = this.walkers.get(walker.id);
+    if (entry && entry.key !== key) {
+      const replacement = this.walkerModel(walker.kind, load);
+      replacement.position.copy(entry.model.position);
+      replacement.rotation.copy(entry.model.rotation);
+      entry.model.removeFromParent();
+      entry.model = replacement;
+      entry.key = key;
+      this.stage.scene.add(replacement);
+    }
     if (!entry) {
-      const model = this.walkerModel(walker.kind);
+      const model = this.walkerModel(walker.kind, load);
       model.position.copy(target);
       this.stage.scene.add(model);
-      entry = { model, from: target.clone(), target, elapsed: .25, moving: false };
+      entry = { key, model, from: target.clone(), target, elapsed: .25, moving: false };
       this.walkers.set(walker.id, entry);
     } else {
       entry.from.copy(entry.model.position);
@@ -168,11 +185,18 @@ export class CityScene {
         if (companion.children.length >= 5) animateFigure(companion, phase + 1.3, stride);
       }
     }
+    this.followSelection();
     this.stage.invalidate();
   }
 
-  select(building: Building | null): void {
-    this.selected = building?.id ?? null;
+  select(building: Building | null, walkerId: number | null = null): void {
+    this.selectedWalker = walkerId;
+    this.selection.visible = building !== null || walkerId !== null;
+    if (walkerId !== null) {
+      this.selection.scale.set(1.1, 1, 1.1);
+      this.followSelection();
+      return;
+    }
     this.selection.visible = building !== null;
     if (!building) return;
     const { width, depth } = footprint(building.kind, building.rotation);
@@ -232,16 +256,31 @@ export class CityScene {
     this.stage.invalidate();
   }
 
-  pickBuilding(clientX: number, clientY: number): number | null {
+  private followSelection(): void {
+    if (this.selectedWalker === null) return;
+    const entry = this.walkers.get(this.selectedWalker);
+    if (!entry) return;
+    this.selection.position.set(entry.model.position.x, GROUND_Y + .065, entry.model.position.z);
+  }
+
+  pick(clientX: number, clientY: number): { building: number | null; walker: number | null } {
     const bounds = this.stage.canvas.getBoundingClientRect();
     const ray = new T.Raycaster();
     ray.setFromCamera(new T.Vector2((clientX - bounds.left) / bounds.width * 2 - 1, -(clientY - bounds.top) / bounds.height * 2 + 1), this.stage.camera);
+    let nearest: { id: number; distance: number } | null = null;
+    const centre = new T.Vector3();
+    for (const [id, entry] of this.walkers) {
+      centre.copy(entry.model.position).setY(entry.model.position.y + .5);
+      const distance = ray.ray.distanceToPoint(centre);
+      if (distance < .75 && (!nearest || distance < nearest.distance)) nearest = { id, distance };
+    }
+    if (nearest) return { building: null, walker: nearest.id };
     const hits = ray.intersectObjects([...this.buildings.values()].map((entry) => entry.model), true);
     let object: T.Object3D | null = hits[0]?.object ?? null;
     while (object) {
-      if (typeof object.userData.buildingId === 'number') return object.userData.buildingId;
+      if (typeof object.userData.buildingId === 'number') return { building: object.userData.buildingId, walker: null };
       object = object.parent;
     }
-    return null;
+    return { building: null, walker: null };
   }
 }

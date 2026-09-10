@@ -88,7 +88,7 @@ its own income.
 
 Food comes in kinds (`Food`: wheat, carrots, fish, meat, olives; only wheat is
 produced in this slice). Every storing building keeps `stores`, a map of food →
-units. Capacity is physical: a granary has nine slots and an agora three, each
+units. Capacity is physical: a granary has eight slots around its tower and an agora three, each
 holding one bundle of 100 units of a single food, so the model shows exactly what
 is stored. Walkers carry one food at a time (`walker.food`, `walker.cargo`); buyers
 and vendors take whichever food the source has most of.
@@ -173,6 +173,14 @@ a small, steady income, and every standing workplace has a modest upkeep, both
 expressed as a rate per `MONTH_SECONDS` (60 simulated seconds) and settled every
 tick. `getSummary(world)` reports the current population, employment, food in
 storage, income, upkeep, balance, and how many tier-3 houses are inhabited.
+
+## People
+
+Every walker can be inspected: `walkerName(walker)` gives a stable name from its id,
+`WALKER_ROLES` its role, and `walkerStatus(world, walker)` one line on what it is
+doing and carrying. The renderer shows cargo on the model: a carter's cart is heaped
+with its food on the way out and empty on the way back; jar-carriers carry a jar
+only while loaded.
 
 ## The goal
 

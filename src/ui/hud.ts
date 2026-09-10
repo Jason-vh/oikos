@@ -14,8 +14,12 @@ export interface HudActions {
   grid(enabled: boolean): void;
 }
 
+export type Selection =
+  | { kind: 'building'; building: Building; status: string[] }
+  | { kind: 'person'; name: string; role: string; status: string[] };
+
 export interface Hud {
-  update(world: World, summary: Summary, selected: Building | null, status: string[]): void;
+  update(world: World, summary: Summary, selected: Selection | null): void;
   setTool(tool: Tool, rotation: Rotation): void;
   setSpeed(speed: 0 | 1 | 3): void;
   notify(message: string, error?: boolean): void;
@@ -261,7 +265,7 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
 
   const guidePanel = root.querySelector<HTMLDetailsElement>('.hud-guide')!;
   const inspectorPanel = root.querySelector<HTMLDetailsElement>('.hud-inspector')!;
-  let lastSelectedId: number | null = null;
+  let lastSelectedId: number | string | null = null;
   const narrow = window.matchMedia('(max-width: 860px)');
   if (narrow.matches) guidePanel.open = false;
   narrow.addEventListener('change', (event) => {
@@ -302,19 +306,35 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     vendorButton.onclick = () => actions.vendor(building.id, !building.vendorEnabled);
   }
 
-  function updateInspector(selected: Building | null): void {
-    if (!selected) {
+  function showPerson(selection: Extract<Selection, { kind: 'person' }>): void {
+    inspectorTitle.textContent = selection.name;
+    inspectorTier.hidden = false;
+    inspectorTier.textContent = selection.role;
+    for (const element of [rowResidents, rowCondition, rowStock, rowWorkers, rowFood, rowWater]) element.hidden = true;
+    vendorButton.hidden = true;
+    inspectorStatus.textContent = selection.status.join(' ');
+  }
+
+  function updateInspector(selection: Selection | null): void {
+    if (!selection) {
       inspectorPanel.hidden = true;
       guidePanel.hidden = false;
       lastSelectedId = null;
       return;
     }
-    if (selected.id !== lastSelectedId) {
+    const id = selection.kind === 'building' ? selection.building.id : selection.name;
+    if (id !== lastSelectedId) {
       inspectorPanel.open = true;
-      lastSelectedId = selected.id;
+      lastSelectedId = id;
     }
     inspectorPanel.hidden = false;
     guidePanel.hidden = narrow.matches;
+    if (selection.kind === 'person') {
+      showPerson(selection);
+      return;
+    }
+    const selected = selection.building;
+    inspectorStatus.textContent = selection.status.join(' ');
 
     const definition = BUILDINGS[selected.kind];
     inspectorTitle.textContent = selected.kind === 'house' ? HOUSE_NAMES[selected.tier] : definition.name;
@@ -326,6 +346,7 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
       field(rowResidents, 'inspector-residents').textContent = `${selected.residents} / ${HOUSE_CAPACITY[selected.tier]}`;
     }
 
+    rowCondition.hidden = false;
     field(rowCondition, 'inspector-condition').textContent = `${Math.round(selected.condition)}%`;
 
     const hasStock = selected.kind === 'farm' || selected.kind === 'granary' || selected.kind === 'agora';
@@ -357,7 +378,7 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
   const toastRegion = root.querySelector<HTMLElement>('.hud-toast-region')!;
   const toastTimers = new Set<number>();
 
-  function update(world: World, summary: Summary, selected: Building | null, status: string[]): void {
+  function update(world: World, summary: Summary, selected: Selection | null): void {
     populationField.textContent = summary.population.toLocaleString('en-US');
     treasuryField.textContent = formatDrachma(world.money);
     foodField.textContent = summary.food.toLocaleString('en-US');
@@ -367,7 +388,6 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
 
     updateMilestones(world, summary);
     updateInspector(selected);
-    inspectorStatus.textContent = status.join(' ');
   }
 
   function setTool(tool: Tool, rotation: Rotation): void {

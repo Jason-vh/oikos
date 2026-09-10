@@ -8,7 +8,7 @@ const STORE_VARIANTS: Record<string, Stores> = {
   empty: {},
   wheat: { wheat: 300 },
   mixed: { wheat: 200, carrots: 100, fish: 100, meat: 100 },
-  full: { wheat: 300, carrots: 200, fish: 200, meat: 100, olives: 100 },
+  full: { wheat: 300, carrots: 200, fish: 100, meat: 100, olives: 100 },
 };
 import { Stage } from './render/stage';
 import './art-viewer.css';
