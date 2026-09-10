@@ -76,7 +76,7 @@ function basket(parent: T.Object3D, x: number, z: number, full: boolean): void {
   box(parent, colors.wood, x, .23, z, .36, .04, .34, .02);
   if (!full) return;
   for (const [dx, dz] of [[-.07, -.04], [.08, -.02], [0, .06]]) {
-    post(parent, 0xd9c48f, x + dx, .2, z + dz, .05, .2);
+    post(parent, colors.linen, x + dx, .2, z + dz, .05, .2);
     lump(parent, colors.gold, x + dx, .33, z + dz, .09, .08, .09);
   }
 }
