@@ -1,7 +1,9 @@
 import * as T from 'three';
 import { Stage } from './render/stage';
 import { CityScene } from './render/city';
+import { ConstructionOverlay } from './render/construction';
 import { BUILDINGS, footprint, ROAD_COST } from './sim/catalog';
+import { demolitionPreview, footprintTileIssues, harbourRoute, suitableFarmGround } from './sim/construction';
 import { CELL_SIZE, groundHeight, islandFor, LEVEL_HEIGHT, terrainOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
 import { advance, build, buildingStatus, createWorld, DEFAULT_SEED, demolish, getSummary, placement, placeRoadPath, setVendor, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
 import { deserializeWorld, serializeWorld } from './sim/save';
@@ -40,6 +42,7 @@ function boot(): void {
   const stage = new Stage(document.querySelector<HTMLElement>('#app')!, false);
   stage.reducedMotion = reducedMotion;
   let city = new CityScene(stage, islandFor(world.seed), !reducedMotion);
+  let overlay = new ConstructionOverlay(stage, islandFor(world.seed));
   const map = () => city.map;
   function viewFor(seed: number): { target: number[]; offset: number[]; size: number } {
     const island = islandFor(seed);
@@ -54,6 +57,8 @@ function boot(): void {
   function rebuildScene(): void {
     city.dispose();
     city = new CityScene(stage, islandFor(world.seed), !reducedMotion);
+    overlay.dispose();
+    overlay = new ConstructionOverlay(stage, islandFor(world.seed));
     stage.setView(viewFor(world.seed));
     stage.shadows();
   }
@@ -63,6 +68,7 @@ function boot(): void {
   let selectedId: number | null = null;
   let hover: Tile | null = null;
   let drag: { tile: Tile; x: number; y: number; pointer: number } | null = null;
+  let bendVertical = false;
   let accumulator = 0;
   let dirtySave = false;
   let showGrid = false;
@@ -302,51 +308,78 @@ function boot(): void {
     const tiles: Tile[] = [];
     const dx = Math.sign(hover.x - start.x);
     const dz = Math.sign(hover.z - start.z);
-    for (let x = start.x; x !== hover.x; x += dx) tiles.push({ x, z: start.z });
-    for (let z = start.z; z !== hover.z; z += dz) tiles.push({ x: hover.x, z });
+    if (bendVertical) {
+      for (let z = start.z; z !== hover.z; z += dz) tiles.push({ x: start.x, z });
+      for (let x = start.x; x !== hover.x; x += dx) tiles.push({ x, z: hover.z });
+    } else {
+      for (let x = start.x; x !== hover.x; x += dx) tiles.push({ x, z: start.z });
+      for (let z = start.z; z !== hover.z; z += dz) tiles.push({ x: hover.x, z });
+    }
     tiles.push(hover);
     return tiles;
   }
 
-  function roadPreview(): Placement {
+  function insideMap(tile: Tile): boolean {
+    return tile.x >= 0 && tile.x < map().width && tile.z >= 0 && tile.z < map().depth;
+  }
+
+  function roadPreview(): { placement: Placement; validTiles: Tile[]; invalidTiles: Tile[] } {
     const path = roadPath();
     const checks = path.map((tile) => placement(world, 'road', tile.x, tile.z));
     const cost = checks.reduce((sum, check) => sum + check.cost, 0);
     const failed = checks.find((check) => !check.ok);
-    return { ok: !failed && cost <= world.money, reason: failed?.reason ?? (cost > world.money ? 'Not enough drachmas.' : `Road · ${cost} drachmas`), cost, tiles: path.filter((tile) => tile.x >= 0 && tile.x < map().width && tile.z >= 0 && tile.z < map().depth).map((tile) => tileIndexOn(map(), tile.x, tile.z)) };
+    const inside = path.filter(insideMap);
+    const tiles = inside.map((tile) => tileIndexOn(map(), tile.x, tile.z));
+    const validTiles = path.filter((tile, index) => insideMap(tile) && checks[index].ok);
+    const invalidTiles = path.filter((tile, index) => insideMap(tile) && !checks[index].ok);
+    const reason = failed?.reason ?? (cost > world.money ? 'Not enough drachmas.' : `Road · ${cost} drachmas`);
+    return { placement: { ok: !failed && cost <= world.money, reason, cost, tiles }, validTiles, invalidTiles };
   }
 
   function updatePreview(pointer: { x: number; y: number } | null = null): void {
+    overlay.setFertileGround(tool === 'farm' ? suitableFarmGround(world) : null);
     stage.canvas.style.cursor = tool === 'inspect' ? '' : 'crosshair';
     if (tool !== 'inspect') city.clearHover();
     if (!hover || tool === 'inspect') {
       city.hidePreview();
+      overlay.setBlockedTiles([]);
+      overlay.setHarbourRoute(null);
+      overlay.setDemolitionTarget([]);
       hud.setHint('Click anything to inspect · WASD pans · Scroll zooms · Q rotates');
       if (tool === 'inspect' && pointer && !drag && city.hover(pointer.x, pointer.y, world)) stage.canvas.style.cursor = 'pointer';
       return;
     }
     if (tool === 'demolish') {
-      const building = world.buildings.find((candidate) => {
-        const size = footprint(candidate.kind, candidate.rotation);
-        return hover!.x >= candidate.x && hover!.x < candidate.x + size.width && hover!.z >= candidate.z && hover!.z < candidate.z + size.depth;
-      });
-      const tiles: number[] = [];
-      if (building) {
-        const size = footprint(building.kind, building.rotation);
-        for (let z = building.z; z < building.z + size.depth; z++) {
-          for (let x = building.x; x < building.x + size.width; x++) tiles.push(tileIndexOn(map(), x, z));
-        }
-      } else tiles.push(tileIndexOn(map(), hover.x, hover.z));
-      city.showPreview(tool, hover.x, hover.z, rotation, { ok: false, reason: '', tiles, cost: 0 });
-      hud.setHint('Click to demolish · Buildings refund half their cost; roads none · Escape cancels');
+      const found = demolitionPreview(world, hover.x, hover.z);
+      overlay.setBlockedTiles([]);
+      overlay.setHarbourRoute(null);
+      overlay.setDemolitionTarget(found?.footprint ?? []);
+      city.showPreview(tool, hover.x, hover.z, rotation, { ok: false, reason: '', tiles: [], cost: 0 });
+      if (!found) hud.setHint('Nothing to demolish here · Escape cancels');
+      else if (found.kind === 'road') hud.setHint('Demolish this road · no refund · Escape cancels');
+      else hud.setHint(`Demolish the ${BUILDINGS[found.kind].name.toLowerCase()} · refunds ${found.refund} drachmas · Escape cancels`);
       return;
     }
-    const preview = tool === 'road' ? roadPreview() : placement(world, tool, hover.x, hover.z, rotation);
-    city.showPreview(tool, hover.x, hover.z, rotation, preview);
+    if (tool === 'road') {
+      const { placement: preview, validTiles, invalidTiles } = roadPreview();
+      city.showPreview(tool, hover.x, hover.z, rotation, { ...preview, ok: true, tiles: validTiles.map((tile) => tileIndexOn(map(), tile.x, tile.z)) });
+      overlay.setBlockedTiles(invalidTiles);
+      overlay.setDemolitionTarget([]);
+      overlay.setHarbourRoute(harbourRoute(world, preview.tiles));
+      if (!preview.ok) stage.canvas.style.cursor = 'not-allowed';
+      hud.setHint(`${preview.reason} · Hold Shift to bend the other way · Escape cancels`);
+      return;
+    }
+    const preview = placement(world, tool, hover.x, hover.z, rotation);
+    const issues = footprintTileIssues(world, tool, hover.x, hover.z, rotation);
+    const validTiles = issues.filter((tile) => !tile.blocked);
+    const invalidTiles = issues.filter((tile) => tile.blocked && insideMap(tile));
+    city.showPreview(tool, hover.x, hover.z, rotation, { ...preview, ok: true, tiles: validTiles.map((tile) => tileIndexOn(map(), tile.x, tile.z)) });
+    overlay.setBlockedTiles(invalidTiles);
+    overlay.setDemolitionTarget([]);
+    overlay.setHarbourRoute(harbourRoute(world, validTiles.map((tile) => tileIndexOn(map(), tile.x, tile.z))));
     if (!preview.ok) stage.canvas.style.cursor = 'not-allowed';
-    let hint = preview.reason;
-    if (preview.ok && tool !== 'road') hint = `${BUILDINGS[tool].name} · ${preview.cost} drachmas · R to rotate · Escape cancels`;
-    hud.setHint(hint);
+    hud.setHint(preview.ok ? `${BUILDINGS[tool].name} · ${preview.cost} drachmas · R to rotate · Escape cancels` : preview.reason);
   }
 
   stage.canvas.addEventListener('pointerdown', (event) => {
@@ -356,6 +389,7 @@ function boot(): void {
     if (event.button !== 0 || event.altKey || !event.isPrimary) return;
     hover = atPointer(event);
     if (!hover) return;
+    bendVertical = event.shiftKey;
     drag = { tile: hover, x: event.clientX, y: event.clientY, pointer: event.pointerId };
     stage.canvas.setPointerCapture(event.pointerId);
     updatePreview();
@@ -363,6 +397,7 @@ function boot(): void {
   stage.canvas.addEventListener('pointermove', (event) => {
     if (!event.isPrimary || event.altKey || event.buttons === 2) return;
     hover = atPointer(event);
+    bendVertical = event.shiftKey;
     updatePreview({ x: event.clientX, y: event.clientY });
   });
   stage.canvas.addEventListener('pointerup', (event) => {
@@ -395,7 +430,7 @@ function boot(): void {
   const held = new Set<string>();
   const PAN_KEYS: Record<string, [number, number]> = { w: [0, 1], s: [0, -1], a: [-1, 0], d: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
   window.addEventListener('keyup', (event) => held.delete(event.key.length === 1 ? event.key.toLowerCase() : event.key));
-  window.addEventListener('blur', () => held.clear());
+  window.addEventListener('blur', () => { held.clear(); bendVertical = false; });
   window.addEventListener('keydown', (event) => {
     if (event.target instanceof HTMLElement && (event.target.closest('input,select,textarea,dialog') || event.target.isContentEditable)) return;
     const panKey = event.key.length === 1 ? event.key.toLowerCase() : event.key;
@@ -528,6 +563,7 @@ function boot(): void {
       get map() { const island = map(); return { width: island.width, depth: island.depth, entry: island.entry, terrain: island.terrain, level: Array.from(island.level) }; },
       roadCost: ROAD_COST,
       saveKey: SAVE_KEY,
+      get overlayCounts() { return overlay.counts; },
     });
   }
 }
