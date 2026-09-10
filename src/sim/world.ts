@@ -1,6 +1,6 @@
 import type { ActionResult, Building, BuildTool, Food, Placement, Rotation, Stores, Summary, Tile, Walker, WalkerKind, World } from './types';
 import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, STARTING_MONEY, VENDOR_COST, footprint } from './catalog';
-import { ENTRY, insideMap, terrainAt, tileAt, tileIndex } from './island';
+import { buildable, insideMapOn, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import {
   accessTiles,
   bfsReachable,
@@ -39,10 +39,13 @@ import {
   WATER_DECAY_PER_SECOND,
 } from './balance';
 
-export function createWorld(): World {
+export const DEFAULT_SEED = 1;
+
+export function createWorld(seed = DEFAULT_SEED): World {
   const world: World = {
     version: 1,
     island: 'kalliste',
+    seed,
     time: 0,
     remainder: 0,
     money: STARTING_MONEY,
@@ -53,17 +56,23 @@ export function createWorld(): World {
     produced: 0,
     delivered: 0,
   };
+  const map = islandFor(seed);
   const roads = new Set<number>();
-  for (let z = 14; z <= ENTRY.z; z++) roads.add(tileIndex(ENTRY.x, z));
-  for (let x = 10; x <= 30; x++) roads.add(tileIndex(x, 20));
+  for (let z = map.entry.z; z >= map.entry.z - 8 && terrainOn(map, map.entry.x, z) !== 'water'; z--) roads.add(tileIndexOn(map, map.entry.x, z));
   world.roads = [...roads];
   recomputeConnectivity(world);
   return world;
 }
 
+function mapOf(world: World): IslandMap {
+  return islandFor(world.seed);
+}
+
 const REASON = {
   outOfBounds: 'Out of bounds.',
   unsuitableTerrain: 'Unsuitable terrain.',
+  unevenGround: 'Buildings need level ground.',
+  roadTooSteep: 'Roads cannot climb cliffs.',
   needsFertileGround: 'Farms need fertile ground.',
   tileOccupied: 'That tile is occupied.',
   tileOccupiedByRoad: 'That tile is occupied by a road.',
@@ -74,21 +83,26 @@ const REASON = {
 } as const;
 
 function buildingAt(world: World, tile: number): Building | undefined {
-  return world.buildings.find((building) => footprintTiles(building).includes(tile));
+  const map = mapOf(world);
+  return world.buildings.find((building) => footprintTiles(map, building).includes(tile));
 }
 
-function terrainAllows(kind: BuildTool, x: number, z: number): boolean {
-  const terrain = terrainAt(x, z);
+function terrainAllows(map: IslandMap, kind: BuildTool, x: number, z: number): boolean {
+  const terrain = terrainOn(map, x, z);
   if (kind === 'farm') return terrain === 'fertile';
-  return terrain === 'grass' || terrain === 'fertile';
+  if (kind === 'road') return buildable(terrain) || terrain === 'forest';
+  return buildable(terrain);
 }
 
 function evaluatePlacement(world: World, tool: BuildTool, x: number, z: number, rotation: Rotation): Placement {
+  const map = mapOf(world);
   if (tool === 'road') {
-    if (!insideMap(x, z)) return { ok: false, reason: REASON.outOfBounds, cost: 0, tiles: [] };
-    const tile = tileIndex(x, z);
-    if (!terrainAllows(tool, x, z)) return { ok: false, reason: REASON.unsuitableTerrain, cost: 0, tiles: [tile] };
+    if (!insideMapOn(map, x, z)) return { ok: false, reason: REASON.outOfBounds, cost: 0, tiles: [] };
+    const tile = tileIndexOn(map, x, z);
+    if (!terrainAllows(map, tool, x, z)) return { ok: false, reason: REASON.unsuitableTerrain, cost: 0, tiles: [tile] };
     if (buildingAt(world, tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: [tile] };
+    const steps = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dz]) => world.roads.includes(tileIndexOn(map, x + dx, z + dz)) && levelOn(map, x + dx, z + dz) !== levelOn(map, x, z));
+    if (steps.length > 0) return { ok: false, reason: REASON.roadTooSteep, cost: 0, tiles: [tile] };
     const already = world.roads.includes(tile);
     const cost = already ? 0 : ROAD_COST;
     if (cost > world.money) return { ok: false, reason: REASON.notEnoughMoney, cost, tiles: [tile] };
@@ -102,13 +116,15 @@ function evaluatePlacement(world: World, tool: BuildTool, x: number, z: number, 
     for (let dx = 0; dx < width; dx++) {
       const tx = x + dx;
       const tz = z + dz;
-      if (!insideMap(tx, tz)) return { ok: false, reason: REASON.outOfBounds, cost: definition.cost, tiles: [] };
-      tiles.push(tileIndex(tx, tz));
+      if (!insideMapOn(map, tx, tz)) return { ok: false, reason: REASON.outOfBounds, cost: definition.cost, tiles: [] };
+      tiles.push(tileIndexOn(map, tx, tz));
     }
   }
+  const baseLevel = levelOn(map, x, z);
   for (const tile of tiles) {
-    const { x: tx, z: tz } = tileAt(tile);
-    if (!terrainAllows(tool, tx, tz)) {
+    const { x: tx, z: tz } = tileAtOn(map, tile);
+    if (levelOn(map, tx, tz) !== baseLevel) return { ok: false, reason: REASON.unevenGround, cost: definition.cost, tiles };
+    if (!terrainAllows(map, tool, tx, tz)) {
       const reason = tool === 'farm' ? REASON.needsFertileGround : REASON.unsuitableTerrain;
       return { ok: false, reason, cost: definition.cost, tiles };
     }
@@ -162,15 +178,19 @@ export function build(world: World, tool: BuildTool, x: number, z: number, rotat
 }
 
 export function placeRoadPath(world: World, tiles: Tile[]): ActionResult {
+  const map = mapOf(world);
   const seen = new Set<number>();
   const indices: number[] = [];
+  let previous: Tile | null = null;
   for (const { x, z } of tiles) {
-    if (!insideMap(x, z)) return { ok: false, reason: REASON.outOfBounds };
-    const tile = tileIndex(x, z);
+    if (!insideMapOn(map, x, z)) return { ok: false, reason: REASON.outOfBounds };
+    const tile = tileIndexOn(map, x, z);
     if (seen.has(tile)) continue;
     seen.add(tile);
-    if (!terrainAllows('road', x, z)) return { ok: false, reason: REASON.unsuitableTerrain };
+    if (!terrainAllows(map, 'road', x, z)) return { ok: false, reason: REASON.unsuitableTerrain };
     if (buildingAt(world, tile)) return { ok: false, reason: REASON.tileOccupied };
+    if (previous && levelOn(map, previous.x, previous.z) !== levelOn(map, x, z)) return { ok: false, reason: REASON.roadTooSteep };
+    previous = { x, z };
     indices.push(tile);
   }
 
@@ -186,8 +206,9 @@ export function placeRoadPath(world: World, tiles: Tile[]): ActionResult {
 }
 
 export function demolish(world: World, x: number, z: number): ActionResult {
-  if (!insideMap(x, z)) return { ok: false, reason: REASON.outOfBounds };
-  const tile = tileIndex(x, z);
+  const map = mapOf(world);
+  if (!insideMapOn(map, x, z)) return { ok: false, reason: REASON.outOfBounds };
+  const tile = tileIndexOn(map, x, z);
 
   const building = buildingAt(world, tile);
   if (building) {
@@ -248,10 +269,11 @@ export function setVendor(world: World, id: number, enabled: boolean): ActionRes
 
 export function recomputeConnectivity(world: World): void {
   const roads = new Set(world.roads);
-  const entry = entryTileIndex();
-  const reachable = roads.has(entry) ? bfsReachable(roads, entry) : new Set<number>();
+  const map = mapOf(world);
+  const entry = entryTileIndex(world);
+  const reachable = roads.has(entry) ? bfsReachable(map, roads, entry) : new Set<number>();
   for (const building of world.buildings) {
-    building.connected = perimeterTiles(building).some((tile) => reachable.has(tile));
+    building.connected = perimeterTiles(map, building).some((tile) => reachable.has(tile));
   }
 }
 
@@ -414,7 +436,8 @@ function updateCircuitDispatch(world: World, building: Building, kind: WalkerKin
 }
 
 function buildingsAdjacentToTile(world: World, tile: number): Building[] {
-  return world.buildings.filter((building) => perimeterTiles(building).includes(tile));
+  const map = mapOf(world);
+  return world.buildings.filter((building) => perimeterTiles(map, building).includes(tile));
 }
 
 function reverseForReturn(walker: Walker): void {
@@ -527,7 +550,7 @@ function sendImmigrants(world: World, house: Building, party: number): void {
   if (party <= 0) return;
   const roads = new Set(world.roads);
   const goals = new Set(accessTiles(world, house));
-  const path = bfsShortest(roads, entryTileIndex(), (tile) => goals.has(tile));
+  const path = bfsShortest(mapOf(world), roads, entryTileIndex(world), (tile) => goals.has(tile));
   if (!path) return;
   spawnWalker(world, {
     kind: 'immigrant',

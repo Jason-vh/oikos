@@ -2,7 +2,7 @@ import type { Building, BuildingKind, Food, Stores, Walker, WalkerKind, World } 
 
 const FOODS: Food[] = ['wheat', 'carrots', 'fish', 'meat', 'olives'];
 import { BUILDINGS, HOUSE_CAPACITY } from './catalog';
-import { MAP_DEPTH, MAP_WIDTH, insideMap } from './island';
+import { islandFor, insideMapOn, type IslandMap } from './island';
 import { neighbours } from './grid';
 import { recomputeConnectivity } from './world';
 
@@ -29,22 +29,22 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function tileInBounds(tile: unknown): tile is number {
-  return isInteger(tile) && tile >= 0 && tile < MAP_WIDTH * MAP_DEPTH;
+function tileInBounds(map: IslandMap, tile: unknown): tile is number {
+  return isInteger(tile) && tile >= 0 && tile < map.width * map.depth;
 }
 
-function validateRoads(raw: unknown): number[] | null {
+function validateRoads(map: IslandMap, raw: unknown): number[] | null {
   if (!Array.isArray(raw)) return null;
   const seen = new Set<number>();
   for (const tile of raw) {
-    if (!tileInBounds(tile)) return null;
+    if (!tileInBounds(map, tile)) return null;
     if (seen.has(tile)) return null;
     seen.add(tile);
   }
   return raw as number[];
 }
 
-function footprintFor(kind: BuildingKind, rotation: number, x: number, z: number): number[] | null {
+function footprintFor(map: IslandMap, kind: BuildingKind, rotation: number, x: number, z: number): number[] | null {
   const definition = BUILDINGS[kind];
   if (!definition) return null;
   const swapped = rotation % 2 === 1;
@@ -55,14 +55,14 @@ function footprintFor(kind: BuildingKind, rotation: number, x: number, z: number
     for (let dx = 0; dx < width; dx++) {
       const tx = x + dx;
       const tz = z + dz;
-      if (!insideMap(tx, tz)) return null;
-      tiles.push(tz * MAP_WIDTH + tx);
+      if (!insideMapOn(map, tx, tz)) return null;
+      tiles.push(tz * map.width + tx);
     }
   }
   return tiles;
 }
 
-function validateBuilding(raw: unknown, roads: Set<number>, occupied: Set<number>): Building | null {
+function validateBuilding(map: IslandMap, raw: unknown, roads: Set<number>, occupied: Set<number>): Building | null {
   if (!isPlainObject(raw)) return null;
   const { id, x, z, kind, rotation, tier, residents, food, water, condition, stores, progress, workers, vendorEnabled, vendorInstalled, connected, serviceTimer, upgradeTimer } = raw;
 
@@ -90,7 +90,7 @@ function validateBuilding(raw: unknown, roads: Set<number>, occupied: Set<number
   const builtTier = tier as 1 | 2 | 3;
   if (builtKind === 'house' && (residents as number) > HOUSE_CAPACITY[builtTier]) return null;
 
-  const tiles = footprintFor(builtKind, rotation as number, x as number, z as number);
+  const tiles = footprintFor(map, builtKind, rotation as number, x as number, z as number);
   if (!tiles) return null;
   for (const tile of tiles) {
     if (roads.has(tile)) return null;
@@ -120,16 +120,16 @@ function validateBuilding(raw: unknown, roads: Set<number>, occupied: Set<number
   };
 }
 
-function pathIsAdjacent(path: number[], roads: Set<number>): boolean {
+function pathIsAdjacent(map: IslandMap, path: number[], roads: Set<number>): boolean {
   for (let i = 0; i < path.length; i++) {
     if (!roads.has(path[i])) return false;
     if (i === 0) continue;
-    if (!neighbours(path[i - 1]).includes(path[i])) return false;
+    if (!neighbours(map, path[i - 1]).includes(path[i])) return false;
   }
   return true;
 }
 
-function validateWalker(raw: unknown, roads: Set<number>, buildingIds: Set<number>): Walker | null {
+function validateWalker(map: IslandMap, raw: unknown, roads: Set<number>, buildingIds: Set<number>): Walker | null {
   if (!isPlainObject(raw)) return null;
   const { id, kind, homeId, targetId, path, step, progress, food, cargo, returning } = raw;
 
@@ -138,8 +138,8 @@ function validateWalker(raw: unknown, roads: Set<number>, buildingIds: Set<numbe
   if (!isInteger(homeId) || !buildingIds.has(homeId as number)) return null;
   if (targetId !== null && (!isInteger(targetId) || !buildingIds.has(targetId as number))) return null;
   if (!Array.isArray(path) || path.length === 0) return null;
-  for (const tile of path) if (!tileInBounds(tile)) return null;
-  if (!pathIsAdjacent(path as number[], roads)) return null;
+  for (const tile of path) if (!tileInBounds(map, tile)) return null;
+  if (!pathIsAdjacent(map, path as number[], roads)) return null;
   if (!isInteger(step) || step < 0 || step >= path.length) return null;
   if (!isFiniteNumber(progress) || progress < 0 || progress >= 1) return null;
   if (!isNonNegativeFinite(cargo)) return null;
@@ -168,10 +168,12 @@ export function deserializeWorld(raw: string): World | null {
     return null;
   }
   if (!isPlainObject(parsed)) return null;
-  const { version, island, time, remainder, money, nextId, roads: rawRoads, buildings: rawBuildings, walkers: rawWalkers, produced, delivered } = parsed;
+  const { version, island, seed, time, remainder, money, nextId, roads: rawRoads, buildings: rawBuildings, walkers: rawWalkers, produced, delivered } = parsed;
 
   if (version !== 1) return null;
   if (island !== 'kalliste') return null;
+  if (!isInteger(seed) || seed < 0 || seed > 0xffffffff) return null;
+  const map = islandFor(seed as number);
   if (!isNonNegativeFinite(time)) return null;
   if (!isNonNegativeFinite(remainder)) return null;
   if (!isFiniteNumber(money)) return null;
@@ -179,7 +181,7 @@ export function deserializeWorld(raw: string): World | null {
   if (!isNonNegativeFinite(produced)) return null;
   if (!isNonNegativeFinite(delivered)) return null;
 
-  const roads = validateRoads(rawRoads);
+  const roads = validateRoads(map, rawRoads);
   if (!roads) return null;
   const roadSet = new Set(roads);
 
@@ -188,7 +190,7 @@ export function deserializeWorld(raw: string): World | null {
   const buildings: Building[] = [];
   const usedIds = new Set<number>();
   for (const entry of rawBuildings) {
-    const building = validateBuilding(entry, roadSet, occupied);
+    const building = validateBuilding(map, entry, roadSet, occupied);
     if (!building) return null;
     if (usedIds.has(building.id) || building.id >= (nextId as number)) return null;
     usedIds.add(building.id);
@@ -199,7 +201,7 @@ export function deserializeWorld(raw: string): World | null {
   const buildingIds = new Set(buildings.map((building) => building.id));
   const walkers: Walker[] = [];
   for (const entry of rawWalkers) {
-    const walker = validateWalker(entry, roadSet, buildingIds);
+    const walker = validateWalker(map, entry, roadSet, buildingIds);
     if (!walker) return null;
     if (usedIds.has(walker.id) || walker.id >= (nextId as number)) return null;
     usedIds.add(walker.id);
@@ -209,6 +211,7 @@ export function deserializeWorld(raw: string): World | null {
   const world: World = {
     version: 1,
     island: 'kalliste',
+    seed: seed as number,
     time: time as number,
     remainder: remainder as number,
     money: money as number,

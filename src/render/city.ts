@@ -2,7 +2,7 @@ import * as T from 'three';
 import { animateFigure, bake, box, bundle, bundleKey, colors, disposeModel, figure, getBuildingModel, post, type ModelStage } from '../art';
 import { footprint } from '../sim/catalog';
 import { AGORA_SLOTS, GRANARY_SLOTS } from '../sim/balance';
-import { CELL_SIZE, GROUND_Y, MAP_WIDTH, tileAt, tileIndex, worldPosition } from '../sim/island';
+import { CELL_SIZE, groundHeight, tileAtOn, tileIndexOn, worldPositionOn, type IslandMap } from '../sim/island';
 import type { Building, BuildTool, Food, Placement, Rotation, Walker, WalkerKind, World } from '../sim/types';
 import type { Stage } from './stage';
 import { IslandScenery } from './island';
@@ -37,8 +37,8 @@ export class CityScene {
   private readonly invalidMaterial = new T.MeshBasicMaterial({ color: 0xd3664e, transparent: true, opacity: .45, depthWrite: false });
   private readonly tileGeometry = new T.PlaneGeometry(CELL_SIZE - .06, CELL_SIZE - .06).rotateX(-Math.PI / 2);
 
-  constructor(private readonly stage: Stage) {
-    this.scenery = new IslandScenery(stage.scene);
+  constructor(private readonly stage: Stage, readonly map: IslandMap) {
+    this.scenery = new IslandScenery(stage.scene, map);
     this.selection.visible = false;
     stage.scene.add(this.roads, this.selection, this.preview);
   }
@@ -50,10 +50,11 @@ export class CityScene {
     disposeModel(this.roads);
     this.roads.clear();
     for (const index of world.roads) {
-      const tile = tileAt(index);
-      const p = worldPosition(tile.x + .5, tile.z + .5);
-      box(this.roads, colors.paving, p.x, GROUND_Y + .015, p.z, CELL_SIZE, .07, CELL_SIZE, .025);
-      if (index % 3 !== 0) box(this.roads, colors.cream, p.x - .15, GROUND_Y + .058, p.z + .08, .58, .012, .42, .008);
+      const tile = tileAtOn(this.map, index);
+      const p = worldPositionOn(this.map, tile.x + .5, tile.z + .5);
+      const y = groundHeight(this.map, tile.x, tile.z);
+      box(this.roads, colors.paving, p.x, y + .015, p.z, CELL_SIZE, .07, CELL_SIZE, .025);
+      if (index % 3 !== 0) box(this.roads, colors.cream, p.x - .15, y + .058, p.z + .08, .58, .012, .42, .008);
     }
     if (world.roads.length) bake(this.roads);
     this.stage.shadows();
@@ -73,7 +74,7 @@ export class CityScene {
     for (const building of world.buildings) {
       const { width, depth } = footprint(building.kind, building.rotation);
       for (let z = building.z; z < building.z + depth; z++) {
-        for (let x = building.x; x < building.x + width; x++) occupied.add(tileIndex(x, z));
+        for (let x = building.x; x < building.x + width; x++) occupied.add(tileIndexOn(this.map, x, z));
       }
       const stage = modelStage(building);
       const key = `${building.kind}:${building.tier}:${building.vendorEnabled}:${stage}:${storesKey(building)}:${building.rotation}:${building.x}:${building.z}`;
@@ -84,15 +85,15 @@ export class CityScene {
         disposeModel(existing.model);
       }
       const model = getBuildingModel(building.kind, { tier: building.tier, vendorEnabled: building.vendorEnabled, stage, stores: building.stores });
-      const point = worldPosition(building.x + width / 2, building.z + depth / 2);
-      model.position.set(point.x, GROUND_Y, point.z);
+      const point = worldPositionOn(this.map, building.x + width / 2, building.z + depth / 2);
+      model.position.set(point.x, groundHeight(this.map, building.x, building.z), point.z);
       model.rotation.y = -building.rotation * Math.PI / 2;
       model.userData.buildingId = building.id;
       this.stage.scene.add(model);
       this.buildings.set(building.id, { key, model });
       this.stage.shadows();
     }
-    this.scenery.clearTrees(occupied);
+    this.scenery.clearDecor(occupied);
     const walkerIds = new Set(world.walkers.map((walker) => walker.id));
     for (const [id, entry] of this.walkers) {
       if (walkerIds.has(id)) continue;
@@ -141,11 +142,12 @@ export class CityScene {
   }
 
   private syncWalker(walker: Walker): void {
-    const current = tileAt(walker.path[Math.min(walker.step, walker.path.length - 1)]);
-    const next = tileAt(walker.path[Math.min(walker.step + 1, walker.path.length - 1)]);
-    const a = worldPosition(current.x + .5, current.z + .5);
-    const b = worldPosition(next.x + .5, next.z + .5);
-    const target = new T.Vector3(T.MathUtils.lerp(a.x, b.x, walker.progress), GROUND_Y + .08, T.MathUtils.lerp(a.z, b.z, walker.progress));
+    const current = tileAtOn(this.map, walker.path[Math.min(walker.step, walker.path.length - 1)]);
+    const next = tileAtOn(this.map, walker.path[Math.min(walker.step + 1, walker.path.length - 1)]);
+    const a = worldPositionOn(this.map, current.x + .5, current.z + .5);
+    const b = worldPositionOn(this.map, next.x + .5, next.z + .5);
+    const y = T.MathUtils.lerp(groundHeight(this.map, current.x, current.z), groundHeight(this.map, next.x, next.z), walker.progress);
+    const target = new T.Vector3(T.MathUtils.lerp(a.x, b.x, walker.progress), y + .08, T.MathUtils.lerp(a.z, b.z, walker.progress));
     const load = walker.cargo > 0 ? walker.food : null;
     const key = `${walker.kind}:${load ?? ''}`;
     let entry = this.walkers.get(walker.id);
@@ -200,19 +202,19 @@ export class CityScene {
     this.selection.visible = building !== null;
     if (!building) return;
     const { width, depth } = footprint(building.kind, building.rotation);
-    const p = worldPosition(building.x + width / 2, building.z + depth / 2);
+    const p = worldPositionOn(this.map, building.x + width / 2, building.z + depth / 2);
     this.selection.scale.set(width * CELL_SIZE + .12, 1, depth * CELL_SIZE + .12);
-    this.selection.position.set(p.x, GROUND_Y + .065, p.z);
+    this.selection.position.set(p.x, groundHeight(this.map, building.x, building.z) + .065, p.z);
   }
 
   showPreview(tool: BuildTool | 'demolish', x: number, z: number, rotation: Rotation, placement: Placement): void {
     this.preview.clear();
     for (const index of placement.tiles) {
-      if (index < 0 || index >= MAP_WIDTH * 32) continue;
-      const tile = tileAt(index);
-      const p = worldPosition(tile.x + .5, tile.z + .5);
+      if (index < 0 || index >= this.map.width * this.map.depth) continue;
+      const tile = tileAtOn(this.map, index);
+      const p = worldPositionOn(this.map, tile.x + .5, tile.z + .5);
       const surface = new T.Mesh(this.tileGeometry, placement.ok ? this.validMaterial : this.invalidMaterial);
-      surface.position.set(p.x, GROUND_Y + .09, p.z);
+      surface.position.set(p.x, groundHeight(this.map, tile.x, tile.z) + .09, p.z);
       this.preview.add(surface);
     }
     const key = `${tool}:${rotation}`;
@@ -243,8 +245,8 @@ export class CityScene {
     }
     if (this.ghost && tool !== 'road' && tool !== 'demolish') {
       const size = footprint(tool, rotation);
-      const p = worldPosition(x + size.width / 2, z + size.depth / 2);
-      this.ghost.position.set(p.x, GROUND_Y + .06, p.z);
+      const p = worldPositionOn(this.map, x + size.width / 2, z + size.depth / 2);
+      this.ghost.position.set(p.x, groundHeight(this.map, x, z) + .06, p.z);
       this.ghost.rotation.y = -rotation * Math.PI / 2;
       this.preview.add(this.ghost);
     }
@@ -260,7 +262,7 @@ export class CityScene {
     if (this.selectedWalker === null) return;
     const entry = this.walkers.get(this.selectedWalker);
     if (!entry) return;
-    this.selection.position.set(entry.model.position.x, GROUND_Y + .065, entry.model.position.z);
+    this.selection.position.set(entry.model.position.x, entry.model.position.y - .015, entry.model.position.z);
   }
 
   pick(clientX: number, clientY: number): { building: number | null; walker: number | null } {
@@ -282,5 +284,22 @@ export class CityScene {
       object = object.parent;
     }
     return { building: null, walker: null };
+  }
+
+  dispose(): void {
+    for (const entry of this.buildings.values()) {
+      entry.model.removeFromParent();
+      disposeModel(entry.model);
+    }
+    this.buildings.clear();
+    for (const entry of this.walkers.values()) entry.model.removeFromParent();
+    this.walkers.clear();
+    for (const template of this.walkerTemplates.values()) disposeModel(template);
+    this.walkerTemplates.clear();
+    disposeModel(this.roads);
+    this.roads.removeFromParent();
+    this.selection.removeFromParent();
+    this.preview.removeFromParent();
+    this.scenery.dispose();
   }
 }

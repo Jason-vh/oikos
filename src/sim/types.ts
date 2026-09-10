@@ -2,7 +2,7 @@ export type BuildingKind = 'house' | 'farm' | 'granary' | 'agora' | 'fountain' |
 export type BuildTool = BuildingKind | 'road';
 export type Tool = BuildTool | 'inspect' | 'demolish';
 export type Rotation = 0 | 1 | 2 | 3;
-export type Terrain = 'water' | 'grass' | 'fertile' | 'hill';
+export type Terrain = 'water' | 'sand' | 'grass' | 'fertile' | 'scrub' | 'forest' | 'rock' | 'cliff';
 export type Food = 'wheat' | 'carrots' | 'fish' | 'meat' | 'olives';
 export type Stores = Partial<Record<Food, number>>;
 export interface Tile { x: number; z: number; }
@@ -40,6 +40,7 @@ export interface Walker {
 export interface World {
   version: 1;
   island: 'kalliste';
+  seed: number;
   time: number;
   remainder: number;
   money: number;

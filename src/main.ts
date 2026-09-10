@@ -2,15 +2,14 @@ import * as T from 'three';
 import { Stage } from './render/stage';
 import { CityScene } from './render/city';
 import { BUILDINGS, footprint, ROAD_COST } from './sim/catalog';
-import { CELL_SIZE, GROUND_Y, MAP_DEPTH, MAP_WIDTH, terrainAt, tileIndex, worldPosition } from './sim/island';
-import { advance, build, buildingStatus, createWorld, demolish, getSummary, placement, placeRoadPath, setVendor, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
+import { CELL_SIZE, groundHeight, islandFor, LEVEL_HEIGHT, terrainOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
+import { advance, build, buildingStatus, createWorld, DEFAULT_SEED, demolish, getSummary, placement, placeRoadPath, setVendor, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
 import { deserializeWorld, serializeWorld } from './sim/save';
 import type { ActionResult, Placement, Rotation, Tile, Tool } from './sim/types';
 import { createHud } from './ui/hud';
 import './ui/style.css';
 
 const SAVE_KEY = 'oikos.island.v1';
-const DEFAULT_VIEW = { target: [0, 0, 0], offset: [35, 38, 48], size: 43 };
 
 function boot(): void {
   let world = createWorld();
@@ -31,8 +30,20 @@ function boot(): void {
     storageWarning = 'Browser storage is unavailable. This island cannot be saved.';
   }
   const stage = new Stage(document.querySelector<HTMLElement>('#app')!, false);
-  stage.setView(DEFAULT_VIEW);
-  const city = new CityScene(stage);
+  let city = new CityScene(stage, islandFor(world.seed));
+  const map = () => city.map;
+  function viewFor(seed: number): { target: number[]; offset: number[]; size: number } {
+    const island = islandFor(seed);
+    const harbour = worldPositionOn(island, island.entry.x + .5, island.entry.z + .5);
+    return { target: [harbour.x * .35, 0, harbour.z * .45], offset: [35, 38, 48], size: Math.max(island.width, island.depth) * CELL_SIZE * .62 };
+  }
+  stage.setView(viewFor(world.seed));
+  function rebuildScene(): void {
+    city.dispose();
+    city = new CityScene(stage, islandFor(world.seed));
+    stage.setView(viewFor(world.seed));
+    stage.shadows();
+  }
   let tool: Tool = 'inspect';
   let rotation: Rotation = 0;
   let speed: 0 | 1 | 3 = 1;
@@ -101,21 +112,24 @@ function boot(): void {
         const raw = localStorage.getItem(SAVE_KEY);
         const saved = raw ? deserializeWorld(raw) : null;
         if (!saved) { hud.notify('No valid saved island found. Your current island is unchanged.', true); return; }
+        const previousSeed = world.seed;
         world = saved;
         selectedId = null;
         accumulator = 0;
         dirtySave = false;
         autoSaveEnabled = true;
+        if (world.seed !== previousSeed) rebuildScene();
         refresh();
         updatePreview();
         hud.notify('Saved island restored.');
       } catch { hud.notify('Browser storage is unavailable.', true); }
     },
     newIsland: () => {
-      world = createWorld();
+      const seed = world.seed === DEFAULT_SEED ? 2 : (world.seed * 1103515245 + 12345) % 0x7fffffff;
+      world = createWorld(seed);
       selectedId = null;
       accumulator = 0;
-      stage.setView(DEFAULT_VIEW);
+      rebuildScene();
       selectTool('inspect');
       setSpeed(1);
       refresh();
@@ -123,7 +137,7 @@ function boot(): void {
       hud.notify('A new beginning. Build four dwellings beside the road.');
     },
     vendor: (id, enabled) => apply(setVendor(world, id, enabled)),
-    focus: (x, z) => { const point = worldPosition(x + .5, z + .5); stage.focus(point.x, point.z); },
+    focus: (x, z) => { const point = worldPositionOn(map(), x + .5, z + .5); stage.focus(point.x, point.z); },
     grid: setGrid,
   });
 
@@ -137,9 +151,14 @@ function boot(): void {
   }
 
   function atPointer(event: PointerEvent): Tile | null {
-    const point = stage.pick(event.clientX, event.clientY, GROUND_Y);
-    if (!point) return null;
-    return { x: Math.floor(point.x / CELL_SIZE + MAP_WIDTH / 2), z: Math.floor(point.z / CELL_SIZE + MAP_DEPTH / 2) };
+    const island = map();
+    for (let level = 2; level >= 0; level--) {
+      const point = stage.pick(event.clientX, event.clientY, GROUND_Y + level * LEVEL_HEIGHT);
+      if (!point) continue;
+      const tile = { x: Math.floor(point.x / CELL_SIZE + island.width / 2), z: Math.floor(point.z / CELL_SIZE + island.depth / 2) };
+      if (level === 0 || groundHeight(island, tile.x, tile.z) === GROUND_Y + level * LEVEL_HEIGHT) return tile;
+    }
+    return null;
   }
 
   function roadPath(): Tile[] {
@@ -159,7 +178,7 @@ function boot(): void {
     const checks = path.map((tile) => placement(world, 'road', tile.x, tile.z));
     const cost = checks.reduce((sum, check) => sum + check.cost, 0);
     const failed = checks.find((check) => !check.ok);
-    return { ok: !failed && cost <= world.money, reason: failed?.reason ?? (cost > world.money ? 'Not enough drachmas.' : `Road · ${cost} drachmas`), cost, tiles: path.filter((tile) => tile.x >= 0 && tile.x < MAP_WIDTH && tile.z >= 0 && tile.z < MAP_DEPTH).map((tile) => tileIndex(tile.x, tile.z)) };
+    return { ok: !failed && cost <= world.money, reason: failed?.reason ?? (cost > world.money ? 'Not enough drachmas.' : `Road · ${cost} drachmas`), cost, tiles: path.filter((tile) => tile.x >= 0 && tile.x < map().width && tile.z >= 0 && tile.z < map().depth).map((tile) => tileIndexOn(map(), tile.x, tile.z)) };
   }
 
   function updatePreview(): void {
@@ -177,9 +196,9 @@ function boot(): void {
       if (building) {
         const size = footprint(building.kind, building.rotation);
         for (let z = building.z; z < building.z + size.depth; z++) {
-          for (let x = building.x; x < building.x + size.width; x++) tiles.push(tileIndex(x, z));
+          for (let x = building.x; x < building.x + size.width; x++) tiles.push(tileIndexOn(map(), x, z));
         }
-      } else tiles.push(tileIndex(hover.x, hover.z));
+      } else tiles.push(tileIndexOn(map(), hover.x, hover.z));
       city.showPreview(tool, hover.x, hover.z, rotation, { ok: false, reason: '', tiles, cost: 0 });
       hud.setHint('Click to demolish · Buildings refund half their cost; roads none · Escape cancels');
       return;
@@ -305,16 +324,17 @@ function boot(): void {
       get summary() { return getSummary(world); },
       get frames() { return stage.frames; },
       get camera() { return [...stage.camera.position.toArray(), ...stage.controls.target.toArray(), stage.camera.zoom]; },
-      projectTile: (x: number, z: number) => { const p = worldPosition(x + .5, z + .5); return stage.project(p.x, GROUND_Y, p.z); },
+      projectTile: (x: number, z: number) => { const p = worldPositionOn(map(), x + .5, z + .5); return stage.project(p.x, groundHeight(map(), x, z), p.z); },
       projectBuilding: (id: number) => {
         const building = world.buildings.find((candidate) => candidate.id === id);
         if (!building) return null;
         const size = footprint(building.kind, building.rotation);
-        const p = worldPosition(building.x + size.width / 2, building.z + size.depth / 2);
-        return stage.project(p.x, GROUND_Y + 1.5, p.z);
+        const p = worldPositionOn(map(), building.x + size.width / 2, building.z + size.depth / 2);
+        return stage.project(p.x, groundHeight(map(), building.x, building.z) + 1.5, p.z);
       },
       advance: (seconds: number) => { setSpeed(0); advance(world, seconds); refresh(); dirtySave = true; stage.shadows(); },
-      terrainAt,
+      terrainAt: (x: number, z: number) => terrainOn(map(), x, z),
+      get map() { const island = map(); return { width: island.width, depth: island.depth, entry: island.entry, terrain: island.terrain, level: Array.from(island.level) }; },
       roadCost: ROAD_COST,
       saveKey: SAVE_KEY,
     });
