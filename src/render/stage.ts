@@ -8,6 +8,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 export interface View { target: number[]; offset: number[]; size: number; zoom?: number; }
 
 const UP = new T.Vector3(0, 1, 0);
+const MOTION_SHADOW_INTERVAL = 1000 / 12;
 
 export class Stage {
   readonly scene = new T.Scene();
@@ -23,6 +24,9 @@ export class Stage {
   private size = 44;
   private request = 0;
   private lost = false;
+  private shadowsDue = false;
+  private motionShadowsDue = false;
+  private lastShadows = 0;
   private readonly goal = { target: new T.Vector3(), spin: 0, active: false };
   reducedMotion = false;
   frames = 0;
@@ -35,6 +39,7 @@ export class Stage {
     this.renderer.shadowMap.enabled = !lean;
     this.renderer.shadowMap.type = T.PCFShadowMap;
     this.renderer.shadowMap.autoUpdate = false;
+    this.renderer.info.autoReset = false;
     this.renderer.toneMapping = T.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.18;
     this.canvas = this.renderer.domElement;
@@ -99,6 +104,8 @@ export class Stage {
     this.request = requestAnimationFrame(() => {
       this.request = 0;
       if (document.hidden) return;
+      this.refreshShadows();
+      this.renderer.info.reset();
       this.composer.render();
       this.frames++;
       document.body.dataset.ready = 'true';
@@ -107,8 +114,23 @@ export class Stage {
     });
   };
 
-  shadows(): void {
+  private refreshShadows(): void {
+    const now = performance.now();
+    const motionDue = this.motionShadowsDue && now - this.lastShadows >= MOTION_SHADOW_INTERVAL;
+    if (!this.shadowsDue && !motionDue) return;
     this.renderer.shadowMap.needsUpdate = true;
+    this.shadowsDue = false;
+    this.motionShadowsDue = false;
+    this.lastShadows = now;
+  }
+
+  shadows(): void {
+    this.shadowsDue = true;
+    this.invalidate();
+  }
+
+  shadowsFromMotion(): void {
+    this.motionShadowsDue = true;
     this.invalidate();
   }
 

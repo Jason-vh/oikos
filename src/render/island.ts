@@ -7,9 +7,20 @@ import { buildTerrain } from './terrain';
 import { CoastalFoam } from '../art/foam';
 import { cliffOutcrop } from '../art/cliffs';
 import { bushForTile } from '../art/bushes';
+import { hide, InstanceField, piecesAround, write, type InstanceSlot } from './instances';
 
 function seeded(map: IslandMap, x: number, z: number, salt: number): number {
   return fractal(x * 3.7 + salt, z * 2.9 - salt, map.seed + salt, 1, 1);
+}
+
+interface DecorPiece { slot: InstanceSlot; local: T.Matrix4; geometry: T.BufferGeometry; }
+interface DecorEntry {
+  pivot: T.Matrix4;
+  pieces: DecorPiece[];
+  tilt: T.Euler;
+  drop: number;
+  hidden: boolean;
+  settled: boolean;
 }
 
 export class IslandScenery {
@@ -20,13 +31,17 @@ export class IslandScenery {
   private stairKey = '';
   private readonly waterTime = { value: 0 };
   private readonly ship = boat(colors.blue, false);
-  private readonly decor = new Map<number, T.Group>();
+  private readonly field = new InstanceField();
+  private readonly decor = new Map<number, DecorEntry>();
   private readonly falling = new Map<number, number>();
+  private readonly pose = new T.Matrix4();
+  private readonly base = new T.Matrix4();
+  private readonly scratch = new T.Matrix4();
 
   constructor(scene: T.Scene, readonly map: IslandMap) {
     this.foam = new CoastalFoam(map);
     this.terrain.add(buildTerrain(map));
-    this.root.add(this.terrain, this.foam.mesh);
+    this.root.add(this.terrain, this.foam.mesh, this.field.root);
     const props = new T.Group();
     const gridPoints: number[] = [];
     for (let z = 0; z < map.depth; z++) {
@@ -48,16 +63,12 @@ export class IslandScenery {
           const cypress = seeded(map, x, z, 3) > .7;
           tree(plant, cx + jitterX, y, cz + jitterZ, .62 + seeded(map, x, z, 4) * .3, cypress);
           if (seeded(map, x, z, 5) > .55) tree(plant, cx - jitterX * 1.4, y, cz - jitterZ * 1.2, .5 + seeded(map, x, z, 6) * .2, !cypress && seeded(map, x, z, 7) > .6);
-          bake(plant);
-          this.decor.set(z * map.width + x, plant);
-          this.root.add(plant);
+          this.absorb(z * map.width + x, cx, y, cz, plant);
         } else if (terrain === 'scrub') {
           const bush = bushForTile(map, x, z);
           if (bush) {
             bush.position.set(cx, y, cz);
-            bake(bush);
-            this.decor.set(z * map.width + x, bush);
-            this.root.add(bush);
+            this.absorb(z * map.width + x, cx, y, cz, bush);
           }
         } else if (terrain === 'rock') {
           if (seeded(map, x, z, 13) > .45) {
@@ -78,19 +89,13 @@ export class IslandScenery {
             bush.position.set(cx, y, cz);
             rocks.add(bush);
           }
-          if (rocks.children.length) {
-            bake(rocks);
-            this.decor.set(z * map.width + x, rocks);
-            this.root.add(rocks);
-          }
+          if (rocks.children.length) this.absorb(z * map.width + x, cx, y, cz, rocks);
         } else if (terrain === 'fertile') {
           box(props, (x + z) % 2 === 0 ? 0xb9b47a : 0xb2ad74, cx, y - .03, cz, CELL_SIZE, .04, CELL_SIZE, 0);
         } else if (terrain === 'grass' && levelOn(map, x, z) >= 1 && seeded(map, x, z, 18) > .93) {
           const plant = new T.Group();
           tree(plant, cx + jitterX, y, cz + jitterZ, .6, seeded(map, x, z, 19) > .5);
-          bake(plant);
-          this.decor.set(z * map.width + x, plant);
-          this.root.add(plant);
+          this.absorb(z * map.width + x, cx, y, cz, plant);
         }
       }
     }
@@ -141,40 +146,92 @@ export class IslandScenery {
     this.terrain.add(terrain);
   }
 
+  private absorb(tile: number, x: number, y: number, z: number, source: T.Group): void {
+    const pivot = new T.Matrix4().makeTranslation(x, y, z);
+    const pieces = piecesAround(source, pivot).map((piece) => ({
+      slot: this.field.reserve(piece.geometry, piece.material),
+      local: piece.local,
+      geometry: piece.geometry,
+    }));
+    this.decor.set(tile, { pivot, pieces, tilt: new T.Euler(), drop: 0, hidden: false, settled: false });
+    this.writeDecor(tile);
+  }
+
+  private writeDecor(tile: number): void {
+    const entry = this.decor.get(tile);
+    if (!entry) return;
+    if (entry.hidden) {
+      for (const piece of entry.pieces) hide(piece.slot);
+      return;
+    }
+    this.pose.makeRotationFromEuler(entry.tilt).setPosition(0, entry.drop, 0);
+    this.base.multiplyMatrices(entry.pivot, this.pose);
+    for (const piece of entry.pieces) write(piece.slot, this.scratch.multiplyMatrices(this.base, piece.local));
+  }
+
+  decorTiles(): number[] {
+    return [...this.decor.keys()];
+  }
+
+  decorHidden(tile: number): boolean {
+    return this.decor.get(tile)?.hidden ?? true;
+  }
+
+  decorBounds(tile: number): T.Box3 | null {
+    const entry = this.decor.get(tile);
+    if (!entry) return null;
+    this.pose.makeRotationFromEuler(entry.tilt).setPosition(0, entry.drop, 0);
+    this.base.multiplyMatrices(entry.pivot, this.pose);
+    const bounds = new T.Box3();
+    for (const piece of entry.pieces) {
+      if (!piece.geometry.boundingBox) piece.geometry.computeBoundingBox();
+      const part = piece.geometry.boundingBox!.clone();
+      part.applyMatrix4(this.scratch.multiplyMatrices(this.base, piece.local));
+      bounds.union(part);
+    }
+    return bounds;
+  }
+
   clearDecor(occupied: Set<number>, felled: Set<number>): void {
-    for (const [tile, plant] of this.decor) {
+    for (const [tile, entry] of this.decor) {
       if (felled.has(tile)) {
-        if (!this.falling.has(tile) && plant.visible && plant.userData.settled !== true) this.falling.set(tile, 0);
+        if (!this.falling.has(tile) && !entry.hidden && !entry.settled) this.falling.set(tile, 0);
         continue;
       }
-      plant.visible = !occupied.has(tile);
-      plant.rotation.set(0, 0, 0);
-      plant.userData.settled = false;
+      const hidden = occupied.has(tile);
+      const posed = entry.tilt.x !== 0 || entry.tilt.z !== 0 || entry.drop !== 0;
+      const changed = entry.hidden !== hidden || posed;
+      entry.hidden = hidden;
+      entry.tilt.set(0, 0, 0);
+      entry.drop = 0;
+      entry.settled = false;
       this.falling.delete(tile);
+      if (changed) this.writeDecor(tile);
     }
   }
 
   animateFalls(delta: number): boolean {
     let active = false;
     for (const [tile, elapsed] of this.falling) {
-      const plant = this.decor.get(tile);
-      if (!plant) { this.falling.delete(tile); continue; }
+      const entry = this.decor.get(tile);
+      if (!entry) { this.falling.delete(tile); continue; }
       const next = elapsed + delta;
       const t = Math.min(1, next / 2.2);
       const eased = t * t * (3 - 2 * t);
       const lean = eased * Math.PI * .48;
       const seed = (tile * 7919) % 360;
-      plant.rotation.set(Math.cos(seed) * lean, 0, Math.sin(seed) * lean);
-      plant.position.y = t > .85 ? -(t - .85) * 4 : 0;
+      entry.tilt.set(Math.cos(seed) * lean, 0, Math.sin(seed) * lean);
+      entry.drop = t > .85 ? -(t - .85) * 4 : 0;
       if (t >= 1) {
-        plant.visible = false;
-        plant.position.y = 0;
-        plant.userData.settled = true;
+        entry.hidden = true;
+        entry.drop = 0;
+        entry.settled = true;
         this.falling.delete(tile);
       } else {
         this.falling.set(tile, next);
         active = true;
       }
+      this.writeDecor(tile);
     }
     return active;
   }
@@ -187,6 +244,8 @@ export class IslandScenery {
   }
 
   dispose(): void {
+    this.field.dispose();
+    this.decor.clear();
     this.root.removeFromParent();
     this.root.traverse((child) => {
       if (child instanceof T.Mesh || child instanceof T.LineSegments) child.geometry.dispose();

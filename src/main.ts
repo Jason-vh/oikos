@@ -502,7 +502,7 @@ function boot(): void {
         if (!reducedMotion) {
           artTime += visualDelta;
           city.animate(artTime, visualDelta, speed);
-          stage.shadows();
+          stage.shadowsFromMotion();
         }
         visualDelta = 0;
         lastRender = now;
@@ -533,6 +533,8 @@ function boot(): void {
       get state() { return structuredClone(world); },
       get summary() { return getSummary(world); },
       get frames() { return stage.frames; },
+      get drawCalls() { return stage.renderer.info.render.calls; },
+      get triangles() { return stage.renderer.info.render.triangles; },
       get foamVersion() { return (city.scenery.foam.mesh.geometry.attributes.position as T.BufferAttribute).version; },
       get camera() { return [...stage.camera.position.toArray(), ...stage.controls.target.toArray(), stage.camera.zoom]; },
       projectTile: (x: number, z: number) => { const p = worldPositionOn(map(), x + .5, z + .5); return stage.project(p.x, roadHeight(map(), stairLayout(map(), new Set(world.roads)), x + .5, z + .5), p.z); },

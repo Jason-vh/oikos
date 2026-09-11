@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { animalModel, animateAnimal, animateFigure, animateWork, bake, box, bundle, bundleKey, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, lump, post, type ModelStage } from '../art';
+import { animateFigure, animateWork, bake, box, bundle, bundleKey, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, lump, post, type ModelStage } from '../art';
 import { footprint } from '../sim/catalog';
 import { AGORA_SLOTS, GRANARY_SLOTS } from '../sim/balance';
 import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, groundHeight, insideMapOn, tileAtOn, tileIndexOn, worldPositionOn, type IslandMap } from '../sim/island';
@@ -13,11 +13,12 @@ import { IslandScenery } from './island';
 import { LogisticsOverlay, syncDisconnectedMark, syncHouseSupplies } from './logistics';
 import { BuildingConstruction } from './assembly';
 import { DustField } from './dust';
+import { WildlifeField } from './wildlife';
 
 interface BuildingEntry { key: string; tier: number; model: T.Group; intro: number; from: number; construction: BuildingConstruction | null; }
 interface Departure { model: T.Group; elapsed: number; }
 interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; from: T.Vector3; target: T.Vector3; elapsed: number; moving: boolean; working: boolean; heading: number; stepped: boolean; }
-interface AnimalEntry { model: T.Group; from: T.Vector3; target: T.Vector3; heading: number; elapsed: number; moving: boolean; dying: number; }
+interface AnimalEntry { kind: AnimalKind; position: T.Vector3; from: T.Vector3; target: T.Vector3; heading: number; facing: number; roll: number; phase: number; elapsed: number; moving: boolean; dying: number; visible: boolean; }
 
 const TURN_RATE = 14;
 const INTRO_SECONDS = .45;
@@ -60,7 +61,7 @@ export class CityScene {
   private readonly walkers = new Map<number, WalkerEntry>();
   private readonly walkerTemplates = new Map<string, T.Group>();
   private readonly animals = new Map<number, AnimalEntry>();
-  private readonly animalTemplates = new Map<AnimalKind, T.Group>();
+  private readonly wildlife: WildlifeField;
   private readonly departures: Departure[] = [];
   private readonly dust: DustField;
   private readonly roads = new T.Group();
@@ -86,6 +87,7 @@ export class CityScene {
     this.validStairMaterial.depthTest = false;
     this.invalidStairMaterial.depthTest = false;
     this.scenery = new IslandScenery(stage.scene, map);
+    this.wildlife = new WildlifeField(stage.scene);
     this.logistics = new LogisticsOverlay(stage.scene, map);
     this.dust = new DustField(stage.scene);
     this.selection.visible = false;
@@ -195,9 +197,9 @@ export class CityScene {
     }
     for (const walker of world.walkers) this.syncWalker(walker);
     const animalIds = new Set(world.wildlife.map((animal) => animal.id));
-    for (const [id, entry] of this.animals) {
+    for (const id of [...this.animals.keys()]) {
       if (animalIds.has(id)) continue;
-      entry.model.removeFromParent();
+      this.wildlife.remove(id);
       this.animals.delete(id);
     }
     for (const animal of world.wildlife) this.syncAnimal(animal);
@@ -213,35 +215,46 @@ export class CityScene {
 
   private syncAnimal(animal: Animal): void {
     const target = this.animalPosition(animal);
-    let entry = this.animals.get(animal.id);
+    const entry = this.animals.get(animal.id);
     if (!entry) {
-      let template = this.animalTemplates.get(animal.kind);
-      if (!template) {
-        template = animalModel(animal.kind);
-        template.scale.setScalar(animal.kind === 'boar' ? 1.15 : animal.kind === 'rabbit' ? 1.25 : animal.kind === 'gull' ? .9 : 1.1);
-        this.animalTemplates.set(animal.kind, template);
-      }
-      const model = template.clone();
-      model.userData.kind = animal.kind;
-      model.position.copy(target);
-      model.rotation.y = -animal.heading + Math.PI / 2;
-      this.stage.scene.add(model);
-      entry = { model, from: target.clone(), target, heading: animal.heading, elapsed: .25, moving: false, dying: 0 };
-      this.animals.set(animal.id, entry);
-      if (animal.respawn > 0) model.visible = false;
+      const fresh: AnimalEntry = {
+        kind: animal.kind,
+        position: target.clone(),
+        from: target.clone(),
+        target,
+        heading: animal.heading,
+        facing: -animal.heading + Math.PI / 2,
+        roll: 0,
+        phase: 0,
+        elapsed: .25,
+        moving: false,
+        dying: 0,
+        visible: animal.respawn === 0,
+      };
+      this.animals.set(animal.id, fresh);
+      this.wildlife.add(animal.id, animal.kind);
+      this.writeAnimal(animal.id, fresh);
       return;
     }
-    if (animal.respawn > 0 && entry.model.visible && entry.dying === 0) entry.dying = .01;
-    if (animal.respawn === 0 && !entry.model.visible) {
-      entry.model.visible = true;
-      entry.model.rotation.z = 0;
+    if (animal.respawn > 0 && entry.visible && entry.dying === 0) entry.dying = .01;
+    if (animal.respawn === 0 && !entry.visible) {
+      entry.visible = true;
+      entry.roll = 0;
       entry.dying = 0;
     }
-    entry.from.copy(entry.model.position);
+    entry.from.copy(entry.position);
     entry.target.copy(target);
     entry.heading = animal.heading;
     entry.elapsed = 0;
     entry.moving = entry.from.distanceToSquared(target) > 1e-5;
+  }
+
+  private writeAnimal(id: number, entry: AnimalEntry): void {
+    if (!entry.visible) {
+      this.wildlife.conceal(id);
+      return;
+    }
+    this.wildlife.pose(id, entry.kind, { position: entry.position, facing: entry.facing, roll: entry.roll, phase: entry.phase, moving: entry.moving });
   }
 
   private walkerModel(kind: WalkerKind, load: Resource | null): T.Group {
@@ -335,7 +348,7 @@ export class CityScene {
     entry.working = walker.working > 0;
     let facing: number | null = null;
     if (entry.working && walker.quarry !== null) {
-      const quarry = walker.kind === 'hunter' ? this.animals.get(walker.quarry)?.model.position : null;
+      const quarry = walker.kind === 'hunter' ? this.animals.get(walker.quarry)?.position : null;
       const tile = walker.kind === 'woodcutter' ? tileAtOn(this.map, walker.quarry) : null;
       const goal = quarry ?? (tile ? new T.Vector3(worldPositionOn(this.map, tile.x + .5, tile.z + .5).x, 0, worldPositionOn(this.map, tile.x + .5, tile.z + .5).z) : null);
       if (goal) facing = Math.atan2(goal.x - target.x, goal.z - target.z);
@@ -382,23 +395,25 @@ export class CityScene {
     }
     for (const [id, animal] of this.animals) {
       animal.elapsed += delta * speed;
-      animal.model.position.lerpVectors(animal.from, animal.target, Math.min(1, animal.elapsed / .25));
-      const kind = this.kindOf(animal.model);
-      animal.model.rotation.y = turnToward(animal.model.rotation.y, -animal.heading + Math.PI / 2, delta * speed);
+      animal.position.lerpVectors(animal.from, animal.target, Math.min(1, animal.elapsed / .25));
+      animal.facing = turnToward(animal.facing, -animal.heading + Math.PI / 2, delta * speed);
       if (animal.dying > 0) {
         animal.dying += delta * speed;
         const t = Math.min(1, animal.dying / .9);
-        animal.model.rotation.z = t * Math.PI / 2;
-        animal.model.position.y = animal.target.y + Math.sin(t * Math.PI) * .12;
+        animal.roll = t * Math.PI / 2;
+        animal.position.y = animal.target.y + Math.sin(t * Math.PI) * .12;
+        animal.moving = false;
         if (t >= 1) {
-          animal.model.visible = false;
+          animal.visible = false;
           animal.dying = 0;
         }
+        this.writeAnimal(id, animal);
         continue;
       }
-      animateAnimal(animal.model, kind, time * Math.max(1, speed) + id, animal.moving);
+      animal.phase = time * Math.max(1, speed) + id;
+      this.writeAnimal(id, animal);
     }
-    if (this.scenery.animateFalls(delta * speed)) this.stage.shadows();
+    if (this.scenery.animateFalls(delta * speed)) this.stage.shadowsFromMotion();
     this.followSelection();
     this.stage.invalidate();
   }
@@ -442,18 +457,25 @@ export class CityScene {
       active = true;
     }
     if (this.dust.advance(delta)) active = true;
-    if (active) this.stage.shadows();
+    if (active) this.stage.shadowsFromMotion();
     return active;
+  }
+
+  private moverPosition(id: number | null): T.Vector3 | null {
+    if (id === null) return null;
+    const walker = this.walkers.get(id);
+    if (walker) return walker.model.position;
+    return this.animals.get(id)?.position ?? null;
   }
 
   hover(clientX: number, clientY: number, world: World): boolean {
     const picked = this.pick(clientX, clientY);
     const building = world.buildings.find((candidate) => candidate.id === picked.building);
-    const mover = picked.walker !== null ? this.walkers.get(picked.walker) : picked.animal !== null ? this.animals.get(picked.animal) : null;
-    this.hoverMark.visible = building !== undefined || mover !== undefined;
+    const mover = this.moverPosition(picked.walker ?? picked.animal);
+    this.hoverMark.visible = building !== undefined || mover !== null;
     if (mover) {
       this.hoverMark.scale.set(1.1, 1, 1.1);
-      this.hoverMark.position.set(mover.model.position.x, mover.model.position.y - .015, mover.model.position.z);
+      this.hoverMark.position.set(mover.x, mover.y - .015, mover.z);
     } else if (building) {
       const { width, depth } = footprint(building.kind, building.rotation);
       const p = worldPositionOn(this.map, building.x + width / 2, building.z + depth / 2);
@@ -468,10 +490,6 @@ export class CityScene {
     if (!this.hoverMark.visible) return;
     this.hoverMark.visible = false;
     this.stage.invalidate();
-  }
-
-  private kindOf(model: T.Object3D): AnimalKind {
-    return model.userData.kind as AnimalKind;
   }
 
   select(building: Building | null, walkerId: number | null = null): void {
@@ -547,9 +565,9 @@ export class CityScene {
 
   private followSelection(): void {
     if (this.selectedWalker === null) return;
-    const entry = this.walkers.get(this.selectedWalker) ?? this.animals.get(this.selectedWalker);
-    if (!entry) return;
-    this.selection.position.set(entry.model.position.x, entry.model.position.y - .015, entry.model.position.z);
+    const position = this.moverPosition(this.selectedWalker);
+    if (!position) return;
+    this.selection.position.set(position.x, position.y - .015, position.z);
   }
 
   private pointerRay(clientX: number, clientY: number): T.Raycaster {
@@ -613,7 +631,8 @@ export class CityScene {
     if (nearest) return { building: null, walker: nearest.id, animal: null };
     let nearestAnimal: { id: number; distance: number } | null = null;
     for (const [id, entry] of this.animals) {
-      centre.copy(entry.model.position).setY(entry.model.position.y + .25);
+      if (!entry.visible) continue;
+      centre.copy(entry.position).setY(entry.position.y + .25);
       const distance = ray.ray.distanceToPoint(centre);
       if (distance < .7 && (!nearestAnimal || distance < nearestAnimal.distance)) nearestAnimal = { id, distance };
     }
@@ -635,10 +654,8 @@ export class CityScene {
     this.buildings.clear();
     for (const entry of this.walkers.values()) entry.model.removeFromParent();
     this.walkers.clear();
-    for (const entry of this.animals.values()) entry.model.removeFromParent();
     this.animals.clear();
-    for (const template of this.animalTemplates.values()) disposeModel(template);
-    this.animalTemplates.clear();
+    this.wildlife.dispose();
     for (const template of this.walkerTemplates.values()) disposeModel(template);
     this.walkerTemplates.clear();
     for (const departure of this.departures) {

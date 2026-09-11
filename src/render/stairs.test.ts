@@ -26,7 +26,7 @@ function fixture(dx = 1, dz = 0) {
   const stage = {
     scene, camera,
     canvas: { getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 800 }) },
-    shadows() { renders.shadows++; }, invalidate() {},
+    shadows() { renders.shadows++; }, shadowsFromMotion() {}, invalidate() {},
     pick(x: number, y: number, height: number) {
       ray.setFromCamera(new T.Vector2(x / 400 - 1, 1 - y / 400), camera);
       return ray.ray.intersectPlane(new T.Plane(new T.Vector3(0, 1, 0), -height), new T.Vector3());
