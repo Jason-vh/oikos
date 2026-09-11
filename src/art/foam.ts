@@ -7,7 +7,9 @@ const STATIONS = [0, .18, .5, .82, 1];
 const TAPER = [0, .8, 1, .8, 0];
 const PERIOD = 6;
 
-interface Ribbon { segment: CoastalSegment; phase: number; start: number; length: number; }
+interface Ribbon { segment: CoastalSegment; phase: number; start: number; length: number; x: number; z: number; }
+
+const SIGHT = 130;
 
 export class CoastalFoam {
   readonly mesh: T.Mesh<T.BufferGeometry, T.MeshStandardMaterial>;
@@ -27,6 +29,8 @@ export class CoastalFoam {
         phase: fractal(x, z, map.seed + 947, 2, 4) * 3 + x * .035 + z * .027,
         start: .06 + variation * .06,
         length: .68 + variation * .14,
+        x,
+        z,
       });
       for (const profile of [segment.start, segment.end]) {
         for (const point of [profile.foot, profile.shallows]) bounds.expandByPoint(new T.Vector3(point[0], point[1] + .025, point[2]));
@@ -56,11 +60,12 @@ export class CoastalFoam {
     this.update(0);
   }
 
-  update(time: number): void {
+  update(time: number, focus?: { x: number; z: number } | null): void {
     if (time === this.lastTime) return;
     this.lastTime = time;
     for (let index = 0; index < this.ribbons.length; index++) {
       const ribbon = this.ribbons[index];
+      if (focus && (ribbon.x - focus.x) ** 2 + (ribbon.z - focus.z) ** 2 > SIGHT * SIGHT) continue;
       const cycle = time / PERIOD + ribbon.phase;
       const phase = cycle - Math.floor(cycle);
       const progress = Math.min(1, phase / .7);

@@ -9,6 +9,9 @@ export interface View { target: number[]; offset: number[]; size: number; zoom?:
 
 const UP = new T.Vector3(0, 1, 0);
 const MOTION_SHADOW_INTERVAL = 1000 / 12;
+const SUN_OFFSET = new T.Vector3(-23, 42, 28);
+const GOLDEN_SUN_OFFSET = new T.Vector3(-23, 22, 28);
+const SUN_SNAP = 4;
 
 export class Stage {
   readonly scene = new T.Scene();
@@ -27,6 +30,8 @@ export class Stage {
   private shadowsDue = false;
   private motionShadowsDue = false;
   private lastShadows = 0;
+  private readonly sunOffset = SUN_OFFSET.clone();
+  private readonly sunAnchor = new T.Vector3(Infinity, 0, Infinity);
   private readonly goal = { target: new T.Vector3(), spin: 0, active: false };
   reducedMotion = false;
   frames = 0;
@@ -50,7 +55,7 @@ export class Stage {
     this.controls.dampingFactor = .14;
     this.controls.minPolarAngle = Math.PI / 7;
     this.controls.maxPolarAngle = Math.PI / 2.65;
-    this.controls.minZoom = .65;
+    this.controls.minZoom = .25;
     this.controls.maxZoom = 3.8;
     this.controls.maxTargetRadius = 65;
     this.controls.screenSpacePanning = false;
@@ -59,8 +64,6 @@ export class Stage {
     if (!interactive) this.controls.mouseButtons.LEFT = null;
     this.controls.addEventListener('change', this.invalidate);
     this.controls.addEventListener('start', this.settle);
-    this.sun.position.set(-25, 42, 24);
-    this.sun.target.position.set(-2, 0, -4);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
     Object.assign(this.sun.shadow.camera, { left: -44, right: 44, top: 44, bottom: -44, near: 1, far: 120 });
@@ -104,6 +107,8 @@ export class Stage {
     this.request = requestAnimationFrame(() => {
       this.request = 0;
       if (document.hidden) return;
+      this.depth();
+      this.trackSun();
       this.refreshShadows();
       this.renderer.info.reset();
       this.composer.render();
@@ -113,6 +118,37 @@ export class Stage {
       if (status) status.hidden = true;
     });
   };
+
+  viewSpan(): number {
+    return (this.camera.right - this.camera.left) / this.camera.zoom;
+  }
+
+  private depth(): void {
+    const span = this.viewSpan();
+    const far = this.camera.position.distanceTo(this.controls.target) + span * 1.5;
+    if (Math.abs(this.camera.far - far) < 1) return;
+    this.camera.far = far;
+    this.camera.updateProjectionMatrix();
+  }
+
+  private trackSun(): void {
+    const x = Math.round(this.controls.target.x / SUN_SNAP) * SUN_SNAP;
+    const z = Math.round(this.controls.target.z / SUN_SNAP) * SUN_SNAP;
+    if (this.sunAnchor.x === x && this.sunAnchor.z === z) return;
+    this.sunAnchor.set(x, 0, z);
+    this.aimSun();
+    this.shadowsDue = true;
+  }
+
+  private aimSun(): void {
+    this.sun.target.position.copy(this.sunAnchor);
+    this.sun.target.updateMatrixWorld();
+    this.sun.position.copy(this.sunAnchor).add(this.sunOffset);
+  }
+
+  bounds(radius: number): void {
+    this.controls.maxTargetRadius = radius;
+  }
 
   private refreshShadows(): void {
     const now = performance.now();
@@ -223,7 +259,8 @@ export class Stage {
 
   golden(enabled: boolean): void {
     this.sun.color.setHex(enabled ? 0xffc083 : 0xffe6bd);
-    this.sun.position.set(-25, enabled ? 22 : 42, 24);
+    this.sunOffset.copy(enabled ? GOLDEN_SUN_OFFSET : SUN_OFFSET);
+    this.aimSun();
     this.sun.intensity = enabled ? 3.8 : 3.5;
     this.ambient.intensity = enabled ? 1.55 : 2.1;
     this.shadows();

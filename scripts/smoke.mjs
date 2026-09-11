@@ -131,8 +131,9 @@ try {
   const roamerTile = roamer.path[Math.min(roamer.step, roamer.path.length - 1)];
   await page.evaluate(([x, z]) => window.oikos.focusTile(x, z), [roamerTile % island.width, Math.floor(roamerTile / island.width)]);
   await paint(page);
-  const roamerPoint = await tilePoint(page, roamerTile % island.width, Math.floor(roamerTile / island.width));
-  await page.mouse.click(roamerPoint.x, roamerPoint.y - 6);
+  const roamerPoint = await page.evaluate((id) => window.oikos.projectWalker(id), roamer.id);
+  assert(roamerPoint, 'Walker has no rendered position');
+  await page.mouse.click(roamerPoint.x, roamerPoint.y);
   await paint(page);
   assert.match(await page.locator('[data-field="inspector-tier"]').textContent(), /vendor|carrier|caretaker/i, 'Clicking a walker did not inspect them');
   assert(world.walkers.length > 0 || world.produced > 0, 'Nothing moved');

@@ -18,7 +18,11 @@ import { WildlifeField } from './wildlife';
 interface BuildingEntry { key: string; tier: number; model: T.Group; intro: number; from: number; construction: BuildingConstruction | null; }
 interface Departure { model: T.Group; elapsed: number; }
 interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; from: T.Vector3; target: T.Vector3; elapsed: number; moving: boolean; working: boolean; heading: number; stepped: boolean; }
-interface AnimalEntry { kind: AnimalKind; position: T.Vector3; from: T.Vector3; target: T.Vector3; heading: number; facing: number; roll: number; phase: number; elapsed: number; moving: boolean; dying: number; visible: boolean; }
+interface AnimalEntry { kind: AnimalKind; position: T.Vector3; from: T.Vector3; target: T.Vector3; heading: number; facing: number; roll: number; phase: number; elapsed: number; moving: boolean; dying: number; visible: boolean; drawn: boolean; }
+
+const SIGHT_MARGIN = 1.3;
+const TELEPORT = 4;
+const REVEAL_SHARE = .9;
 
 const TURN_RATE = 14;
 const INTRO_SECONDS = .45;
@@ -75,6 +79,8 @@ export class CityScene {
   private previewKey = '';
   private ghost: T.Group | null = null;
   private selectedWalker: number | null = null;
+  private focus: T.Vector3 | null = null;
+  private sight = 60;
   private lastWorld: World | null = null;
   private readonly logistics: LogisticsOverlay;
   private readonly validMaterial = new T.MeshBasicMaterial({ color: 0x79b58b, transparent: true, opacity: .38, depthWrite: false });
@@ -202,6 +208,7 @@ export class CityScene {
       this.wildlife.remove(id);
       this.animals.delete(id);
     }
+
     for (const animal of world.wildlife) this.syncAnimal(animal);
     this.stage.invalidate();
   }
@@ -230,9 +237,9 @@ export class CityScene {
         moving: false,
         dying: 0,
         visible: animal.respawn === 0,
+        drawn: false,
       };
       this.animals.set(animal.id, fresh);
-      this.wildlife.add(animal.id, animal.kind);
       this.writeAnimal(animal.id, fresh);
       return;
     }
@@ -242,19 +249,55 @@ export class CityScene {
       entry.roll = 0;
       entry.dying = 0;
     }
+    const jumped = entry.position.distanceToSquared(target) > TELEPORT * TELEPORT;
+    if (jumped) entry.position.copy(target);
     entry.from.copy(entry.position);
     entry.target.copy(target);
     entry.heading = animal.heading;
-    entry.elapsed = 0;
-    entry.moving = entry.from.distanceToSquared(target) > 1e-5;
+    entry.elapsed = jumped ? .25 : 0;
+    entry.moving = !jumped && entry.from.distanceToSquared(target) > 1e-5;
   }
 
-  private writeAnimal(id: number, entry: AnimalEntry): void {
+  private withinSight(entry: AnimalEntry): boolean {
+    if (!this.focus) return true;
+    const reach = this.sight * (entry.drawn ? SIGHT_MARGIN : 1);
+    const dx = entry.position.x - this.focus.x;
+    const dz = entry.position.z - this.focus.z;
+    return dx * dx + dz * dz <= reach * reach;
+  }
+
+  private writeAnimal(id: number, entry: AnimalEntry): boolean {
+    const sighted = this.withinSight(entry);
+    if (!sighted) {
+      if (!entry.drawn) return false;
+      this.wildlife.remove(id);
+      entry.drawn = false;
+      return true;
+    }
+    if (!entry.drawn) {
+      this.wildlife.add(id, entry.kind);
+      entry.drawn = true;
+    }
     if (!entry.visible) {
       this.wildlife.conceal(id);
-      return;
+      return true;
     }
     this.wildlife.pose(id, entry.kind, { position: entry.position, facing: entry.facing, roll: entry.roll, phase: entry.phase, moving: entry.moving });
+    return true;
+  }
+
+  watch(focus: T.Vector3, span: number): void {
+    const sight = Math.max(60, span);
+    if (this.focus && this.sight === sight && this.focus.distanceToSquared(focus) < 1) return;
+    this.focus = focus.clone();
+    this.sight = sight;
+    this.scenery.reveal(this.focus, span * REVEAL_SHARE);
+    let changed = false;
+    for (const [id, entry] of this.animals) {
+      const drawn = entry.drawn;
+      if (this.writeAnimal(id, entry) !== drawn) changed = true;
+    }
+    if (changed) this.stage.invalidate();
   }
 
   private walkerModel(kind: WalkerKind, load: Resource | null): T.Group {
@@ -339,10 +382,12 @@ export class CityScene {
       entry = { key, kind: walker.kind, model, from: target.clone(), target, elapsed: .25, moving: false, working: false, heading: 0, stepped };
       this.walkers.set(walker.id, entry);
     } else {
+      const jumped = entry.model.position.distanceToSquared(target) > TELEPORT * TELEPORT;
+      if (jumped) entry.model.position.copy(target);
       entry.from.copy(entry.model.position);
       entry.target.copy(target);
-      entry.elapsed = 0;
-      entry.moving = entry.from.distanceToSquared(target) > 1e-6;
+      entry.elapsed = jumped ? .25 : 0;
+      entry.moving = !jumped && entry.from.distanceToSquared(target) > 1e-6;
     }
     entry.stepped = stepped;
     entry.working = walker.working > 0;
@@ -375,7 +420,7 @@ export class CityScene {
   }
 
   animate(time: number, delta: number, speed: number): void {
-    this.scenery.update(time);
+    this.scenery.update(time, this.focus);
     for (const [id, walker] of this.walkers) {
       walker.elapsed += delta * speed;
       walker.model.position.lerpVectors(walker.from, walker.target, Math.min(1, walker.elapsed / .25));
@@ -397,6 +442,7 @@ export class CityScene {
       animal.elapsed += delta * speed;
       animal.position.lerpVectors(animal.from, animal.target, Math.min(1, animal.elapsed / .25));
       animal.facing = turnToward(animal.facing, -animal.heading + Math.PI / 2, delta * speed);
+
       if (animal.dying > 0) {
         animal.dying += delta * speed;
         const t = Math.min(1, animal.dying / .9);
@@ -459,6 +505,10 @@ export class CityScene {
     if (this.dust.advance(delta)) active = true;
     if (active) this.stage.shadowsFromMotion();
     return active;
+  }
+
+  moverPoint(id: number): T.Vector3 | null {
+    return this.moverPosition(id);
   }
 
   private moverPosition(id: number | null): T.Vector3 | null {
@@ -594,6 +644,8 @@ export class CityScene {
     }
     let groundTile: Tile | null = null;
     let groundDistance = Infinity;
+    let nearestLevel: Tile | null = null;
+    let nearestGap = Infinity;
     for (let level = 2; level >= 0; level--) {
       const y = GROUND_Y + level * LEVEL_HEIGHT;
       const point = this.stage.pick(clientX, clientY, y);
@@ -609,14 +661,19 @@ export class CityScene {
       if (!insideMapOn(this.map, tile.x, tile.z)) continue;
       const stair = this.stairs.get(tileIndexOn(this.map, tile.x, tile.z));
       if (stair && Math.abs(-stair.dz * (x - tile.x - .5) + stair.dx * (z - tile.z - .5)) * CELL_SIZE < STAIR_WIDTH / 2) continue;
-      if (Math.abs(groundHeight(this.map, tile.x, tile.z) - y) < 1e-6) {
+      const gap = Math.abs(groundHeight(this.map, tile.x, tile.z) - y);
+      if (gap < 1e-6) {
         groundTile = tile;
         groundDistance = ray.ray.origin.distanceTo(point);
         break;
       }
+      if (gap < nearestGap) {
+        nearestGap = gap;
+        nearestLevel = tile;
+      }
     }
     if (stairTile && hit.distance < groundDistance) return stairTile;
-    return groundTile;
+    return groundTile ?? nearestLevel;
   }
 
   pick(clientX: number, clientY: number): { building: number | null; walker: number | null; animal: number | null } {

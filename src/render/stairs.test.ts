@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import * as T from 'three';
-import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, tileAtOn, worldPositionOn, type IslandMap } from '../sim/island';
+import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, soleIsland, tileAtOn, worldPositionOn } from '../sim/island';
 import { STAIR_WIDTH } from '../art/stairs';
 import { roadHeight, stairLayout } from '../sim/stairs';
 import { createWorld } from '../sim/world';
@@ -9,7 +9,7 @@ import { CityScene } from './city';
 import type { Stage } from './stage';
 
 function fixture(dx = 1, dz = 0) {
-  const map: IslandMap = { seed: 17, width: 5, depth: 5, terrain: Array(25).fill('grass'), level: new Uint8Array(25), entry: { x: 0, z: 4 } };
+  const map = soleIsland({ seed: 17, width: 5, depth: 5, terrain: Array(25).fill('grass'), level: new Uint8Array(25), entry: { x: 0, z: 4 } });
   for (let index = 0; index < 25; index++) {
     const { x, z } = tileAtOn(map, index);
     const along = (x - 2) * dx + (z - 2) * dz;
@@ -131,5 +131,27 @@ test('walkers follow the full-cell profile in both directions, including interpo
     expect(restored.position.y).toBeCloseTo(roadHeight(map, stairs, 2.75, 2.5) + .08, 5);
   } finally {
     city.dispose();
+  }
+});
+
+test('every point over a terrace resolves to a tile, including across the step', () => {
+  for (const [dx, dz] of [[1, 0], [0, 1]]) {
+    const { city, map, camera, scene } = fixture(dx, dz);
+    scene.updateMatrixWorld(true);
+    const ray = new T.Raycaster();
+    let sampled = 0;
+    for (let sy = 40; sy < 760; sy += 20) {
+      for (let sx = 40; sx < 760; sx += 20) {
+        ray.setFromCamera(new T.Vector2(sx / 400 - 1, 1 - sy / 400), camera);
+        const ground = ray.ray.intersectPlane(new T.Plane(new T.Vector3(0, 1, 0), -GROUND_Y), new T.Vector3());
+        if (!ground) continue;
+        const x = Math.floor(ground.x / CELL_SIZE + map.width / 2);
+        const z = Math.floor(ground.z / CELL_SIZE + map.depth / 2);
+        if (x < 1 || z < 1 || x >= map.width - 1 || z >= map.depth - 1) continue;
+        sampled++;
+        expect(city.tileAtPointer(sx, sy)).not.toBeNull();
+      }
+    }
+    expect(sampled).toBeGreaterThan(20);
   }
 });

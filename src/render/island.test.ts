@@ -11,6 +11,7 @@ function hiddenTiles(scenery: IslandScenery): number[] {
 test('scrub clears only on occupied tiles and returns in the same pose', () => {
   const map = generateIsland(1);
   const scenery = new IslandScenery(new T.Scene(), map);
+  scenery.reveal(null);
   try {
     const index = map.terrain.findIndex((terrain, tile) => {
       if (terrain !== 'scrub') return false;
@@ -40,6 +41,7 @@ test('clifftop decoration clears for roads and returns when they are removed', (
   const map = generateIsland(1);
   const before = structuredClone(map);
   const scenery = new IslandScenery(new T.Scene(), map);
+  scenery.reveal(null);
   try {
     const cliffTiles = new Set(map.terrain.flatMap((terrain, tile) => terrain === 'cliff' ? [tile] : []));
     scenery.clearDecor(cliffTiles, new Set());
@@ -58,6 +60,7 @@ test('clifftop decoration clears for roads and returns when they are removed', (
 test('felled forest leans from its own tile and disappears once it has settled', () => {
   const map = generateIsland(1);
   const scenery = new IslandScenery(new T.Scene(), map);
+  scenery.reveal(null);
   try {
     const tile = map.terrain.findIndex((terrain) => terrain === 'forest');
     expect(scenery.decorTiles()).toContain(tile);
@@ -78,14 +81,26 @@ test('felled forest leans from its own tile and disappears once it has settled',
   }
 });
 
-test('decoration draws as a handful of instanced batches', () => {
+test('decoration draws as instanced batches per chunk, each cullable on its own', () => {
   const map = generateIsland(1);
   const scenery = new IslandScenery(new T.Scene(), map);
+  scenery.reveal(null);
   try {
-    let calls = 0;
-    scenery.root.traverse((child) => { if ((child as T.Mesh).isMesh) calls++; });
+    const batches: T.InstancedMesh[] = [];
+    let meshes = 0;
+    scenery.root.traverse((child) => {
+      if (!(child as T.Mesh).isMesh) return;
+      meshes++;
+      if ((child as T.InstancedMesh).isInstancedMesh) batches.push(child as T.InstancedMesh);
+    });
     expect(scenery.decorTiles().length).toBeGreaterThan(400);
-    expect(calls).toBeLessThan(40);
+    expect(meshes).toBeLessThan(scenery.decorTiles().length / 10);
+    expect(batches.length).toBeGreaterThan(0);
+    for (const batch of batches) {
+      expect(batch.frustumCulled).toBe(true);
+      expect(batch.boundingSphere).not.toBeNull();
+      expect(batch.boundingSphere!.radius).toBeLessThan(60);
+    }
   } finally {
     scenery.dispose();
   }

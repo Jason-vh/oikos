@@ -14,7 +14,7 @@ class InstanceBatch {
   private used = 0;
   private readonly released: number[] = [];
 
-  constructor(private readonly root: T.Object3D, private readonly geometry: T.BufferGeometry, private readonly material: T.Material) {
+  constructor(private readonly root: T.Object3D, private readonly geometry: T.BufferGeometry, private readonly material: T.Material, private readonly confinement: T.Sphere | null) {
     this.mesh = this.create(this.capacity);
     this.root.add(this.mesh);
   }
@@ -23,7 +23,8 @@ class InstanceBatch {
     const mesh = new T.InstancedMesh(this.geometry, this.material, capacity);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-    mesh.frustumCulled = false;
+    mesh.frustumCulled = this.confinement !== null;
+    if (this.confinement) mesh.boundingSphere = this.confinement;
     for (let index = 0; index < capacity; index++) mesh.setMatrixAt(index, HIDDEN);
     return mesh;
   }
@@ -54,6 +55,7 @@ class InstanceBatch {
 
   write(index: number, matrix: T.Matrix4): void {
     this.mesh.setMatrixAt(index, matrix);
+    this.mesh.instanceMatrix.addUpdateRange(index * 16, 16);
     this.mesh.instanceMatrix.needsUpdate = true;
   }
 
@@ -65,6 +67,11 @@ class InstanceBatch {
 export class InstanceField {
   readonly root = new T.Group();
   private readonly batches = new Map<string, InstanceBatch>();
+  private confinement: T.Sphere | null = null;
+
+  confine(centre: T.Vector3, radius: number): void {
+    this.confinement = new T.Sphere(centre.clone(), radius);
+  }
 
   get batchCount(): number {
     return this.batches.size;
@@ -74,7 +81,7 @@ export class InstanceField {
     const key = `${geometry.uuid}:${material.uuid}`;
     let batch = this.batches.get(key);
     if (!batch) {
-      batch = new InstanceBatch(this.root, geometry, material);
+      batch = new InstanceBatch(this.root, geometry, material, this.confinement);
       this.batches.set(key, batch);
     }
     return { batch, index: batch.acquire() };

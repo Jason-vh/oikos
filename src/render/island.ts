@@ -13,6 +13,9 @@ function seeded(map: IslandMap, x: number, z: number, salt: number): number {
   return fractal(x * 3.7 + salt, z * 2.9 - salt, map.seed + salt, 1, 1);
 }
 
+const DECOR_HEIGHT = 12;
+const DECOR_CHUNK = 24;
+
 interface DecorPiece { slot: InstanceSlot; local: T.Matrix4; geometry: T.BufferGeometry; }
 interface DecorEntry {
   pivot: T.Matrix4;
@@ -31,17 +34,20 @@ export class IslandScenery {
   private stairKey = '';
   private readonly waterTime = { value: 0 };
   private readonly ship = boat(colors.blue, false);
-  private readonly field = new InstanceField();
+  private readonly fields = new Map<number, InstanceField>();
   private readonly decor = new Map<number, DecorEntry>();
   private readonly falling = new Map<number, number>();
   private readonly pose = new T.Matrix4();
   private readonly base = new T.Matrix4();
   private readonly scratch = new T.Matrix4();
+  private readonly unrevealed = new Map<number, number[]>();
+  private occupied = new Set<number>();
+  private felled = new Set<number>();
 
   constructor(scene: T.Scene, readonly map: IslandMap) {
     this.foam = new CoastalFoam(map);
     this.terrain.add(buildTerrain(map));
-    this.root.add(this.terrain, this.foam.mesh, this.field.root);
+    this.root.add(this.terrain, this.foam.mesh);
     const props = new T.Group();
     const gridPoints: number[] = [];
     for (let z = 0; z < map.depth; z++) {
@@ -50,52 +56,16 @@ export class IslandScenery {
         if (terrain === 'water') continue;
         const origin = worldPositionOn(map, x, z);
         const y = groundHeight(map, x, z);
-        const cx = origin.x + CELL_SIZE / 2;
-        const cz = origin.z + CELL_SIZE / 2;
         if (buildable(terrain)) {
           gridPoints.push(origin.x, y + .025, origin.z, origin.x + CELL_SIZE, y + .025, origin.z);
           gridPoints.push(origin.x, y + .025, origin.z, origin.x, y + .025, origin.z + CELL_SIZE);
         }
-        const jitterX = (seeded(map, x, z, 1) - .5) * .5;
-        const jitterZ = (seeded(map, x, z, 2) - .5) * .5;
-        if (terrain === 'forest') {
-          const plant = new T.Group();
-          const cypress = seeded(map, x, z, 3) > .7;
-          tree(plant, cx + jitterX, y, cz + jitterZ, .62 + seeded(map, x, z, 4) * .3, cypress);
-          if (seeded(map, x, z, 5) > .55) tree(plant, cx - jitterX * 1.4, y, cz - jitterZ * 1.2, .5 + seeded(map, x, z, 6) * .2, !cypress && seeded(map, x, z, 7) > .6);
-          this.absorb(z * map.width + x, cx, y, cz, plant);
-        } else if (terrain === 'scrub') {
-          const bush = bushForTile(map, x, z);
-          if (bush) {
-            bush.position.set(cx, y, cz);
-            this.absorb(z * map.width + x, cx, y, cz, bush);
-          }
-        } else if (terrain === 'rock') {
-          if (seeded(map, x, z, 13) > .45) {
-            lump(props, seeded(map, x, z, 14) > .5 ? colors.stone : colors.cream, cx + jitterX, y + .18, cz + jitterZ, .3 + seeded(map, x, z, 15) * .3, .22 + seeded(map, x, z, 16) * .2, .28 + seeded(map, x, z, 17) * .3);
-          }
-        } else if (terrain === 'cliff') {
-          const outcrops = fractal(x, z, map.seed + 967, 2, 4);
-          const rocks = new T.Group();
-          if (outcrops > .59 && seeded(map, x, z, 20) > .45) {
-            const outcrop = cliffOutcrop();
-            outcrop.position.set(cx, y, cz);
-            outcrop.rotation.y = seeded(map, x, z, 21) * Math.PI * 2;
-            outcrop.scale.setScalar(.75 + seeded(map, x, z, 22) * .25);
-            rocks.add(outcrop);
-          }
-          const bush = bushForTile(map, x, z);
-          if (bush) {
-            bush.position.set(cx, y, cz);
-            rocks.add(bush);
-          }
-          if (rocks.children.length) this.absorb(z * map.width + x, cx, y, cz, rocks);
-        } else if (terrain === 'fertile') {
-          box(props, (x + z) % 2 === 0 ? 0xb9b47a : 0xb2ad74, cx, y - .03, cz, CELL_SIZE, .04, CELL_SIZE, 0);
-        } else if (terrain === 'grass' && levelOn(map, x, z) >= 1 && seeded(map, x, z, 18) > .93) {
-          const plant = new T.Group();
-          tree(plant, cx + jitterX, y, cz + jitterZ, .6, seeded(map, x, z, 19) > .5);
-          this.absorb(z * map.width + x, cx, y, cz, plant);
+        if (terrain === 'forest' || terrain === 'scrub' || terrain === 'cliff' || terrain === 'rock' || terrain === 'fertile' || (terrain === 'grass' && levelOn(map, x, z) >= 1 && seeded(map, x, z, 18) > .93)) {
+          const tile = z * map.width + x;
+          const key = this.chunkKey(x, z);
+          const waiting = this.unrevealed.get(key);
+          if (waiting) waiting.push(tile);
+          else this.unrevealed.set(key, [tile]);
         }
       }
     }
@@ -146,15 +116,136 @@ export class IslandScenery {
     this.terrain.add(terrain);
   }
 
+  private settle(tile: number, x: number, y: number, z: number, source: T.Group): void {
+    const pivot = new T.Matrix4().makeTranslation(x, y, z);
+    const field = this.fieldFor(tile);
+    for (const piece of piecesAround(source, pivot)) {
+      write(field.reserve(piece.geometry, piece.material), this.scratch.multiplyMatrices(pivot, piece.local));
+    }
+  }
+
   private absorb(tile: number, x: number, y: number, z: number, source: T.Group): void {
     const pivot = new T.Matrix4().makeTranslation(x, y, z);
+    const field = this.fieldFor(tile);
     const pieces = piecesAround(source, pivot).map((piece) => ({
-      slot: this.field.reserve(piece.geometry, piece.material),
+      slot: field.reserve(piece.geometry, piece.material),
       local: piece.local,
       geometry: piece.geometry,
     }));
     this.decor.set(tile, { pivot, pieces, tilt: new T.Euler(), drop: 0, hidden: false, settled: false });
     this.writeDecor(tile);
+  }
+
+  private chunkKey(x: number, z: number): number {
+    return Math.floor(z / DECOR_CHUNK) * this.map.width + Math.floor(x / DECOR_CHUNK);
+  }
+
+  private chunkCentre(key: number): { x: number; z: number } {
+    const chunkX = key % this.map.width;
+    const chunkZ = Math.floor(key / this.map.width);
+    return worldPositionOn(this.map, (chunkX + .5) * DECOR_CHUNK, (chunkZ + .5) * DECOR_CHUNK);
+  }
+
+  reveal(focus: { x: number; z: number } | null, radius = 0): void {
+    const span = DECOR_CHUNK * CELL_SIZE / 2;
+    const reach = radius + span;
+    for (const [key, tiles] of [...this.unrevealed]) {
+      if (focus) {
+        const centre = this.chunkCentre(key);
+        if (Math.hypot(centre.x - focus.x, centre.z - focus.z) > reach) continue;
+      }
+      this.unrevealed.delete(key);
+      for (const tile of tiles) this.plant(tile);
+    }
+    if (!focus) return;
+    for (const [key, field] of this.fields) {
+      const centre = this.chunkCentre(key);
+      field.root.visible = Math.hypot(centre.x - focus.x, centre.z - focus.z) <= reach;
+    }
+  }
+
+  private plant(tile: number): void {
+    const map = this.map;
+    const x = tile % map.width;
+    const z = Math.floor(tile / map.width);
+    const terrain = terrainOn(map, x, z);
+    const origin = worldPositionOn(map, x, z);
+    const y = groundHeight(map, x, z);
+    const cx = origin.x + CELL_SIZE / 2;
+    const cz = origin.z + CELL_SIZE / 2;
+    const jitterX = (seeded(map, x, z, 1) - .5) * .5;
+    const jitterZ = (seeded(map, x, z, 2) - .5) * .5;
+    if (terrain === 'forest') {
+      const plant = new T.Group();
+      const cypress = seeded(map, x, z, 3) > .7;
+      tree(plant, cx + jitterX, y, cz + jitterZ, .62 + seeded(map, x, z, 4) * .3, cypress);
+      if (seeded(map, x, z, 5) > .55) tree(plant, cx - jitterX * 1.4, y, cz - jitterZ * 1.2, .5 + seeded(map, x, z, 6) * .2, !cypress && seeded(map, x, z, 7) > .6);
+      this.absorb(tile, cx, y, cz, plant);
+    } else if (terrain === 'scrub') {
+      const bush = bushForTile(map, x, z);
+      if (!bush) return;
+      bush.position.set(cx, y, cz);
+      this.absorb(tile, cx, y, cz, bush);
+    } else if (terrain === 'rock') {
+      if (seeded(map, x, z, 13) <= .45) return;
+      const rubble = new T.Group();
+      lump(rubble, seeded(map, x, z, 14) > .5 ? colors.stone : colors.cream, cx + jitterX, y + .18, cz + jitterZ, .3 + seeded(map, x, z, 15) * .3, .22 + seeded(map, x, z, 16) * .2, .28 + seeded(map, x, z, 17) * .3);
+      this.settle(tile, cx, y, cz, rubble);
+      return;
+    } else if (terrain === 'fertile') {
+      const stripes = new T.Group();
+      box(stripes, (x + z) % 2 === 0 ? 0xb9b47a : 0xb2ad74, cx, y - .03, cz, CELL_SIZE, .04, CELL_SIZE, 0);
+      this.settle(tile, cx, y, cz, stripes);
+      return;
+    } else if (terrain === 'cliff') {
+      const outcrops = fractal(x, z, map.seed + 967, 2, 4);
+      const rocks = new T.Group();
+      if (outcrops > .59 && seeded(map, x, z, 20) > .45) {
+        const outcrop = cliffOutcrop();
+        outcrop.position.set(cx, y, cz);
+        outcrop.rotation.y = seeded(map, x, z, 21) * Math.PI * 2;
+        outcrop.scale.setScalar(.75 + seeded(map, x, z, 22) * .25);
+        rocks.add(outcrop);
+      }
+      const bush = bushForTile(map, x, z);
+      if (bush) {
+        bush.position.set(cx, y, cz);
+        rocks.add(bush);
+      }
+      if (!rocks.children.length) return;
+      this.absorb(tile, cx, y, cz, rocks);
+    } else {
+      const plant = new T.Group();
+      tree(plant, cx + jitterX, y, cz + jitterZ, .6, seeded(map, x, z, 19) > .5);
+      this.absorb(tile, cx, y, cz, plant);
+    }
+    const entry = this.decor.get(tile)!;
+    if (this.felled.has(tile)) {
+      entry.hidden = true;
+      entry.settled = true;
+      this.writeDecor(tile);
+      return;
+    }
+    if (!this.occupied.has(tile)) return;
+    entry.hidden = true;
+    this.writeDecor(tile);
+  }
+
+  private fieldFor(tile: number): InstanceField {
+    const chunkX = Math.floor(tile % this.map.width / DECOR_CHUNK);
+    const chunkZ = Math.floor(Math.floor(tile / this.map.width) / DECOR_CHUNK);
+    const key = chunkZ * this.map.width + chunkX;
+    let field = this.fields.get(key);
+    if (!field) {
+      field = new InstanceField();
+      const corner = worldPositionOn(this.map, chunkX * DECOR_CHUNK, chunkZ * DECOR_CHUNK);
+      const far = worldPositionOn(this.map, (chunkX + 1) * DECOR_CHUNK, (chunkZ + 1) * DECOR_CHUNK);
+      const centre = new T.Vector3((corner.x + far.x) / 2, DECOR_HEIGHT / 2, (corner.z + far.z) / 2);
+      field.confine(centre, Math.hypot(far.x - corner.x, far.z - corner.z) / 2 + DECOR_HEIGHT);
+      this.fields.set(key, field);
+      this.root.add(field.root);
+    }
+    return field;
   }
 
   private writeDecor(tile: number): void {
@@ -193,6 +284,8 @@ export class IslandScenery {
   }
 
   clearDecor(occupied: Set<number>, felled: Set<number>): void {
+    this.occupied = occupied;
+    this.felled = felled;
     for (const [tile, entry] of this.decor) {
       if (felled.has(tile)) {
         if (!this.falling.has(tile) && !entry.hidden && !entry.settled) this.falling.set(tile, 0);
@@ -236,15 +329,16 @@ export class IslandScenery {
     return active;
   }
 
-  update(time: number): void {
+  update(time: number, focus?: { x: number; z: number } | null): void {
     this.waterTime.value = time;
-    this.foam.update(time);
+    this.foam.update(time, focus);
     this.ship.position.y = Math.sin(time * 1.4) * .045;
     this.ship.rotation.z = Math.sin(time * 1.1) * .018;
   }
 
   dispose(): void {
-    this.field.dispose();
+    for (const field of this.fields.values()) field.dispose();
+    this.fields.clear();
     this.decor.clear();
     this.root.removeFromParent();
     this.root.traverse((child) => {

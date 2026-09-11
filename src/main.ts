@@ -4,10 +4,10 @@ import { CityScene } from './render/city';
 import { ConstructionOverlay } from './render/construction';
 import { BUILDINGS, footprint, ROAD_COST } from './sim/catalog';
 import { demolitionPreview, footprintTileIssues, harbourRoute, suitableFarmGround } from './sim/construction';
-import { groundHeight, islandFor, terrainOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
+import { CELL_SIZE, groundHeight, islandFor, terrainOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
 import { roadHeight, stairLayout } from './sim/stairs';
 import { advance, build, buildingStatus, createWorld, DEFAULT_SEED, demolish, getSummary, placement, placeRoadPath, roadPathPlacement, setVendor, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
-import { deserializeWorld, serializeWorld } from './sim/save';
+import { deserializeWorld, savedBeforeArchipelago, serializeWorld } from './sim/save';
 import { animalName, animalStatus } from './sim/wildlife';
 import { buildStarterNeighbourhood, planStarterNeighbourhood } from './sim/scenario';
 import type { ActionResult, BuildTool, Placement, Rotation, Tile, Tool } from './sim/types';
@@ -32,7 +32,9 @@ function boot(): void {
       if (saved) world = saved;
       else {
         autoSaveEnabled = false;
-        storageWarning = 'Saved island could not be read. A fresh island is open; Save will replace the old file.';
+        storageWarning = savedBeforeArchipelago(raw)
+          ? 'The sea opened up: a city built on the single island cannot be moved to the archipelago. A fresh map is open; Save will replace the old file.'
+          : 'Saved island could not be read. A fresh island is open; Save will replace the old file.';
       }
     }
   } catch {
@@ -50,6 +52,11 @@ function boot(): void {
     const harbour = worldPositionOn(island, island.entry.x + .5, island.entry.z - 7);
     return { target: [harbour.x, GROUND_Y, harbour.z], offset: [35, 38, 48], size: 36 };
   }
+  function seaBounds(seed: number): number {
+    const island = islandFor(seed);
+    return Math.max(island.width, island.depth) * CELL_SIZE / 2 + 20;
+  }
+  stage.bounds(seaBounds(world.seed));
   stage.setView(viewFor(world.seed));
   try {
     const saved = parseView(localStorage.getItem(VIEW_KEY), world.seed);
@@ -57,7 +64,9 @@ function boot(): void {
   } catch {}
   function rebuildScene(): void {
     city.dispose();
+    stage.bounds(seaBounds(world.seed));
     city = new CityScene(stage, islandFor(world.seed), !reducedMotion);
+    city.watch(stage.controls.target, stage.viewSpan());
     overlay.dispose();
     overlay = new ConstructionOverlay(stage, islandFor(world.seed));
     stage.setView(viewFor(world.seed));
@@ -480,6 +489,7 @@ function boot(): void {
     if (Math.abs(panVelocity.forward) < .002) panVelocity.forward = 0;
     stage.pan(panVelocity.right * delta * .9, panVelocity.forward * delta * .9);
     stage.update(delta);
+    city.watch(stage.controls.target, stage.viewSpan());
     city.transitions(delta);
     if (speed > 0 && !document.hidden) {
       accumulator += delta * speed;
@@ -524,6 +534,7 @@ function boot(): void {
   hud.setSpeed(speed);
   hud.setSound(sound.enabled);
   refresh();
+  city.watch(stage.controls.target, stage.viewSpan());
   stage.shadows();
   if (storageWarning) hud.notify(storageWarning, true);
   requestAnimationFrame(frame);
@@ -534,6 +545,28 @@ function boot(): void {
       get summary() { return getSummary(world); },
       get frames() { return stage.frames; },
       get drawCalls() { return stage.renderer.info.render.calls; },
+      get sceneBudget() {
+        const tally: Record<string, { meshes: number; triangles: number }> = {};
+        stage.scene.traverse((object) => {
+          const mesh = object as T.InstancedMesh;
+          if (!(mesh as T.Mesh).isMesh) return;
+          const position = mesh.geometry.getAttribute('position');
+          if (!position) return;
+          const instances = mesh.isInstancedMesh ? mesh.count : 1;
+          const triangles = (mesh.geometry.index ? mesh.geometry.index.count : position.count) / 3 * instances;
+          let owner: T.Object3D | null = mesh;
+          let name = mesh.isInstancedMesh ? 'instanced' : 'mesh';
+          while (owner) {
+            if (owner.name) { name = owner.name; break; }
+            owner = owner.parent;
+          }
+          const entry = tally[name] ?? { meshes: 0, triangles: 0 };
+          entry.meshes += 1;
+          entry.triangles += triangles;
+          tally[name] = entry;
+        });
+        return tally;
+      },
       get triangles() { return stage.renderer.info.render.triangles; },
       get foamVersion() { return (city.scenery.foam.mesh.geometry.attributes.position as T.BufferAttribute).version; },
       get camera() { return [...stage.camera.position.toArray(), ...stage.controls.target.toArray(), stage.camera.zoom]; },
@@ -551,6 +584,10 @@ function boot(): void {
       buildPlan: () => { const result = buildStarterNeighbourhood(world); refresh(); save(true); stage.shadows(); return result; },
       build: (tool: BuildTool, x: number, z: number) => { const result = build(world, tool, x, z, 0); refresh(); save(true); return result; },
       road: (tiles: Tile[]) => { const result = placeRoadPath(world, tiles); refresh(); save(true); return result; },
+      projectWalker: (id: number) => {
+        const point = city.moverPoint(id);
+        return point ? stage.project(point.x, point.y + .5, point.z) : null;
+      },
       probe: (clientX: number, clientY: number) => city.probe(clientX, clientY),
       focusTile: (x: number, z: number) => { const point = worldPositionOn(map(), x + .5, z + .5); stage.focus(point.x, point.z, true); },
       terrainAt: (x: number, z: number) => terrainOn(map(), x, z),

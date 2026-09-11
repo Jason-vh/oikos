@@ -79,15 +79,19 @@ city buildings, which scale with what players build rather than with the sea.
 
 ## Generation by stamping
 
-Grow the grid (around 160×128), then place each island by running today's
-`generateIsland(islandSeed)` on the small grid and copying its terrain and level
-into the big grid at an offset. Island shape and relief stay identical to what
-exists now, noise stays local and cheap, `floodLargest` stays correct because it
-runs per island, and each island keeps its own harbour entry. `IslandMap` gains
-`islands: { seed, offset, entry }[]`.
+Built, and larger than first proposed. Each island is a full `generateIsland` run
+on its own grid, stamped into a shared 538×230 map at a slot in a four-by-two
+layout with eighteen-tile channels, sizes and offsets jittered from the seed.
+Islands are 112×88 before jitter — about 5,600 land tiles each against 2,100
+before — for around 40,000 land tiles in the sea. Generation costs 50 ms.
 
-Stamping also makes the save migration exact: add the island's offset to every
-stored road tile and building coordinate.
+On all eight tested seeds the map holds exactly eight separate landmasses, each
+with a harbour entry on land, and a road network can never leave its own island.
+
+The save migration did not survive contact: a bigger home island is different
+ground, so a stored city cannot be put back on it. Saves before version 4 are
+refused with a message that says why, and the old migration chain — unreachable
+once every earlier version is refused — went with it.
 
 ## Ownership as data
 
@@ -228,9 +232,35 @@ As built on `perf/render-budget`:
 - A detail threshold could still drop rabbits and fish at far zoom, but that is a
   judgement call at normal city zoom, not a given.
 
+## What the archipelago cost
+
+Nothing, so far, at the frame level. With eight islands and about 3,700 animals:
+
+| | one island | archipelago | zoomed out over the sea |
+|---|---|---|---|
+| draw calls | 381 | 393 | 575 |
+| frame gap p90 | 10.3 ms | 10.2 ms | 10.8 ms |
+| simulation step | 30 µs | 332 µs | — |
+
+What it took beyond the generator:
+
+- **The sun's shadow camera follows the view.** It was fixed at ±44 around the
+  world origin, which covered the old single island exactly and would have left
+  the rest of a 670-unit sea unshadowed.
+- **Pan bounds come from the map** rather than a hardcoded 65-unit radius, and
+  `minZoom` drops from .65 to .25 so a player can pull back and see a neighbour.
+- **Decor instances are chunked** into 48-tile fields with their own bounding
+  spheres, so off-screen ground is culled instead of submitted. Instance writes
+  became targeted buffer ranges rather than whole-buffer uploads.
+- **Wildlife and foam have a sight radius.** Animals beyond it hand back their
+  instance slots and stop being posed; foam ribbons beyond it stop animating.
+  Both follow the camera target, with hysteresis so nothing thrashes at the edge.
+
 ## Open questions
 
-- Final map size, once instanced decor shows the real per-island cost.
+- Whether the sea wants haze: distant islands stay legible to about 300 units, so
+  a wide view submits geometry it barely shows. Denser fog with a nearer far plane
+  would cull it, at the cost of how the archipelago reads from above.
 - Whether wildlife becomes table-driven for bit-exact lockstep, or stays as is
   behind an authoritative server.
 - How a player claims an island, and what a lobby looks like before any city
