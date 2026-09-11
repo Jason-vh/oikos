@@ -3,7 +3,7 @@ import { advance, build, buildingStatus, createWorld, demolish, getSummary, plac
 import { buildStarterNeighbourhood, planStarterNeighbourhood } from './scenario';
 import { BUILDINGS, ROAD_COST, STARTING_MONEY, VENDOR_COST } from './catalog';
 import { generateIsland, islandFor, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
-import { accessDoors, bfsShortest, entryTileIndex } from './grid';
+import { accessDoors, bfsShortest, entryTileIndex, exitTile } from './grid';
 import { connect, farCorner, findTile, freshRoadSpot, isolatedRoadPair, mapOf, slopeFixture, spotAdjacentTo, spotFor, unevenFootprint, SLOPE_SEED } from './testing';
 import type { Building, BuildingKind, Tile, Walker, World } from './types';
 
@@ -993,6 +993,17 @@ describe('building access across a stair', () => {
     const beside = minimalBuilding('fountain', lateralA.x - 1, lateralA.z - 1);
     expect(accessDoors(map, roads, beside)).not.toContain(stairTileIndex);
   });
+
+  test('exitTile never picks a stair whose landing sits a level above the building, agreeing with accessTiles', () => {
+    const { map, down, tile } = orientedStairFixture('east');
+    const world = createWorld(STAIR_SEED);
+    expect(build(world, 'road', down.x, down.z).ok).toBe(true);
+    expect(build(world, 'road', tile.x, tile.z).ok).toBe(true);
+    setStairTile(map, tile.x - 1, tile.z, 'grass', 2);
+
+    const behind = minimalBuilding('fountain', tile.x - 2, tile.z - 1);
+    expect(exitTile(world, behind)).toBe(-1);
+  });
 });
 
 function bareWalker(map: IslandMap, from: Tile, to: Tile, progress: number): Walker {
@@ -1038,5 +1049,22 @@ describe('in-flight walkers when a stair changes underfoot', () => {
     const spot = spotFor(world, 'maintenance', farCorner(world))!;
     expect(build(world, 'maintenance', spot.x, spot.z).ok).toBe(true);
     expect(world.walkers).toHaveLength(1);
+  });
+
+  test('dropping a woodcutter never touches wildlife, even if its tile-index quarry collides with an animal id', () => {
+    const { map, tile, up, down } = orientedStairFixture('east');
+    const world = createWorld(STAIR_SEED);
+    expect(build(world, 'road', tile.x, tile.z).ok).toBe(true);
+    expect(build(world, 'road', up.x, up.z).ok).toBe(true);
+    const animal = world.wildlife[0];
+    animal.cornered = true;
+    const walker = bareWalker(map, tile, up, 0.4);
+    walker.kind = 'woodcutter';
+    walker.quarry = animal.id;
+    world.walkers.push(walker);
+
+    expect(build(world, 'road', down.x, down.z).ok).toBe(true);
+    expect(world.walkers).toHaveLength(0);
+    expect(world.wildlife.find((candidate) => candidate.id === animal.id)!.cornered).toBe(true);
   });
 });

@@ -98,6 +98,16 @@ export function roadStepAllowed(map: IslandMap, stairs: ReadonlyMap<number, Stai
   return fromBoundary !== null && fromBoundary === toBoundary;
 }
 
+export function mixedEdgeAllowed(map: IslandMap, roads: ReadonlySet<number>, stairs: ReadonlyMap<number, Stair>, from: number, to: number): boolean {
+  if (!tileInBounds(map, from) || !tileInBounds(map, to)) return false;
+  if (!areCardinalNeighbours(map, from, to)) return false;
+  if ((roads.has(from) && roads.has(to)) || stairs.has(from) || stairs.has(to)) return roadStepAllowed(map, stairs, from, to);
+  const a = tileAtOn(map, from);
+  const b = tileAtOn(map, to);
+  const difference = Math.abs(levelOn(map, a.x, a.z) - levelOn(map, b.x, b.z));
+  return difference === 0 || (difference === 1 && (terrainOn(map, a.x, a.z) === 'cliff' || terrainOn(map, b.x, b.z) === 'cliff'));
+}
+
 function stairProgress(stair: Stair, fx: number, fz: number): number {
   if (stair.dx > 0) return fx;
   if (stair.dx < 0) return 1 - fx;

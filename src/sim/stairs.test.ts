@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { doorTiles, roadHeight, roadStepAllowed, stairLayout, stairPlacementConflict, STAIR_STEPS } from './stairs';
+import { doorTiles, mixedEdgeAllowed, roadHeight, roadStepAllowed, stairLayout, stairPlacementConflict, STAIR_STEPS } from './stairs';
 import { GROUND_Y, LEVEL_HEIGHT, tileIndexOn, type IslandMap } from './island';
 import type { Terrain } from './types';
 
@@ -285,5 +285,46 @@ describe('doorTiles', () => {
     const stairs = stairLayout(map, roads);
     expect(stairs.get(tile)?.up).toBe(up);
     expect(doorTiles(map, stairs, new Set([up]))).not.toContain(tile);
+  });
+});
+
+describe('mixedEdgeAllowed', () => {
+  test('a road-road pair defers entirely to roadStepAllowed, even off a stair', () => {
+    const map = blankMap();
+    set(map, 3, 3, 'grass', 1);
+    set(map, 4, 3, 'grass', 0);
+    const a = tileIndexOn(map, 3, 3);
+    const b = tileIndexOn(map, 4, 3);
+    const roads = new Set([a, b]);
+    const stairs = stairLayout(map, roads);
+    expect(mixedEdgeAllowed(map, roads, stairs, a, b)).toBe(roadStepAllowed(map, stairs, a, b));
+    expect(mixedEdgeAllowed(map, roads, stairs, a, b)).toBe(false);
+  });
+
+  test('a step touching a stair tile is road-restricted even when the other side is off-road', () => {
+    const { map, roads, tile } = riggedMap(ORIENTATIONS[0]);
+    const stairs = stairLayout(map, roads);
+    const side = tileIndexOn(map, TILE.x, TILE.z - 1);
+    expect(roads.has(side)).toBe(false);
+    expect(mixedEdgeAllowed(map, roads, stairs, tile, side)).toBe(false);
+  });
+
+  test('an off-road cliff scramble away from any stair keeps the original permissive rule', () => {
+    const map = blankMap();
+    set(map, 3, 3, 'cliff', 1);
+    set(map, 4, 3, 'grass', 0);
+    const roads = new Set<number>();
+    const stairs = stairLayout(map, roads);
+    const a = tileIndexOn(map, 3, 3);
+    const b = tileIndexOn(map, 4, 3);
+    expect(mixedEdgeAllowed(map, roads, stairs, a, b)).toBe(true);
+  });
+
+  test('bounds and adjacency guards apply just like roadStepAllowed', () => {
+    const map = blankMap();
+    const roads = new Set<number>();
+    const stairs = stairLayout(map, roads);
+    expect(mixedEdgeAllowed(map, roads, stairs, 0, -1)).toBe(false);
+    expect(mixedEdgeAllowed(map, roads, stairs, 0, 2)).toBe(false);
   });
 });

@@ -51,26 +51,19 @@ function* clockwiseRing(map: IslandMap, building: Building): Generator<number> {
   for (const [tx, tz] of points) if (insideMapOn(map, tx, tz)) yield tileIndexOn(map, tx, tz);
 }
 
-export function exitTile(world: World, building: Building): number {
-  const map = mapOf(world);
-  const roads = new Set(world.roads);
-  const stairs = stairLayout(map, roads);
-  for (const tile of clockwiseRing(map, building)) {
-    if (!roads.has(tile)) continue;
-    const stair = stairs.get(tile);
-    if (stair) {
-      const own = new Set(footprintTiles(map, building));
-      if (!own.has(stair.up)) continue;
-    }
-    return tile;
-  }
-  return -1;
-}
-
 export function accessTiles(world: World, building: Building): number[] {
   const map = mapOf(world);
   const roads = new Set(world.roads);
   return accessDoors(map, roads, building).filter((tile) => roads.has(tile));
+}
+
+export function exitTile(world: World, building: Building): number {
+  const map = mapOf(world);
+  const doors = new Set(accessTiles(world, building));
+  for (const tile of clockwiseRing(map, building)) {
+    if (doors.has(tile)) return tile;
+  }
+  return -1;
 }
 
 export function entryTileIndex(world: World): number {

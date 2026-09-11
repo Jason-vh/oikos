@@ -1,10 +1,10 @@
 import type { Animal, Building, Walker, World } from './types';
 import { footprint } from './catalog';
-import { buildable, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
+import { buildable, islandFor, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import { accessTiles, footprintTiles, mapOf } from './grid';
 import { addStore, hasActiveWalker, sendCart, spawnWalker, totalStock } from './world';
 import { alive, killAnimal } from './wildlife';
-import { roadStepAllowed, stairLayout, type Stair } from './stairs';
+import { mixedEdgeAllowed, stairLayout } from './stairs';
 
 export const GATHER_RANGE = 14;
 export const GATHER_STOCK_CAP = 200;
@@ -22,16 +22,6 @@ function passable(world: World, map: IslandMap, roads: Set<number>, index: numbe
     const size = footprint(building.kind, building.rotation);
     return x >= building.x && x < building.x + size.width && z >= building.z && z < building.z + size.depth;
   });
-}
-
-function stepAllowed(map: IslandMap, roads: ReadonlySet<number>, stairs: ReadonlyMap<number, Stair>, from: number, to: number): boolean {
-  if (roads.has(from) && roads.has(to)) return roadStepAllowed(map, stairs, from, to);
-  if (stairs.has(from) || stairs.has(to)) return roadStepAllowed(map, stairs, from, to);
-  const a = tileAtOn(map, from);
-  const b = tileAtOn(map, to);
-  const difference = Math.abs(levelOn(map, a.x, a.z) - levelOn(map, b.x, b.z));
-  if (difference === 0) return true;
-  return difference === 1 && (terrainOn(map, a.x, a.z) === 'cliff' || terrainOn(map, b.x, b.z) === 'cliff');
 }
 
 export function overlandPath(world: World, start: number, isGoal: (tile: number) => boolean, limit: number): number[] | null {
@@ -60,7 +50,7 @@ export function overlandPath(world: World, start: number, isGoal: (tile: number)
       const nz = z + dz;
       if (nx < 0 || nz < 0 || nx >= map.width || nz >= map.depth) continue;
       const next = tileIndexOn(map, nx, nz);
-      if (cameFrom.has(next) || !passable(world, map, roads, next) || !stepAllowed(map, roads, stairs, current, next)) continue;
+      if (cameFrom.has(next) || !passable(world, map, roads, next) || !mixedEdgeAllowed(map, roads, stairs, current, next)) continue;
       cameFrom.set(next, current);
       distance.set(next, (distance.get(current) ?? 0) + 1);
       queue.push(next);

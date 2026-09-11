@@ -16,7 +16,7 @@ import {
   footprintTiles,
   neighbours,
 } from './grid';
-import { roadStepAllowed, stairLayout, stairPlacementConflict, type Stair, type StairIssue } from './stairs';
+import { mixedEdgeAllowed, stairLayout, stairPlacementConflict, type Stair, type StairIssue } from './stairs';
 import {
   AGORA_CAP,
   ARRIVAL_INTERVAL,
@@ -332,15 +332,6 @@ function removeBuilding(world: World, id: number): void {
   }
 }
 
-function roadEdgeValid(map: IslandMap, roads: ReadonlySet<number>, stairs: ReadonlyMap<number, Stair>, from: number, to: number): boolean {
-  if (roads.has(from) && roads.has(to)) return roadStepAllowed(map, stairs, from, to);
-  if (stairs.has(from) || stairs.has(to)) return roadStepAllowed(map, stairs, from, to);
-  const a = tileAtOn(map, from);
-  const b = tileAtOn(map, to);
-  const difference = Math.abs(levelOn(map, a.x, a.z) - levelOn(map, b.x, b.z));
-  return difference === 0 || (difference === 1 && (terrainOn(map, a.x, a.z) === 'cliff' || terrainOn(map, b.x, b.z) === 'cliff'));
-}
-
 function walkerPathValid(map: IslandMap, roads: ReadonlySet<number>, stairs: ReadonlyMap<number, Stair>, walker: Walker): boolean {
   if (walker.path.length === 0) return false;
   const overland = new Set(walker.overland);
@@ -348,7 +339,7 @@ function walkerPathValid(map: IslandMap, roads: ReadonlySet<number>, stairs: Rea
     const tile = walker.path[i];
     if (!roads.has(tile) && !overland.has(tile)) return false;
     if (i === 0) continue;
-    if (!roadEdgeValid(map, roads, stairs, walker.path[i - 1], tile)) return false;
+    if (!mixedEdgeAllowed(map, roads, stairs, walker.path[i - 1], tile)) return false;
   }
   return true;
 }
@@ -372,7 +363,7 @@ export function dropInvalidWalkers(world: World, beforeStairs?: ReadonlyMap<numb
     const valid = walkerPathValid(map, roads, stairs, walker);
     const changed = beforeStairs ? currentSegmentChanged(beforeStairs, stairs, walker) : false;
     if (valid && !changed) return true;
-    if (walker.quarry !== null) {
+    if (walker.kind === 'hunter' && walker.quarry !== null) {
       const prey = world.wildlife.find((animal) => animal.id === walker.quarry);
       if (prey) prey.cornered = false;
     }
