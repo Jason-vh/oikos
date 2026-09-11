@@ -1,34 +1,53 @@
 import { expect, test } from 'bun:test';
 import * as T from 'three';
-import { generateIsland, groundHeight, terrainOn, worldPositionOn, type IslandMap } from '../sim/island';
+import { CELL_SIZE, generateIsland, groundHeight, terrainOn, worldPositionOn, type IslandMap } from '../sim/island';
 import { disposeModel } from '../art/primitives';
 import { buildTerrain } from './terrain';
+
+function triangleKey(points: T.Vector3[]): string {
+  return points.map((point) => point.toArray().map((value) => value.toFixed(5)).join(',')).sort().join(':');
+}
 
 for (const seed of [1, 2, 8, 37]) {
   test(`seed ${seed}: land tiles keep complete flat footprints beside coasts and cliffs`, () => {
     const map = generateIsland(seed);
     const before = structuredClone(map);
     const terrain = buildTerrain(map);
-    const ray = new T.Raycaster();
-    terrain.updateMatrixWorld(true);
+    const triangles = new Map<string, number>();
     try {
+      for (const surface of terrain.children) {
+        if (!(surface instanceof T.Mesh)) continue;
+        const positions = surface.geometry.attributes.position;
+        for (let index = 0; index < positions.count; index += 3) {
+          const points = [0, 1, 2].map((offset) => new T.Vector3().fromBufferAttribute(positions, index + offset));
+          const normal = new T.Triangle(points[0], points[1], points[2]).getNormal(new T.Vector3());
+          expect(normal.y).toBe(1);
+          const key = triangleKey(points);
+          triangles.set(key, (triangles.get(key) ?? 0) + 1);
+        }
+      }
       for (let z = 0; z < map.depth; z++) {
         for (let x = 0; x < map.width; x++) {
           if (terrainOn(map, x, z) === 'water') continue;
-          for (const [dx, dz] of [[.001, .001], [.999, .001], [.999, .999], [.001, .999], [.5, .5]]) {
-            const point = worldPositionOn(map, x + dx, z + dz);
-            ray.set(new T.Vector3(point.x, 10, point.z), new T.Vector3(0, -1, 0));
-            const hit = ray.intersectObject(terrain, true)[0];
-            expect(hit).toBeDefined();
-            expect(hit.point.y).toBeCloseTo(groundHeight(map, x, z), 5);
+          const origin = worldPositionOn(map, x, z);
+          const y = groundHeight(map, x, z);
+          const a = new T.Vector3(origin.x, y, origin.z);
+          const b = new T.Vector3(origin.x + CELL_SIZE, y, origin.z);
+          const c = new T.Vector3(origin.x + CELL_SIZE, y, origin.z + CELL_SIZE);
+          const d = new T.Vector3(origin.x, y, origin.z + CELL_SIZE);
+          for (const points of [[a, d, c], [a, c, b]]) {
+            const key = triangleKey(points);
+            expect(triangles.get(key)).toBe(1);
+            triangles.delete(key);
           }
         }
       }
+      expect(triangles.size).toBe(0);
       expect(map).toEqual(before);
     } finally {
       disposeModel(terrain);
     }
-  }, 30_000);
+  });
 }
 
 function openEdges(model: T.Group): [T.Vector3, T.Vector3][] {
