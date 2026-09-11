@@ -170,7 +170,11 @@ captures unchanged but for a fading toast.
 Not problems:
 
 - **Simulation**: 30 µs per 0.25 s step with nine buildings, four steps a
-  second. Even a hundredfold city leaves it invisible. The thing to watch as
+  second; 332 µs across the archipelago, of which wildlife is almost all —
+  stepping 3,700 animals costs 0.7 ms per simulated second against 0.008 ms for
+  everything else. Invisible while playing, but it is why tests that advance
+  twenty simulated minutes now need a longer timeout, and it is the first thing
+  to make cheaper if the clock ever matters. Even a hundredfold city leaves it invisible. The thing to watch as
   cities grow is the BFS per walker dispatch (`findNearestConnected`,
   `buildServiceCircuit`); cache reachable sets per island, invalidated on road
   change.
