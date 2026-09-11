@@ -39,11 +39,13 @@ export function spawnWildlife(world: World): Animal[] {
         if (roll > species.density) continue;
         for (let member = 0; member < species.flock; member++) {
           const angle = hash(x + member * 13, z + member * 7, world.seed + 5) * Math.PI * 2;
+          const drift = { x: x + .5 + Math.cos(angle) * .35 * member, z: z + .5 + Math.sin(angle) * .35 * member };
+          const spread = canRoam(map, kind, drift.x, drift.z, levelOn(map, x, z)) ? drift : { x: x + .5, z: z + .5 };
           animals.push({
             id: world.nextId++,
             kind,
-            x: Math.min(map.width - .05, Math.max(.05, x + .5 + Math.cos(angle) * .35 * member)),
-            z: Math.min(map.depth - .05, Math.max(.05, z + .5 + Math.sin(angle) * .35 * member)),
+            x: Math.min(map.width - .05, Math.max(.05, spread.x)),
+            z: Math.min(map.depth - .05, Math.max(.05, spread.z)),
             homeX: x + .5,
             homeZ: z + .5,
             heading: angle,

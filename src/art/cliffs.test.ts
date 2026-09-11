@@ -1,11 +1,11 @@
 import { expect, test } from 'bun:test';
 import * as T from 'three';
-import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, generateIsland, terrainOn, type IslandMap } from '../sim/island';
+import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, generateIsland, soleIsland, terrainOn, type IslandMap } from '../sim/island';
 import { buildCliffs, cliffOutcrop } from './cliffs';
 import { bake, colors, disposeModel, material } from './primitives';
 
 function fixture(mask: number, tier = 1): IslandMap {
-  return {
+  return soleIsland({
     seed: 17,
     width: 5,
     depth: 5,
@@ -16,7 +16,7 @@ function fixture(mask: number, tier = 1): IslandMap {
       return x >= 0 && x < 3 && z >= 0 && z < 3 && mask & (1 << (z * 3 + x)) ? tier : 0;
     }),
     entry: { x: 0, z: 0 },
-  };
+  });
 }
 
 function vertices(model: T.Group): number[] {

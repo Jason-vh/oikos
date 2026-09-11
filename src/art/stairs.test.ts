@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import * as T from 'three';
-import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, tileAtOn, worldPositionOn, type IslandMap } from '../sim/island';
+import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, soleIsland, tileAtOn, worldPositionOn, type IslandMap } from '../sim/island';
 import { roadHeight, stairLayout, STAIR_STEPS } from '../sim/stairs';
 import { buildTerrain } from '../render/terrain';
 import { IslandScenery } from '../render/island';
@@ -10,7 +10,7 @@ import { STAIR_WIDTH } from './stairs';
 import { colors, disposeModel, material } from './primitives';
 
 function fixture(dx: number, dz: number, base = 0): IslandMap {
-  const map: IslandMap = { seed: 17, width: 5, depth: 5, terrain: Array(25).fill('grass'), level: new Uint8Array(25), entry: { x: 0, z: 4 } };
+  const map = soleIsland({ seed: 17, width: 5, depth: 5, terrain: Array(25).fill('grass'), level: new Uint8Array(25), entry: { x: 0, z: 4 } });
   for (let index = 0; index < 25; index++) {
     const { x, z } = tileAtOn(map, index);
     const along = (x - 2) * dx + (z - 2) * dz;

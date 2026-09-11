@@ -4,14 +4,15 @@ Live at <https://oikos.vhtm.eu>.
 
 *Οἶκος* (oikos): the household, root of *economy*. A city builder on the Aegean:
 settle an island, feed and water its households along real roads, hunt, fell,
-farm and trade your way to a thriving city. The first island is Kalliste.
+farm and trade your way to a thriving city. Kalliste is an archipelago of eight
+islands; you start on the most central one, and the rest are still unsettled.
 
 ```bash
 npm install
 npm run dev
 ```
 
-- `/` — playable island; autosaves locally, never to a server.
+- `/` — playable archipelago; autosaves locally, never to a server.
 - `/art.html` — isolated model viewer.
 
 ## Play

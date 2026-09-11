@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import * as T from 'three';
-import { CELL_SIZE, generateIsland, groundHeight, terrainOn, worldPositionOn, type IslandMap } from '../sim/island';
+import { CELL_SIZE, generateIsland, groundHeight, soleIsland, terrainOn, worldPositionOn } from '../sim/island';
 import { disposeModel } from '../art/primitives';
 import { buildTerrain } from './terrain';
 
@@ -84,14 +84,14 @@ function openEdges(model: T.Group): [T.Vector3, T.Vector3][] {
 
 test('all mixed coastal terrace corners are closed above the waterline', () => {
   for (let mask = 0; mask < 256; mask++) {
-    const map: IslandMap = {
+    const map = soleIsland({
       seed: 17,
       width: 4,
       depth: 4,
       terrain: Array.from({ length: 16 }, () => 'water'),
       level: new Uint8Array(16),
       entry: { x: 1, z: 1 },
-    };
+    });
     for (let corner = 0; corner < 4; corner++) {
       const value = (mask >> (corner * 2)) & 3;
       if (!value) continue;

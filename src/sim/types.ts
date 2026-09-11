@@ -56,7 +56,7 @@ export interface Walker {
   working: number;
 }
 export interface World {
-  version: 3;
+  version: 4;
   island: 'kalliste';
   seed: number;
   time: number;

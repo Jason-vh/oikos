@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import * as T from 'three';
-import { CELL_SIZE, generateIsland, type IslandMap } from '../sim/island';
+import { CELL_SIZE, generateIsland, soleIsland, type IslandMap } from '../sim/island';
 import { BUSH_SHAPES, bush, bushForTile } from './bushes';
 import { bake, colors, disposeModel, material } from './primitives';
 
@@ -9,14 +9,14 @@ function vertices(model: T.Group): number[][] {
 }
 
 function scrubland(seed: number): IslandMap {
-  return {
+  return soleIsland({
     seed,
     width: 48,
     depth: 48,
     terrain: Array.from({ length: 48 * 48 }, () => 'scrub'),
     level: new Uint8Array(48 * 48),
     entry: { x: 0, z: 0 },
-  };
+  });
 }
 
 test('bush silhouettes are distinct, grounded and contained at every rotation', () => {

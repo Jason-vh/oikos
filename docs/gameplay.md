@@ -5,9 +5,23 @@ The whole thing lives in `src/sim/` and has no dependency on Three.js or the bro
 `advance(world, seconds)` is the only clock, and the same input always produces the
 same output.
 
-## The island
+## The archipelago
 
-`generateIsland(seed)` in `src/sim/island.ts` builds the map from a seed: a radial
+`generateArchipelago(seed)` in `src/sim/island.ts` builds a sea of eight islands.
+Each one is a full `generateIsland` run on its own grid, stamped into the shared map
+at a slot in a four-by-two layout with eighteen-tile channels; slot sizes and offsets
+are jittered from the seed, so the islands scatter rather than line up. Every island
+keeps its own harbour entry, and `islandAt(map, x, z)` says which island a tile
+belongs to. `map.home` is the most central island, the one a new city starts on, and
+`map.entry` is its harbour.
+
+Islands never share a bounding box and each is a single landmass, so a road network
+can never leave the island it started on. The other seven are, for now, unclaimed
+ground: wildlife lives there, the player cannot yet build there.
+
+## An island
+
+`generateIsland(seed, width, depth)` builds one island from a seed: a radial
 mask plus value noise for the coastline, a relief field quantised into three levels
 (lowland, plateau, upland) with cellular smoothing, and soil/wood fields for terrain.
 Terrain kinds: `water`, `sand`, `grass`, `fertile`, `scrub`, `forest`, `rock`, `cliff`.
@@ -15,7 +29,7 @@ Buildings need level ground on grass/fertile/sand/scrub (farms: fertile only); r
 can also cross forest and climb cliff edges using stairs. `cliff` and `rock` cannot
 hold buildings. The harbour entry is chosen on the widest flat south-facing shore, and the
 ground around it is cleared, with a fertile patch to its north-east. `islandFor(seed)`
-caches maps; the world stores only the seed.
+caches whole archipelagos; the world stores only the seed.
 
 ## Starting a city
 

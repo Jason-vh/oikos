@@ -4,8 +4,8 @@ import { buildStarterNeighbourhood } from './scenario';
 import { buildServiceCircuit, exitTile } from './grid';
 import { ROAD_BUDGET } from './balance';
 import { deliveryRoutes, serviceRoute, walkerRoute, type DeliveryRoute } from './logistics';
-import { connect, farCorner, spotFor } from './testing';
-import { islandFor } from './island';
+import { connect, farCorner, homeTiles, spotFor } from './testing';
+import { islandFor, terrainOn } from './island';
 import { GATHER_RANGE } from './gathering';
 import type { Tile, Walker, WalkerKind, World } from './types';
 
@@ -86,13 +86,9 @@ describe('serviceRoute', () => {
 });
 
 function nearForest(world: World): Tile | null {
-  const map = islandFor(world.seed);
-  for (let z = 0; z < map.depth; z++) {
-    for (let x = 0; x < map.width; x++) {
-      if (map.terrain[z * map.width + x] !== 'forest') continue;
-      const spot = spotFor(world, 'woodcutter', { x, z });
-      if (spot && Math.abs(spot.x - x) + Math.abs(spot.z - z) < GATHER_RANGE / 2) return spot;
-    }
+  for (const tree of homeTiles(world, (map, x, z) => terrainOn(map, x, z) === 'forest')) {
+    const spot = spotFor(world, 'woodcutter', tree);
+    if (spot && Math.abs(spot.x - tree.x) + Math.abs(spot.z - tree.z) < GATHER_RANGE / 2) return spot;
   }
   return null;
 }
@@ -139,8 +135,8 @@ describe('deliveryRoutes', () => {
     const granary = findByKind(world, 'granary');
     const agora = findByKind(world, 'agora');
     let buyer: Walker | undefined;
-    for (let t = 0; t < 300 && !buyer; t++) {
-      advance(world, 1);
+    for (let t = 0; t < 1200 && !buyer; t++) {
+      advance(world, .25);
       buyer = world.walkers.find((walker) => walker.kind === 'buyer' && walker.targetId === granary.id);
     }
     expect(buyer).toBeTruthy();

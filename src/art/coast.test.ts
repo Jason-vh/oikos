@@ -1,18 +1,18 @@
 import { expect, test } from 'bun:test';
 import * as T from 'three';
-import { CELL_SIZE, GROUND_Y, generateIsland, type IslandMap } from '../sim/island';
+import { CELL_SIZE, GROUND_Y, generateIsland, soleIsland, type IslandMap } from '../sim/island';
 import { buildCoast } from './coast';
 import { colors, disposeModel, material } from './primitives';
 
 function fixture(mask: number): IslandMap {
-  return {
+  return soleIsland({
     seed: 17,
     width: 3,
     depth: 3,
     terrain: Array.from({ length: 9 }, (_, index) => mask & (1 << index) ? 'sand' : 'water'),
     level: new Uint8Array(9),
     entry: { x: 1, z: 1 },
-  };
+  });
 }
 
 function vertices(model: T.Group): number[][] {

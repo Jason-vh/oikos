@@ -4,6 +4,15 @@ export const CELL_SIZE = 1.25;
 export const GROUND_Y = 1.15;
 export const LEVEL_HEIGHT = 1.6;
 
+export interface IslandPlacement {
+  seed: number;
+  x: number;
+  z: number;
+  width: number;
+  depth: number;
+  entry: Tile;
+}
+
 export interface IslandMap {
   seed: number;
   width: number;
@@ -11,10 +20,18 @@ export interface IslandMap {
   terrain: Terrain[];
   level: Uint8Array;
   entry: Tile;
+  islands: IslandPlacement[];
+  home: number;
 }
 
-export const ISLAND_WIDTH = 72;
-export const ISLAND_DEPTH = 56;
+export const ISLAND_WIDTH = 112;
+export const ISLAND_DEPTH = 88;
+export const ISLAND_COLUMNS = 4;
+export const ISLAND_ROWS = 2;
+export const ISLAND_COUNT = ISLAND_COLUMNS * ISLAND_ROWS;
+export const CHANNEL = 18;
+const SHRINK_WIDTH = 20;
+const SHRINK_DEPTH = 16;
 
 function mulberry(seed: number): () => number {
   let state = seed >>> 0;
@@ -171,7 +188,67 @@ export function generateIsland(seed: number, width = ISLAND_WIDTH, depth = ISLAN
   }
   const entry = chooseEntry(width, depth, terrain, level);
   clearAround(width, depth, terrain, level, entry, 5);
-  return { seed, width, depth, terrain, level, entry };
+  return soleIsland({ seed, width, depth, terrain, level, entry });
+}
+
+export function soleIsland(map: Omit<IslandMap, 'islands' | 'home'>): IslandMap {
+  return { ...map, islands: [{ seed: map.seed, x: 0, z: 0, width: map.width, depth: map.depth, entry: map.entry }], home: 0 };
+}
+
+function slotSeed(seed: number, slot: number): number {
+  return Math.floor(hash(slot * 31 + 7, slot * 17 + 3, seed + 6151) * 1e9);
+}
+
+export function generateArchipelago(seed: number): IslandMap {
+  const slotWidth = ISLAND_WIDTH + CHANNEL;
+  const slotDepth = ISLAND_DEPTH + CHANNEL;
+  const width = ISLAND_COLUMNS * slotWidth + CHANNEL;
+  const depth = ISLAND_ROWS * slotDepth + CHANNEL;
+  const count = width * depth;
+  const terrain: Terrain[] = new Array(count).fill('water');
+  const level = new Uint8Array(count);
+  const islands: IslandPlacement[] = [];
+  for (let slot = 0; slot < ISLAND_COUNT; slot++) {
+    const column = slot % ISLAND_COLUMNS;
+    const row = Math.floor(slot / ISLAND_COLUMNS);
+    const islandSeed = slotSeed(seed, slot);
+    const islandWidth = ISLAND_WIDTH - Math.floor(hash(column, row, seed + 101) * SHRINK_WIDTH);
+    const islandDepth = ISLAND_DEPTH - Math.floor(hash(column, row, seed + 211) * SHRINK_DEPTH);
+    const island = generateIsland(islandSeed, islandWidth, islandDepth);
+    const slack = { x: slotWidth - islandWidth, z: slotDepth - islandDepth };
+    const x = CHANNEL + column * slotWidth + Math.floor(hash(column, row, seed + 307) * slack.x) - CHANNEL / 2;
+    const z = CHANNEL + row * slotDepth + Math.floor(hash(column, row, seed + 401) * slack.z) - CHANNEL / 2;
+    for (let iz = 0; iz < islandDepth; iz++) {
+      for (let ix = 0; ix < islandWidth; ix++) {
+        const source = iz * islandWidth + ix;
+        if (island.terrain[source] === 'water') continue;
+        const target = (z + iz) * width + x + ix;
+        terrain[target] = island.terrain[source];
+        level[target] = island.level[source];
+      }
+    }
+    islands.push({ seed: islandSeed, x, z, width: islandWidth, depth: islandDepth, entry: { x: x + island.entry.x, z: z + island.entry.z } });
+  }
+  const home = homeIsland(islands, width, depth);
+  return { seed, width, depth, terrain, level, entry: islands[home].entry, islands, home };
+}
+
+function homeIsland(islands: IslandPlacement[], width: number, depth: number): number {
+  let best = 0;
+  let bestDistance = Infinity;
+  islands.forEach((island, index) => {
+    const dx = island.x + island.width / 2 - width / 2;
+    const dz = island.z + island.depth / 2 - depth / 2;
+    const distance = dx * dx + dz * dz;
+    if (distance >= bestDistance) return;
+    bestDistance = distance;
+    best = index;
+  });
+  return best;
+}
+
+export function islandAt(map: IslandMap, x: number, z: number): IslandPlacement | null {
+  return map.islands.find((island) => x >= island.x && z >= island.z && x < island.x + island.width && z < island.z + island.depth) ?? null;
 }
 
 function chooseEntry(width: number, depth: number, terrain: Terrain[], level: Uint8Array): Tile {
@@ -237,7 +314,7 @@ const maps = new Map<number, IslandMap>();
 export function islandFor(seed: number): IslandMap {
   let map = maps.get(seed);
   if (!map) {
-    map = generateIsland(seed);
+    map = generateArchipelago(seed);
     maps.set(seed, map);
   }
   return map;

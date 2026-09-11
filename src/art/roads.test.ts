@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import * as T from 'three';
-import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, generateIsland, tileAtOn, worldPositionOn, type IslandMap } from '../sim/island';
+import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, generateIsland, soleIsland, tileAtOn, worldPositionOn, type IslandMap } from '../sim/island';
 import { createWorld } from '../sim/world';
 import { buildStarterNeighbourhood } from '../sim/scenario';
 import { buildRoads } from './roads';
@@ -8,7 +8,7 @@ import { STAIR_STEPS as ROAD_STEPS } from '../sim/stairs';
 import { colors, disposeModel, material } from './primitives';
 
 function fixture(): IslandMap {
-  return { seed: 17, width: 3, depth: 3, terrain: Array(9).fill('grass'), level: new Uint8Array(9), entry: { x: 1, z: 2 } };
+  return soleIsland({ seed: 17, width: 3, depth: 3, terrain: Array(9).fill('grass'), level: new Uint8Array(9), entry: { x: 1, z: 2 } });
 }
 
 function meshes(model: T.Group): T.Mesh<T.BufferGeometry, T.MeshStandardMaterial>[] {

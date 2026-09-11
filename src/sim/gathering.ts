@@ -95,7 +95,7 @@ export function updateGatherer(world: World, building: Building): void {
   const path = kind === 'hunter'
     ? overlandPath(world, start, (tile) => world.wildlife.some((animal) => huntable(animal) && animalTile(map, animal) === tile), GATHER_RANGE)
     : overlandPath(world, start, (tile) => !new Set(footprintTiles(map, building)).has(tile) && nearestAdjacentToForest(world, map, tile), GATHER_RANGE);
-  if (!path || path.length < 2) return;
+  if (!path) return;
   let quarry: number | null = null;
   if (kind === 'hunter') {
     const goal = path[path.length - 1];

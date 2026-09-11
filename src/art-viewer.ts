@@ -7,7 +7,7 @@ import { stairLayout } from './sim/stairs';
 import { buildTerrain } from './render/terrain';
 import type { AnimalKind } from './sim/types';
 import { BUILDINGS, footprint } from './sim/catalog';
-import { CELL_SIZE, GROUND_Y, type IslandMap } from './sim/island';
+import { CELL_SIZE, GROUND_Y, soleIsland } from './sim/island';
 import type { BuildingKind, Stores } from './sim/types';
 
 const STORE_VARIANTS: Record<string, Stores> = {
@@ -72,7 +72,7 @@ function boot(): void {
     }
     if (kindValue === 'road') {
       const layouts: Record<string, number[]> = { straight: [1, 4, 7], bend: [1, 4, 5], junction: [1, 3, 4, 5], cross: [1, 3, 4, 5, 7], stairs: [1, 4, 7] };
-      const map: IslandMap = { seed: 1, width: 3, depth: 3, terrain: Array(9).fill('grass'), level: new Uint8Array(9), entry: { x: 1, z: 2 } };
+      const map = soleIsland({ seed: 1, width: 3, depth: 3, terrain: Array(9).fill('grass'), level: new Uint8Array(9), entry: { x: 1, z: 2 } });
       let description = 'Hand-laid limestone. Broad flags cross cell boundaries; exposed corners soften into a narrow stone edge.';
       if (tierValue === 'stairs') {
         for (let index = 0; index < 6; index++) map.level[index] = 1;

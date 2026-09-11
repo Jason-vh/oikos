@@ -3,10 +3,9 @@ import type { Animal, AnimalKind, Building, BuildingKind, Resource, Stores, Walk
 const ANIMAL_KINDS: AnimalKind[] = ['boar', 'rabbit', 'fish', 'gull'];
 
 import { BUILDINGS, HOUSE_CAPACITY, RESOURCES } from './catalog';
-import { islandFor, insideMapOn, tileIndexOn, type IslandMap } from './island';
-import { footprintTiles, neighbours } from './grid';
+import { islandFor, insideMapOn, type IslandMap } from './island';
+import { neighbours } from './grid';
 import { dropInvalidWalkers, recomputeConnectivity } from './world';
-import { spawnWildlife } from './wildlife';
 import { siteHarbour, validateHarbourProgress } from './harbour';
 import { CURRENT_VERSION, migrateSave } from './save-migrations';
 
@@ -171,6 +170,16 @@ function validateWalker(map: IslandMap, raw: unknown, roads: Set<number>, buildi
   };
 }
 
+export function savedBeforeArchipelago(raw: string): boolean {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!isPlainObject(parsed)) return false;
+    return isInteger(parsed.version) && (parsed.version as number) < CURRENT_VERSION;
+  } catch {
+    return false;
+  }
+}
+
 export function deserializeWorld(raw: string): World | null {
   let parsed: unknown;
   try {
@@ -179,7 +188,6 @@ export function deserializeWorld(raw: string): World | null {
     return null;
   }
   if (!isPlainObject(parsed)) return null;
-  const wildlifeWasMissing = parsed.version === 1 && parsed.wildlife === undefined;
   const migrated = migrateSave(parsed);
   if (!migrated) return null;
   const { version, island, seed, time, remainder, money, nextId, roads: rawRoads, buildings: rawBuildings, walkers: rawWalkers, wildlife: rawWildlife, felled: rawFelled, regrowth, produced, delivered, harbour: rawHarbour } = migrated;
@@ -256,17 +264,9 @@ export function deserializeWorld(raw: string): World | null {
     delivered: delivered as number,
     harbour: siteHarbour(seed as number, roads, harbourProgress),
   };
-  if (wildlifeWasMissing) world.wildlife = seedMissingWildlife(world);
   recomputeConnectivity(world);
   dropInvalidWalkers(world);
   return world;
-}
-
-function seedMissingWildlife(world: World): Animal[] {
-  const map = islandFor(world.seed);
-  const occupied = new Set(world.roads);
-  for (const building of [...world.buildings, world.harbour]) for (const tile of footprintTiles(map, building)) occupied.add(tile);
-  return spawnWildlife(world).filter((animal) => !occupied.has(tileIndexOn(map, Math.floor(animal.homeX), Math.floor(animal.homeZ))));
 }
 
 export function parseStores(raw: unknown): Stores | null {

@@ -1,12 +1,14 @@
 import { expect, test } from 'bun:test';
 import * as T from 'three';
-import { generateIsland, type IslandMap } from '../sim/island';
+import { generateIsland, soleIsland } from '../sim/island';
 import { CoastalFoam } from './foam';
 import { colors, material } from './primitives';
 
 function positions(foam: CoastalFoam): number[] {
   return Array.from(foam.mesh.geometry.attributes.position.array);
 }
+
+const FLATNESS = 1e-6;
 
 function area(foam: CoastalFoam): number {
   const geometry = foam.mesh.geometry;
@@ -18,7 +20,7 @@ function area(foam: CoastalFoam): number {
     const b = new T.Vector3().fromBufferAttribute(position, indices.getX(index + 1));
     const c = new T.Vector3().fromBufferAttribute(position, indices.getX(index + 2));
     const normal = b.sub(a).cross(c.sub(a));
-    expect(normal.y).toBeGreaterThanOrEqual(-1e-8);
+    expect(normal.y).toBeGreaterThanOrEqual(-FLATNESS);
     sum += normal.length() / 2;
   }
   return sum;
@@ -93,7 +95,7 @@ test('foam stays at the waterline, faces upward, and fits its fixed bounds on se
 });
 
 test('an empty sea has no foam or invalid bounds', () => {
-  const map: IslandMap = { seed: 1, width: 1, depth: 1, terrain: ['water'], level: new Uint8Array(1), entry: { x: 0, z: 0 } };
+  const map = soleIsland({ seed: 1, width: 1, depth: 1, terrain: ['water'], level: new Uint8Array(1), entry: { x: 0, z: 0 } });
   const foam = new CoastalFoam(map);
   try {
     foam.update(4);

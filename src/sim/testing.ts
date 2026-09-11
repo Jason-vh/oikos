@@ -1,11 +1,33 @@
 import type { ActionResult, Building, BuildingKind, BuildTool, Rotation, Tile, World } from './types';
 import { footprint } from './catalog';
-import { buildable, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
+import { buildable, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn, type IslandMap, type IslandPlacement } from './island';
 import { mapOf, neighbours, perimeterTiles, footprintTiles } from './grid';
 import { harbourTiles } from './harbour';
 import { placement, placeRoadPath } from './world';
 
 export { mapOf };
+
+export function homeIsland(world: World): IslandPlacement {
+  const map = mapOf(world);
+  return map.islands[map.home];
+}
+
+export function homeTiles(world: World, predicate: (map: IslandMap, x: number, z: number) => boolean): Tile[] {
+  const map = mapOf(world);
+  const island = homeIsland(world);
+  const tiles: Tile[] = [];
+  for (let z = island.z; z < island.z + island.depth; z++) {
+    for (let x = island.x; x < island.x + island.width; x++) {
+      if (predicate(map, x, z)) tiles.push({ x, z });
+    }
+  }
+  return tiles;
+}
+
+export function onHomeIsland(world: World, x: number, z: number): boolean {
+  const island = homeIsland(world);
+  return x >= island.x && z >= island.z && x < island.x + island.width && z < island.z + island.depth;
+}
 
 export function findTile(world: World, predicate: (map: IslandMap, x: number, z: number) => boolean, near?: Tile): Tile | null {
   const map = mapOf(world);

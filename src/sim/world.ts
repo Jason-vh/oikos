@@ -52,7 +52,7 @@ export function createWorld(seed = DEFAULT_SEED): World {
   for (let z = map.entry.z; z >= map.entry.z - 8 && terrainOn(map, map.entry.x, z) !== 'water'; z--) roads.add(tileIndexOn(map, map.entry.x, z));
   const roadList = [...roads];
   const world: World = {
-    version: 3,
+    version: 4,
     island: 'kalliste',
     seed,
     time: 0,

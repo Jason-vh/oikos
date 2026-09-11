@@ -1,14 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import { advance, build, createWorld } from './world';
 import { islandFor, terrainOn, tileAtOn, tileIndexOn } from './island';
-import { connect, spotFor } from './testing';
+import { connect, homeTiles, onHomeIsland, spotFor } from './testing';
 import { GATHER_RANGE, overlandPath } from './gathering';
 import type { Tile, World } from './types';
 
 function nearForest(world: World, kind: 'lodge' | 'woodcutter'): Tile | null {
-  const map = islandFor(world.seed);
-  const forest: Tile[] = [];
-  for (let z = 0; z < map.depth; z++) for (let x = 0; x < map.width; x++) if (terrainOn(map, x, z) === 'forest') forest.push({ x, z });
+  const forest = homeTiles(world, (map, x, z) => terrainOn(map, x, z) === 'forest');
   for (const tree of forest) {
     const spot = spotFor(world, kind, tree);
     if (spot && Math.abs(spot.x - tree.x) + Math.abs(spot.z - tree.z) < GATHER_RANGE / 2) return spot;
@@ -19,7 +17,7 @@ function nearForest(world: World, kind: 'lodge' | 'woodcutter'): Tile | null {
 describe('hunting', () => {
   test('a hunter walks overland to game, kills it, and meat reaches the granary by cart', () => {
     const world = createWorld(1);
-    const boar = world.wildlife.find((animal) => animal.kind === 'boar')!;
+    const boar = world.wildlife.find((animal) => animal.kind === 'boar' && onHomeIsland(world, Math.floor(animal.homeX), Math.floor(animal.homeZ)))!;
     const spot = spotFor(world, 'lodge', { x: Math.floor(boar.homeX), z: Math.floor(boar.homeZ) })!;
     expect(build(world, 'lodge', spot.x, spot.z).ok).toBe(true);
     const lodge = world.buildings[0];
@@ -49,7 +47,7 @@ describe('hunting', () => {
 
   test('killed game respawns at home later', () => {
     const world = createWorld(1);
-    const boar = world.wildlife.find((animal) => animal.kind === 'boar')!;
+    const boar = world.wildlife.find((animal) => animal.kind === 'boar' && onHomeIsland(world, Math.floor(animal.homeX), Math.floor(animal.homeZ)))!;
     boar.respawn = 1;
     boar.x = boar.homeX + 2;
     advance(world, 1);
@@ -128,7 +126,7 @@ describe('working at the site', () => {
 
   test('a cornered animal stops wandering until the hunt ends', () => {
     const world = createWorld(1);
-    const boar = world.wildlife.find((animal) => animal.kind === 'boar')!;
+    const boar = world.wildlife.find((animal) => animal.kind === 'boar' && onHomeIsland(world, Math.floor(animal.homeX), Math.floor(animal.homeZ)))!;
     boar.cornered = true;
     const before = [boar.x, boar.z];
     advance(world, 5);

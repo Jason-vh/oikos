@@ -4,7 +4,7 @@ import { CURRENT_VERSION } from './save-migrations';
 import { advance, build, createWorld } from './world';
 import { buildStarterNeighbourhood } from './scenario';
 import { islandFor, tileIndexOn } from './island';
-import { connect, spotFor, slopeFixture, SLOPE_SEED } from './testing';
+import { connect, homeTiles, onHomeIsland, spotFor, slopeFixture, SLOPE_SEED } from './testing';
 import { roadStepAllowed, stairLayout } from './stairs';
 import type { Walker } from './types';
 
@@ -17,7 +17,7 @@ function advancedWorld() {
 
 function huntingWorld() {
   const world = createWorld(1);
-  const boar = world.wildlife.find((animal) => animal.kind === 'boar')!;
+  const boar = world.wildlife.find((animal) => animal.kind === 'boar' && onHomeIsland(world, Math.floor(animal.homeX), Math.floor(animal.homeZ)))!;
   const lodgeSpot = spotFor(world, 'lodge', { x: Math.floor(boar.homeX), z: Math.floor(boar.homeZ) })!;
   build(world, 'lodge', lodgeSpot.x, lodgeSpot.z);
   connect(world, world.buildings[0]);
@@ -105,14 +105,11 @@ describe('gathering saves', () => {
 
   test('a woodcutter carrying lumber home round-trips mid-work', () => {
     const world = createWorld(1);
-    const map = islandFor(world.seed);
     let spot = null;
-    for (let z = 0; z < map.depth && !spot; z++) {
-      for (let x = 0; x < map.width && !spot; x++) {
-        if (map.terrain[tileIndexOn(map, x, z)] !== 'forest') continue;
-        const candidate = spotFor(world, 'woodcutter', { x, z });
-        if (candidate && Math.abs(candidate.x - x) + Math.abs(candidate.z - z) < 7) spot = candidate;
-      }
+    for (const tree of homeTiles(world, (map, x, z) => map.terrain[tileIndexOn(map, x, z)] === 'forest')) {
+      if (spot) break;
+      const candidate = spotFor(world, 'woodcutter', tree);
+      if (candidate && Math.abs(candidate.x - tree.x) + Math.abs(candidate.z - tree.z) < 7) spot = candidate;
     }
     expect(spot).not.toBeNull();
     build(world, 'woodcutter', spot!.x, spot!.z);
@@ -120,7 +117,7 @@ describe('gathering saves', () => {
     const pileSpot = spotFor(world, 'stockpile', spot!)!;
     build(world, 'stockpile', pileSpot.x, pileSpot.z);
     connect(world, world.buildings[1]);
-    const houseSpot = spotFor(world, 'house', map.entry)!;
+    const houseSpot = spotFor(world, 'house', islandFor(world.seed).entry)!;
     build(world, 'house', houseSpot.x, houseSpot.z);
     connect(world, world.buildings[2]);
 
@@ -340,7 +337,7 @@ describe('legacy topology quarantine', () => {
     const spot = spotFor(world, 'lodge', low)!;
     build(world, 'lodge', spot.x, spot.z);
     const lodge = world.buildings[0];
-    const boar = world.wildlife.find((animal) => animal.kind === 'boar')!;
+    const boar = world.wildlife.find((animal) => animal.kind === 'boar' && onHomeIsland(world, Math.floor(animal.homeX), Math.floor(animal.homeZ)))!;
     boar.cornered = true;
 
     const strandedHunter = bareWalker({

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { advance, addStore, build, createWorld, demolish, placement, setVendor } from './world';
-import { connect, mapOf, spotFor } from './testing';
-import { tileAtOn } from './island';
+import { connect, homeTiles, mapOf, spotFor } from './testing';
+import { terrainOn, tileAtOn } from './island';
 import { deserializeWorld, serializeWorld } from './save';
 import { HARBOUR_DOCK_CAP, HARBOUR_MIN_CARGO, HARBOUR_UPGRADE_LUMBER } from './harbour';
 
@@ -60,12 +60,10 @@ describe('rebuilding the harbour in stone', () => {
     const world = createWorld(1);
     const map = mapOf(world);
     let spot = null as ReturnType<typeof spotFor>;
-    for (let z = 0; z < map.depth && !spot; z++) {
-      for (let x = 0; x < map.width && !spot; x++) {
-        if (map.terrain[map.width * z + x] !== 'forest') continue;
-        const candidate = spotFor(world, 'woodcutter', { x, z });
-        if (candidate && Math.abs(candidate.x - x) + Math.abs(candidate.z - z) < 7) spot = candidate;
-      }
+    for (const tree of homeTiles(world, (island, x, z) => terrainOn(island, x, z) === 'forest')) {
+      if (spot) break;
+      const candidate = spotFor(world, 'woodcutter', tree);
+      if (candidate && Math.abs(candidate.x - tree.x) + Math.abs(candidate.z - tree.z) < 7) spot = candidate;
     }
     expect(spot).not.toBeNull();
     build(world, 'woodcutter', spot!.x, spot!.z);
@@ -214,17 +212,11 @@ describe('save and load', () => {
     expect(reloaded!.harbour).toEqual(world.harbour);
   });
 
-  test('a save from before the harbour existed gets one backfilled at the same, sited position as a fresh world', () => {
+  test('a save with no harbour at all is refused, not quietly given one', () => {
     const world = createWorld(1);
     const raw = JSON.parse(serializeWorld(world));
-    raw.version = 2;
     delete raw.harbour;
-    const migrated = deserializeWorld(JSON.stringify(raw));
-    expect(migrated).not.toBeNull();
-    expect(migrated!.harbour.tier).toBe(1);
-    expect(migrated!.harbour.x).toBe(world.harbour.x);
-    expect(migrated!.harbour.z).toBe(world.harbour.z);
-    expect(migrated!.harbour.connected).toBe(true);
+    expect(deserializeWorld(JSON.stringify(raw))).toBeNull();
   });
 
   test('rejects a harbour with an invalid progress fraction rather than clamping it', () => {

@@ -1,17 +1,17 @@
 import { describe, expect, test } from 'bun:test';
 import { doorTiles, mixedEdgeAllowed, roadHeight, roadStepAllowed, stairLayout, stairPlacementConflict, STAIR_STEPS } from './stairs';
-import { GROUND_Y, LEVEL_HEIGHT, tileIndexOn, type IslandMap } from './island';
+import { GROUND_Y, LEVEL_HEIGHT, soleIsland, tileIndexOn, type IslandMap } from './island';
 import type { Terrain } from './types';
 
 function blankMap(width = 8, depth = 8): IslandMap {
-  return {
+  return soleIsland({
     seed: 1,
     width,
     depth,
     terrain: new Array(width * depth).fill('grass') as Terrain[],
     level: new Uint8Array(width * depth),
     entry: { x: 0, z: 0 },
-  };
+  });
 }
 
 function set(map: IslandMap, x: number, z: number, terrain: Terrain, level: number): void {
