@@ -14,6 +14,7 @@
     "smoke:construction": "node scripts/construction-smoke.mjs",
     "art:check": "bun test src/art",
     "art:capture": "node scripts/art-capture.mjs",
+    "coast:capture": "node scripts/coast-capture.mjs",
     "check": "bash scripts/check.sh"
   },
   "dependencies": {

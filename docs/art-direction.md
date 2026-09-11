@@ -64,6 +64,14 @@ from `(-25, 42, 24)`; ACES tone mapping at 1.18; 2× MSAA; GTAO at 70% resolutio
 shadows refreshed on change, not per frame. Golden hour swaps the sun to `ffc083`
 lower in the sky. Do not add bloom, vignette or outlines.
 
+## Coastlines
+
+`src/art/coast.ts` derives coastal profiles from neighbouring land and sea tiles.
+Tile tops remain complete, flat squares; only the rock below the rim is carved.
+Convex waterline corners are chamfered, with a continuous shallow-water band.
+Slow seeded variation controls the cuts and band width. Narrow channels stay open.
+The logical island, inland terraces, roads and building footprints never change.
+
 ## Budgets
 
 Keep a placeable building under 18 draw calls and ~9,000 triangles; walkers and

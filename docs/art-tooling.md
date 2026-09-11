@@ -16,6 +16,7 @@ src/art/
   stall.ts        the agora's market stall, counter/posts/awning/goods
   food.ts         resource bundles (wheat, carrots, fish, meat, olives, lumber, clay,
                   stone), bundlesOf(stores, slots), bundleKey()
+  coast.ts        seeded shoreline profiles, carved faces and continuous shallows
   vegetation.ts   tree(), wheatFarm(stage)
   people.ts       figure(colour, load) with legs/arms, animateFigure(), animateWork()
   animals.ts      boar, rabbit, fish, gull, animateAnimal()
@@ -89,6 +90,10 @@ dust as each piece lands, then swaps to the ordinary material-batched model.
   and at city zoom, one midway capture per kind, replay/scrub checks, idle rendering,
   reduced motion, paused placement, same-island checkpoint restore and atelier save
   isolation. Output: `artifacts/construction/`.
+- **`npm run coast:capture -- <base url> [output] [seeds…]`**: coastlines on seeds
+  1, 2, 8 and 37, from four sides and with the grid, plus the seed-1 village.
+  Uses isolated browser storage and checks paused rendering and unchanged simulation.
+  Requires the dev server. Output: `artifacts/coast/`.
 - **`npm run smoke`** and **`npm run check`**: the gameplay walkthrough
   (`scripts/smoke.mjs`), which is where models are judged in context.
 

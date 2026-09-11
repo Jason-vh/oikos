@@ -1,5 +1,6 @@
 import * as T from 'three';
 import { colors, material } from '../art';
+import { buildCoast } from '../art/coast';
 import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, levelOn, terrainOn, worldPositionOn, type IslandMap } from '../sim/island';
 import type { Terrain } from '../sim/types';
 
@@ -13,9 +14,6 @@ const SURFACE: Record<Terrain, number> = {
   rock: 0xb9ad8c,
   cliff: colors.stone,
 };
-const SEA_FLOOR = -.55;
-const SHELF = -.06;
-
 interface Batch { positions: number[]; normals: number[]; }
 
 function batchFor(batches: Map<number, Batch>, color: number): Batch {
@@ -45,54 +43,35 @@ function quad(batch: Batch, a: number[], b: number[], c: number[], d: number[], 
 }
 
 function heightOf(map: IslandMap, x: number, z: number): number {
-  if (terrainOn(map, x, z) === 'water') return SHELF;
   return GROUND_Y + levelOn(map, x, z) * LEVEL_HEIGHT;
-}
-
-function cornerHeight(map: IslandMap, x: number, z: number, cx: number, cz: number): number {
-  const own = heightOf(map, x, z);
-  if (terrainOn(map, x, z) === 'water') return SHELF;
-  const dx = cx === 0 ? -1 : 1;
-  const dz = cz === 0 ? -1 : 1;
-  const seaAround = [[dx, 0], [0, dz], [dx, dz]].filter(([ox, oz]) => terrainOn(map, x + ox, z + oz) === 'water').length;
-  return own - seaAround * .09;
 }
 
 export function buildTerrain(map: IslandMap): T.Group {
   const batches = new Map<number, Batch>();
   const root = new T.Group();
-  for (let z = -1; z <= map.depth; z++) {
-    for (let x = -1; x <= map.width; x++) {
+  root.add(buildCoast(map));
+  for (let z = 0; z < map.depth; z++) {
+    for (let x = 0; x < map.width; x++) {
       const terrain = terrainOn(map, x, z);
+      if (terrain === 'water') continue;
       const origin = worldPositionOn(map, x, z);
       const x0 = origin.x;
       const x1 = origin.x + CELL_SIZE;
       const z0 = origin.z;
       const z1 = origin.z + CELL_SIZE;
-      if (terrain === 'water') {
-        const neighbourLand = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]].some(([dx, dz]) => terrainOn(map, x + dx, z + dz) !== 'water');
-        if (neighbourLand) quad(batchFor(batches, 0x8fc4b8), [x0, SHELF, z0], [x1, SHELF, z0], [x1, SHELF, z1], [x0, SHELF, z1], [0, 1, 0]);
-        continue;
-      }
       const top = heightOf(map, x, z);
-      const h00 = cornerHeight(map, x, z, 0, 0);
-      const h10 = cornerHeight(map, x, z, 1, 0);
-      const h11 = cornerHeight(map, x, z, 1, 1);
-      const h01 = cornerHeight(map, x, z, 0, 1);
-      quad(batchFor(batches, SURFACE[terrain]), [x0, h00, z0], [x1, h10, z0], [x1, h11, z1], [x0, h01, z1], [0, 1, 0]);
+      quad(batchFor(batches, SURFACE[terrain]), [x0, top, z0], [x1, top, z0], [x1, top, z1], [x0, top, z1], [0, 1, 0]);
       const sides: [number, number, number[], number[]][] = [
-        [1, 0, [x1, h10, z0], [x1, h11, z1]],
-        [-1, 0, [x0, h01, z1], [x0, h00, z0]],
-        [0, 1, [x1, h11, z1], [x0, h01, z1]],
-        [0, -1, [x0, h00, z0], [x1, h10, z0]],
+        [1, 0, [x1, top, z0], [x1, top, z1]],
+        [-1, 0, [x0, top, z1], [x0, top, z0]],
+        [0, 1, [x1, top, z1], [x0, top, z1]],
+        [0, -1, [x0, top, z0], [x1, top, z0]],
       ];
       for (const [dx, dz, a, b] of sides) {
-        const neighbourHeight = heightOf(map, x + dx, z + dz);
-        const neighbourTerrain = terrainOn(map, x + dx, z + dz);
-        const bottom = neighbourTerrain === 'water' ? SEA_FLOOR : neighbourHeight;
-        if (bottom >= Math.min(a[1], b[1])) continue;
-        const wallColor = neighbourTerrain === 'water' ? colors.stone : colors.earth;
-        const batch = batchFor(batches, wallColor);
+        if (terrainOn(map, x + dx, z + dz) === 'water') continue;
+        const bottom = heightOf(map, x + dx, z + dz);
+        if (bottom >= top) continue;
+        const batch = batchFor(batches, colors.earth);
         quad(batch, a, b, [b[0], bottom, b[2]], [a[0], bottom, a[2]], [dx, 0, dz]);
         if (top - bottom > LEVEL_HEIGHT * .9) {
           const ledge = bottom + (top - bottom) * .45;
