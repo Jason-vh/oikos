@@ -20,6 +20,7 @@ src/art/
   coast.ts        seeded shoreline profiles, carved faces and continuous shallows
   foam.ts         painted breakers that ride the shoreline's foot and shallows
   vegetation.ts   tree(), wheatFarm(stage)
+  bushes.ts       bush(shape), seeded scrub pockets and smaller clifftop cushions
   people.ts       figure(colour, load) with legs/arms, animateFigure(), animateWork()
   animals.ts      boar, rabbit, fish, gull, animateAnimal()
   ships.ts        boat()
@@ -86,7 +87,8 @@ dust as each piece lands, then swaps to the ordinary material-batched model.
   motion; manual scrubbing remains available without autoplay.
 - **`npm run art:check`**: `bun test src/art`.
 - **`npm run art:capture -- <base url>`**: captures every atelier model to
-  `artifacts/art/` and asserts the atelier stays still when nothing animates, keeps
+  `artifacts/art/`, including bushes and outcrops from four sides, and asserts the
+  atelier stays still when nothing animates, keeps
   the selection in the URL across a reload, and never touches the game's save.
 - **`npm run smoke:construction -- <base url>`**: assembly captures from four sides
   and at city zoom, one midway capture per kind, replay/scrub checks, idle rendering,

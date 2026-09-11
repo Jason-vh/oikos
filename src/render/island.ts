@@ -5,6 +5,7 @@ import { fractal } from '../sim/island';
 import { buildTerrain } from './terrain';
 import { CoastalFoam } from '../art/foam';
 import { cliffOutcrop } from '../art/cliffs';
+import { bushForTile } from '../art/bushes';
 
 function seeded(map: IslandMap, x: number, z: number, salt: number): number {
   return fractal(x * 3.7 + salt, z * 2.9 - salt, map.seed + salt, 1, 1);
@@ -47,10 +48,9 @@ export class IslandScenery {
           this.decor.set(z * map.width + x, plant);
           this.root.add(plant);
         } else if (terrain === 'scrub') {
-          if (seeded(map, x, z, 8) > .35) {
-            const bush = new T.Group();
-            lump(bush, seeded(map, x, z, 9) > .5 ? colors.oliveDark : colors.olive, cx + jitterX, y + .16, cz + jitterZ, .32 + seeded(map, x, z, 10) * .2, .22, .3 + seeded(map, x, z, 11) * .2);
-            if (seeded(map, x, z, 12) > .6) lump(bush, colors.oliveLight, cx - jitterX, y + .12, cz - jitterZ, .22, .16, .2);
+          const bush = bushForTile(map, x, z);
+          if (bush) {
+            bush.position.set(cx, y, cz);
             bake(bush);
             this.decor.set(z * map.width + x, bush);
             this.root.add(bush);
@@ -69,7 +69,11 @@ export class IslandScenery {
             outcrop.scale.setScalar(.75 + seeded(map, x, z, 22) * .25);
             rocks.add(outcrop);
           }
-          if (seeded(map, x, z, 25) > .8) lump(rocks, colors.oliveDark, cx - jitterX, y + .1, cz - jitterZ, .2, .12, .18);
+          const bush = bushForTile(map, x, z);
+          if (bush) {
+            bush.position.set(cx, y, cz);
+            rocks.add(bush);
+          }
           if (rocks.children.length) {
             bake(rocks);
             this.decor.set(z * map.width + x, rocks);

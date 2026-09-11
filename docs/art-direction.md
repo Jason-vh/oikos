@@ -87,6 +87,15 @@ edge at coastal junctions, where stone triangles close the transition to the coa
 inset shoulders. Two-level drops remain closed. Clifftop stones form
 occasional paired outcrops, cleared wherever a road occupies their tile.
 
+## Scrub
+
+`src/art/bushes.ts` authors low cushions, leaning upright shrubs and paired clumps
+from two overlapping foliage masses. Olive dominates, with darker flanks and an
+occasional light accent. Seeded patches leave open ground between denser pockets;
+rotation, proportions and within-tile placement vary without crossing a tile edge.
+Clifftops reuse smaller cushions. Every bush clears with its occupied tile and
+returns unchanged when that tile is freed. No foliage animation or leaf detail.
+
 ## Budgets
 
 Keep a placeable building under 18 draw calls and ~9,000 triangles; walkers and

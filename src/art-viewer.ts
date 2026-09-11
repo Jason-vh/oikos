@@ -1,6 +1,7 @@
 import * as T from 'three';
 import { animalModel, animateAnimal, animateFigure, bake, boat, citizen, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, type ModelStage, type ModelState } from './art';
 import { cliffOutcrop } from './art/cliffs';
+import { bush, type BushShape } from './art/bushes';
 import type { AnimalKind } from './sim/types';
 import { BUILDINGS, footprint } from './sim/catalog';
 import { CELL_SIZE } from './sim/island';
@@ -60,6 +61,11 @@ function boot(): void {
       const load = tierValue === 'jar' ? 'jar' : tierValue === 'bundle' ? 'bundle' : 'none';
       const model = figure(colors.blue, load).root;
       return { model, footprint: null, description: 'A citizen. Legs and arms swing while walking.', animate: (time) => animateFigure(model, time * 9, .55) };
+    }
+    if (kindValue === 'bush') {
+      const model = bush(tierValue as BushShape);
+      bake(model);
+      return { model, footprint: { width: 1, depth: 1 }, description: 'Mediterranean scrub. Low cushions, leaning shrubs and paired clumps grow in patches across the island.' };
     }
     if (kindValue === 'outcrop') {
       const model = cliffOutcrop();
