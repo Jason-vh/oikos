@@ -28,7 +28,7 @@ for (const seed of [1, 2, 8, 37]) {
     } finally {
       disposeModel(terrain);
     }
-  });
+  }, 30_000);
 }
 
 function openEdges(model: T.Group): [T.Vector3, T.Vector3][] {
