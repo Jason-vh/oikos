@@ -115,5 +115,8 @@ dust as each piece lands, then swaps to the ordinary material-batched model.
   Output: `artifacts/foam/`.
 - **`npm run smoke`** and **`npm run check`**: the gameplay walkthrough
   (`scripts/smoke.mjs`), which is where models are judged in context.
+- **`npm run art:diff -- <before dir> <after dir>`**: compares two capture
+  directories pixel by pixel and reports how much of each image moved. Use it when
+  a change is meant to leave the picture alone, such as a rendering optimisation.
 
 `artifacts/` is gitignored; compare a capture against your previous local capture.

@@ -15,6 +15,7 @@
     "smoke:foam": "node scripts/foam-smoke.mjs",
     "art:check": "bun test src/art",
     "art:capture": "node scripts/art-capture.mjs",
+    "art:diff": "node scripts/capture-diff.mjs",
     "coast:capture": "node scripts/coast-capture.mjs",
     "terrace:capture": "node scripts/terrace-capture.mjs",
     "road:capture": "node scripts/road-capture.mjs",
