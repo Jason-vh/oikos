@@ -46,18 +46,20 @@ function stairCandidates(map: IslandMap, roads: ReadonlySet<number>, tile: numbe
 export function stairLayout(map: IslandMap, roads: ReadonlySet<number>): Map<number, Stair> {
   const stairs = new Map<number, Stair>();
   for (const tile of roads) {
+    if (stairDownEdges(map, roads, tile).length !== 1) continue;
     const candidates = stairCandidates(map, roads, tile);
-    if (candidates.length > 0) stairs.set(tile, candidates[0]);
+    if (candidates.length === 1) stairs.set(tile, candidates[0]);
   }
   return stairs;
 }
 
 export function stairPlacementConflict(map: IslandMap, roads: ReadonlySet<number>, tile: number): StairIssue | null {
   const raw = stairDownEdges(map, roads, tile);
-  const valid = stairCandidates(map, roads, tile);
-  if (valid.length > 1) return 'ambiguous';
-  if (valid.length === 0) return raw.length > 0 ? 'backland' : null;
-  const { dx } = valid[0];
+  if (raw.length > 1) return 'ambiguous';
+  if (raw.length === 0) return null;
+  const candidates = stairCandidates(map, roads, tile);
+  if (candidates.length === 0) return 'backland';
+  const { dx } = candidates[0];
   const { x, z } = tileAtOn(map, tile);
   const laterals: [number, number][] = dx !== 0 ? [[0, 1], [0, -1]] : [[1, 0], [-1, 0]];
   for (const [lx, lz] of laterals) {

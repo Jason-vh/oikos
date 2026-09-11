@@ -349,10 +349,11 @@ function stairSignature(stairs: ReadonlyMap<number, Stair>, tile: number): numbe
 }
 
 function currentSegmentChanged(before: ReadonlyMap<number, Stair>, after: ReadonlyMap<number, Stair>, walker: Walker): boolean {
+  const current = walker.path[walker.step];
+  if (stairSignature(before, current) !== stairSignature(after, current)) return true;
   if (walker.step >= walker.path.length - 1) return false;
-  const a = walker.path[walker.step];
-  const b = walker.path[walker.step + 1];
-  return stairSignature(before, a) !== stairSignature(after, a) || stairSignature(before, b) !== stairSignature(after, b);
+  const next = walker.path[walker.step + 1];
+  return stairSignature(before, next) !== stairSignature(after, next);
 }
 
 export function dropInvalidWalkers(world: World, beforeStairs?: ReadonlyMap<number, Stair>): void {

@@ -1026,6 +1026,19 @@ describe('in-flight walkers when a stair changes underfoot', () => {
     expect(world.walkers).toHaveLength(0);
   });
 
+  test('a stationary walker at its final tile retires when a new lower road turns that tile into a stair', () => {
+    const { map, tile, down } = orientedStairFixture('east');
+    const world = createWorld(STAIR_SEED);
+    expect(build(world, 'road', tile.x, tile.z).ok).toBe(true);
+    const walker = bareWalker(map, tile, tile, 0);
+    walker.path = [tileIndexOn(map, tile.x, tile.z)];
+    walker.working = 3;
+    world.walkers.push(walker);
+
+    expect(build(world, 'road', down.x, down.z).ok).toBe(true);
+    expect(world.walkers).toHaveLength(0);
+  });
+
   test('a walker mid-transition on the upper half of a stair retires when its foot road is removed', () => {
     const { map, tile, up, down } = orientedStairFixture('east');
     const world = createWorld(STAIR_SEED);

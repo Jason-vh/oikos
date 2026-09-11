@@ -246,17 +246,30 @@ describe('corruption rejection', () => {
   });
 });
 
-function ambiguousSlopeFixture() {
+const AMBIGUOUS_ORIGIN = { x: 20, z: 20 };
+
+function ambiguousStairFixture() {
   const { low, high, landing } = slopeFixture();
   const map = islandFor(SLOPE_SEED);
   map.terrain[tileIndexOn(map, high.x, high.z)] = 'cliff';
-  const northLow = { x: high.x, z: high.z - 1 };
-  const northLanding = { x: high.x, z: high.z - 2 };
-  for (const [tile, terrain, level] of [[northLow, 'grass', 0], [northLanding, 'grass', 1]] as const) {
-    map.terrain[tileIndexOn(map, tile.x, tile.z)] = terrain;
-    map.level[tileIndexOn(map, tile.x, tile.z)] = level;
-  }
-  return { map, low, high, landing, northLow };
+
+  const setTile = (x: number, z: number, terrain: 'grass' | 'cliff', level: number) => {
+    const index = tileIndexOn(map, x, z);
+    map.terrain[index] = terrain;
+    map.level[index] = level;
+  };
+  const ambiguousTile = { x: AMBIGUOUS_ORIGIN.x, z: AMBIGUOUS_ORIGIN.z };
+  const eastDown = { x: AMBIGUOUS_ORIGIN.x + 1, z: AMBIGUOUS_ORIGIN.z };
+  const westUp = { x: AMBIGUOUS_ORIGIN.x - 1, z: AMBIGUOUS_ORIGIN.z };
+  const northDown = { x: AMBIGUOUS_ORIGIN.x, z: AMBIGUOUS_ORIGIN.z - 1 };
+  const southUp = { x: AMBIGUOUS_ORIGIN.x, z: AMBIGUOUS_ORIGIN.z + 1 };
+  setTile(ambiguousTile.x, ambiguousTile.z, 'cliff', 1);
+  setTile(eastDown.x, eastDown.z, 'grass', 0);
+  setTile(westUp.x, westUp.z, 'grass', 1);
+  setTile(northDown.x, northDown.z, 'grass', 0);
+  setTile(southUp.x, southUp.z, 'grass', 1);
+
+  return { map, low, high, landing, ambiguousTile, eastDown, northDown };
 }
 
 function bareWalker(overrides: Partial<Walker> & Pick<Walker, 'id' | 'homeId' | 'path'>): Walker {
@@ -267,13 +280,15 @@ function bareWalker(overrides: Partial<Walker> & Pick<Walker, 'id' | 'homeId' | 
 }
 
 describe('legacy topology quarantine', () => {
-  test('an ambiguous legacy stair keeps both road tiles, but only the winning direction is walkable', () => {
-    const { map, low, high, northLow } = ambiguousSlopeFixture();
+  test('a legacy tile with two lower road neighbours derives no stair at all; a clean stair elsewhere is unaffected', () => {
+    const { map, low, high, ambiguousTile, eastDown, northDown } = ambiguousStairFixture();
     const world = createWorld(SLOPE_SEED);
     const lowIndex = tileIndexOn(map, low.x, low.z);
     const highIndex = tileIndexOn(map, high.x, high.z);
-    const northLowIndex = tileIndexOn(map, northLow.x, northLow.z);
-    world.roads = [...world.roads, lowIndex, highIndex, northLowIndex];
+    const ambiguousIndex = tileIndexOn(map, ambiguousTile.x, ambiguousTile.z);
+    const eastDownIndex = tileIndexOn(map, eastDown.x, eastDown.z);
+    const northDownIndex = tileIndexOn(map, northDown.x, northDown.z);
+    world.roads = [...world.roads, lowIndex, highIndex, ambiguousIndex, eastDownIndex, northDownIndex];
 
     const restored = deserializeWorld(serializeWorld(world));
     expect(restored).not.toBeNull();
@@ -281,25 +296,29 @@ describe('legacy topology quarantine', () => {
 
     const stairs = stairLayout(map, new Set(restored!.roads));
     expect(stairs.get(highIndex)?.down).toBe(lowIndex);
-    expect(roadStepAllowed(map, stairs, highIndex, lowIndex)).toBe(true);
-    expect(roadStepAllowed(map, stairs, highIndex, northLowIndex)).toBe(false);
+    expect(stairs.has(ambiguousIndex)).toBe(false);
+    expect(roadStepAllowed(map, stairs, ambiguousIndex, eastDownIndex)).toBe(false);
+    expect(roadStepAllowed(map, stairs, ambiguousIndex, northDownIndex)).toBe(false);
   });
 
-  test('a walker stranded on the losing side of an ambiguous legacy stair is dropped; a valid one round-trips', () => {
-    const { map, low, high, northLow } = ambiguousSlopeFixture();
+  test('walkers crossing an ambiguous legacy tile from either side are dropped; a walker on a clean stair elsewhere round-trips', () => {
+    const { map, low, high, ambiguousTile, eastDown, northDown } = ambiguousStairFixture();
     const world = createWorld(SLOPE_SEED);
     const lowIndex = tileIndexOn(map, low.x, low.z);
     const highIndex = tileIndexOn(map, high.x, high.z);
-    const northLowIndex = tileIndexOn(map, northLow.x, northLow.z);
-    world.roads = [...world.roads, lowIndex, highIndex, northLowIndex];
+    const ambiguousIndex = tileIndexOn(map, ambiguousTile.x, ambiguousTile.z);
+    const eastDownIndex = tileIndexOn(map, eastDown.x, eastDown.z);
+    const northDownIndex = tileIndexOn(map, northDown.x, northDown.z);
+    world.roads = [...world.roads, lowIndex, highIndex, ambiguousIndex, eastDownIndex, northDownIndex];
 
     const spot = spotFor(world, 'maintenance', low)!;
     build(world, 'maintenance', spot.x, spot.z);
     const home = world.buildings[0];
 
-    const invalidWalker = bareWalker({ id: world.nextId++, homeId: home.id, path: [northLowIndex, highIndex] });
+    const eastWalker = bareWalker({ id: world.nextId++, homeId: home.id, path: [eastDownIndex, ambiguousIndex] });
+    const northWalker = bareWalker({ id: world.nextId++, homeId: home.id, path: [northDownIndex, ambiguousIndex] });
     const validWalker = bareWalker({ id: world.nextId++, homeId: home.id, path: [lowIndex, highIndex] });
-    world.walkers.push(invalidWalker, validWalker);
+    world.walkers.push(eastWalker, northWalker, validWalker);
 
     const restored = deserializeWorld(serializeWorld(world));
     expect(restored).not.toBeNull();
@@ -308,13 +327,15 @@ describe('legacy topology quarantine', () => {
   });
 
   test('dropping a stranded hunter releases its cornered quarry', () => {
-    const { low, high, northLow } = ambiguousSlopeFixture();
+    const { low, high, ambiguousTile, eastDown, northDown } = ambiguousStairFixture();
     const world = createWorld(SLOPE_SEED);
     const map = islandFor(SLOPE_SEED);
     const lowIndex = tileIndexOn(map, low.x, low.z);
     const highIndex = tileIndexOn(map, high.x, high.z);
-    const northLowIndex = tileIndexOn(map, northLow.x, northLow.z);
-    world.roads = [...world.roads, lowIndex, highIndex, northLowIndex];
+    const ambiguousIndex = tileIndexOn(map, ambiguousTile.x, ambiguousTile.z);
+    const eastDownIndex = tileIndexOn(map, eastDown.x, eastDown.z);
+    const northDownIndex = tileIndexOn(map, northDown.x, northDown.z);
+    world.roads = [...world.roads, lowIndex, highIndex, ambiguousIndex, eastDownIndex, northDownIndex];
 
     const spot = spotFor(world, 'lodge', low)!;
     build(world, 'lodge', spot.x, spot.z);
@@ -323,7 +344,7 @@ describe('legacy topology quarantine', () => {
     boar.cornered = true;
 
     const strandedHunter = bareWalker({
-      id: world.nextId++, kind: 'hunter', homeId: lodge.id, path: [northLowIndex, highIndex], quarry: boar.id, working: 1,
+      id: world.nextId++, kind: 'hunter', homeId: lodge.id, path: [northDownIndex, ambiguousIndex], quarry: boar.id, working: 1,
     });
     world.walkers.push(strandedHunter);
 
