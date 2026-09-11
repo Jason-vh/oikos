@@ -4,6 +4,7 @@ import { CELL_SIZE, buildable, groundHeight, levelOn, terrainOn, worldPositionOn
 import { fractal } from '../sim/island';
 import { buildTerrain } from './terrain';
 import { CoastalFoam } from '../art/foam';
+import { cliffOutcrop } from '../art/cliffs';
 
 function seeded(map: IslandMap, x: number, z: number, salt: number): number {
   return fractal(x * 3.7 + salt, z * 2.9 - salt, map.seed + salt, 1, 1);
@@ -59,8 +60,21 @@ export class IslandScenery {
             lump(props, seeded(map, x, z, 14) > .5 ? colors.stone : colors.cream, cx + jitterX, y + .18, cz + jitterZ, .3 + seeded(map, x, z, 15) * .3, .22 + seeded(map, x, z, 16) * .2, .28 + seeded(map, x, z, 17) * .3);
           }
         } else if (terrain === 'cliff') {
-          if (seeded(map, x, z, 20) > .5) lump(props, seeded(map, x, z, 21) > .6 ? colors.cream : colors.stone, cx + jitterX * .8, y + .12, cz + jitterZ * .8, .26 + seeded(map, x, z, 22) * .22, .16 + seeded(map, x, z, 23) * .18, .24 + seeded(map, x, z, 24) * .22);
-          if (seeded(map, x, z, 25) > .8) lump(props, colors.oliveDark, cx - jitterX, y + .1, cz - jitterZ, .2, .12, .18);
+          const outcrops = fractal(x, z, map.seed + 967, 2, 4);
+          const rocks = new T.Group();
+          if (outcrops > .59 && seeded(map, x, z, 20) > .45) {
+            const outcrop = cliffOutcrop();
+            outcrop.position.set(cx, y, cz);
+            outcrop.rotation.y = seeded(map, x, z, 21) * Math.PI * 2;
+            outcrop.scale.setScalar(.75 + seeded(map, x, z, 22) * .25);
+            rocks.add(outcrop);
+          }
+          if (seeded(map, x, z, 25) > .8) lump(rocks, colors.oliveDark, cx - jitterX, y + .1, cz - jitterZ, .2, .12, .18);
+          if (rocks.children.length) {
+            bake(rocks);
+            this.decor.set(z * map.width + x, rocks);
+            this.root.add(rocks);
+          }
         } else if (terrain === 'fertile') {
           box(props, (x + z) % 2 === 0 ? 0xb9b47a : 0xb2ad74, cx, y - .03, cz, CELL_SIZE, .04, CELL_SIZE, 0);
         } else if (terrain === 'grass' && levelOn(map, x, z) >= 1 && seeded(map, x, z, 18) > .93) {

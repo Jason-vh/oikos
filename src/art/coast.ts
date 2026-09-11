@@ -94,11 +94,24 @@ export function coastalSegments(map: IslandMap): CoastalSegment[] {
 export function buildCoast(map: IslandMap): T.Group {
   const stone: number[] = [];
   const shallows: number[] = [];
+  const joints = new Map<string, { profile: Profile; facing: Point }>();
   for (const { start: a, end: b, outward } of coastalSegments(map)) {
     const facing: Point = [outward[0], 0, outward[1]];
     quad(stone, a.rim, b.rim, b.shoulder, a.shoulder, facing);
     quad(stone, a.shoulder, b.shoulder, b.foot, a.foot, facing);
     quad(shallows, a.foot, b.foot, b.shallows, a.shallows, [0, 1, 0]);
+    if (a.rim[0] === b.rim[0] && a.rim[2] === b.rim[2]) continue;
+    for (const [profile, other] of [[a, b], [b, a]]) {
+      const key = [...profile.shoulder, profile.rim[0], profile.rim[2]].join(':');
+      const joint = { profile, facing: [profile.rim[0] - other.rim[0], 0, profile.rim[2] - other.rim[2]] as Point };
+      const previous = joints.get(key);
+      if (previous && previous.profile.rim[1] !== profile.rim[1]) {
+        const high = previous.profile.rim[1] > profile.rim[1] ? previous : joint;
+        const low = high === previous ? joint : previous;
+        triangle(stone, high.profile.rim, low.profile.rim, profile.shoulder, high.facing);
+      }
+      joints.set(key, joint);
+    }
   }
   const root = new T.Group();
   for (const [positions, color] of [[stone, colors.stone], [shallows, 0x8fc4b8]] as const) {

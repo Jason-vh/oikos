@@ -16,6 +16,7 @@ src/art/
   stall.ts        the agora's market stall, counter/posts/awning/goods
   food.ts         resource bundles (wheat, carrots, fish, meat, olives, lumber, clay,
                   stone), bundlesOf(stores, slots), bundleKey()
+  cliffs.ts       inward-carved terrace faces and clustered limestone outcrops
   coast.ts        seeded shoreline profiles, carved faces and continuous shallows
   foam.ts         painted breakers that ride the shoreline's foot and shallows
   vegetation.ts   tree(), wheatFarm(stage)
@@ -93,8 +94,12 @@ dust as each piece lands, then swaps to the ordinary material-batched model.
   isolation. Output: `artifacts/construction/`.
 - **`npm run coast:capture -- <base url> [output] [seeds…]`**: coastlines on seeds
   1, 2, 8 and 37, from four sides and with the grid, plus the seed-1 village.
+  Also use these views to judge inland cliffs and scrub in context.
   Uses isolated browser storage and checks paused rendering and unchanged simulation.
   Requires the dev server. Output: `artifacts/coast/`.
+- **`npm run terrace:capture -- <base url> [output]`**: inland cliffs from four
+  sides, before and after laying stairs through an outcrop, plus a close-up.
+  Checks paused rendering and unchanged simulation. Output: `artifacts/terraces/`.
 - **`npm run smoke:foam -- <base url>`**: breakers animate while running, freeze
   when paused, behind the menu and under reduced motion, and never render while idle.
   Output: `artifacts/foam/`.

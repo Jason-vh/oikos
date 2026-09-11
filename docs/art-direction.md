@@ -77,6 +77,16 @@ profiles: they form offshore, widen against the rock and thin away on a seeded
 stagger. They are flat quads at the waterline — one opaque mesh, no particles or
 transparency — frozen whenever the city is paused and still under reduced motion.
 
+## Inland cliffs
+
+`src/art/cliffs.ts` carves terrace walls beneath their flat, complete rims. Broad
+limestone facets and chamfered corners replace vertical earth walls and continuous
+stripes. Seeded, slow variation shapes shoulders and short shelves; all cuts stay
+inside the high ground. Profiles meet at terrace corners and return to the original
+edge at coastal junctions, where stone triangles close the transition to the coast's
+inset shoulders. Two-level drops remain closed. Clifftop stones form
+occasional paired outcrops, cleared wherever a road occupies their tile.
+
 ## Budgets
 
 Keep a placeable building under 18 draw calls and ~9,000 triangles; walkers and

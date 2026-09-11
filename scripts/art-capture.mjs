@@ -19,7 +19,7 @@ try {
   await page.goto(new URL('/art.html', base).href, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => document.body.dataset.ready || document.body.dataset.error);
   assert.equal(await page.locator('body').getAttribute('data-ready'), 'true');
-  for (const value of ['house:1', 'house:2', 'house:3', 'farm:1:0', 'farm:1:2', 'farm:1:3', 'granary:1:empty', 'granary:1:mixed', 'granary:1:full', 'agora:1', 'agora:2:empty', 'agora:2:mixed', 'fountain:1', 'maintenance:1', 'lodge:1', 'woodcutter:1', 'stockpile:1:materials']) {
+  for (const value of ['house:1', 'house:2', 'house:3', 'farm:1:0', 'farm:1:2', 'farm:1:3', 'granary:1:empty', 'granary:1:mixed', 'granary:1:full', 'agora:1', 'agora:2:empty', 'agora:2:mixed', 'fountain:1', 'maintenance:1', 'lodge:1', 'woodcutter:1', 'stockpile:1:materials', 'outcrop:1']) {
     await page.getByLabel('Model', { exact: true }).selectOption(value);
     await paint(page);
     assert.equal(await page.locator('body').getAttribute('data-model'), value);

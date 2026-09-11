@@ -1,6 +1,7 @@
 import * as T from 'three';
 import { colors, material } from '../art';
 import { buildCoast } from '../art/coast';
+import { buildCliffs } from '../art/cliffs';
 import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, levelOn, terrainOn, worldPositionOn, type IslandMap } from '../sim/island';
 import type { Terrain } from '../sim/types';
 
@@ -49,7 +50,7 @@ function heightOf(map: IslandMap, x: number, z: number): number {
 export function buildTerrain(map: IslandMap): T.Group {
   const batches = new Map<number, Batch>();
   const root = new T.Group();
-  root.add(buildCoast(map));
+  root.add(buildCoast(map), buildCliffs(map));
   for (let z = 0; z < map.depth; z++) {
     for (let x = 0; x < map.width; x++) {
       const terrain = terrainOn(map, x, z);
@@ -61,24 +62,6 @@ export function buildTerrain(map: IslandMap): T.Group {
       const z1 = origin.z + CELL_SIZE;
       const top = heightOf(map, x, z);
       quad(batchFor(batches, SURFACE[terrain]), [x0, top, z0], [x1, top, z0], [x1, top, z1], [x0, top, z1], [0, 1, 0]);
-      const sides: [number, number, number[], number[]][] = [
-        [1, 0, [x1, top, z0], [x1, top, z1]],
-        [-1, 0, [x0, top, z1], [x0, top, z0]],
-        [0, 1, [x1, top, z1], [x0, top, z1]],
-        [0, -1, [x0, top, z0], [x1, top, z0]],
-      ];
-      for (const [dx, dz, a, b] of sides) {
-        if (terrainOn(map, x + dx, z + dz) === 'water') continue;
-        const bottom = heightOf(map, x + dx, z + dz);
-        if (bottom >= top) continue;
-        const batch = batchFor(batches, colors.earth);
-        quad(batch, a, b, [b[0], bottom, b[2]], [a[0], bottom, a[2]], [dx, 0, dz]);
-        if (top - bottom > LEVEL_HEIGHT * .9) {
-          const ledge = bottom + (top - bottom) * .45;
-          const outward = [dx * .1, 0, dz * .1];
-          quad(batchFor(batches, colors.stone), [a[0] + outward[0], ledge + .08, a[2] + outward[2]], [b[0] + outward[0], ledge + .08, b[2] + outward[2]], [b[0] + outward[0], ledge - .12, b[2] + outward[2]], [a[0] + outward[0], ledge - .12, a[2] + outward[2]], [dx, 0, dz]);
-        }
-      }
     }
   }
   for (const [color, batch] of batches) {
