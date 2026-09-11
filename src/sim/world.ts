@@ -125,6 +125,20 @@ function stairReason(issue: StairIssue): string {
   return REASON.stairSideEntry;
 }
 
+function neighbourGradeIssue(map: IslandMap, roads: ReadonlySet<number>, tile: number): boolean {
+  const { x, z } = tileAtOn(map, tile);
+  for (const next of neighbours(map, tile)) {
+    if (!roads.has(next)) continue;
+    const { x: nx, z: nz } = tileAtOn(map, next);
+    if (!gradeAllowed(map, x, z, nx, nz)) return true;
+  }
+  return false;
+}
+
+function freshTilesGradeIssue(map: IslandMap, roads: ReadonlySet<number>, freshTiles: readonly number[]): boolean {
+  return freshTiles.some((tile) => neighbourGradeIssue(map, roads, tile));
+}
+
 function touchedTiles(map: IslandMap, newTiles: readonly number[]): Set<number> {
   const touched = new Set<number>();
   for (const tile of newTiles) {
@@ -150,8 +164,7 @@ function evaluatePlacement(world: World, tool: BuildTool, x: number, z: number, 
     const tile = tileIndexOn(map, x, z);
     if (!terrainAllows(map, tool, x, z)) return { ok: false, reason: REASON.unsuitableTerrain, cost: 0, tiles: [tile] };
     if (buildingAt(world, tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: [tile] };
-    const steps = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dz]) => world.roads.includes(tileIndexOn(map, x + dx, z + dz)) && !gradeAllowed(map, x, z, x + dx, z + dz));
-    if (steps.length > 0) return { ok: false, reason: REASON.roadTooSteep, cost: 0, tiles: [tile] };
+    if (neighbourGradeIssue(map, new Set(world.roads), tile)) return { ok: false, reason: REASON.roadTooSteep, cost: 0, tiles: [tile] };
     const already = world.roads.includes(tile);
     if (!already) {
       const tentative = new Set(world.roads);
@@ -197,6 +210,7 @@ export function placement(world: World, tool: BuildTool, x: number, z: number, r
 export function build(world: World, tool: BuildTool, x: number, z: number, rotation: Rotation = 0): ActionResult {
   const result = evaluatePlacement(world, tool, x, z, rotation);
   if (!result.ok) return result;
+  const beforeStairs = stairLayout(mapOf(world), new Set(world.roads));
 
   world.money -= result.cost;
   let reason: string;
@@ -229,7 +243,7 @@ export function build(world: World, tool: BuildTool, x: number, z: number, rotat
     world.buildings.push(building);
   }
   recomputeConnectivity(world);
-  dropInvalidWalkers(world);
+  dropInvalidWalkers(world, beforeStairs);
   return { ok: true, reason };
 }
 
@@ -237,7 +251,6 @@ function evaluateRoadPath(world: World, tiles: Tile[]): Placement {
   const map = mapOf(world);
   const seen = new Set<number>();
   const indices: number[] = [];
-  let previous: Tile | null = null;
   for (const { x, z } of tiles) {
     if (!insideMapOn(map, x, z)) return { ok: false, reason: REASON.outOfBounds, cost: 0, tiles: indices };
     const tile = tileIndexOn(map, x, z);
@@ -245,8 +258,6 @@ function evaluateRoadPath(world: World, tiles: Tile[]): Placement {
     seen.add(tile);
     if (!terrainAllows(map, 'road', x, z)) return { ok: false, reason: REASON.unsuitableTerrain, cost: 0, tiles: indices };
     if (buildingAt(world, tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: indices };
-    if (previous && !gradeAllowed(map, previous.x, previous.z, x, z)) return { ok: false, reason: REASON.roadTooSteep, cost: 0, tiles: indices };
-    previous = { x, z };
     indices.push(tile);
   }
 
@@ -257,6 +268,7 @@ function evaluateRoadPath(world: World, tiles: Tile[]): Placement {
   if (fresh.length > 0) {
     const tentative = new Set(existing);
     for (const tile of fresh) tentative.add(tile);
+    if (freshTilesGradeIssue(map, tentative, fresh)) return { ok: false, reason: REASON.roadTooSteep, cost, tiles: indices };
     const issue = stairPlacementIssue(map, tentative, fresh);
     if (issue) return { ok: false, reason: stairReason(issue), cost, tiles: indices };
   }
@@ -272,12 +284,13 @@ export function roadPathPlacement(world: World, tiles: Tile[]): Placement {
 export function placeRoadPath(world: World, tiles: Tile[]): ActionResult {
   const result = evaluateRoadPath(world, tiles);
   if (!result.ok) return { ok: false, reason: result.reason };
+  const beforeStairs = stairLayout(mapOf(world), new Set(world.roads));
 
   const existing = new Set(world.roads);
   world.money -= result.cost;
   for (const tile of result.tiles) if (!existing.has(tile)) world.roads.push(tile);
   recomputeConnectivity(world);
-  dropInvalidWalkers(world);
+  dropInvalidWalkers(world, beforeStairs);
   return { ok: true, reason: 'Road laid.' };
 }
 
@@ -298,9 +311,10 @@ export function demolish(world: World, x: number, z: number): ActionResult {
 
   const index = world.roads.indexOf(tile);
   if (index === -1) return { ok: false, reason: REASON.nothingToDemolish };
+  const beforeStairs = stairLayout(map, new Set(world.roads));
   world.roads.splice(index, 1);
   recomputeConnectivity(world);
-  dropInvalidWalkers(world);
+  dropInvalidWalkers(world, beforeStairs);
   return { ok: true, reason: 'Demolished. Roads are not refunded.' };
 }
 
@@ -339,12 +353,25 @@ function walkerPathValid(map: IslandMap, roads: ReadonlySet<number>, stairs: Rea
   return true;
 }
 
-export function dropInvalidWalkers(world: World): void {
+function stairSignature(stairs: ReadonlyMap<number, Stair>, tile: number): number | undefined {
+  return stairs.get(tile)?.down;
+}
+
+function currentSegmentChanged(before: ReadonlyMap<number, Stair>, after: ReadonlyMap<number, Stair>, walker: Walker): boolean {
+  if (walker.step >= walker.path.length - 1) return false;
+  const a = walker.path[walker.step];
+  const b = walker.path[walker.step + 1];
+  return stairSignature(before, a) !== stairSignature(after, a) || stairSignature(before, b) !== stairSignature(after, b);
+}
+
+export function dropInvalidWalkers(world: World, beforeStairs?: ReadonlyMap<number, Stair>): void {
   const map = mapOf(world);
   const roads = new Set(world.roads);
   const stairs = stairLayout(map, roads);
   world.walkers = world.walkers.filter((walker) => {
-    if (walkerPathValid(map, roads, stairs, walker)) return true;
+    const valid = walkerPathValid(map, roads, stairs, walker);
+    const changed = beforeStairs ? currentSegmentChanged(beforeStairs, stairs, walker) : false;
+    if (valid && !changed) return true;
     if (walker.quarry !== null) {
       const prey = world.wildlife.find((animal) => animal.id === walker.quarry);
       if (prey) prey.cornered = false;

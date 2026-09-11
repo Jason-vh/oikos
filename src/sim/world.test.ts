@@ -5,7 +5,7 @@ import { BUILDINGS, ROAD_COST, STARTING_MONEY, VENDOR_COST } from './catalog';
 import { generateIsland, islandFor, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import { accessDoors, bfsShortest, entryTileIndex } from './grid';
 import { connect, farCorner, findTile, freshRoadSpot, isolatedRoadPair, mapOf, slopeFixture, spotAdjacentTo, spotFor, unevenFootprint, SLOPE_SEED } from './testing';
-import type { Building, BuildingKind, Tile, World } from './types';
+import type { Building, BuildingKind, Tile, Walker, World } from './types';
 
 function findByKind(world: World, kind: string) {
   return world.buildings.find((building) => building.kind === kind)!;
@@ -102,6 +102,25 @@ describe('placement validation', () => {
     expect(placement(world, 'road', high.x, high.z).ok).toBe(true);
     expect(placeRoadPath(world, [low, high]).ok).toBe(true);
     map.terrain[tileIndexOn(map, high.x, high.z)] = 'grass';
+  });
+
+  test('a single-tile stroke agrees with placement: both reject a bad grade against an existing neighbour', () => {
+    const { low, high } = slopeFixture();
+    const worldA = createWorld(SLOPE_SEED);
+    expect(build(worldA, 'road', low.x, low.z).ok).toBe(true);
+    const singlePlacement = placement(worldA, 'road', high.x, high.z);
+    expect(singlePlacement.ok).toBe(false);
+    expect(singlePlacement.reason).toBe('Roads climb only one step at a time, across the cliff edge.');
+
+    const worldB = createWorld(SLOPE_SEED);
+    expect(build(worldB, 'road', low.x, low.z).ok).toBe(true);
+    const strokePreview = roadPathPlacement(worldB, [high]);
+    expect(strokePreview.ok).toBe(false);
+    expect(strokePreview.reason).toBe('Roads climb only one step at a time, across the cliff edge.');
+    const strokeResult = placeRoadPath(worldB, [high]);
+    expect(strokeResult.ok).toBe(false);
+    expect(strokeResult.reason).toBe('Roads climb only one step at a time, across the cliff edge.');
+    expect(worldB.roads.includes(tileIndexOn(mapOf(worldB), high.x, high.z))).toBe(false);
   });
 });
 
@@ -973,5 +992,51 @@ describe('building access across a stair', () => {
 
     const beside = minimalBuilding('fountain', lateralA.x - 1, lateralA.z - 1);
     expect(accessDoors(map, roads, beside)).not.toContain(stairTileIndex);
+  });
+});
+
+function bareWalker(map: IslandMap, from: Tile, to: Tile, progress: number): Walker {
+  return {
+    id: 1, kind: 'maintenance', homeId: 1, targetId: null,
+    path: [tileIndexOn(map, from.x, from.z), tileIndexOn(map, to.x, to.z)],
+    step: 0, progress, food: null, cargo: 0, returning: false, overland: [], quarry: null, working: 0,
+  };
+}
+
+describe('in-flight walkers when a stair changes underfoot', () => {
+  test('a walker mid-transition retires when a new lower road turns its current tile into a stair', () => {
+    const { map, tile, up, down } = orientedStairFixture('east');
+    const world = createWorld(STAIR_SEED);
+    expect(build(world, 'road', tile.x, tile.z).ok).toBe(true);
+    expect(build(world, 'road', up.x, up.z).ok).toBe(true);
+    world.walkers.push(bareWalker(map, tile, up, 0.4));
+
+    expect(build(world, 'road', down.x, down.z).ok).toBe(true);
+    expect(world.walkers).toHaveLength(0);
+  });
+
+  test('a walker mid-transition on the upper half of a stair retires when its foot road is removed', () => {
+    const { map, tile, up, down } = orientedStairFixture('east');
+    const world = createWorld(STAIR_SEED);
+    expect(build(world, 'road', down.x, down.z).ok).toBe(true);
+    expect(build(world, 'road', tile.x, tile.z).ok).toBe(true);
+    expect(build(world, 'road', up.x, up.z).ok).toBe(true);
+    world.walkers.push(bareWalker(map, tile, up, 0.6));
+
+    expect(demolish(world, down.x, down.z).ok).toBe(true);
+    expect(world.walkers).toHaveLength(0);
+  });
+
+  test('a walker on an untouched segment survives an unrelated road mutation', () => {
+    const { map, tile, up, down } = orientedStairFixture('east');
+    const world = createWorld(STAIR_SEED);
+    expect(build(world, 'road', down.x, down.z).ok).toBe(true);
+    expect(build(world, 'road', tile.x, tile.z).ok).toBe(true);
+    expect(build(world, 'road', up.x, up.z).ok).toBe(true);
+    world.walkers.push(bareWalker(map, tile, up, 0.5));
+
+    const spot = spotFor(world, 'maintenance', farCorner(world))!;
+    expect(build(world, 'maintenance', spot.x, spot.z).ok).toBe(true);
+    expect(world.walkers).toHaveLength(1);
   });
 });
