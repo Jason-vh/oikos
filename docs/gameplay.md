@@ -12,8 +12,8 @@ mask plus value noise for the coastline, a relief field quantised into three lev
 (lowland, plateau, upland) with cellular smoothing, and soil/wood fields for terrain.
 Terrain kinds: `water`, `sand`, `grass`, `fertile`, `scrub`, `forest`, `rock`, `cliff`.
 Buildings need level ground on grass/fertile/sand/scrub (farms: fertile only); roads
-can also cross forest but never step between levels. `cliff` and `rock` are not
-buildable. The harbour entry is chosen on the widest flat south-facing shore, and the
+can also cross forest and climb cliff edges using stairs. `cliff` and `rock` cannot
+hold buildings. The harbour entry is chosen on the widest flat south-facing shore, and the
 ground around it is cleared, with a fertile patch to its north-east. `islandFor(seed)`
 caches maps; the world stores only the seed.
 
@@ -211,10 +211,16 @@ render or HUD plumbing beyond that.
 
 ## Roads that climb
 
-A road may step one level where it crosses a `cliff` tile (either end of the step
-is cliff). Any other level change is refused: "Roads climb only one step at a time,
-across the cliff edge." The renderer draws a staircase between stone walls on the
-lower tile facing the climb; walkers and the ground-height lookup handle the rise.
+A road crossing a cliff rises one level through the full upper road cell, which
+cannot hold a building. The lower road meets the foot at the cliff face; the opposite
+edge meets the upper landing. Side entrances and competing downhill connections
+are refused, including when a new road would change an existing connection.
+Aligned stairs can continue through successive cells.
+
+`src/sim/stairs.ts` derives orientation from the map and road set, without extra
+save fields. The same eight-step profile controls terrain cuts, road models,
+walkers and placement previews. Buildings and gatherers cannot enter through the
+side walls. Removing roads recomputes the cuts and restores unused cliff surfaces.
 
 ## Wildlife
 
@@ -252,8 +258,9 @@ mid-journey:
 - Demolishing a walker's **target** (its cart or buyer's destination) turns it back
   along the road it already walked, so it heads home instead of vanishing or
   arriving somewhere it never travelled to.
-- Cutting a road tile a walker's path depends on drops that walker rather than
-  letting it jump the gap.
+- Removing a road or changing stair connections retires walkers whose paths become
+  invalid rather than letting them jump gaps or cross walls. Stranded hunters
+  release their quarry.
 
 None of this can corrupt stock: cargo is always deducted from its source at the
 moment a walker is dispatched, so a walker going missing never produces a negative
@@ -272,6 +279,8 @@ exactly, including walkers already mid-journey, which keep walking correctly aft
 a reload. Only the harbour's progress (tier, stock, trade order, voyage) is stored;
 its site is re-derived from the seed on load, so a save from before the harbour
 existed gets one sited fresh rather than needing its position migrated.
+Older road layouts are retained, but trips using incompatible stair connections
+are retired on load; those edges no longer provide access.
 
 ## Tests
 

@@ -16,6 +16,8 @@ src/art/
   stall.ts        the agora's market stall, counter/posts/awning/goods
   food.ts         resource bundles (wheat, carrots, fish, meat, olives, lumber, clay,
                   stone), bundlesOf(stores, slots), bundleKey()
+  roads.ts        connected outlines and seeded limestone flags
+  stairs.ts       full-cell flights, inset cliff walls and terrain cuts
   cliffs.ts       inward-carved terrace faces and clustered limestone outcrops
   coast.ts        seeded shoreline profiles, carved faces and continuous shallows
   foam.ts         painted breakers that ride the shoreline's foot and shallows
@@ -87,7 +89,7 @@ dust as each piece lands, then swaps to the ordinary material-batched model.
   motion; manual scrubbing remains available without autoplay.
 - **`npm run art:check`**: `bun test src/art`.
 - **`npm run art:capture -- <base url>`**: captures every atelier model to
-  `artifacts/art/`, including bushes and outcrops from four sides, and asserts the
+  `artifacts/art/`, including roads, bushes and outcrops from four sides, and asserts the
   atelier stays still when nothing animates, keeps
   the selection in the URL across a reload, and never touches the game's save.
 - **`npm run smoke:construction -- <base url>`**: assembly captures from four sides
@@ -100,8 +102,14 @@ dust as each piece lands, then swaps to the ordinary material-batched model.
   Uses isolated browser storage and checks paused rendering and unchanged simulation.
   Requires the dev server. Output: `artifacts/coast/`.
 - **`npm run terrace:capture -- <base url> [output]`**: inland cliffs from four
-  sides, before and after laying stairs through an outcrop, plus a close-up.
-  Checks paused rendering and unchanged simulation. Output: `artifacts/terraces/`.
+  sides, before and after laying stairs through an outcrop, plus four close views.
+  Checks drag previews, rejected side entries, demolition picking, pixel-identical
+  cliff restoration, save round-trips and paused rendering. Output: `artifacts/terraces/`.
+- **`npm run road:capture -- <base url> [output]`**: limestone streets on seeds
+  1, 2, 8 and 37 from four sides. Checks paused rendering, unchanged simulation,
+  pixel-identical scenery after placing then demolishing a road, and road atelier
+  save isolation. Requires the dev server. Output: `artifacts/roads/`.
+  Use `terrace:capture` alongside it for carved stairs, landings and rejected side entries.
 - **`npm run smoke:foam -- <base url>`**: breakers animate while running, freeze
   when paused, behind the menu and under reduced motion, and never render while idle.
   Output: `artifacts/foam/`.

@@ -2,8 +2,12 @@ import * as T from 'three';
 import { animalModel, animateAnimal, animateFigure, animateWork, bake, box, bundle, bundleKey, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, lump, post, type ModelStage } from '../art';
 import { footprint } from '../sim/catalog';
 import { AGORA_SLOTS, GRANARY_SLOTS } from '../sim/balance';
-import { CELL_SIZE, groundHeight, levelOn, LEVEL_HEIGHT, tileAtOn, tileIndexOn, worldPositionOn, type IslandMap } from '../sim/island';
-import type { Animal, AnimalKind, Building, BuildTool, Placement, Resource, Rotation, Walker, WalkerKind, World } from '../sim/types';
+import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, groundHeight, insideMapOn, tileAtOn, tileIndexOn, worldPositionOn, type IslandMap } from '../sim/island';
+import { buildRoads } from '../art/roads';
+import { STAIR_WIDTH } from '../art/stairs';
+import { roadHeight, stairLayout, STAIR_STEPS, type Stair } from '../sim/stairs';
+import { addRoadMark } from './road-marks';
+import type { Animal, AnimalKind, Building, BuildTool, Placement, Resource, Rotation, Tile, Walker, WalkerKind, World } from '../sim/types';
 import type { Stage } from './stage';
 import { IslandScenery } from './island';
 import { LogisticsOverlay, syncDisconnectedMark, syncHouseSupplies } from './logistics';
@@ -12,10 +16,9 @@ import { DustField } from './dust';
 
 interface BuildingEntry { key: string; tier: number; model: T.Group; intro: number; from: number; construction: BuildingConstruction | null; }
 interface Departure { model: T.Group; elapsed: number; }
-interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; from: T.Vector3; target: T.Vector3; elapsed: number; moving: boolean; working: boolean; heading: number; }
+interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; from: T.Vector3; target: T.Vector3; elapsed: number; moving: boolean; working: boolean; heading: number; stepped: boolean; }
 interface AnimalEntry { model: T.Group; from: T.Vector3; target: T.Vector3; heading: number; elapsed: number; moving: boolean; dying: number; }
 
-const RAMP_SPAN = 1;
 const TURN_RATE = 14;
 const INTRO_SECONDS = .45;
 const EXIT_SECONDS = .3;
@@ -34,9 +37,8 @@ function turnToward(current: number, goal: number, delta: number): number {
 
 function rampHeight(from: number, to: number, progress: number): number {
   if (from === to) return from;
-  const start = .5 - RAMP_SPAN / 2;
-  const t = Math.min(1, Math.max(0, (progress - start) / RAMP_SPAN));
-  const tread = Math.abs(to - from) / 8;
+  const t = Math.min(1, Math.max(0, progress));
+  const tread = Math.abs(to - from) / STAIR_STEPS;
   return T.MathUtils.lerp(from, to, t) + (t > 0 && t < 1 ? tread / 2 : 0);
 }
 
@@ -67,6 +69,8 @@ export class CityScene {
   private readonly selection = new T.Mesh(new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new T.MeshBasicMaterial({ color: 0xffefae, transparent: true, opacity: .4, depthWrite: false }));
   private readonly preview = new T.Group();
   private roadKey = '';
+  private stairs = new Map<number, Stair>();
+  private stairMeshes: T.Object3D[] = [];
   private previewKey = '';
   private ghost: T.Group | null = null;
   private selectedWalker: number | null = null;
@@ -74,9 +78,13 @@ export class CityScene {
   private readonly logistics: LogisticsOverlay;
   private readonly validMaterial = new T.MeshBasicMaterial({ color: 0x79b58b, transparent: true, opacity: .38, depthWrite: false });
   private readonly invalidMaterial = new T.MeshBasicMaterial({ color: 0xd3664e, transparent: true, opacity: .45, depthWrite: false });
-  private readonly tileGeometry = new T.PlaneGeometry(CELL_SIZE - .06, CELL_SIZE - .06).rotateX(-Math.PI / 2);
+  private readonly validStairMaterial = this.validMaterial.clone();
+  private readonly invalidStairMaterial = this.invalidMaterial.clone();
+  private readonly tileGeometry = new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
 
   constructor(private readonly stage: Stage, readonly map: IslandMap, private readonly motion = true) {
+    this.validStairMaterial.depthTest = false;
+    this.invalidStairMaterial.depthTest = false;
     this.scenery = new IslandScenery(stage.scene, map);
     this.logistics = new LogisticsOverlay(stage.scene, map);
     this.dust = new DustField(stage.scene);
@@ -89,46 +97,19 @@ export class CityScene {
     const key = world.roads.join(',');
     if (key === this.roadKey) return;
     this.roadKey = key;
+    this.stairs = stairLayout(this.map, new Set(world.roads));
+    this.scenery.setStairs(this.stairs);
     disposeModel(this.roads);
     this.roads.clear();
-    const roads = new Set(world.roads);
-    for (const index of world.roads) {
-      const tile = tileAtOn(this.map, index);
-      const p = worldPositionOn(this.map, tile.x + .5, tile.z + .5);
-      const y = groundHeight(this.map, tile.x, tile.z);
-      const level = levelOn(this.map, tile.x, tile.z);
-      const climb = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dz]) => roads.has(tileIndexOn(this.map, tile.x + dx, tile.z + dz)) && levelOn(this.map, tile.x + dx, tile.z + dz) === level + 1);
-      if (climb) {
-        const [dx, dz] = climb;
-        const steps = 8;
-        const span = CELL_SIZE * RAMP_SPAN;
-        const origin = { x: p.x + dx * CELL_SIZE / 2, z: p.z + dz * CELL_SIZE / 2 };
-        for (let step = 0; step < steps; step++) {
-          const along = (step + .5) / steps - .5;
-          const rise = (step + 1) / steps * LEVEL_HEIGHT;
-          const tread = span / steps + .02;
-          box(this.roads, colors.cream, origin.x + dx * along * span, y + rise / 2 + .015, origin.z + dz * along * span, dx === 0 ? CELL_SIZE - .2 : tread, rise, dz === 0 ? CELL_SIZE - .2 : tread, .012);
-        }
-        for (const side of [-1, 1]) {
-          box(this.roads, colors.stone, origin.x + (dx === 0 ? side * (CELL_SIZE / 2 - .05) : 0), y + LEVEL_HEIGHT * .5 + .1, origin.z + (dz === 0 ? side * (CELL_SIZE / 2 - .05) : 0), dx === 0 ? .1 : span, LEVEL_HEIGHT + .2, dz === 0 ? .1 : span, .02);
-        }
-        box(this.roads, colors.paving, p.x - dx * CELL_SIZE * .35, y + .015, p.z - dz * CELL_SIZE * .35, dx === 0 ? CELL_SIZE : CELL_SIZE * .3, .07, dz === 0 ? CELL_SIZE : CELL_SIZE * .3, .025);
-        continue;
-      }
-      const descent = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dz]) => roads.has(tileIndexOn(this.map, tile.x + dx, tile.z + dz)) && levelOn(this.map, tile.x + dx, tile.z + dz) === level - 1);
-      if (descent) {
-        const [dx, dz] = descent;
-        box(this.roads, colors.paving, p.x - dx * CELL_SIZE * .25, y + .015, p.z - dz * CELL_SIZE * .25, dx === 0 ? CELL_SIZE : CELL_SIZE * .5, .07, dz === 0 ? CELL_SIZE : CELL_SIZE * .5, .025);
-        continue;
-      }
-      box(this.roads, colors.paving, p.x, y + .015, p.z, CELL_SIZE, .07, CELL_SIZE, .025);
-      if (index % 3 !== 0) box(this.roads, colors.cream, p.x - .15, y + .058, p.z + .08, .58, .012, .42, .008);
-    }
-    if (world.roads.length) bake(this.roads);
+    const roads = buildRoads(this.map, world.roads);
+    this.stairMeshes = roads.children.filter((model) => model.userData.stairs === true);
+    this.roads.add(roads);
     this.stage.shadows();
   }
 
   reload(world: World): void {
+    for (const entry of this.walkers.values()) entry.model.removeFromParent();
+    this.walkers.clear();
     for (const departure of this.departures) {
       departure.model.removeFromParent();
       disposeModel(departure.model);
@@ -146,6 +127,7 @@ export class CityScene {
     }
     this.primed = false;
     this.sync(world);
+    this.stage.shadows();
   }
 
   sync(world: World): void {
@@ -320,7 +302,9 @@ export class CityScene {
     const next = tileAtOn(this.map, walker.path[Math.min(walker.step + 1, walker.path.length - 1)]);
     const a = worldPositionOn(this.map, current.x + .5, current.z + .5);
     const b = worldPositionOn(this.map, next.x + .5, next.z + .5);
-    const y = rampHeight(groundHeight(this.map, current.x, current.z), groundHeight(this.map, next.x, next.z), walker.progress);
+    const stepped = this.stairs.has(tileIndexOn(this.map, current.x, current.z)) || this.stairs.has(tileIndexOn(this.map, next.x, next.z));
+    let y = rampHeight(groundHeight(this.map, current.x, current.z), groundHeight(this.map, next.x, next.z), walker.progress);
+    if (stepped) y = roadHeight(this.map, this.stairs, T.MathUtils.lerp(current.x, next.x, walker.progress) + .5, T.MathUtils.lerp(current.z, next.z, walker.progress) + .5);
     const target = new T.Vector3(T.MathUtils.lerp(a.x, b.x, walker.progress), y + .08, T.MathUtils.lerp(a.z, b.z, walker.progress));
     const load: Resource | null = walker.cargo > 0 ? walker.food : null;
     const key = `${walker.kind}:${load ?? ''}`;
@@ -339,7 +323,7 @@ export class CityScene {
       const model = this.walkerModel(walker.kind, load);
       model.position.copy(target);
       this.stage.scene.add(model);
-      entry = { key, kind: walker.kind, model, from: target.clone(), target, elapsed: .25, moving: false, working: false, heading: 0 };
+      entry = { key, kind: walker.kind, model, from: target.clone(), target, elapsed: .25, moving: false, working: false, heading: 0, stepped };
       this.walkers.set(walker.id, entry);
     } else {
       entry.from.copy(entry.model.position);
@@ -347,6 +331,7 @@ export class CityScene {
       entry.elapsed = 0;
       entry.moving = entry.from.distanceToSquared(target) > 1e-6;
     }
+    entry.stepped = stepped;
     entry.working = walker.working > 0;
     let facing: number | null = null;
     if (entry.working && walker.quarry !== null) {
@@ -357,7 +342,23 @@ export class CityScene {
     }
     if (facing !== null) entry.heading = facing;
     else if (a.x !== b.x || a.z !== b.z) entry.heading = Math.atan2(b.x - a.x, b.z - a.z);
-    if (fresh) entry.model.rotation.y = entry.heading;
+    if (fresh) {
+      entry.model.rotation.y = entry.heading;
+      this.groundCompanions(entry);
+    }
+  }
+
+  private groundCompanions(walker: WalkerEntry): void {
+    for (const companion of walker.model.children.slice(5)) {
+      if (companion.children.length < 5) continue;
+      if (!walker.stepped) {
+        companion.position.y = 0;
+        continue;
+      }
+      const point = companion.getWorldPosition(new T.Vector3());
+      const height = roadHeight(this.map, this.stairs, point.x / CELL_SIZE + this.map.width / 2, point.z / CELL_SIZE + this.map.depth / 2);
+      companion.position.y = (height + .08 - walker.model.position.y) / walker.model.scale.y;
+    }
   }
 
   animate(time: number, delta: number, speed: number): void {
@@ -365,6 +366,10 @@ export class CityScene {
     for (const [id, walker] of this.walkers) {
       walker.elapsed += delta * speed;
       walker.model.position.lerpVectors(walker.from, walker.target, Math.min(1, walker.elapsed / .25));
+      if (walker.stepped) {
+        const position = walker.model.position;
+        position.y = roadHeight(this.map, this.stairs, position.x / CELL_SIZE + this.map.width / 2, position.z / CELL_SIZE + this.map.depth / 2) + .08;
+      }
       walker.model.rotation.y = turnToward(walker.model.rotation.y, walker.heading, delta * speed);
       const stride = walker.moving ? .55 : 0;
       const phase = time * 9 * Math.max(1, speed) + id;
@@ -373,6 +378,7 @@ export class CityScene {
       for (const companion of walker.model.children.slice(5)) {
         if (companion.children.length >= 5) animateFigure(companion, phase + 1.3, stride);
       }
+      this.groundCompanions(walker);
     }
     for (const [id, animal] of this.animals) {
       animal.elapsed += delta * speed;
@@ -487,13 +493,16 @@ export class CityScene {
 
   showPreview(tool: BuildTool | 'demolish', x: number, z: number, rotation: Rotation, placement: Placement): void {
     this.preview.clear();
-    for (const index of placement.tiles) {
-      if (index < 0 || index >= this.map.width * this.map.depth) continue;
-      const tile = tileAtOn(this.map, index);
-      const p = worldPositionOn(this.map, tile.x + .5, tile.z + .5);
-      const surface = new T.Mesh(this.tileGeometry, placement.ok ? this.validMaterial : this.invalidMaterial);
-      surface.position.set(p.x, groundHeight(this.map, tile.x, tile.z) + .09, p.z);
-      this.preview.add(surface);
+    const tiles = new Set(placement.tiles.filter((index) => index >= 0 && index < this.map.width * this.map.depth));
+    let stairs = this.stairs;
+    if (tool === 'road') {
+      stairs = stairLayout(this.map, new Set([...(this.lastWorld?.roads ?? []), ...tiles]));
+      for (const stair of stairs.values()) if (this.stairs.get(stair.tile)?.down !== stair.down) tiles.add(stair.tile);
+    }
+    for (const index of tiles) {
+      let material = placement.ok ? this.validMaterial : this.invalidMaterial;
+      if (stairs.has(index)) material = placement.ok ? this.validStairMaterial : this.invalidStairMaterial;
+      addRoadMark(this.preview, this.map, stairs, index, this.tileGeometry, material, .06);
     }
     const key = `${tool}:${rotation}`;
     if (key !== this.previewKey) {
@@ -543,10 +552,57 @@ export class CityScene {
     this.selection.position.set(entry.model.position.x, entry.model.position.y - .015, entry.model.position.z);
   }
 
-  pick(clientX: number, clientY: number): { building: number | null; walker: number | null; animal: number | null } {
+  private pointerRay(clientX: number, clientY: number): T.Raycaster {
     const bounds = this.stage.canvas.getBoundingClientRect();
     const ray = new T.Raycaster();
     ray.setFromCamera(new T.Vector2((clientX - bounds.left) / bounds.width * 2 - 1, -(clientY - bounds.top) / bounds.height * 2 + 1), this.stage.camera);
+    return ray;
+  }
+
+  tileAtPointer(clientX: number, clientY: number): Tile | null {
+    const ray = this.pointerRay(clientX, clientY);
+    const hit = ray.intersectObjects(this.stairMeshes, false)[0];
+    let stairTile: Tile | null = null;
+    if (hit?.face) {
+      const position = (hit.object as T.Mesh).geometry.attributes.position;
+      const centre = new T.Vector3();
+      for (const index of [hit.face.a, hit.face.b, hit.face.c]) centre.add(new T.Vector3().fromBufferAttribute(position, index));
+      centre.multiplyScalar(1 / 3).applyMatrix4(hit.object.matrixWorld);
+      const normal = hit.face.normal.clone().applyNormalMatrix(new T.Matrix3().getNormalMatrix(hit.object.matrixWorld));
+      const point = hit.point.clone().lerp(centre, .0001).addScaledVector(normal, -.0001);
+      const x = Math.floor(point.x / CELL_SIZE + this.map.width / 2);
+      const z = Math.floor(point.z / CELL_SIZE + this.map.depth / 2);
+      if (insideMapOn(this.map, x, z) && this.stairs.has(tileIndexOn(this.map, x, z))) stairTile = { x, z };
+    }
+    let groundTile: Tile | null = null;
+    let groundDistance = Infinity;
+    for (let level = 2; level >= 0; level--) {
+      const y = GROUND_Y + level * LEVEL_HEIGHT;
+      const point = this.stage.pick(clientX, clientY, y);
+      if (!point) continue;
+      const x = point.x / CELL_SIZE + this.map.width / 2;
+      const z = point.z / CELL_SIZE + this.map.depth / 2;
+      const tile = { x: Math.floor(x), z: Math.floor(z) };
+      if (level === 0 && !insideMapOn(this.map, tile.x, tile.z)) {
+        groundTile = tile;
+        groundDistance = ray.ray.origin.distanceTo(point);
+        break;
+      }
+      if (!insideMapOn(this.map, tile.x, tile.z)) continue;
+      const stair = this.stairs.get(tileIndexOn(this.map, tile.x, tile.z));
+      if (stair && Math.abs(-stair.dz * (x - tile.x - .5) + stair.dx * (z - tile.z - .5)) * CELL_SIZE < STAIR_WIDTH / 2) continue;
+      if (Math.abs(groundHeight(this.map, tile.x, tile.z) - y) < 1e-6) {
+        groundTile = tile;
+        groundDistance = ray.ray.origin.distanceTo(point);
+        break;
+      }
+    }
+    if (stairTile && hit.distance < groundDistance) return stairTile;
+    return groundTile;
+  }
+
+  pick(clientX: number, clientY: number): { building: number | null; walker: number | null; animal: number | null } {
+    const ray = this.pointerRay(clientX, clientY);
     let nearest: { id: number; distance: number } | null = null;
     const centre = new T.Vector3();
     for (const [id, entry] of this.walkers) {
@@ -597,13 +653,14 @@ export class CityScene {
     this.selection.removeFromParent();
     this.hoverMark.removeFromParent();
     this.preview.removeFromParent();
+    this.tileGeometry.dispose();
+    this.validStairMaterial.dispose();
+    this.invalidStairMaterial.dispose();
     this.scenery.dispose();
   }
 
   probe(clientX: number, clientY: number): { color: string; y: number; name: string }[] {
-    const bounds = this.stage.canvas.getBoundingClientRect();
-    const ray = new T.Raycaster();
-    ray.setFromCamera(new T.Vector2((clientX - bounds.left) / bounds.width * 2 - 1, -(clientY - bounds.top) / bounds.height * 2 + 1), this.stage.camera);
+    const ray = this.pointerRay(clientX, clientY);
     return ray.intersectObjects(this.stage.scene.children, true).filter((hit) => hit.object instanceof T.Mesh).slice(0, 4).map((hit) => { const material = (hit.object as T.Mesh).material as T.MeshStandardMaterial; return { color: material.color.getHexString(), y: hit.point.y, name: `${material.type} t=${material.transparent} o=${material.opacity} side=${material.side} vis=${hit.object.visible} normals=${!!(hit.object as T.Mesh).geometry.getAttribute('normal')} n=${Array.from((hit.object as T.Mesh).geometry.getAttribute('normal').array.slice(0, 3)).map((v) => v.toFixed(2))}` }; });
   }
 }

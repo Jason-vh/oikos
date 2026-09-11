@@ -2,9 +2,12 @@ import * as T from 'three';
 import { animalModel, animateAnimal, animateFigure, bake, boat, citizen, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, type ModelStage, type ModelState } from './art';
 import { cliffOutcrop } from './art/cliffs';
 import { bush, type BushShape } from './art/bushes';
+import { buildRoads } from './art/roads';
+import { stairLayout } from './sim/stairs';
+import { buildTerrain } from './render/terrain';
 import type { AnimalKind } from './sim/types';
 import { BUILDINGS, footprint } from './sim/catalog';
-import { CELL_SIZE } from './sim/island';
+import { CELL_SIZE, GROUND_Y, type IslandMap } from './sim/island';
 import type { BuildingKind, Stores } from './sim/types';
 
 const STORE_VARIANTS: Record<string, Stores> = {
@@ -66,6 +69,20 @@ function boot(): void {
       const model = bush(tierValue as BushShape);
       bake(model);
       return { model, footprint: { width: 1, depth: 1 }, description: 'Mediterranean scrub. Low cushions, leaning shrubs and paired clumps grow in patches across the island.' };
+    }
+    if (kindValue === 'road') {
+      const layouts: Record<string, number[]> = { straight: [1, 4, 7], bend: [1, 4, 5], junction: [1, 3, 4, 5], cross: [1, 3, 4, 5, 7], stairs: [1, 4, 7] };
+      const map: IslandMap = { seed: 1, width: 3, depth: 3, terrain: Array(9).fill('grass'), level: new Uint8Array(9), entry: { x: 1, z: 2 } };
+      let description = 'Hand-laid limestone. Broad flags cross cell boundaries; exposed corners soften into a narrow stone edge.';
+      if (tierValue === 'stairs') {
+        for (let index = 0; index < 6; index++) map.level[index] = 1;
+        for (const index of [3, 4, 5]) map.terrain[index] = 'cliff';
+        description = 'Limestone stairs cut through one upper-terrace cell. Cliff shoulders frame eight treads; roads meet only at the foot and rear landing.';
+      }
+      const model = buildRoads(map, layouts[tierValue]);
+      if (tierValue === 'stairs') model.add(buildTerrain(map, stairLayout(map, new Set(layouts[tierValue]))));
+      model.position.y = -GROUND_Y;
+      return { model, footprint: { width: 3, depth: 3 }, description };
     }
     if (kindValue === 'outcrop') {
       const model = cliffOutcrop();

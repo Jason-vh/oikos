@@ -2,6 +2,8 @@ import * as T from 'three';
 import { colors, material } from '../art';
 import { buildCoast } from '../art/coast';
 import { buildCliffs } from '../art/cliffs';
+import { carveStairs } from '../art/stairs';
+import type { Stair } from '../sim/stairs';
 import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, levelOn, terrainOn, worldPositionOn, type IslandMap } from '../sim/island';
 import type { Terrain } from '../sim/types';
 
@@ -47,7 +49,7 @@ function heightOf(map: IslandMap, x: number, z: number): number {
   return GROUND_Y + levelOn(map, x, z) * LEVEL_HEIGHT;
 }
 
-export function buildTerrain(map: IslandMap): T.Group {
+export function buildTerrain(map: IslandMap, stairs: ReadonlyMap<number, Stair> = new Map()): T.Group {
   const batches = new Map<number, Batch>();
   const root = new T.Group();
   root.add(buildCoast(map), buildCliffs(map));
@@ -73,5 +75,6 @@ export function buildTerrain(map: IslandMap): T.Group {
     surface.receiveShadow = true;
     root.add(surface);
   }
+  carveStairs(root, map, stairs);
   return root;
 }

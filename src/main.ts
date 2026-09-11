@@ -4,8 +4,9 @@ import { CityScene } from './render/city';
 import { ConstructionOverlay } from './render/construction';
 import { BUILDINGS, footprint, ROAD_COST } from './sim/catalog';
 import { demolitionPreview, footprintTileIssues, harbourRoute, suitableFarmGround } from './sim/construction';
-import { CELL_SIZE, groundHeight, islandFor, LEVEL_HEIGHT, terrainOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
-import { advance, build, buildingStatus, createWorld, DEFAULT_SEED, demolish, getSummary, placement, placeRoadPath, setVendor, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
+import { groundHeight, islandFor, terrainOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
+import { roadHeight, stairLayout } from './sim/stairs';
+import { advance, build, buildingStatus, createWorld, DEFAULT_SEED, demolish, getSummary, placement, placeRoadPath, roadPathPlacement, setVendor, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
 import { deserializeWorld, serializeWorld } from './sim/save';
 import { animalName, animalStatus } from './sim/wildlife';
 import { buildStarterNeighbourhood, planStarterNeighbourhood } from './sim/scenario';
@@ -88,6 +89,7 @@ function boot(): void {
     const walker = selected ? null : world.walkers.find((candidate) => candidate.id === selectedId) ?? null;
     const animal = selected || walker ? null : world.wildlife.find((candidate) => candidate.id === selectedId) ?? null;
     city.sync(world);
+    overlay.setRoads(world.roads);
     city.select(selected, walker?.id ?? animal?.id ?? null);
     if (walker) hud.update(world, getSummary(world), { kind: 'person', name: walkerName(walker), role: WALKER_ROLES[walker.kind], status: walkerStatus(world, walker) });
     else if (animal) hud.update(world, getSummary(world), { kind: 'person', name: animalName(animal), role: 'Wildlife', status: animalStatus(animal) });
@@ -293,14 +295,7 @@ function boot(): void {
   }
 
   function atPointer(event: PointerEvent): Tile | null {
-    const island = map();
-    for (let level = 2; level >= 0; level--) {
-      const point = stage.pick(event.clientX, event.clientY, GROUND_Y + level * LEVEL_HEIGHT);
-      if (!point) continue;
-      const tile = { x: Math.floor(point.x / CELL_SIZE + island.width / 2), z: Math.floor(point.z / CELL_SIZE + island.depth / 2) };
-      if (level === 0 || groundHeight(island, tile.x, tile.z) === GROUND_Y + level * LEVEL_HEIGHT) return tile;
-    }
-    return null;
+    return city.tileAtPointer(event.clientX, event.clientY);
   }
 
   function roadPath(): Tile[] {
@@ -324,17 +319,12 @@ function boot(): void {
     return tile.x >= 0 && tile.x < map().width && tile.z >= 0 && tile.z < map().depth;
   }
 
-  function roadPreview(): { placement: Placement; validTiles: Tile[]; invalidTiles: Tile[] } {
+  function roadPreview(): Placement {
     const path = roadPath();
-    const checks = path.map((tile) => placement(world, 'road', tile.x, tile.z));
-    const cost = checks.reduce((sum, check) => sum + check.cost, 0);
-    const failed = checks.find((check) => !check.ok);
-    const inside = path.filter(insideMap);
-    const tiles = inside.map((tile) => tileIndexOn(map(), tile.x, tile.z));
-    const validTiles = path.filter((tile, index) => insideMap(tile) && checks[index].ok);
-    const invalidTiles = path.filter((tile, index) => insideMap(tile) && !checks[index].ok);
-    const reason = failed?.reason ?? (cost > world.money ? 'Not enough drachmas.' : `Road · ${cost} drachmas`);
-    return { placement: { ok: !failed && cost <= world.money, reason, cost, tiles }, validTiles, invalidTiles };
+    const preview = roadPathPlacement(world, path);
+    const tiles = path.filter(insideMap).map((tile) => tileIndexOn(map(), tile.x, tile.z));
+    const reason = preview.ok ? `Road · ${preview.cost} drachmas` : preview.reason;
+    return { ...preview, reason, tiles };
   }
 
   function updatePreview(pointer: { x: number; y: number } | null = null): void {
@@ -362,11 +352,11 @@ function boot(): void {
       return;
     }
     if (tool === 'road') {
-      const { placement: preview, validTiles, invalidTiles } = roadPreview();
-      city.showPreview(tool, hover.x, hover.z, rotation, { ...preview, ok: true, tiles: validTiles.map((tile) => tileIndexOn(map(), tile.x, tile.z)) });
-      overlay.setBlockedTiles(invalidTiles);
+      const preview = roadPreview();
+      city.showPreview(tool, hover.x, hover.z, rotation, preview);
+      overlay.setBlockedTiles([]);
       overlay.setDemolitionTarget([]);
-      overlay.setHarbourRoute(harbourRoute(world, preview.tiles));
+      overlay.setHarbourRoute(preview.ok ? harbourRoute(world, preview.tiles) : null);
       if (!preview.ok) stage.canvas.style.cursor = 'not-allowed';
       hud.setHint(`${preview.reason} · Hold Shift to bend the other way · Escape cancels`);
       return;
@@ -545,7 +535,7 @@ function boot(): void {
       get frames() { return stage.frames; },
       get foamVersion() { return (city.scenery.foam.mesh.geometry.attributes.position as T.BufferAttribute).version; },
       get camera() { return [...stage.camera.position.toArray(), ...stage.controls.target.toArray(), stage.camera.zoom]; },
-      projectTile: (x: number, z: number) => { const p = worldPositionOn(map(), x + .5, z + .5); return stage.project(p.x, groundHeight(map(), x, z), p.z); },
+      projectTile: (x: number, z: number) => { const p = worldPositionOn(map(), x + .5, z + .5); return stage.project(p.x, roadHeight(map(), stairLayout(map(), new Set(world.roads)), x + .5, z + .5), p.z); },
       projectPoint: (x: number, z: number, y = 0) => { const p = worldPositionOn(map(), x, z); return stage.project(p.x, groundHeight(map(), Math.floor(x), Math.floor(z)) + y, p.z); },
       projectBuilding: (id: number) => {
         const building = world.buildings.find((candidate) => candidate.id === id);

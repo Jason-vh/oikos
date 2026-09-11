@@ -1,7 +1,9 @@
 import * as T from 'three';
 import { bake, colors, disposeModel, houseSupplies, post } from '../art';
 import { footprint } from '../sim/catalog';
-import { CELL_SIZE, groundHeight, tileAtOn, worldPositionOn, type IslandMap } from '../sim/island';
+import { CELL_SIZE, groundHeight, worldPositionOn, type IslandMap } from '../sim/island';
+import { stairLayout } from '../sim/stairs';
+import { addRoadMark } from './road-marks';
 import { deliveryRoutes, serviceRoute, walkerRoute } from '../sim/logistics';
 import type { Building, World } from '../sim/types';
 
@@ -106,22 +108,17 @@ export class LogisticsOverlay {
   }
 
   private apply(world: World, key: string, paths: number[][], servedIds: number[], style: RouteStyle): void {
-    if (key === this.key) return;
-    this.key = key;
+    const layoutKey = `${key}:${world.roads.join(',')}`;
+    if (layoutKey === this.key) return;
+    this.key = layoutKey;
     this.routeTiles.clear();
     this.servedMarks.clear();
     if (key === '') return;
     const routeMaterial = style === 'live' ? this.liveMaterial : style === 'delivery' ? this.deliveryMaterial : this.plannedMaterial;
     const tiles = new Set<number>();
     for (const path of paths) for (const index of path) tiles.add(index);
-    for (const index of tiles) {
-      const tile = tileAtOn(this.map, index);
-      const point = worldPositionOn(this.map, tile.x + .5, tile.z + .5);
-      const surface = new T.Mesh(this.unitPlane, routeMaterial);
-      surface.scale.set(CELL_SIZE - .2, 1, CELL_SIZE - .2);
-      surface.position.set(point.x, groundHeight(this.map, tile.x, tile.z) + .09, point.z);
-      this.routeTiles.add(surface);
-    }
+    const stairs = stairLayout(this.map, new Set(world.roads));
+    for (const index of tiles) addRoadMark(this.routeTiles, this.map, stairs, index, this.unitPlane, routeMaterial, .2);
     for (const id of new Set(servedIds)) {
       const served = world.buildings.find((candidate) => candidate.id === id);
       if (!served) continue;

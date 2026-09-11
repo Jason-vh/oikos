@@ -1,5 +1,6 @@
 import * as T from 'three';
-import { bake, boat, box, colors, lump, post, tree } from '../art';
+import { bake, boat, box, colors, disposeModel, lump, post, tree } from '../art';
+import type { Stair } from '../sim/stairs';
 import { CELL_SIZE, buildable, groundHeight, levelOn, terrainOn, worldPositionOn, type IslandMap } from '../sim/island';
 import { fractal } from '../sim/island';
 import { buildTerrain } from './terrain';
@@ -15,6 +16,8 @@ export class IslandScenery {
   readonly root = new T.Group();
   readonly grid = new T.Group();
   readonly foam: CoastalFoam;
+  readonly terrain = new T.Group();
+  private stairKey = '';
   private readonly waterTime = { value: 0 };
   private readonly ship = boat(colors.blue, false);
   private readonly decor = new Map<number, T.Group>();
@@ -22,7 +25,8 @@ export class IslandScenery {
 
   constructor(scene: T.Scene, readonly map: IslandMap) {
     this.foam = new CoastalFoam(map);
-    this.root.add(buildTerrain(map), this.foam.mesh);
+    this.terrain.add(buildTerrain(map));
+    this.root.add(this.terrain, this.foam.mesh);
     const props = new T.Group();
     const gridPoints: number[] = [];
     for (let z = 0; z < map.depth; z++) {
@@ -125,6 +129,16 @@ export class IslandScenery {
     water.position.y = -.08;
     water.receiveShadow = true;
     this.root.add(water);
+  }
+
+  setStairs(stairs: ReadonlyMap<number, Stair>): void {
+    const key = [...stairs.values()].sort((a, b) => a.tile - b.tile).map((stair) => `${stair.tile}:${stair.down}`).join(',');
+    if (key === this.stairKey) return;
+    this.stairKey = key;
+    const terrain = buildTerrain(this.map, stairs);
+    disposeModel(this.terrain);
+    this.terrain.clear();
+    this.terrain.add(terrain);
   }
 
   clearDecor(occupied: Set<number>, felled: Set<number>): void {

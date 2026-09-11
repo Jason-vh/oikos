@@ -17,6 +17,7 @@
     "art:capture": "node scripts/art-capture.mjs",
     "coast:capture": "node scripts/coast-capture.mjs",
     "terrace:capture": "node scripts/terrace-capture.mjs",
+    "road:capture": "node scripts/road-capture.mjs",
     "check": "bash scripts/check.sh"
   },
   "dependencies": {

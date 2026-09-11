@@ -79,7 +79,7 @@ transparency — frozen whenever the city is paused and still under reduced moti
 
 ## Inland cliffs
 
-`src/art/cliffs.ts` carves terrace walls beneath their flat, complete rims. Broad
+`src/art/cliffs.ts` carves terrace walls beneath flat rims, opened only for stairs. Broad
 limestone facets and chamfered corners replace vertical earth walls and continuous
 stripes. Seeded, slow variation shapes shoulders and short shelves; all cuts stay
 inside the high ground. Profiles meet at terrace corners and return to the original
@@ -95,6 +95,18 @@ occasional light accent. Seeded patches leave open ground between denser pockets
 rotation, proportions and within-tile placement vary without crossing a tile edge.
 Clifftops reuse smaller cushions. Every bush clears with its occupied tile and
 returns unchanged when that tile is freed. No foliage animation or leaf detail.
+
+## Roads
+
+`src/art/roads.ts` separates network outlines and stair connections from limestone
+paving. Broad, seeded flags run across cell boundaries; exposed edges stay narrowly
+inset and convex corners are chamfered. No raised kerb ring, wear stripe or inlay.
+Flat surfaces receive shadows without casting; stair treads and walls still cast.
+Landings use the same paving. `src/art/stairs.ts` cuts a flight through the full
+upper road cell, retaining solid cliff shoulders instead of freestanding cheeks.
+Eight bevelled treads meet roads at the foot and rear landing, never halfway up.
+The shared simulation profile controls orientation, walking and preview heights.
+All road geometry stays within occupied cells. Road tiers remain deferred.
 
 ## Budgets
 
