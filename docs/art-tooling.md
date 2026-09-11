@@ -17,6 +17,7 @@ src/art/
   food.ts         resource bundles (wheat, carrots, fish, meat, olives, lumber, clay,
                   stone), bundlesOf(stores, slots), bundleKey()
   coast.ts        seeded shoreline profiles, carved faces and continuous shallows
+  foam.ts         painted breakers that ride the shoreline's foot and shallows
   vegetation.ts   tree(), wheatFarm(stage)
   people.ts       figure(colour, load) with legs/arms, animateFigure(), animateWork()
   animals.ts      boar, rabbit, fish, gull, animateAnimal()
@@ -94,6 +95,9 @@ dust as each piece lands, then swaps to the ordinary material-batched model.
   1, 2, 8 and 37, from four sides and with the grid, plus the seed-1 village.
   Uses isolated browser storage and checks paused rendering and unchanged simulation.
   Requires the dev server. Output: `artifacts/coast/`.
+- **`npm run smoke:foam -- <base url>`**: breakers animate while running, freeze
+  when paused, behind the menu and under reduced motion, and never render while idle.
+  Output: `artifacts/foam/`.
 - **`npm run smoke`** and **`npm run check`**: the gameplay walkthrough
   (`scripts/smoke.mjs`), which is where models are judged in context.
 

@@ -12,6 +12,7 @@
     "smoke": "node scripts/smoke.mjs",
     "smoke:polish": "node scripts/polish-smoke.mjs",
     "smoke:construction": "node scripts/construction-smoke.mjs",
+    "smoke:foam": "node scripts/foam-smoke.mjs",
     "art:check": "bun test src/art",
     "art:capture": "node scripts/art-capture.mjs",
     "coast:capture": "node scripts/coast-capture.mjs",

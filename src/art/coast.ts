@@ -6,6 +6,7 @@ type Point = [number, number, number];
 type Direction = [number, number];
 interface Edge { start: Direction; end: Direction; outward: Direction; }
 interface Profile { rim: Point; shoulder: Point; foot: Point; shallows: Point; }
+export interface CoastalSegment { start: Profile; end: Profile; outward: Direction; }
 
 const WATERLINE = -.06;
 const EDGES: Edge[] = [
@@ -67,15 +68,8 @@ function quad(positions: number[], a: Point, b: Point, c: Point, d: Point, facin
   triangle(positions, a, c, d, facing);
 }
 
-export function buildCoast(map: IslandMap): T.Group {
-  const stone: number[] = [];
-  const shallows: number[] = [];
-  function join(a: Profile, b: Profile, outward: Direction): void {
-    const facing: Point = [outward[0], 0, outward[1]];
-    quad(stone, a.rim, b.rim, b.shoulder, a.shoulder, facing);
-    quad(stone, a.shoulder, b.shoulder, b.foot, a.foot, facing);
-    quad(shallows, a.foot, b.foot, b.shallows, a.shallows, [0, 1, 0]);
-  }
+export function coastalSegments(map: IslandMap): CoastalSegment[] {
+  const segments: CoastalSegment[] = [];
   for (let z = 0; z < map.depth; z++) {
     for (let x = 0; x < map.width; x++) {
       if (terrainOn(map, x, z) === 'water') continue;
@@ -87,12 +81,24 @@ export function buildCoast(map: IslandMap): T.Group {
         const profile = profiles[side];
         if (!profile) continue;
         const edge = EDGES[side];
-        join(profile.start, profile.end, edge.outward);
+        segments.push({ ...profile, outward: edge.outward });
         const nextSide = (side + 1) % EDGES.length;
         const next = profiles[nextSide];
-        if (next) join(profile.end, next.start, [edge.outward[0] + EDGES[nextSide].outward[0], edge.outward[1] + EDGES[nextSide].outward[1]]);
+        if (next) segments.push({ start: profile.end, end: next.start, outward: [edge.outward[0] + EDGES[nextSide].outward[0], edge.outward[1] + EDGES[nextSide].outward[1]] });
       }
     }
+  }
+  return segments;
+}
+
+export function buildCoast(map: IslandMap): T.Group {
+  const stone: number[] = [];
+  const shallows: number[] = [];
+  for (const { start: a, end: b, outward } of coastalSegments(map)) {
+    const facing: Point = [outward[0], 0, outward[1]];
+    quad(stone, a.rim, b.rim, b.shoulder, a.shoulder, facing);
+    quad(stone, a.shoulder, b.shoulder, b.foot, a.foot, facing);
+    quad(shallows, a.foot, b.foot, b.shallows, a.shallows, [0, 1, 0]);
   }
   const root = new T.Group();
   for (const [positions, color] of [[stone, colors.stone], [shallows, 0x8fc4b8]] as const) {

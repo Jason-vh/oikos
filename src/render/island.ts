@@ -3,6 +3,7 @@ import { bake, boat, box, colors, lump, post, tree } from '../art';
 import { CELL_SIZE, buildable, groundHeight, levelOn, terrainOn, worldPositionOn, type IslandMap } from '../sim/island';
 import { fractal } from '../sim/island';
 import { buildTerrain } from './terrain';
+import { CoastalFoam } from '../art/foam';
 
 function seeded(map: IslandMap, x: number, z: number, salt: number): number {
   return fractal(x * 3.7 + salt, z * 2.9 - salt, map.seed + salt, 1, 1);
@@ -11,13 +12,15 @@ function seeded(map: IslandMap, x: number, z: number, salt: number): number {
 export class IslandScenery {
   readonly root = new T.Group();
   readonly grid = new T.Group();
+  readonly foam: CoastalFoam;
   private readonly waterTime = { value: 0 };
   private readonly ship = boat(colors.blue, false);
   private readonly decor = new Map<number, T.Group>();
   private readonly falling = new Map<number, number>();
 
   constructor(scene: T.Scene, readonly map: IslandMap) {
-    this.root.add(buildTerrain(map));
+    this.foam = new CoastalFoam(map);
+    this.root.add(buildTerrain(map), this.foam.mesh);
     const props = new T.Group();
     const gridPoints: number[] = [];
     for (let z = 0; z < map.depth; z++) {
@@ -146,6 +149,7 @@ export class IslandScenery {
 
   update(time: number): void {
     this.waterTime.value = time;
+    this.foam.update(time);
     this.ship.position.y = Math.sin(time * 1.4) * .045;
     this.ship.rotation.z = Math.sin(time * 1.1) * .018;
   }

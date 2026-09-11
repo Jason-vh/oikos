@@ -72,6 +72,11 @@ Convex waterline corners are chamfered, with a continuous shallow-water band.
 Slow seeded variation controls the cuts and band width. Narrow channels stay open.
 The logical island, inland terraces, roads and building footprints never change.
 
+Breakers (`src/art/foam.ts`) are painted cream ribbons that ride the same shoreline
+profiles: they form offshore, widen against the rock and thin away on a seeded
+stagger. They are flat quads at the waterline — one opaque mesh, no particles or
+transparency — frozen whenever the city is paused and still under reduced motion.
+
 ## Budgets
 
 Keep a placeable building under 18 draw calls and ~9,000 triangles; walkers and
