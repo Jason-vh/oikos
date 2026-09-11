@@ -5,6 +5,7 @@ import { gatherArrival, gatherFinished, regrowForest, updateGatherer } from './g
 import { freshHarbour, HARBOUR_DOCK_CAP, harbourStatus, harbourTiles, setHarbourTrade, updateHarbour } from './harbour';
 import { buildable, insideMapOn, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import {
+  accessDoors,
   accessTiles,
   bfsReachable,
   bfsShortest,
@@ -13,8 +14,9 @@ import {
   exitTile,
   findNearestConnected,
   footprintTiles,
-  perimeterTiles,
+  neighbours,
 } from './grid';
+import { roadStepAllowed, stairLayout, stairPlacementConflict, type Stair, type StairIssue } from './stairs';
 import {
   AGORA_CAP,
   ARRIVAL_INTERVAL,
@@ -81,6 +83,9 @@ const REASON = {
   unsuitableTerrain: 'Unsuitable terrain.',
   unevenGround: 'Buildings need level ground.',
   roadTooSteep: 'Roads climb only one step at a time, across the cliff edge.',
+  stairAmbiguous: 'A stair can only climb in one direction; that cliff edge already has another way down.',
+  stairBackland: 'A stair needs solid, dry ground to land on at the top.',
+  stairSideEntry: 'Stairs can only be entered from the front or back, not the side.',
   needsFertileGround: 'Farms need fertile ground.',
   tileOccupied: 'That tile is occupied.',
   tileOccupiedByRoad: 'That tile is occupied by a road.',
@@ -104,11 +109,38 @@ function terrainAllows(map: IslandMap, kind: BuildTool, x: number, z: number): b
   return buildable(terrain);
 }
 
-function roadStepAllowed(map: IslandMap, ax: number, az: number, bx: number, bz: number): boolean {
-  const difference = Math.abs(levelOn(map, ax, az) - levelOn(map, bx, bz));
+function gradeAllowed(map: IslandMap, ax: number, az: number, bx: number, bz: number): boolean {
+  const levelA = levelOn(map, ax, az);
+  const levelB = levelOn(map, bx, bz);
+  const difference = Math.abs(levelA - levelB);
   if (difference === 0) return true;
   if (difference > 1) return false;
-  return terrainOn(map, ax, az) === 'cliff' || terrainOn(map, bx, bz) === 'cliff';
+  const higherTerrain = levelA > levelB ? terrainOn(map, ax, az) : terrainOn(map, bx, bz);
+  return higherTerrain === 'cliff';
+}
+
+function stairReason(issue: StairIssue): string {
+  if (issue === 'ambiguous') return REASON.stairAmbiguous;
+  if (issue === 'backland') return REASON.stairBackland;
+  return REASON.stairSideEntry;
+}
+
+function touchedTiles(map: IslandMap, newTiles: readonly number[]): Set<number> {
+  const touched = new Set<number>();
+  for (const tile of newTiles) {
+    touched.add(tile);
+    for (const next of neighbours(map, tile)) touched.add(next);
+  }
+  return touched;
+}
+
+function stairPlacementIssue(map: IslandMap, roads: ReadonlySet<number>, newTiles: readonly number[]): StairIssue | null {
+  for (const tile of touchedTiles(map, newTiles)) {
+    if (!roads.has(tile)) continue;
+    const issue = stairPlacementConflict(map, roads, tile);
+    if (issue) return issue;
+  }
+  return null;
 }
 
 function evaluatePlacement(world: World, tool: BuildTool, x: number, z: number, rotation: Rotation): Placement {
@@ -118,9 +150,15 @@ function evaluatePlacement(world: World, tool: BuildTool, x: number, z: number, 
     const tile = tileIndexOn(map, x, z);
     if (!terrainAllows(map, tool, x, z)) return { ok: false, reason: REASON.unsuitableTerrain, cost: 0, tiles: [tile] };
     if (buildingAt(world, tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: [tile] };
-    const steps = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dz]) => world.roads.includes(tileIndexOn(map, x + dx, z + dz)) && !roadStepAllowed(map, x, z, x + dx, z + dz));
+    const steps = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dz]) => world.roads.includes(tileIndexOn(map, x + dx, z + dz)) && !gradeAllowed(map, x, z, x + dx, z + dz));
     if (steps.length > 0) return { ok: false, reason: REASON.roadTooSteep, cost: 0, tiles: [tile] };
     const already = world.roads.includes(tile);
+    if (!already) {
+      const tentative = new Set(world.roads);
+      tentative.add(tile);
+      const issue = stairPlacementIssue(map, tentative, [tile]);
+      if (issue) return { ok: false, reason: stairReason(issue), cost: 0, tiles: [tile] };
+    }
     const cost = already ? 0 : ROAD_COST;
     if (cost > world.money) return { ok: false, reason: REASON.notEnoughMoney, cost, tiles: [tile] };
     return { ok: true, reason: '', cost, tiles: [tile] };
@@ -191,22 +229,23 @@ export function build(world: World, tool: BuildTool, x: number, z: number, rotat
     world.buildings.push(building);
   }
   recomputeConnectivity(world);
+  dropInvalidWalkers(world);
   return { ok: true, reason };
 }
 
-export function placeRoadPath(world: World, tiles: Tile[]): ActionResult {
+function evaluateRoadPath(world: World, tiles: Tile[]): Placement {
   const map = mapOf(world);
   const seen = new Set<number>();
   const indices: number[] = [];
   let previous: Tile | null = null;
   for (const { x, z } of tiles) {
-    if (!insideMapOn(map, x, z)) return { ok: false, reason: REASON.outOfBounds };
+    if (!insideMapOn(map, x, z)) return { ok: false, reason: REASON.outOfBounds, cost: 0, tiles: indices };
     const tile = tileIndexOn(map, x, z);
     if (seen.has(tile)) continue;
     seen.add(tile);
-    if (!terrainAllows(map, 'road', x, z)) return { ok: false, reason: REASON.unsuitableTerrain };
-    if (buildingAt(world, tile)) return { ok: false, reason: REASON.tileOccupied };
-    if (previous && !roadStepAllowed(map, previous.x, previous.z, x, z)) return { ok: false, reason: REASON.roadTooSteep };
+    if (!terrainAllows(map, 'road', x, z)) return { ok: false, reason: REASON.unsuitableTerrain, cost: 0, tiles: indices };
+    if (buildingAt(world, tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: indices };
+    if (previous && !gradeAllowed(map, previous.x, previous.z, x, z)) return { ok: false, reason: REASON.roadTooSteep, cost: 0, tiles: indices };
     previous = { x, z };
     indices.push(tile);
   }
@@ -214,11 +253,31 @@ export function placeRoadPath(world: World, tiles: Tile[]): ActionResult {
   const existing = new Set(world.roads);
   const fresh = indices.filter((tile) => !existing.has(tile));
   const cost = fresh.length * ROAD_COST;
-  if (cost > world.money) return { ok: false, reason: REASON.notEnoughMoney };
 
-  world.money -= cost;
-  for (const tile of fresh) world.roads.push(tile);
+  if (fresh.length > 0) {
+    const tentative = new Set(existing);
+    for (const tile of fresh) tentative.add(tile);
+    const issue = stairPlacementIssue(map, tentative, fresh);
+    if (issue) return { ok: false, reason: stairReason(issue), cost, tiles: indices };
+  }
+
+  if (cost > world.money) return { ok: false, reason: REASON.notEnoughMoney, cost, tiles: indices };
+  return { ok: true, reason: '', cost, tiles: indices };
+}
+
+export function roadPathPlacement(world: World, tiles: Tile[]): Placement {
+  return evaluateRoadPath(world, tiles);
+}
+
+export function placeRoadPath(world: World, tiles: Tile[]): ActionResult {
+  const result = evaluateRoadPath(world, tiles);
+  if (!result.ok) return { ok: false, reason: result.reason };
+
+  const existing = new Set(world.roads);
+  world.money -= result.cost;
+  for (const tile of result.tiles) if (!existing.has(tile)) world.roads.push(tile);
   recomputeConnectivity(world);
+  dropInvalidWalkers(world);
   return { ok: true, reason: 'Road laid.' };
 }
 
@@ -240,8 +299,8 @@ export function demolish(world: World, x: number, z: number): ActionResult {
   const index = world.roads.indexOf(tile);
   if (index === -1) return { ok: false, reason: REASON.nothingToDemolish };
   world.roads.splice(index, 1);
-  dropStrandedWalkers(world);
   recomputeConnectivity(world);
+  dropInvalidWalkers(world);
   return { ok: true, reason: 'Demolished. Roads are not refunded.' };
 }
 
@@ -259,9 +318,39 @@ function removeBuilding(world: World, id: number): void {
   }
 }
 
-function dropStrandedWalkers(world: World): void {
+function roadEdgeValid(map: IslandMap, roads: ReadonlySet<number>, stairs: ReadonlyMap<number, Stair>, from: number, to: number): boolean {
+  if (roads.has(from) && roads.has(to)) return roadStepAllowed(map, stairs, from, to);
+  if (stairs.has(from) || stairs.has(to)) return roadStepAllowed(map, stairs, from, to);
+  const a = tileAtOn(map, from);
+  const b = tileAtOn(map, to);
+  const difference = Math.abs(levelOn(map, a.x, a.z) - levelOn(map, b.x, b.z));
+  return difference === 0 || (difference === 1 && (terrainOn(map, a.x, a.z) === 'cliff' || terrainOn(map, b.x, b.z) === 'cliff'));
+}
+
+function walkerPathValid(map: IslandMap, roads: ReadonlySet<number>, stairs: ReadonlyMap<number, Stair>, walker: Walker): boolean {
+  if (walker.path.length === 0) return false;
+  const overland = new Set(walker.overland);
+  for (let i = 0; i < walker.path.length; i++) {
+    const tile = walker.path[i];
+    if (!roads.has(tile) && !overland.has(tile)) return false;
+    if (i === 0) continue;
+    if (!roadEdgeValid(map, roads, stairs, walker.path[i - 1], tile)) return false;
+  }
+  return true;
+}
+
+export function dropInvalidWalkers(world: World): void {
+  const map = mapOf(world);
   const roads = new Set(world.roads);
-  world.walkers = world.walkers.filter((walker) => walker.path.every((tile) => roads.has(tile)));
+  const stairs = stairLayout(map, roads);
+  world.walkers = world.walkers.filter((walker) => {
+    if (walkerPathValid(map, roads, stairs, walker)) return true;
+    if (walker.quarry !== null) {
+      const prey = world.wildlife.find((animal) => animal.id === walker.quarry);
+      if (prey) prey.cornered = false;
+    }
+    return false;
+  });
 }
 
 export function setVendor(world: World, id: number, enabled: boolean): ActionResult {
@@ -292,9 +381,9 @@ export function recomputeConnectivity(world: World): void {
   const entry = entryTileIndex(world);
   const reachable = roads.has(entry) ? bfsReachable(map, roads, entry) : new Set<number>();
   for (const building of world.buildings) {
-    building.connected = perimeterTiles(map, building).some((tile) => reachable.has(tile));
+    building.connected = accessDoors(map, roads, building).some((tile) => reachable.has(tile));
   }
-  world.harbour.connected = perimeterTiles(map, world.harbour).some((tile) => reachable.has(tile));
+  world.harbour.connected = accessDoors(map, roads, world.harbour).some((tile) => reachable.has(tile));
 }
 
 export function totalStock(building: Building): number {
@@ -470,7 +559,8 @@ function updateCircuitDispatch(world: World, building: Building, kind: WalkerKin
 
 function buildingsAdjacentToTile(world: World, tile: number): Building[] {
   const map = mapOf(world);
-  return world.buildings.filter((building) => perimeterTiles(map, building).includes(tile));
+  const roads = new Set(world.roads);
+  return world.buildings.filter((building) => accessDoors(map, roads, building).includes(tile));
 }
 
 function reverseForReturn(walker: Walker): void {
@@ -553,11 +643,12 @@ function onFinalArrival(world: World, walker: Walker): boolean {
 }
 
 function moveWalkers(world: World, dt: number): void {
+  const map = mapOf(world);
   const roads = new Set(world.roads);
+  const stairs = stairLayout(map, roads);
   const alive: Walker[] = [];
   for (const walker of world.walkers) {
-    const overland = new Set(walker.overland);
-    if (walker.path.length === 0 || !walker.path.every((tile) => roads.has(tile) || overland.has(tile))) continue;
+    if (!walkerPathValid(map, roads, stairs, walker)) continue;
     if (walker.working > 0) {
       walker.working = Math.max(0, walker.working - dt);
       if (walker.working > 0 || !gatherFinished(world, walker)) alive.push(walker);

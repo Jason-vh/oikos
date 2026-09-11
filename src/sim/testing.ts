@@ -165,15 +165,19 @@ export function isolatedRoadPair(world: World, near: Tile): [Tile, Tile] | null 
 
 export const SLOPE_SEED = 913_047;
 
-export function slopeFixture(): { low: Tile; high: Tile } {
+export function slopeFixture(): { low: Tile; high: Tile; landing: Tile } {
   const map = islandFor(SLOPE_SEED);
   const low: Tile = { x: 2, z: 2 };
   const high: Tile = { x: 3, z: 2 };
+  const landing: Tile = { x: 4, z: 2 };
   const lowIndex = tileIndexOn(map, low.x, low.z);
   const highIndex = tileIndexOn(map, high.x, high.z);
+  const landingIndex = tileIndexOn(map, landing.x, landing.z);
   map.terrain[lowIndex] = 'grass';
   map.terrain[highIndex] = 'grass';
+  map.terrain[landingIndex] = 'grass';
   map.level[lowIndex] = 0;
   map.level[highIndex] = 1;
-  return { low, high };
+  map.level[landingIndex] = 1;
+  return { low, high, landing };
 }

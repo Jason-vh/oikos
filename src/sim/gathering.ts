@@ -4,6 +4,7 @@ import { buildable, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn, type I
 import { accessTiles, footprintTiles, mapOf } from './grid';
 import { addStore, hasActiveWalker, sendCart, spawnWalker, totalStock } from './world';
 import { alive, killAnimal } from './wildlife';
+import { roadStepAllowed, stairLayout, type Stair } from './stairs';
 
 export const GATHER_RANGE = 14;
 export const GATHER_STOCK_CAP = 200;
@@ -23,7 +24,9 @@ function passable(world: World, map: IslandMap, roads: Set<number>, index: numbe
   });
 }
 
-function stepAllowed(map: IslandMap, from: number, to: number): boolean {
+function stepAllowed(map: IslandMap, roads: ReadonlySet<number>, stairs: ReadonlyMap<number, Stair>, from: number, to: number): boolean {
+  if (roads.has(from) && roads.has(to)) return roadStepAllowed(map, stairs, from, to);
+  if (stairs.has(from) || stairs.has(to)) return roadStepAllowed(map, stairs, from, to);
   const a = tileAtOn(map, from);
   const b = tileAtOn(map, to);
   const difference = Math.abs(levelOn(map, a.x, a.z) - levelOn(map, b.x, b.z));
@@ -34,6 +37,7 @@ function stepAllowed(map: IslandMap, from: number, to: number): boolean {
 export function overlandPath(world: World, start: number, isGoal: (tile: number) => boolean, limit: number): number[] | null {
   const map = mapOf(world);
   const roads = new Set(world.roads);
+  const stairs = stairLayout(map, roads);
   const cameFrom = new Map<number, number>([[start, -1]]);
   const distance = new Map<number, number>([[start, 0]]);
   const queue = [start];
@@ -56,7 +60,7 @@ export function overlandPath(world: World, start: number, isGoal: (tile: number)
       const nz = z + dz;
       if (nx < 0 || nz < 0 || nx >= map.width || nz >= map.depth) continue;
       const next = tileIndexOn(map, nx, nz);
-      if (cameFrom.has(next) || !passable(world, map, roads, next) || !stepAllowed(map, current, next)) continue;
+      if (cameFrom.has(next) || !passable(world, map, roads, next) || !stepAllowed(map, roads, stairs, current, next)) continue;
       cameFrom.set(next, current);
       distance.set(next, (distance.get(current) ?? 0) + 1);
       queue.push(next);

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { advance, build, createWorld } from './world';
 import { islandFor, terrainOn, tileAtOn, tileIndexOn } from './island';
 import { connect, spotFor } from './testing';
-import { GATHER_RANGE } from './gathering';
+import { GATHER_RANGE, overlandPath } from './gathering';
 import type { Tile, World } from './types';
 
 function nearForest(world: World, kind: 'lodge' | 'woodcutter'): Tile | null {
@@ -136,5 +136,54 @@ describe('working at the site', () => {
     boar.cornered = false;
     advance(world, 20);
     expect(Math.hypot(boar.x - before[0], boar.z - before[1])).toBeGreaterThan(0);
+  });
+});
+
+const GATHER_STAIR_SEED = 500_501;
+
+function gatherStairFixture() {
+  const map = islandFor(GATHER_STAIR_SEED);
+  const cx = 12;
+  const cz = 12;
+  const setTile = (x: number, z: number, terrain: 'grass' | 'water' | 'cliff', level: number) => {
+    const index = tileIndexOn(map, x, z);
+    map.terrain[index] = terrain;
+    map.level[index] = level;
+  };
+  for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) setTile(cx + dx, cz + dz, 'water', 0);
+  setTile(cx - 1, cz, 'grass', 0);
+  setTile(cx, cz, 'cliff', 1);
+  setTile(cx + 1, cz, 'grass', 1);
+  setTile(cx, cz - 1, 'grass', 1);
+  setTile(cx, cz + 1, 'grass', 1);
+  return {
+    map,
+    down: { x: cx - 1, z: cz },
+    tile: { x: cx, z: cz },
+    up: { x: cx + 1, z: cz },
+    north: { x: cx, z: cz - 1 },
+    south: { x: cx, z: cz + 1 },
+  };
+}
+
+describe('gatherers and carved stairs', () => {
+  test('an overland route may cross a stair front to back', () => {
+    const { map, down, tile, up } = gatherStairFixture();
+    const world = createWorld(GATHER_STAIR_SEED);
+    world.roads = [tileIndexOn(map, down.x, down.z), tileIndexOn(map, tile.x, tile.z)];
+    const start = tileIndexOn(map, down.x, down.z);
+    const goal = tileIndexOn(map, up.x, up.z);
+    const path = overlandPath(world, start, (candidate) => candidate === goal, 4);
+    expect(path).toEqual([start, tileIndexOn(map, tile.x, tile.z), goal]);
+  });
+
+  test('an overland route cannot cut through a stair\'s side', () => {
+    const { map, down, tile, north, south } = gatherStairFixture();
+    const world = createWorld(GATHER_STAIR_SEED);
+    world.roads = [tileIndexOn(map, down.x, down.z), tileIndexOn(map, tile.x, tile.z)];
+    const start = tileIndexOn(map, north.x, north.z);
+    const goal = tileIndexOn(map, south.x, south.z);
+    const path = overlandPath(world, start, (candidate) => candidate === goal, 4);
+    expect(path).toBeNull();
   });
 });

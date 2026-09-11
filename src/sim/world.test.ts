@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import { advance, build, buildingStatus, createWorld, demolish, getSummary, placeRoadPath, placement, setVendor } from './world';
+import { advance, build, buildingStatus, createWorld, demolish, getSummary, placeRoadPath, placement, roadPathPlacement, setVendor } from './world';
 import { buildStarterNeighbourhood, planStarterNeighbourhood } from './scenario';
 import { BUILDINGS, ROAD_COST, STARTING_MONEY, VENDOR_COST } from './catalog';
-import { generateIsland, islandFor, terrainOn, tileAtOn, tileIndexOn } from './island';
-import { entryTileIndex } from './grid';
+import { generateIsland, islandFor, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
+import { accessDoors, bfsShortest, entryTileIndex } from './grid';
 import { connect, farCorner, findTile, freshRoadSpot, isolatedRoadPair, mapOf, slopeFixture, spotAdjacentTo, spotFor, unevenFootprint, SLOPE_SEED } from './testing';
-import type { World } from './types';
+import type { Building, BuildingKind, Tile, World } from './types';
 
 function findByKind(world: World, kind: string) {
   return world.buildings.find((building) => building.kind === kind)!;
@@ -151,6 +151,18 @@ describe('build costs', () => {
     const result = placeRoadPath(world, [low, high]);
     expect(result.ok).toBe(false);
     expect(result.reason).toBe('Roads climb only one step at a time, across the cliff edge.');
+  });
+
+  test('a cliff only on the lower tile still refuses the climb', () => {
+    const { low, high } = slopeFixture();
+    const map = islandFor(SLOPE_SEED);
+    map.terrain[tileIndexOn(map, low.x, low.z)] = 'cliff';
+    const world = createWorld(SLOPE_SEED);
+    expect(build(world, 'road', low.x, low.z).ok).toBe(true);
+    const result = placement(world, 'road', high.x, high.z);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe('Roads climb only one step at a time, across the cliff edge.');
+    map.terrain[tileIndexOn(map, low.x, low.z)] = 'grass';
   });
 });
 
@@ -787,5 +799,179 @@ describe('island generation', () => {
       expect(plan).not.toBeNull();
       expect(plan!.buildings.length).toBe(9);
     }
+  });
+});
+
+const STAIR_SEED = 700_701;
+
+type StairDirection = 'east' | 'west' | 'south' | 'north';
+
+const DOWN_OFFSET: Record<StairDirection, [number, number]> = {
+  east: [1, 0],
+  west: [-1, 0],
+  south: [0, 1],
+  north: [0, -1],
+};
+
+function setStairTile(map: IslandMap, x: number, z: number, terrain: 'grass' | 'water' | 'cliff', level: number): void {
+  const index = tileIndexOn(map, x, z);
+  map.terrain[index] = terrain;
+  map.level[index] = level;
+}
+
+function clearStairArea(map: IslandMap, cx: number, cz: number): void {
+  for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) setStairTile(map, cx + dx, cz + dz, 'water', 0);
+}
+
+function orientedStairFixture(direction: StairDirection) {
+  const map = islandFor(STAIR_SEED);
+  const cx = 12;
+  const cz = 12;
+  clearStairArea(map, cx, cz);
+  const [ddx, ddz] = DOWN_OFFSET[direction];
+  const tile: Tile = { x: cx, z: cz };
+  const down: Tile = { x: cx + ddx, z: cz + ddz };
+  const up: Tile = { x: cx - ddx, z: cz - ddz };
+  const lateralA: Tile = ddx !== 0 ? { x: cx, z: cz - 1 } : { x: cx - 1, z: cz };
+  const lateralB: Tile = ddx !== 0 ? { x: cx, z: cz + 1 } : { x: cx + 1, z: cz };
+  setStairTile(map, tile.x, tile.z, 'cliff', 1);
+  setStairTile(map, down.x, down.z, 'grass', 0);
+  setStairTile(map, up.x, up.z, 'grass', 1);
+  setStairTile(map, lateralA.x, lateralA.z, 'grass', 1);
+  setStairTile(map, lateralB.x, lateralB.z, 'grass', 1);
+  return { map, tile, down, up, lateralA, lateralB };
+}
+
+describe('carved stairs', () => {
+  for (const direction of ['east', 'west', 'south', 'north'] as const) {
+    test(`builds a working stair oriented ${direction}, one tile at a time`, () => {
+      const { map, down, tile, up } = orientedStairFixture(direction);
+      const world = createWorld(STAIR_SEED);
+      expect(build(world, 'road', down.x, down.z).ok).toBe(true);
+      expect(build(world, 'road', tile.x, tile.z).ok).toBe(true);
+      expect(build(world, 'road', up.x, up.z).ok).toBe(true);
+      const roads = new Set(world.roads);
+      const path = bfsShortest(map, roads, tileIndexOn(map, down.x, down.z), (candidate) => candidate === tileIndexOn(map, up.x, up.z));
+      expect(path).toEqual([tileIndexOn(map, down.x, down.z), tileIndexOn(map, tile.x, tile.z), tileIndexOn(map, up.x, up.z)]);
+    });
+  }
+
+  test('a whole-stroke batch placement produces the same roads as sequential single placement', () => {
+    const { down, tile, up } = orientedStairFixture('east');
+    const worldSingle = createWorld(STAIR_SEED);
+    expect(build(worldSingle, 'road', down.x, down.z).ok).toBe(true);
+    expect(build(worldSingle, 'road', tile.x, tile.z).ok).toBe(true);
+    expect(build(worldSingle, 'road', up.x, up.z).ok).toBe(true);
+
+    orientedStairFixture('east');
+    const worldBatch = createWorld(STAIR_SEED);
+    expect(placeRoadPath(worldBatch, [down, tile, up]).ok).toBe(true);
+
+    expect([...worldBatch.roads].sort((a, b) => a - b)).toEqual([...worldSingle.roads].sort((a, b) => a - b));
+  });
+
+  test('roadPathPlacement previews the same outcome as placeRoadPath without mutating the world', () => {
+    const { down, tile, up } = orientedStairFixture('east');
+    const world = createWorld(STAIR_SEED);
+    const before = { money: world.money, roads: [...world.roads] };
+    const preview = roadPathPlacement(world, [down, tile, up]);
+    expect(preview.ok).toBe(true);
+    expect(world.money).toBe(before.money);
+    expect(world.roads).toEqual(before.roads);
+
+    const result = placeRoadPath(world, [down, tile, up]);
+    expect(result.ok).toBe(true);
+    expect(before.money - world.money).toBe(preview.cost);
+  });
+
+  test('rejects a second lower neighbour as ambiguous, atomically, whichever tile arrives last', () => {
+    const { map, tile, down, lateralA } = orientedStairFixture('east');
+    setStairTile(map, lateralA.x, lateralA.z, 'grass', 0);
+    setStairTile(map, tile.x, tile.z - 2, 'grass', 1);
+
+    const worldDownFirst = createWorld(STAIR_SEED);
+    expect(build(worldDownFirst, 'road', down.x, down.z).ok).toBe(true);
+    expect(build(worldDownFirst, 'road', lateralA.x, lateralA.z).ok).toBe(true);
+    const before = worldDownFirst.money;
+    const result = placement(worldDownFirst, 'road', tile.x, tile.z);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe('A stair can only climb in one direction; that cliff edge already has another way down.');
+    expect(build(worldDownFirst, 'road', tile.x, tile.z).ok).toBe(false);
+    expect(worldDownFirst.money).toBe(before);
+    expect(worldDownFirst.roads.includes(tileIndexOn(map, tile.x, tile.z))).toBe(false);
+
+    const worldStairFirst = createWorld(STAIR_SEED);
+    expect(build(worldStairFirst, 'road', down.x, down.z).ok).toBe(true);
+    expect(build(worldStairFirst, 'road', tile.x, tile.z).ok).toBe(true);
+    const secondResult = placement(worldStairFirst, 'road', lateralA.x, lateralA.z);
+    expect(secondResult.ok).toBe(false);
+    expect(secondResult.reason).toBe('A stair can only climb in one direction; that cliff edge already has another way down.');
+
+    const batchResult = placeRoadPath(createWorld(STAIR_SEED), [down, tile, lateralA]);
+    expect(batchResult.ok).toBe(false);
+    expect(batchResult.reason).toBe('A stair can only climb in one direction; that cliff edge already has another way down.');
+  });
+
+  test('rejects a perpendicular road entering a stair from the side, whichever tile arrives last', () => {
+    const { down, tile, lateralA } = orientedStairFixture('east');
+
+    const worldStairFirst = createWorld(STAIR_SEED);
+    expect(build(worldStairFirst, 'road', down.x, down.z).ok).toBe(true);
+    expect(build(worldStairFirst, 'road', tile.x, tile.z).ok).toBe(true);
+    const sideResult = placement(worldStairFirst, 'road', lateralA.x, lateralA.z);
+    expect(sideResult.ok).toBe(false);
+    expect(sideResult.reason).toBe('Stairs can only be entered from the front or back, not the side.');
+
+    orientedStairFixture('east');
+    const worldSideFirst = createWorld(STAIR_SEED);
+    expect(build(worldSideFirst, 'road', down.x, down.z).ok).toBe(true);
+    expect(build(worldSideFirst, 'road', lateralA.x, lateralA.z).ok).toBe(true);
+    const stairResult = placement(worldSideFirst, 'road', tile.x, tile.z);
+    expect(stairResult.ok).toBe(false);
+    expect(stairResult.reason).toBe('Stairs can only be entered from the front or back, not the side.');
+  });
+
+  test('rejects a stair whose back landing is water', () => {
+    const { map, down, tile, up } = orientedStairFixture('east');
+    setStairTile(map, up.x, up.z, 'water', 1);
+    const world = createWorld(STAIR_SEED);
+    expect(build(world, 'road', down.x, down.z).ok).toBe(true);
+    const result = placement(world, 'road', tile.x, tile.z);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe('A stair needs solid, dry ground to land on at the top.');
+  });
+
+  test('a valid batch is charged only for its new tiles, and legacy invalid edges elsewhere are untouched', () => {
+    const { down, tile, up } = orientedStairFixture('east');
+    const world = createWorld(STAIR_SEED);
+    expect(build(world, 'road', down.x, down.z).ok).toBe(true);
+    const before = world.money;
+    const result = placeRoadPath(world, [down, tile, up]);
+    expect(result.ok).toBe(true);
+    expect(before - world.money).toBe(ROAD_COST * 2);
+  });
+});
+
+function minimalBuilding(kind: BuildingKind, x: number, z: number): Building {
+  return {
+    id: 0, x, z, kind, rotation: 0, tier: 1, residents: 0, food: 0, water: 0, condition: 100, stores: {},
+    progress: 0, workers: 0, vendorEnabled: false, vendorInstalled: false, connected: false, serviceTimer: 0, upgradeTimer: 0,
+  };
+}
+
+describe('building access across a stair', () => {
+  test('a door opens onto the landing behind a stair, never onto its side', () => {
+    const { map, down, tile, up, lateralA } = orientedStairFixture('east');
+    const world = createWorld(STAIR_SEED);
+    expect(build(world, 'road', down.x, down.z).ok).toBe(true);
+    expect(build(world, 'road', tile.x, tile.z).ok).toBe(true);
+    const roads = new Set(world.roads);
+    const stairTileIndex = tileIndexOn(map, tile.x, tile.z);
+
+    const behind = minimalBuilding('fountain', up.x - 1, up.z - 1);
+    expect(accessDoors(map, roads, behind)).toContain(stairTileIndex);
+
+    const beside = minimalBuilding('fountain', lateralA.x - 1, lateralA.z - 1);
+    expect(accessDoors(map, roads, beside)).not.toContain(stairTileIndex);
   });
 });

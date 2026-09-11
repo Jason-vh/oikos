@@ -5,7 +5,7 @@ const ANIMAL_KINDS: AnimalKind[] = ['boar', 'rabbit', 'fish', 'gull'];
 import { BUILDINGS, HOUSE_CAPACITY, RESOURCES } from './catalog';
 import { islandFor, insideMapOn, tileIndexOn, type IslandMap } from './island';
 import { footprintTiles, neighbours } from './grid';
-import { recomputeConnectivity } from './world';
+import { dropInvalidWalkers, recomputeConnectivity } from './world';
 import { spawnWildlife } from './wildlife';
 import { siteHarbour, validateHarbourProgress } from './harbour';
 import { CURRENT_VERSION, migrateSave } from './save-migrations';
@@ -258,6 +258,7 @@ export function deserializeWorld(raw: string): World | null {
   };
   if (wildlifeWasMissing) world.wildlife = seedMissingWildlife(world);
   recomputeConnectivity(world);
+  dropInvalidWalkers(world);
   return world;
 }
 

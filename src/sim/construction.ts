@@ -1,7 +1,8 @@
 import type { BuildingKind, Rotation, Tile, World } from './types';
 import { BUILDINGS, footprint, VENDOR_COST } from './catalog';
 import { buildable, insideMapOn, levelOn, terrainOn, tileIndexOn, type IslandMap } from './island';
-import { bfsShortest, entryTileIndex, footprintTiles as buildingFootprintTiles, mapOf, neighbours } from './grid';
+import { bfsShortest, entryTileIndex, footprintTiles as buildingFootprintTiles, mapOf } from './grid';
+import { doorTiles, stairLayout } from './stairs';
 
 export interface FootprintTile extends Tile { blocked: boolean; }
 
@@ -64,11 +65,10 @@ function accessPoints(world: World, tileIndices: number[]): number[] {
   const map = mapOf(world);
   const roads = new Set(world.roads);
   const own = new Set(tileIndices);
+  const stairs = stairLayout(map, roads);
   const points = new Set<number>();
-  for (const tile of own) {
-    if (roads.has(tile)) points.add(tile);
-    for (const next of neighbours(map, tile)) if (roads.has(next)) points.add(next);
-  }
+  for (const tile of own) if (roads.has(tile)) points.add(tile);
+  for (const tile of doorTiles(map, stairs, own)) if (roads.has(tile)) points.add(tile);
   return [...points];
 }
 

@@ -1,6 +1,6 @@
 import type { Building, BuildingKind, Walker, WalkerKind, World } from './types';
 import { ROAD_BUDGET } from './balance';
-import { buildServiceCircuit, exitTile, mapOf, perimeterTiles } from './grid';
+import { accessDoors, buildServiceCircuit, exitTile, mapOf } from './grid';
 
 const CIRCUIT_WALKER: Partial<Record<BuildingKind, WalkerKind>> = {
   agora: 'vendor',
@@ -24,12 +24,13 @@ export function serviceRoute(world: World, building: Building): ServiceRoute | n
   if (path.length <= 1) return null;
 
   const map = mapOf(world);
+  const roads = new Set(world.roads);
   const onRoute = new Set(path);
   const servesEveryKind = kind === 'maintenance';
   const servedIds = world.buildings
     .filter((candidate) => candidate.id !== building.id)
     .filter((candidate) => servesEveryKind || candidate.kind === 'house')
-    .filter((candidate) => perimeterTiles(map, candidate).some((tile) => onRoute.has(tile)))
+    .filter((candidate) => accessDoors(map, roads, candidate).some((tile) => onRoute.has(tile)))
     .map((candidate) => candidate.id);
 
   return { path, servedIds, live: active !== undefined };

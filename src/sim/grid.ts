@@ -1,6 +1,7 @@
 import type { Building, World } from './types';
 import { footprint } from './catalog';
 import { islandFor, insideMapOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
+import { doorTiles, roadStepAllowed, stairLayout } from './stairs';
 
 export function mapOf(world: World): IslandMap {
   return islandFor(world.seed);
@@ -34,6 +35,11 @@ export function perimeterTiles(map: IslandMap, building: Building): number[] {
   return [...result];
 }
 
+export function accessDoors(map: IslandMap, roads: ReadonlySet<number>, building: Building): number[] {
+  const stairs = stairLayout(map, roads);
+  return doorTiles(map, stairs, new Set(footprintTiles(map, building)));
+}
+
 function* clockwiseRing(map: IslandMap, building: Building): Generator<number> {
   const { width, depth } = footprint(building.kind, building.rotation);
   const { x, z } = building;
@@ -46,14 +52,25 @@ function* clockwiseRing(map: IslandMap, building: Building): Generator<number> {
 }
 
 export function exitTile(world: World, building: Building): number {
+  const map = mapOf(world);
   const roads = new Set(world.roads);
-  for (const tile of clockwiseRing(mapOf(world), building)) if (roads.has(tile)) return tile;
+  const stairs = stairLayout(map, roads);
+  for (const tile of clockwiseRing(map, building)) {
+    if (!roads.has(tile)) continue;
+    const stair = stairs.get(tile);
+    if (stair) {
+      const own = new Set(footprintTiles(map, building));
+      if (!own.has(stair.up)) continue;
+    }
+    return tile;
+  }
   return -1;
 }
 
 export function accessTiles(world: World, building: Building): number[] {
+  const map = mapOf(world);
   const roads = new Set(world.roads);
-  return perimeterTiles(mapOf(world), building).filter((tile) => roads.has(tile));
+  return accessDoors(map, roads, building).filter((tile) => roads.has(tile));
 }
 
 export function entryTileIndex(world: World): number {
@@ -61,14 +78,15 @@ export function entryTileIndex(world: World): number {
   return tileIndexOn(map, map.entry.x, map.entry.z);
 }
 
-export function bfsReachable(map: IslandMap, roads: Set<number>, start: number): Set<number> {
+export function bfsReachable(map: IslandMap, roads: ReadonlySet<number>, start: number): Set<number> {
+  const stairs = stairLayout(map, roads);
   const visited = new Set<number>([start]);
   const queue: number[] = [start];
   let head = 0;
   while (head < queue.length) {
     const current = queue[head++];
     for (const next of neighbours(map, current)) {
-      if (visited.has(next) || !roads.has(next)) continue;
+      if (visited.has(next) || !roads.has(next) || !roadStepAllowed(map, stairs, current, next)) continue;
       visited.add(next);
       queue.push(next);
     }
@@ -76,15 +94,16 @@ export function bfsReachable(map: IslandMap, roads: Set<number>, start: number):
   return visited;
 }
 
-export function bfsShortest(map: IslandMap, roads: Set<number>, start: number, isGoal: (tile: number) => boolean): number[] | null {
+export function bfsShortest(map: IslandMap, roads: ReadonlySet<number>, start: number, isGoal: (tile: number) => boolean): number[] | null {
   if (isGoal(start)) return [start];
+  const stairs = stairLayout(map, roads);
   const cameFrom = new Map<number, number>([[start, -1]]);
   const queue: number[] = [start];
   let head = 0;
   while (head < queue.length) {
     const current = queue[head++];
     for (const next of neighbours(map, current)) {
-      if (cameFrom.has(next) || !roads.has(next)) continue;
+      if (cameFrom.has(next) || !roads.has(next) || !roadStepAllowed(map, stairs, current, next)) continue;
       cameFrom.set(next, current);
       if (isGoal(next)) return reconstruct(cameFrom, next);
       queue.push(next);
@@ -106,6 +125,7 @@ function reconstruct(cameFrom: Map<number, number>, goal: number): number[] {
 export function buildServiceCircuit(world: World, start: number, budget: number): number[] {
   const map = mapOf(world);
   const roads = new Set(world.roads);
+  const stairs = stairLayout(map, roads);
   if (!roads.has(start)) return [start];
   const visited = new Set<number>([start]);
   const path: number[] = [start];
@@ -113,7 +133,7 @@ export function buildServiceCircuit(world: World, start: number, budget: number)
   function visit(tile: number): boolean {
     if (visited.size >= budget) return false;
     for (const next of neighbours(map, tile)) {
-      if (!roads.has(next) || visited.has(next)) continue;
+      if (!roads.has(next) || visited.has(next) || !roadStepAllowed(map, stairs, tile, next)) continue;
       visited.add(next);
       path.push(next);
       const carryOn = visited.size >= budget ? false : visit(next);
