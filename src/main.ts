@@ -6,7 +6,7 @@ import { BUILDINGS, footprint, ROAD_COST } from './sim/catalog';
 import { demolitionPreview, footprintTileIssues, harbourRoute, suitableFarmGround } from './sim/construction';
 import { CELL_SIZE, groundHeight, islandFor, terrainOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
 import { roadHeight, stairLayout } from './sim/stairs';
-import { advance, build, buildingStatus, createWorld, DEFAULT_SEED, demolish, getSummary, placement, placeRoadPath, roadPathPlacement, setVendor, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
+import { advance, buildingStatus, createWorld, DEFAULT_SEED, getSummary, placement, roadPathPlacement, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
 import { deserializeWorld, savedBeforeArchipelago, serializeWorld } from './sim/save';
 import { animalName, animalStatus } from './sim/wildlife';
 import { buildStarterNeighbourhood, planStarterNeighbourhood } from './sim/scenario';
@@ -17,7 +17,8 @@ import { createSound } from './ui/sound';
 import { celebration, cityMilestones, rememberMilestones } from './ui/celebrations';
 import { parseView, VIEW_KEY } from './ui/view';
 import { canUndoConstruction, undoConstruction } from './sim/history';
-import { foundHarbour, foundingPlacement } from './sim/founding';
+import { foundingPlacement } from './sim/founding';
+import { applyCommand, type CityCommand } from './sim/commands';
 import './ui/style.css';
 
 const SAVE_KEY = AUTOSAVE_KEY;
@@ -221,7 +222,7 @@ function boot(): void {
       save(false);
       hud.notify(`Island ${world.home + 1} awaits. Place your harbour beside the landing road.`);
     },
-    vendor: (id, enabled) => apply(setVendor(world, id, enabled)),
+    vendor: (id, enabled) => apply(applyCommand(world, { type: 'vendor', id, enabled })),
     focus: (x, z) => { const point = worldPositionOn(map(), x + .5, z + .5); stage.focus(point.x, point.z); },
     grid: setGrid,
     home: focusVillage,
@@ -287,9 +288,9 @@ function boot(): void {
     }
   }
 
-  function construct(command: () => ActionResult): ActionResult {
+  function construct(command: CityCommand): ActionResult {
     const before = structuredClone(world);
-    const result = command();
+    const result = applyCommand(world, command);
     apply(result);
     if (result.ok) {
       undoCheckpoint = before;
@@ -427,7 +428,7 @@ function boot(): void {
     const moved = Math.hypot(event.clientX - drag.x, event.clientY - drag.y);
     if (hover && (tool === 'road' || moved < 9)) {
       if (!world.founded) {
-        const result = foundHarbour(world, hover.x, hover.z);
+        const result = applyCommand(world, { type: 'foundHarbour', x: hover.x, z: hover.z });
         apply(result);
         if (result.ok) {
           selectedId = world.harbour.id;
@@ -441,11 +442,11 @@ function boot(): void {
         if (tool === 'inspect') {
           selectedId = picked.walker ?? picked.animal ?? picked.building;
           refresh();
-        } else construct(() => demolish(world, hit?.x ?? hover!.x, hit?.z ?? hover!.z));
-      } else if (tool === 'road') construct(() => placeRoadPath(world, roadPath()));
+        } else construct({ type: 'demolish', x: hit?.x ?? hover.x, z: hit?.z ?? hover.z });
+      } else if (tool === 'road') construct({ type: 'roadPath', tiles: roadPath() });
       else {
         const buildingTool = tool;
-        const result = construct(() => build(world, buildingTool, hover!.x, hover!.z, rotation));
+        const result = construct({ type: 'build', tool: buildingTool, x: hover.x, z: hover.z, rotation });
         if (result.ok) {
           selectedId = world.buildings.find((building) => building.x === hover!.x && building.z === hover!.z)?.id ?? null;
           refresh();
@@ -614,8 +615,8 @@ function boot(): void {
       get plan() { return planStarterNeighbourhood(world); },
       foundingPlacement: (x: number, z: number) => foundingPlacement(world, x, z),
       buildPlan: () => { const result = buildStarterNeighbourhood(world); refresh(); save(true); stage.shadows(); return result; },
-      build: (tool: BuildTool, x: number, z: number) => { const result = build(world, tool, x, z, 0); refresh(); save(true); return result; },
-      road: (tiles: Tile[]) => { const result = placeRoadPath(world, tiles); refresh(); save(true); return result; },
+      build: (tool: BuildTool, x: number, z: number) => { const result = applyCommand(world, { type: 'build', tool, x, z, rotation: 0 }); refresh(); save(true); return result; },
+      road: (tiles: Tile[]) => { const result = applyCommand(world, { type: 'roadPath', tiles }); refresh(); save(true); return result; },
       projectWalker: (id: number) => {
         const point = city.moverPoint(id);
         return point ? stage.project(point.x, point.y + .5, point.z) : null;

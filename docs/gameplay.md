@@ -79,6 +79,20 @@ through the complete neighbourhood loop and save/load continuation.
   starter roads — so there's no way to profit by paving and immediately tearing up
   a tile.
 
+### Serializable player commands
+
+The game UI submits construction, road strokes, demolition, vendor changes, and
+founding through `applyCommand(world, raw)` in `src/sim/commands.ts`. `CityCommand`
+is a plain JSON union. `parseCommand()` checks action names, building tools,
+integer coordinates and ids, rotations, booleans, and road strokes of 1–1024 tiles.
+It copies accepted data and strips unrelated fields, so queued commands do not
+retain caller-owned arrays. Invalid commands fail without changing simulation state.
+
+Valid commands still pass through the ordinary placement, founding, and territory
+rules. This is the command boundary for a future authoritative server, not yet
+player authentication or multiplayer ownership. Scenario helpers remain direct
+simulation utilities; local undo remains a checkpoint operation.
+
 Every `ActionResult` carries a human-readable `reason`, suitable for a HUD toast
 as-is:
 
