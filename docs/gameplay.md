@@ -80,9 +80,10 @@ through the complete neighbourhood loop and save/load continuation.
 
 ## Placing and removing things
 
-- `placement(world, tool, x, z, rotation)` previews a build: it never mutates the
-  world, and reports the cost and the tiles it would occupy, whether or not the
-  placement is legal.
+- `placement(world, city, tool, x, z, rotation)` previews a build: it never mutates
+  the world, and reports the cost and the tiles it would occupy, whether or not the
+  placement is legal. It reads the given `City` explicitly, never `primaryCity(world)`
+  implicitly.
 - `build(world, tool, x, z, rotation)` does the same check and, if it passes,
   deducts the cost and adds the building or road tile.
 - `placeRoadPath(world, tiles)` places a whole drag of road tiles atomically: if any
@@ -208,7 +209,7 @@ devolve in this slice.
 
 ## Status messages
 
-`buildingStatus(world, building)` returns short, player-facing lines about what a
+`buildingStatus(city, building)` returns short, player-facing lines about what a
 building needs or is doing right now — not a dump of its raw fields (the UI already
 shows residents, stock, workers and condition numbers directly). A disconnected
 building only ever reports that:
@@ -231,7 +232,7 @@ Building, paving and the vendor's installation fee are one-off costs. Ongoing
 income and upkeep are applied continuously (no tax walker): each resident brings in
 a small, steady income, and every standing workplace has a modest upkeep, both
 expressed as a rate per `MONTH_SECONDS` (60 simulated seconds) and settled every
-tick. `getSummary(world)` reports the current population, employment, food in
+tick. `getSummary(city)` reports the current population, employment, food in
 storage, income, upkeep, balance, and how many tier-3 houses are inhabited.
 
 ## Gathering: hunters and woodcutters
@@ -307,7 +308,7 @@ fishers to come. Animals can be inspected like people.
 ## People
 
 Every walker can be inspected: `walkerName(walker)` gives a stable name from its id,
-`WALKER_ROLES` its role, and `walkerStatus(world, walker)` one line on what it is
+`WALKER_ROLES` its role, and `walkerStatus(city, walker)` one line on what it is
 doing and carrying. The renderer shows cargo on the model: a carter's cart is heaped
 with its food on the way out and empty on the way back; jar-carriers carry a jar
 only while loaded.

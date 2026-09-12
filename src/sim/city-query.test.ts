@@ -1,10 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import { advance, build, createWorld, getSummary, hasActiveWalker, placement } from './world';
+import { advance, build, createWorld, getSummary, hasActiveWalker, placement, roadPathPlacement } from './world';
 import { entryTileIndex, mapOf } from './grid';
 import { primaryCity } from './city';
 import { buildStarterNeighbourhood } from './scenario';
 import { freshRoadSpot, spotFor } from './testing';
-import { ISLAND_COUNT } from './island';
+import { ISLAND_COUNT, tileAtOn } from './island';
+import { ROAD_COST } from './catalog';
 import type { City } from './types';
 
 describe('queries take an explicit City rather than defaulting to the primary one', () => {
@@ -21,7 +22,7 @@ describe('queries take an explicit City rather than defaulting to the primary on
     expect(entryTileIndex(world, otherCity)).not.toBe(entryTileIndex(world, primary));
   });
 
-  test('placement checks the given City\'s money and roads, not the primary city implicitly', () => {
+  test('placement checks the given City\'s money, not the primary city implicitly', () => {
     const world = createWorld();
     const primary = primaryCity(world);
     const spot = freshRoadSpot(world)!;
@@ -31,6 +32,42 @@ describe('queries take an explicit City rather than defaulting to the primary on
     const poorResult = placement(world, poorCity, 'road', spot.x, spot.z);
     expect(poorResult.ok).toBe(false);
     expect(poorResult.reason).toBe('Not enough drachmas.');
+  });
+
+  test('placement checks the given City\'s own roads, not the primary city\'s', () => {
+    const world = createWorld();
+    const primary = primaryCity(world);
+    const existingRoad = primary.roads[0];
+    const { x, z } = tileAtOn(mapOf(world, primary), existingRoad);
+
+    const primaryResult = placement(world, primary, 'road', x, z);
+    expect(primaryResult.ok).toBe(true);
+    expect(primaryResult.cost).toBe(0);
+
+    const roadlessCity: City = { ...primary, roads: [] };
+    const roadlessResult = placement(world, roadlessCity, 'road', x, z);
+    expect(roadlessResult.ok).toBe(true);
+    expect(roadlessResult.cost).toBe(ROAD_COST);
+  });
+
+  test('placement and roadPathPlacement block on the given City\'s own harbour footprint, not the primary city\'s', () => {
+    const world = createWorld();
+    const primary = primaryCity(world);
+    const houseSpot = spotFor(world, 'house')!;
+    expect(placement(world, primary, 'house', houseSpot.x, houseSpot.z).ok).toBe(true);
+
+    const otherCity: City = { ...primary, harbour: { ...primary.harbour, x: houseSpot.x, z: houseSpot.z } };
+    const blockedHouse = placement(world, otherCity, 'house', houseSpot.x, houseSpot.z);
+    expect(blockedHouse.ok).toBe(false);
+    expect(blockedHouse.reason).toBe('That tile is occupied.');
+    expect(placement(world, primary, 'house', houseSpot.x, houseSpot.z).ok).toBe(true);
+
+    const roadSpot = freshRoadSpot(world, houseSpot)!;
+    const otherHarbourAtRoad: City = { ...primary, harbour: { ...primary.harbour, x: roadSpot.x, z: roadSpot.z } };
+    expect(roadPathPlacement(world, primary, [roadSpot]).ok).toBe(true);
+    const blockedRoad = roadPathPlacement(world, otherHarbourAtRoad, [roadSpot]);
+    expect(blockedRoad.ok).toBe(false);
+    expect(roadPathPlacement(world, primary, [roadSpot]).ok).toBe(true);
   });
 
   test('getSummary counts only the given City\'s own buildings', () => {

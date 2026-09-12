@@ -1,4 +1,4 @@
-import type { ActionResult, BuildingKind, Tile, World } from './types';
+import type { ActionResult, BuildingKind, City, Tile, World } from './types';
 import { footprint } from './catalog';
 import { primaryCity } from './city';
 import { buildable, islandFor, levelOn, terrainOn, tileIndexOn, type IslandMap } from './island';
@@ -25,15 +25,15 @@ function ringAround(map: IslandMap, centre: Tile, radius: number): Tile[] {
   return tiles;
 }
 
-function roadReachable(world: World, map: IslandMap, roads: Set<number>, from: Tile, to: Tile, excluded: Set<number>): Tile[] | null {
+function roadReachable(world: World, city: City, map: IslandMap, roads: Set<number>, from: Tile, to: Tile, excluded: Set<number>): Tile[] | null {
   const passable = (index: number) => {
     const x = index % map.width;
     const z = Math.floor(index / map.width);
     if (roads.has(index)) return true;
     if (!buildable(terrainOn(map, x, z))) return false;
-    if (harbourTiles(world).includes(index)) return false;
+    if (harbourTiles(world, city).includes(index)) return false;
     if (excluded.has(index)) return false;
-    return !primaryCity(world).buildings.some((building) => {
+    return !city.buildings.some((building) => {
       const size = footprint(building.kind, building.rotation);
       return x >= building.x && x < building.x + size.width && z >= building.z && z < building.z + size.depth;
     });
@@ -93,7 +93,7 @@ export function planStarterNeighbourhood(world: World): StarterPlan | null {
         for (let dz = 0; dz < candidateDepth; dz++) {
           for (let dx = 0; dx < candidateWidth; dx++) ownFootprint.add(tileIndexOn(map, tile.x + dx, tile.z + dz));
         }
-        const path = roadReachable(trial, map, roads, nearest, door, ownFootprint);
+        const path = roadReachable(trial, trialCity, map, roads, nearest, door, ownFootprint);
         if (!path || path.length > 24) continue;
         const built = build(trial, kind, tile.x, tile.z, 0);
         if (!built.ok) continue;

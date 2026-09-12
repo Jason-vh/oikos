@@ -1,4 +1,4 @@
-import type { ActionResult, Building, Stores, Tile, World } from './types';
+import type { ActionResult, Building, City, Stores, Tile, World } from './types';
 import { footprint } from './catalog';
 import { primaryCity } from './city';
 import { buildable, insideMapOn, islandFor, levelOn, terrainOn, tileIndexOn, type IslandMap } from './island';
@@ -105,8 +105,7 @@ export function freshHarbour(seed: number, roads: number[], home?: number): Buil
   return siteHarbour(seed, roads, freshProgress(), home);
 }
 
-export function harbourTiles(world: World): number[] {
-  const city = primaryCity(world);
+export function harbourTiles(world: World, city: City): number[] {
   if (!city.founded) return [];
   return footprintTiles(islandFor(world.seed), city.harbour);
 }

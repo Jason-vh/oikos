@@ -117,7 +117,7 @@ export function unevenFootprint(world: World, kind: BuildingKind, rotation: Rota
 
 function passableForRoad(world: World, map: IslandMap, roads: Set<number>, tile: number): boolean {
   if (roads.has(tile)) return true;
-  if (harbourTiles(world).includes(tile)) return false;
+  if (harbourTiles(world, primaryCity(world)).includes(tile)) return false;
   const { x, z } = tileAtOn(map, tile);
   const terrain = terrainOn(map, x, z);
   if (!(buildable(terrain) || terrain === 'forest')) return false;

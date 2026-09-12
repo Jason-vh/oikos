@@ -104,7 +104,7 @@ const REASON = {
 } as const;
 
 function buildingAt(world: World, city: City, tile: number): Building | undefined {
-  if (harbourTiles(world).includes(tile)) return city.harbour;
+  if (harbourTiles(world, city).includes(tile)) return city.harbour;
   const map = mapOf(world, city);
   return city.buildings.find((building) => footprintTiles(map, building).includes(tile));
 }
