@@ -30,7 +30,7 @@ for (const seed of [1, 2]) {
       expect(foundHarbour(world, primaryCity(world), city.harbour.x, city.harbour.z).ok).toBe(true);
       expect(city.founded).toBe(true);
       expect(city.harbour.connected).toBe(true);
-      expect(buildStarterNeighbourhood(world).ok).toBe(true);
+      expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
       advance(world, 180);
       expect(getSummary(primaryCity(world)).goal).toBe(true);
     });
@@ -107,7 +107,7 @@ test('unfinished saves must retain the prepared roads and starting treasury', ()
 
 test('saves cannot hide a populated or progressed city behind an unfinished founding', () => {
   const world = createWorld(2, 0);
-  expect(buildStarterNeighbourhood(world).ok).toBe(true);
+  expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
   primaryCity(world).founded = false;
   expect(deserializeWorld(serializeWorld(world))).toBeNull();
   const pending = createWorld(2, 0, false);

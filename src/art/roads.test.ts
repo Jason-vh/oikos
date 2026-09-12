@@ -126,7 +126,7 @@ test('paving courses continue over cell seams without a tile-sized joint', () =>
 test('road art is seeded, insertion-order independent, and does not mutate its inputs', () => {
   for (const seed of [1, 2, 8, 37]) {
     const world = createWorld(seed);
-    buildStarterNeighbourhood(world);
+    buildStarterNeighbourhood(world, primaryCity(world));
     const map = generateIsland(seed);
     const before = structuredClone({ map, world });
     const roads = primaryCity(world).roads;

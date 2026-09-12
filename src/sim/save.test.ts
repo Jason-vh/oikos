@@ -11,7 +11,7 @@ import type { Walker } from './types';
 
 function advancedWorld() {
   const world = createWorld();
-  buildStarterNeighbourhood(world);
+  buildStarterNeighbourhood(world, primaryCity(world));
   advance(world, 40);
   return world;
 }

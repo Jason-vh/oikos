@@ -24,7 +24,7 @@ for (let choice = 0; choice < ISLAND_COUNT * 2; choice++) {
       expect(terrainOn(map, x, z)).not.toBe('water');
     }
     expect(city.harbour.connected).toBe(true);
-    expect(buildStarterNeighbourhood(world).ok).toBe(true);
+    expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
     advance(world, 180);
     expect(getSummary(primaryCity(world)).goal).toBe(true);
     expect(city.walkers.length).toBeGreaterThan(0);
@@ -66,7 +66,7 @@ test('current saves require a valid explicit starting island', () => {
 
 test('version 4 cities migrate to their original central island without changing their economy', () => {
   const world = createWorld(2);
-  expect(buildStarterNeighbourhood(world).ok).toBe(true);
+  expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
   advance(world, 60);
   const raw = JSON.parse(serializeWorld(world));
   const { id: _id, ...flatCity } = raw.cities[0];

@@ -1,6 +1,5 @@
 import type { ActionResult, BuildingKind, City, Tile, World } from './types';
 import { footprint } from './catalog';
-import { primaryCity } from './city';
 import { buildable, islandFor, levelOn, terrainOn, tileIndexOn, type IslandMap } from './island';
 import { neighbours } from './grid';
 import { harbourTiles } from './harbour';
@@ -69,12 +68,11 @@ function frontDoor(kind: BuildingKind, x: number, z: number): Tile {
   return { x: x + Math.floor(size.width / 2), z: z + size.depth };
 }
 
-export function planStarterNeighbourhood(world: World): StarterPlan | null {
-  const cityId = primaryCity(world).id;
-  if (!primaryCity(world).founded) return null;
-  const map = islandFor(world.seed, primaryCity(world).home);
+export function planStarterNeighbourhood(world: World, city: City): StarterPlan | null {
+  if (!city.founded) return null;
+  const map = islandFor(world.seed, city.home);
   const trial = structuredClone(world);
-  const trialCity = trial.cities.find((candidate) => candidate.id === cityId)!;
+  const trialCity = trial.cities.find((candidate) => candidate.id === city.id)!;
   const trialRoads = trialCity.roads;
   const roads = new Set(trialRoads);
   const plan: StarterPlan = { buildings: [], roads: [] };
@@ -117,10 +115,9 @@ export function planStarterNeighbourhood(world: World): StarterPlan | null {
   return plan;
 }
 
-export function buildStarterNeighbourhood(world: World): ActionResult {
-  const plan = planStarterNeighbourhood(world);
+export function buildStarterNeighbourhood(world: World, city: City): ActionResult {
+  const plan = planStarterNeighbourhood(world, city);
   if (!plan) return { ok: false, reason: 'No room for a starter neighbourhood on this island.' };
-  const city = primaryCity(world);
   for (const item of plan.buildings) {
     const result = build(world, city, item.kind, item.x, item.z, 0);
     if (!result.ok) return result;

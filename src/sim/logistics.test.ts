@@ -34,7 +34,7 @@ describe('serviceRoute', () => {
 
   test('non-service building kinds have no route', () => {
     const world = createWorld();
-    expect(buildStarterNeighbourhood(world).ok).toBe(true);
+    expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
     expect(serviceRoute(world, primaryCity(world), findByKind(world, 'house'))).toBeNull();
     expect(serviceRoute(world, primaryCity(world), findByKind(world, 'granary'))).toBeNull();
   });
@@ -50,7 +50,7 @@ describe('serviceRoute', () => {
 
   test('an idle connected service building shows the planned circuit, shared with the road-planning algorithm', () => {
     const world = createWorld();
-    expect(buildStarterNeighbourhood(world).ok).toBe(true);
+    expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
     const fountain = findByKind(world, 'fountain');
     const route = serviceRoute(world, primaryCity(world), fountain);
     expect(route).not.toBeNull();
@@ -63,7 +63,7 @@ describe('serviceRoute', () => {
 
   test('an active water carrier is reflected as its own live circuit', () => {
     const world = createWorld();
-    expect(buildStarterNeighbourhood(world).ok).toBe(true);
+    expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
     expect(advanceUntilWalker(world, 'water')).toBe(true);
     const fountain = findByKind(world, 'fountain');
     const walker = primaryCity(world).walkers.find((candidate) => candidate.kind === 'water' && candidate.homeId === fountain.id)!;
@@ -75,7 +75,7 @@ describe('serviceRoute', () => {
 
   test('a maintenance circuit serves workplaces as well as houses', () => {
     const world = createWorld();
-    expect(buildStarterNeighbourhood(world).ok).toBe(true);
+    expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
     expect(advanceUntilWalker(world, 'maintenance')).toBe(true);
     const maintenance = findByKind(world, 'maintenance');
     const route = serviceRoute(world, primaryCity(world), maintenance);
@@ -97,14 +97,14 @@ function nearForest(world: World): Tile | null {
 describe('deliveryRoutes', () => {
   test('non-supply-chain building kinds have no delivery routes', () => {
     const world = createWorld();
-    expect(buildStarterNeighbourhood(world).ok).toBe(true);
+    expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
     expect(deliveryRoutes(primaryCity(world), findByKind(world, 'house'))).toEqual([]);
     expect(deliveryRoutes(primaryCity(world), findByKind(world, 'fountain'))).toEqual([]);
   });
 
   test('a connected, idle farm shows no route: connectivity alone never implies a delivery', () => {
     const world = createWorld();
-    expect(buildStarterNeighbourhood(world).ok).toBe(true);
+    expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
     const farm = findByKind(world, 'farm');
     expect(farm.connected).toBe(true);
     expect(deliveryRoutes(primaryCity(world), farm)).toEqual([]);
@@ -112,7 +112,7 @@ describe('deliveryRoutes', () => {
 
   test('a farm with an outgoing cart shows its actual in-flight path to the granary', () => {
     const world = createWorld();
-    expect(buildStarterNeighbourhood(world).ok).toBe(true);
+    expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
     const farm = findByKind(world, 'farm');
     const granary = findByKind(world, 'granary');
     let cart: Walker | undefined;
@@ -132,7 +132,7 @@ describe('deliveryRoutes', () => {
 
   test('a granary shows an active buyer fetching food for the agora', () => {
     const world = createWorld();
-    expect(buildStarterNeighbourhood(world).ok).toBe(true);
+    expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
     const granary = findByKind(world, 'granary');
     const agora = findByKind(world, 'agora');
     let buyer: Walker | undefined;
@@ -171,7 +171,7 @@ describe('deliveryRoutes', () => {
 describe('walkerRoute', () => {
   test('returns only the tiles still ahead of the walker', () => {
     const world = createWorld();
-    expect(buildStarterNeighbourhood(world).ok).toBe(true);
+    expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
     advance(world, 5);
     const walker = primaryCity(world).walkers[0];
     walker.step = Math.min(2, walker.path.length - 1);

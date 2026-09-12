@@ -3,7 +3,9 @@ import { build, createWorld, demolish, placement, placeRoadPath, setVendor } fro
 import { applyCommand } from './commands';
 import { primaryCity } from './city';
 import { serializeWorld } from './save';
+import { planStarterNeighbourhood, buildStarterNeighbourhood } from './scenario';
 import { spotFor, freshRoadSpot, findTile } from './testing';
+import { ISLAND_COUNT } from './island';
 import type { City, World } from './types';
 
 function secondCity(world: World, id: number): City {
@@ -70,6 +72,28 @@ describe('construction commands act only on the targeted City', () => {
     expect(agora.vendorInstalled).toBe(false);
     expect(setVendor(city1, agora.id, true).ok).toBe(true);
     expect(agora.vendorInstalled).toBe(true);
+  });
+});
+
+describe('scenario helpers act on the given City, not the primary one', () => {
+  test('plan and build a starter neighbourhood for another home island without touching the primary city', () => {
+    const world = createWorld(1, 0);
+    const city1 = primaryCity(world);
+    const snapshotCity1 = structuredClone(city1);
+    const otherHome = (city1.home + 1) % ISLAND_COUNT;
+    const other = createWorld(1, otherHome);
+    const city2: City = { ...primaryCity(other), id: city1.id + 1 };
+    world.cities.push(city2);
+
+    const beforePlanning = serializeWorld(world);
+    const plan = planStarterNeighbourhood(world, city2);
+    expect(plan).not.toBeNull();
+    expect(serializeWorld(world)).toBe(beforePlanning);
+
+    expect(buildStarterNeighbourhood(world, city2).ok).toBe(true);
+    expect(city2.home).toBe(otherHome);
+    expect(city2.buildings.length).toBeGreaterThan(0);
+    expect(city1).toEqual(snapshotCity1);
   });
 });
 
