@@ -73,7 +73,7 @@ describe('queries take an explicit City rather than defaulting to the primary on
   test('getSummary counts only the given City\'s own buildings', () => {
     const world = createWorld();
     const farmSpot = spotFor(world, 'farm')!;
-    expect(build(world, 'farm', farmSpot.x, farmSpot.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'farm', farmSpot.x, farmSpot.z).ok).toBe(true);
     const primary = primaryCity(world);
     const emptyCity: City = { ...primary, buildings: [] };
 

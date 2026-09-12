@@ -68,7 +68,7 @@ describe('placement validation', () => {
   test('rejects overlapping buildings and building-on-road', () => {
     const world = createWorld();
     const spot = spotFor(world, 'house')!;
-    expect(build(world, 'house', spot.x, spot.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'house', spot.x, spot.z).ok).toBe(true);
     expect(placement(world, primaryCity(world), 'house', spot.x + 1, spot.z + 1).ok).toBe(false);
 
     const overlapX = mapOf(world).entry.x - 1;
@@ -79,7 +79,7 @@ describe('placement validation', () => {
   test('rejects roads on top of buildings', () => {
     const world = createWorld();
     const spot = spotFor(world, 'house')!;
-    build(world, 'house', spot.x, spot.z);
+    build(world, primaryCity(world), 'house', spot.x, spot.z);
     const result = placement(world, primaryCity(world), 'road', spot.x + 1, spot.z + 1);
     expect(result.ok).toBe(false);
     expect(result.reason).toBe('That tile is occupied.');
@@ -88,7 +88,7 @@ describe('placement validation', () => {
   test('rejects roads that step between levels', () => {
     const { low, high } = slopeFixture();
     const world = createWorld(SLOPE_SEED);
-    expect(build(world, 'road', low.x, low.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'road', low.x, low.z).ok).toBe(true);
     const result = placement(world, primaryCity(world), 'road', high.x, high.z);
     expect(result.ok).toBe(false);
     expect(result.reason).toBe('Roads climb only one step at a time, across the cliff edge.');
@@ -99,26 +99,26 @@ describe('placement validation', () => {
     const map = islandFor(SLOPE_SEED);
     map.terrain[tileIndexOn(map, high.x, high.z)] = 'cliff';
     const world = createWorld(SLOPE_SEED);
-    expect(build(world, 'road', low.x, low.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'road', low.x, low.z).ok).toBe(true);
     expect(placement(world, primaryCity(world), 'road', high.x, high.z).ok).toBe(true);
-    expect(placeRoadPath(world, [low, high]).ok).toBe(true);
+    expect(placeRoadPath(world, primaryCity(world), [low, high]).ok).toBe(true);
     map.terrain[tileIndexOn(map, high.x, high.z)] = 'grass';
   });
 
   test('a single-tile stroke agrees with placement: both reject a bad grade against an existing neighbour', () => {
     const { low, high } = slopeFixture();
     const worldA = createWorld(SLOPE_SEED);
-    expect(build(worldA, 'road', low.x, low.z).ok).toBe(true);
+    expect(build(worldA, primaryCity(worldA), 'road', low.x, low.z).ok).toBe(true);
     const singlePlacement = placement(worldA, primaryCity(worldA), 'road', high.x, high.z);
     expect(singlePlacement.ok).toBe(false);
     expect(singlePlacement.reason).toBe('Roads climb only one step at a time, across the cliff edge.');
 
     const worldB = createWorld(SLOPE_SEED);
-    expect(build(worldB, 'road', low.x, low.z).ok).toBe(true);
+    expect(build(worldB, primaryCity(worldB), 'road', low.x, low.z).ok).toBe(true);
     const strokePreview = roadPathPlacement(worldB, primaryCity(worldB), [high]);
     expect(strokePreview.ok).toBe(false);
     expect(strokePreview.reason).toBe('Roads climb only one step at a time, across the cliff edge.');
-    const strokeResult = placeRoadPath(worldB, [high]);
+    const strokeResult = placeRoadPath(worldB, primaryCity(worldB), [high]);
     expect(strokeResult.ok).toBe(false);
     expect(strokeResult.reason).toBe('Roads climb only one step at a time, across the cliff edge.');
     expect(primaryCity(worldB).roads.includes(tileIndexOn(mapOf(worldB), high.x, high.z))).toBe(false);
@@ -130,7 +130,7 @@ describe('build costs', () => {
     const world = createWorld();
     const spot = spotFor(world, 'farm')!;
     const before = primaryCity(world).money;
-    const result = build(world, 'farm', spot.x, spot.z);
+    const result = build(world, primaryCity(world), 'farm', spot.x, spot.z);
     expect(result.ok).toBe(true);
     expect(primaryCity(world).money).toBe(before - BUILDINGS.farm.cost);
   });
@@ -138,12 +138,12 @@ describe('build costs', () => {
   test('already-present roads cost nothing again', () => {
     const world = createWorld();
     const spot = freshRoadSpot(world)!;
-    const first = build(world, 'road', spot.x, spot.z);
+    const first = build(world, primaryCity(world), 'road', spot.x, spot.z);
     expect(first.ok).toBe(true);
     const spent = STARTING_MONEY - primaryCity(world).money;
     expect(spent).toBe(ROAD_COST);
 
-    const again = build(world, 'road', spot.x, spot.z);
+    const again = build(world, primaryCity(world), 'road', spot.x, spot.z);
     expect(again.ok).toBe(true);
     expect(STARTING_MONEY - primaryCity(world).money).toBe(spent);
   });
@@ -154,13 +154,13 @@ describe('build costs', () => {
     const [a, b] = isolatedRoadPair(world, map.entry)!;
     const before = primaryCity(world).money;
     const badPath = [a, b, { x: 1000, z: 1000 }];
-    const result = placeRoadPath(world, badPath);
+    const result = placeRoadPath(world, primaryCity(world), badPath);
     expect(result.ok).toBe(false);
     expect(primaryCity(world).money).toBe(before);
     expect(primaryCity(world).roads.includes(tileIndexOn(map, a.x, a.z))).toBe(false);
 
     const goodPath = [{ x: map.entry.x, z: map.entry.z }, a, b];
-    const ok = placeRoadPath(world, goodPath);
+    const ok = placeRoadPath(world, primaryCity(world), goodPath);
     expect(ok.ok).toBe(true);
     expect(before - primaryCity(world).money).toBe(ROAD_COST * 2);
   });
@@ -168,7 +168,7 @@ describe('build costs', () => {
   test('rejects a road path that climbs between levels', () => {
     const { low, high } = slopeFixture();
     const world = createWorld(SLOPE_SEED);
-    const result = placeRoadPath(world, [low, high]);
+    const result = placeRoadPath(world, primaryCity(world), [low, high]);
     expect(result.ok).toBe(false);
     expect(result.reason).toBe('Roads climb only one step at a time, across the cliff edge.');
   });
@@ -178,7 +178,7 @@ describe('build costs', () => {
     const map = islandFor(SLOPE_SEED);
     map.terrain[tileIndexOn(map, low.x, low.z)] = 'cliff';
     const world = createWorld(SLOPE_SEED);
-    expect(build(world, 'road', low.x, low.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'road', low.x, low.z).ok).toBe(true);
     const result = placement(world, primaryCity(world), 'road', high.x, high.z);
     expect(result.ok).toBe(false);
     expect(result.reason).toBe('Roads climb only one step at a time, across the cliff edge.');
@@ -189,7 +189,7 @@ describe('build costs', () => {
 describe('demolition', () => {
   test('demolishing an empty tile fails', () => {
     const world = createWorld();
-    const result = demolish(world, 0, 0);
+    const result = demolish(world, primaryCity(world), 0, 0);
     expect(result.ok).toBe(false);
     expect(result.reason).toBe('Nothing to demolish there.');
   });
@@ -197,10 +197,10 @@ describe('demolition', () => {
   test('removes a building and refunds half its cost', () => {
     const world = createWorld();
     const spot = spotFor(world, 'farm')!;
-    build(world, 'farm', spot.x, spot.z);
+    build(world, primaryCity(world), 'farm', spot.x, spot.z);
     const beforeDemolish = primaryCity(world).money;
     expect(primaryCity(world).buildings.length).toBe(1);
-    const result = demolish(world, spot.x, spot.z);
+    const result = demolish(world, primaryCity(world), spot.x, spot.z);
     expect(result.ok).toBe(true);
     expect(result.reason).toBe(`Demolished, ${Math.floor(BUILDINGS.farm.cost / 2)} drachmas refunded.`);
     expect(primaryCity(world).buildings.length).toBe(0);
@@ -210,12 +210,12 @@ describe('demolition', () => {
   test('refunds an installed vendor along with the agora', () => {
     const world = createWorld();
     const spot = spotFor(world, 'agora')!;
-    build(world, 'agora', spot.x, spot.z);
+    build(world, primaryCity(world), 'agora', spot.x, spot.z);
     const agora = findByKind(world, 'agora');
-    setVendor(world, agora.id, true);
+    setVendor(primaryCity(world), agora.id, true);
     const beforeDemolish = primaryCity(world).money;
     const expected = Math.floor((BUILDINGS.agora.cost + VENDOR_COST) / 2);
-    const result = demolish(world, spot.x, spot.z);
+    const result = demolish(world, primaryCity(world), spot.x, spot.z);
     expect(result.ok).toBe(true);
     expect(primaryCity(world).money).toBe(beforeDemolish + expected);
   });
@@ -226,7 +226,7 @@ describe('demolition', () => {
     const roadIndex = primaryCity(world).roads[0];
     const road = tileAtOn(map, roadIndex);
     const beforeDemolish = primaryCity(world).money;
-    const result = demolish(world, road.x, road.z);
+    const result = demolish(world, primaryCity(world), road.x, road.z);
     expect(result.ok).toBe(true);
     expect(result.reason).toBe('Demolished. Roads are not refunded.');
     expect(primaryCity(world).roads.includes(roadIndex)).toBe(false);
@@ -237,8 +237,8 @@ describe('demolition', () => {
     const world = createWorld();
     const spot = freshRoadSpot(world)!;
     const before = primaryCity(world).money;
-    build(world, 'road', spot.x, spot.z);
-    demolish(world, spot.x, spot.z);
+    build(world, primaryCity(world), 'road', spot.x, spot.z);
+    demolish(world, primaryCity(world), spot.x, spot.z);
     expect(primaryCity(world).money).toBe(before - ROAD_COST);
   });
 
@@ -247,7 +247,7 @@ describe('demolition', () => {
     const map = mapOf(world);
     const road = tileAtOn(map, primaryCity(world).roads[0]);
     const before = primaryCity(world).money;
-    demolish(world, road.x, road.z);
+    demolish(world, primaryCity(world), road.x, road.z);
     expect(primaryCity(world).money).toBe(before);
   });
 });
@@ -279,19 +279,19 @@ describe('human-readable action results', () => {
     const world = createWorld();
     const houseSpot = spotFor(world, 'house')!;
     const roadSpot = spotFor(world, 'road')!;
-    expect(build(world, 'house', houseSpot.x, houseSpot.z).reason).toBe('Dwelling built.');
-    expect(build(world, 'road', roadSpot.x, roadSpot.z).reason).toBe('Road laid.');
+    expect(build(world, primaryCity(world), 'house', houseSpot.x, houseSpot.z).reason).toBe('Dwelling built.');
+    expect(build(world, primaryCity(world), 'road', roadSpot.x, roadSpot.z).reason).toBe('Road laid.');
   });
 
   test('setVendor reports install, enable and disable distinctly', () => {
     const world = createWorld();
     const spot = spotFor(world, 'agora')!;
-    build(world, 'agora', spot.x, spot.z);
+    build(world, primaryCity(world), 'agora', spot.x, spot.z);
     const agora = findByKind(world, 'agora');
-    expect(setVendor(world, agora.id, true).reason).toBe('Food vendor added.');
-    expect(setVendor(world, agora.id, true).reason).toBe('Vendor already active.');
-    expect(setVendor(world, agora.id, false).reason).toBe('Vendor paused.');
-    expect(setVendor(world, agora.id, true).reason).toBe('Vendor resumed.');
+    expect(setVendor(primaryCity(world), agora.id, true).reason).toBe('Food vendor added.');
+    expect(setVendor(primaryCity(world), agora.id, true).reason).toBe('Vendor already active.');
+    expect(setVendor(primaryCity(world), agora.id, false).reason).toBe('Vendor paused.');
+    expect(setVendor(primaryCity(world), agora.id, true).reason).toBe('Vendor resumed.');
   });
 });
 
@@ -299,7 +299,7 @@ describe('connectivity', () => {
   test('disconnected placement succeeds but is flagged', () => {
     const world = createWorld();
     const spot = spotFor(world, 'farm', farCorner(world))!;
-    const result = build(world, 'farm', spot.x, spot.z);
+    const result = build(world, primaryCity(world), 'farm', spot.x, spot.z);
     expect(result.ok).toBe(true);
     const farm = findByKind(world, 'farm');
     expect(farm.connected).toBe(false);
@@ -309,9 +309,9 @@ describe('connectivity', () => {
   test('a road island that does not reach the entry is not connected', () => {
     const world = createWorld();
     const pair = isolatedRoadPair(world, farCorner(world))!;
-    placeRoadPath(world, pair);
+    placeRoadPath(world, primaryCity(world), pair);
     const spot = spotAdjacentTo(world, 'house', pair[1])!;
-    const result = build(world, 'house', spot.x, spot.z);
+    const result = build(world, primaryCity(world), 'house', spot.x, spot.z);
     expect(result.ok).toBe(true);
     const house = findByKind(world, 'house');
     expect(house.connected).toBe(false);
@@ -320,7 +320,7 @@ describe('connectivity', () => {
   test('touching the starter road network connects a building', () => {
     const world = createWorld();
     const spot = spotFor(world, 'house')!;
-    build(world, 'house', spot.x, spot.z);
+    build(world, primaryCity(world), 'house', spot.x, spot.z);
     const house = findByKind(world, 'house');
     if (!house.connected) connect(world, house);
     expect(house.connected).toBe(true);
@@ -331,34 +331,34 @@ describe('vendor enablement', () => {
   test('charges once, and re-enabling does not charge again', () => {
     const world = createWorld();
     const spot = spotFor(world, 'agora')!;
-    build(world, 'agora', spot.x, spot.z);
+    build(world, primaryCity(world), 'agora', spot.x, spot.z);
     const agora = findByKind(world, 'agora');
     const before = primaryCity(world).money;
 
-    expect(setVendor(world, agora.id, true).ok).toBe(true);
+    expect(setVendor(primaryCity(world), agora.id, true).ok).toBe(true);
     expect(before - primaryCity(world).money).toBe(VENDOR_COST);
 
-    expect(setVendor(world, agora.id, false).ok).toBe(true);
-    expect(setVendor(world, agora.id, true).ok).toBe(true);
+    expect(setVendor(primaryCity(world), agora.id, false).ok).toBe(true);
+    expect(setVendor(primaryCity(world), agora.id, true).ok).toBe(true);
     expect(before - primaryCity(world).money).toBe(VENDOR_COST);
   });
 
   test('rejects vendor on a non-agora building', () => {
     const world = createWorld();
     const spot = spotFor(world, 'house')!;
-    build(world, 'house', spot.x, spot.z);
+    build(world, primaryCity(world), 'house', spot.x, spot.z);
     const house = findByKind(world, 'house');
-    const result = setVendor(world, house.id, true);
+    const result = setVendor(primaryCity(world), house.id, true);
     expect(result.ok).toBe(false);
   });
 
   test('rejects enabling without funds for the first install', () => {
     const world = createWorld();
     const spot = spotFor(world, 'agora')!;
-    build(world, 'agora', spot.x, spot.z);
+    build(world, primaryCity(world), 'agora', spot.x, spot.z);
     const agora = findByKind(world, 'agora');
     primaryCity(world).money = 0;
-    const result = setVendor(world, agora.id, true);
+    const result = setVendor(primaryCity(world), agora.id, true);
     expect(result.ok).toBe(false);
     expect(agora.vendorInstalled).toBe(false);
   });
@@ -368,7 +368,7 @@ describe('labour', () => {
   test('workplaces have no workers with no population', () => {
     const world = createWorld();
     const spot = spotFor(world, 'farm')!;
-    build(world, 'farm', spot.x, spot.z);
+    build(world, primaryCity(world), 'farm', spot.x, spot.z);
     advance(world, 5);
     const farm = findByKind(world, 'farm');
     expect(farm.workers).toBe(0);
@@ -377,9 +377,9 @@ describe('labour', () => {
   test('disconnected workplaces never receive workers even with population available', () => {
     const world = createWorld();
     const houseSpot = spotFor(world, 'house')!;
-    build(world, 'house', houseSpot.x, houseSpot.z);
+    build(world, primaryCity(world), 'house', houseSpot.x, houseSpot.z);
     const farmSpot = spotFor(world, 'farm', farCorner(world))!;
-    build(world, 'farm', farmSpot.x, farmSpot.z);
+    build(world, primaryCity(world), 'farm', farmSpot.x, farmSpot.z);
     advance(world, 60);
     const farm = findByKind(world, 'farm');
     expect(farm.connected).toBe(false);
@@ -458,7 +458,7 @@ describe('water and maintenance', () => {
   test('condition decays without maintenance and is repaired with it', () => {
     const isolated = createWorld();
     const spot = spotFor(isolated, 'house')!;
-    build(isolated, 'house', spot.x, spot.z);
+    build(isolated, primaryCity(isolated), 'house', spot.x, spot.z);
     advance(isolated, 1200);
     const lonelyHouse = findByKind(isolated, 'house');
     expect(lonelyHouse.condition).toBeLessThan(100);
@@ -482,7 +482,7 @@ describe('housing grace and devolution', () => {
     const startingTier = house.tier;
 
     const agora = findByKind(world, 'agora');
-    setVendor(world, agora.id, false);
+    setVendor(primaryCity(world), agora.id, false);
     primaryCity(world).walkers = primaryCity(world).walkers.filter((walker) => walker.kind !== 'vendor');
     house.food = 0;
 
@@ -507,7 +507,7 @@ describe('road breaks and demolition cargo', () => {
     for (const road of [...primaryCity(world).roads]) {
       if (road === midTile) {
         const { x, z } = tileAtOn(map, road);
-        demolish(world, x, z);
+        demolish(world, primaryCity(world), x, z);
         break;
       }
     }
@@ -528,7 +528,7 @@ describe('road breaks and demolition cargo', () => {
     const cart = primaryCity(world).walkers.find((walker) => walker.kind === 'cart');
     if (!cart) return;
     const granary = findByKind(world, 'granary');
-    demolish(world, granary.x, granary.z);
+    demolish(world, primaryCity(world), granary.x, granary.z);
     const updated = primaryCity(world).walkers.find((walker) => walker.id === cart.id);
     if (updated) {
       expect(updated.targetId).toBeNull();
@@ -544,7 +544,7 @@ describe('road breaks and demolition cargo', () => {
     const cart = primaryCity(world).walkers.find((walker) => walker.kind === 'cart');
     if (!cart) return;
     const farm = findByKind(world, 'farm');
-    demolish(world, farm.x, farm.z);
+    demolish(world, primaryCity(world), farm.x, farm.z);
     expect(primaryCity(world).walkers.some((walker) => walker.id === cart.id)).toBe(false);
     expect(() => advance(world, 30)).not.toThrow();
   });
@@ -582,7 +582,7 @@ describe('player-facing building status', () => {
   test('a disconnected building only says so', () => {
     const world = createWorld();
     const spot = spotFor(world, 'farm', farCorner(world))!;
-    build(world, 'farm', spot.x, spot.z);
+    build(world, primaryCity(world), 'farm', spot.x, spot.z);
     const farm = findByKind(world, 'farm');
     expect(buildingStatus(primaryCity(world), farm)).toEqual(['Not linked to a road; nobody can reach it.']);
   });
@@ -590,7 +590,7 @@ describe('player-facing building status', () => {
   test('an empty connected house is waiting for settlers', () => {
     const world = createWorld();
     const spot = spotFor(world, 'house')!;
-    build(world, 'house', spot.x, spot.z);
+    build(world, primaryCity(world), 'house', spot.x, spot.z);
     const house = findByKind(world, 'house');
     expect(buildingStatus(primaryCity(world), house)).toEqual(['Waiting for settlers from the harbour.']);
   });
@@ -598,7 +598,7 @@ describe('player-facing building status', () => {
   test('a full tier-1 house without food is blocked from growing', () => {
     const world = createWorld();
     const spot = spotFor(world, 'house')!;
-    build(world, 'house', spot.x, spot.z);
+    build(world, primaryCity(world), 'house', spot.x, spot.z);
     const house = findByKind(world, 'house');
     house.residents = 8;
     expect(buildingStatus(primaryCity(world), house)).toEqual(['Needs food to grow: add an agora vendor nearby.']);
@@ -607,7 +607,7 @@ describe('player-facing building status', () => {
   test('a full, fed tier-2 house without water cannot become a courtyard house', () => {
     const world = createWorld();
     const spot = spotFor(world, 'house')!;
-    build(world, 'house', spot.x, spot.z);
+    build(world, primaryCity(world), 'house', spot.x, spot.z);
     const house = findByKind(world, 'house');
     house.tier = 2;
     house.residents = 12;
@@ -619,7 +619,7 @@ describe('player-facing building status', () => {
   test('a tier-2 house that has run out of food is in distress, not just growth-blocked', () => {
     const world = createWorld();
     const spot = spotFor(world, 'house')!;
-    build(world, 'house', spot.x, spot.z);
+    build(world, primaryCity(world), 'house', spot.x, spot.z);
     const house = findByKind(world, 'house');
     house.tier = 2;
     house.residents = 5;
@@ -630,7 +630,7 @@ describe('player-facing building status', () => {
   test('a tier-3 house that has run dry needs water, not food', () => {
     const world = createWorld();
     const spot = spotFor(world, 'house')!;
-    build(world, 'house', spot.x, spot.z);
+    build(world, primaryCity(world), 'house', spot.x, spot.z);
     const house = findByKind(world, 'house');
     house.tier = 3;
     house.residents = 15;
@@ -642,7 +642,7 @@ describe('player-facing building status', () => {
   test('a full, satisfied tier-3 house is described as thriving', () => {
     const world = createWorld();
     const spot = spotFor(world, 'house')!;
-    build(world, 'house', spot.x, spot.z);
+    build(world, primaryCity(world), 'house', spot.x, spot.z);
     const house = findByKind(world, 'house');
     house.tier = 3;
     house.residents = 20;
@@ -654,7 +654,7 @@ describe('player-facing building status', () => {
   test('low condition adds a neglect warning alongside the primary line', () => {
     const world = createWorld();
     const spot = spotFor(world, 'house')!;
-    build(world, 'house', spot.x, spot.z);
+    build(world, primaryCity(world), 'house', spot.x, spot.z);
     const house = findByKind(world, 'house');
     house.tier = 3;
     house.residents = 20;
@@ -663,7 +663,7 @@ describe('player-facing building status', () => {
     house.condition = 20;
     expect(buildingStatus(primaryCity(world), house)).toEqual(['A thriving courtyard house.', 'Neglected; build a maintenance post.']);
     const maintenanceSpot = spotFor(world, 'maintenance')!;
-    build(world, 'maintenance', maintenanceSpot.x, maintenanceSpot.z);
+    build(world, primaryCity(world), 'maintenance', maintenanceSpot.x, maintenanceSpot.z);
     connect(world, findByKind(world, 'maintenance'));
     expect(buildingStatus(primaryCity(world), house).at(-1)).toBe('Neglected; a caretaker will repair it.');
   });
@@ -671,7 +671,7 @@ describe('player-facing building status', () => {
   test('an unstaffed workplace says so before anything else', () => {
     const world = createWorld();
     const spot = spotFor(world, 'farm')!;
-    build(world, 'farm', spot.x, spot.z);
+    build(world, primaryCity(world), 'farm', spot.x, spot.z);
     const farm = findByKind(world, 'farm');
     farm.connected = true;
     expect(buildingStatus(primaryCity(world), farm)).toEqual(['Unstaffed; settlers are needed for work.']);
@@ -682,7 +682,7 @@ describe('player-facing building status', () => {
   test('a staffed farm reports harvest progress', () => {
     const world = createWorld();
     const spot = spotFor(world, 'farm')!;
-    build(world, 'farm', spot.x, spot.z);
+    build(world, primaryCity(world), 'farm', spot.x, spot.z);
     const farm = findByKind(world, 'farm');
     farm.connected = true;
     farm.workers = BUILDINGS.farm.jobs;
@@ -693,7 +693,7 @@ describe('player-facing building status', () => {
   test('an empty granary is waiting for a cart, a stocked one is ready', () => {
     const world = createWorld();
     const spot = spotFor(world, 'granary')!;
-    build(world, 'granary', spot.x, spot.z);
+    build(world, primaryCity(world), 'granary', spot.x, spot.z);
     const granary = findByKind(world, 'granary');
     granary.workers = BUILDINGS.granary.jobs;
     expect(buildingStatus(primaryCity(world), granary)).toEqual(['Empty; waiting for a farm cart.']);
@@ -704,7 +704,7 @@ describe('player-facing building status', () => {
   test('an agora without a vendor asks for one', () => {
     const world = createWorld();
     const spot = spotFor(world, 'agora')!;
-    build(world, 'agora', spot.x, spot.z);
+    build(world, primaryCity(world), 'agora', spot.x, spot.z);
     const agora = findByKind(world, 'agora');
     agora.workers = BUILDINGS.agora.jobs;
     expect(buildingStatus(primaryCity(world), agora)).toEqual(['Add a food vendor to start deliveries.']);
@@ -744,7 +744,7 @@ describe('building status', () => {
   test('explains what a house is waiting for', () => {
     const world = createWorld();
     const spot = spotFor(world, 'house')!;
-    build(world, 'house', spot.x, spot.z);
+    build(world, primaryCity(world), 'house', spot.x, spot.z);
     const house = primaryCity(world).buildings[0];
     expect(buildingStatus(primaryCity(world), house)).toEqual(['Waiting for settlers from the harbour.']);
     house.residents = 8;
@@ -756,7 +756,7 @@ describe('building status', () => {
   test('tells the player how to fix an agora without a vendor', () => {
     const world = createWorld();
     const spot = spotFor(world, 'agora')!;
-    build(world, 'agora', spot.x, spot.z);
+    build(world, primaryCity(world), 'agora', spot.x, spot.z);
     const agora = primaryCity(world).buildings[0];
     agora.workers = BUILDINGS.agora.jobs;
     expect(buildingStatus(primaryCity(world), agora)).toEqual(['Add a food vendor to start deliveries.']);
@@ -769,7 +769,7 @@ describe('immigration', () => {
   test('settlers walk from the harbour before they count as residents', () => {
     const world = createWorld();
     const spot = spotFor(world, 'house')!;
-    build(world, 'house', spot.x, spot.z);
+    build(world, primaryCity(world), 'house', spot.x, spot.z);
     const house = findByKind(world, 'house');
     let party = null;
     for (let i = 0; i < 20 && !party; i++) {
@@ -795,9 +795,9 @@ describe('immigration', () => {
     const topZ = Math.min(...primaryCity(world).roads.map((road) => Math.floor(road / map.width)));
     const capTile = tileAtOn(map, tileIndexOn(map, map.entry.x, topZ));
     const spot = spotAdjacentTo(world, 'house', capTile)!;
-    build(world, 'house', spot.x, spot.z);
+    build(world, primaryCity(world), 'house', spot.x, spot.z);
     advance(world, 1);
-    demolish(world, capTile.x, capTile.z);
+    demolish(world, primaryCity(world), capTile.x, capTile.z);
     advance(world, 10);
     expect(primaryCity(world).walkers.filter((walker) => walker.kind === 'immigrant')).toHaveLength(0);
     expect(findByKind(world, 'house').residents).toBe(0);
@@ -868,9 +868,9 @@ describe('carved stairs', () => {
     test(`builds a working stair oriented ${direction}, one tile at a time`, () => {
       const { map, down, tile, up } = orientedStairFixture(direction);
       const world = createWorld(STAIR_SEED);
-      expect(build(world, 'road', down.x, down.z).ok).toBe(true);
-      expect(build(world, 'road', tile.x, tile.z).ok).toBe(true);
-      expect(build(world, 'road', up.x, up.z).ok).toBe(true);
+      expect(build(world, primaryCity(world), 'road', down.x, down.z).ok).toBe(true);
+      expect(build(world, primaryCity(world), 'road', tile.x, tile.z).ok).toBe(true);
+      expect(build(world, primaryCity(world), 'road', up.x, up.z).ok).toBe(true);
       const roads = new Set(primaryCity(world).roads);
       const path = bfsShortest(map, roads, tileIndexOn(map, down.x, down.z), (candidate) => candidate === tileIndexOn(map, up.x, up.z));
       expect(path).toEqual([tileIndexOn(map, down.x, down.z), tileIndexOn(map, tile.x, tile.z), tileIndexOn(map, up.x, up.z)]);
@@ -880,13 +880,13 @@ describe('carved stairs', () => {
   test('a whole-stroke batch placement produces the same roads as sequential single placement', () => {
     const { down, tile, up } = orientedStairFixture('east');
     const worldSingle = createWorld(STAIR_SEED);
-    expect(build(worldSingle, 'road', down.x, down.z).ok).toBe(true);
-    expect(build(worldSingle, 'road', tile.x, tile.z).ok).toBe(true);
-    expect(build(worldSingle, 'road', up.x, up.z).ok).toBe(true);
+    expect(build(worldSingle, primaryCity(worldSingle), 'road', down.x, down.z).ok).toBe(true);
+    expect(build(worldSingle, primaryCity(worldSingle), 'road', tile.x, tile.z).ok).toBe(true);
+    expect(build(worldSingle, primaryCity(worldSingle), 'road', up.x, up.z).ok).toBe(true);
 
     orientedStairFixture('east');
     const worldBatch = createWorld(STAIR_SEED);
-    expect(placeRoadPath(worldBatch, [down, tile, up]).ok).toBe(true);
+    expect(placeRoadPath(worldBatch, primaryCity(worldBatch), [down, tile, up]).ok).toBe(true);
 
     expect([...primaryCity(worldBatch).roads].sort((a, b) => a - b)).toEqual([...primaryCity(worldSingle).roads].sort((a, b) => a - b));
   });
@@ -900,7 +900,7 @@ describe('carved stairs', () => {
     expect(primaryCity(world).money).toBe(before.money);
     expect(primaryCity(world).roads).toEqual(before.roads);
 
-    const result = placeRoadPath(world, [down, tile, up]);
+    const result = placeRoadPath(world, primaryCity(world), [down, tile, up]);
     expect(result.ok).toBe(true);
     expect(before.money - primaryCity(world).money).toBe(preview.cost);
   });
@@ -911,24 +911,25 @@ describe('carved stairs', () => {
     setStairTile(map, tile.x, tile.z - 2, 'grass', 1);
 
     const worldDownFirst = createWorld(STAIR_SEED);
-    expect(build(worldDownFirst, 'road', down.x, down.z).ok).toBe(true);
-    expect(build(worldDownFirst, 'road', lateralA.x, lateralA.z).ok).toBe(true);
+    expect(build(worldDownFirst, primaryCity(worldDownFirst), 'road', down.x, down.z).ok).toBe(true);
+    expect(build(worldDownFirst, primaryCity(worldDownFirst), 'road', lateralA.x, lateralA.z).ok).toBe(true);
     const before = primaryCity(worldDownFirst).money;
     const result = placement(worldDownFirst, primaryCity(worldDownFirst), 'road', tile.x, tile.z);
     expect(result.ok).toBe(false);
     expect(result.reason).toBe('A stair can only climb in one direction; that cliff edge already has another way down.');
-    expect(build(worldDownFirst, 'road', tile.x, tile.z).ok).toBe(false);
+    expect(build(worldDownFirst, primaryCity(worldDownFirst), 'road', tile.x, tile.z).ok).toBe(false);
     expect(primaryCity(worldDownFirst).money).toBe(before);
     expect(primaryCity(worldDownFirst).roads.includes(tileIndexOn(map, tile.x, tile.z))).toBe(false);
 
     const worldStairFirst = createWorld(STAIR_SEED);
-    expect(build(worldStairFirst, 'road', down.x, down.z).ok).toBe(true);
-    expect(build(worldStairFirst, 'road', tile.x, tile.z).ok).toBe(true);
+    expect(build(worldStairFirst, primaryCity(worldStairFirst), 'road', down.x, down.z).ok).toBe(true);
+    expect(build(worldStairFirst, primaryCity(worldStairFirst), 'road', tile.x, tile.z).ok).toBe(true);
     const secondResult = placement(worldStairFirst, primaryCity(worldStairFirst), 'road', lateralA.x, lateralA.z);
     expect(secondResult.ok).toBe(false);
     expect(secondResult.reason).toBe('A stair can only climb in one direction; that cliff edge already has another way down.');
 
-    const batchResult = placeRoadPath(createWorld(STAIR_SEED), [down, tile, lateralA]);
+    const batchWorld = createWorld(STAIR_SEED);
+    const batchResult = placeRoadPath(batchWorld, primaryCity(batchWorld), [down, tile, lateralA]);
     expect(batchResult.ok).toBe(false);
     expect(batchResult.reason).toBe('A stair can only climb in one direction; that cliff edge already has another way down.');
   });
@@ -937,16 +938,16 @@ describe('carved stairs', () => {
     const { down, tile, lateralA } = orientedStairFixture('east');
 
     const worldStairFirst = createWorld(STAIR_SEED);
-    expect(build(worldStairFirst, 'road', down.x, down.z).ok).toBe(true);
-    expect(build(worldStairFirst, 'road', tile.x, tile.z).ok).toBe(true);
+    expect(build(worldStairFirst, primaryCity(worldStairFirst), 'road', down.x, down.z).ok).toBe(true);
+    expect(build(worldStairFirst, primaryCity(worldStairFirst), 'road', tile.x, tile.z).ok).toBe(true);
     const sideResult = placement(worldStairFirst, primaryCity(worldStairFirst), 'road', lateralA.x, lateralA.z);
     expect(sideResult.ok).toBe(false);
     expect(sideResult.reason).toBe('Stairs can only be entered from the front or back, not the side.');
 
     orientedStairFixture('east');
     const worldSideFirst = createWorld(STAIR_SEED);
-    expect(build(worldSideFirst, 'road', down.x, down.z).ok).toBe(true);
-    expect(build(worldSideFirst, 'road', lateralA.x, lateralA.z).ok).toBe(true);
+    expect(build(worldSideFirst, primaryCity(worldSideFirst), 'road', down.x, down.z).ok).toBe(true);
+    expect(build(worldSideFirst, primaryCity(worldSideFirst), 'road', lateralA.x, lateralA.z).ok).toBe(true);
     const stairResult = placement(worldSideFirst, primaryCity(worldSideFirst), 'road', tile.x, tile.z);
     expect(stairResult.ok).toBe(false);
     expect(stairResult.reason).toBe('Stairs can only be entered from the front or back, not the side.');
@@ -956,7 +957,7 @@ describe('carved stairs', () => {
     const { map, down, tile, up } = orientedStairFixture('east');
     setStairTile(map, up.x, up.z, 'water', 1);
     const world = createWorld(STAIR_SEED);
-    expect(build(world, 'road', down.x, down.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'road', down.x, down.z).ok).toBe(true);
     const result = placement(world, primaryCity(world), 'road', tile.x, tile.z);
     expect(result.ok).toBe(false);
     expect(result.reason).toBe('A stair needs solid, dry ground to land on at the top.');
@@ -965,9 +966,9 @@ describe('carved stairs', () => {
   test('a valid batch is charged only for its new tiles, and legacy invalid edges elsewhere are untouched', () => {
     const { down, tile, up } = orientedStairFixture('east');
     const world = createWorld(STAIR_SEED);
-    expect(build(world, 'road', down.x, down.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'road', down.x, down.z).ok).toBe(true);
     const before = primaryCity(world).money;
-    const result = placeRoadPath(world, [down, tile, up]);
+    const result = placeRoadPath(world, primaryCity(world), [down, tile, up]);
     expect(result.ok).toBe(true);
     expect(before - primaryCity(world).money).toBe(ROAD_COST * 2);
   });
@@ -984,8 +985,8 @@ describe('building access across a stair', () => {
   test('a door opens onto the landing behind a stair, never onto its side', () => {
     const { map, down, tile, up, lateralA } = orientedStairFixture('east');
     const world = createWorld(STAIR_SEED);
-    expect(build(world, 'road', down.x, down.z).ok).toBe(true);
-    expect(build(world, 'road', tile.x, tile.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'road', down.x, down.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'road', tile.x, tile.z).ok).toBe(true);
     const roads = new Set(primaryCity(world).roads);
     const stairTileIndex = tileIndexOn(map, tile.x, tile.z);
 
@@ -999,8 +1000,8 @@ describe('building access across a stair', () => {
   test('exitTile never picks a stair whose landing sits a level above the building, agreeing with accessTiles', () => {
     const { map, down, tile } = orientedStairFixture('east');
     const world = createWorld(STAIR_SEED);
-    expect(build(world, 'road', down.x, down.z).ok).toBe(true);
-    expect(build(world, 'road', tile.x, tile.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'road', down.x, down.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'road', tile.x, tile.z).ok).toBe(true);
     setStairTile(map, tile.x - 1, tile.z, 'grass', 2);
 
     const behind = minimalBuilding('fountain', tile.x - 2, tile.z - 1);
@@ -1020,57 +1021,57 @@ describe('in-flight walkers when a stair changes underfoot', () => {
   test('a walker mid-transition retires when a new lower road turns its current tile into a stair', () => {
     const { map, tile, up, down } = orientedStairFixture('east');
     const world = createWorld(STAIR_SEED);
-    expect(build(world, 'road', tile.x, tile.z).ok).toBe(true);
-    expect(build(world, 'road', up.x, up.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'road', tile.x, tile.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'road', up.x, up.z).ok).toBe(true);
     primaryCity(world).walkers.push(bareWalker(map, tile, up, 0.4));
 
-    expect(build(world, 'road', down.x, down.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'road', down.x, down.z).ok).toBe(true);
     expect(primaryCity(world).walkers).toHaveLength(0);
   });
 
   test('a stationary walker at its final tile retires when a new lower road turns that tile into a stair', () => {
     const { map, tile, down } = orientedStairFixture('east');
     const world = createWorld(STAIR_SEED);
-    expect(build(world, 'road', tile.x, tile.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'road', tile.x, tile.z).ok).toBe(true);
     const walker = bareWalker(map, tile, tile, 0);
     walker.path = [tileIndexOn(map, tile.x, tile.z)];
     walker.working = 3;
     primaryCity(world).walkers.push(walker);
 
-    expect(build(world, 'road', down.x, down.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'road', down.x, down.z).ok).toBe(true);
     expect(primaryCity(world).walkers).toHaveLength(0);
   });
 
   test('a walker mid-transition on the upper half of a stair retires when its foot road is removed', () => {
     const { map, tile, up, down } = orientedStairFixture('east');
     const world = createWorld(STAIR_SEED);
-    expect(build(world, 'road', down.x, down.z).ok).toBe(true);
-    expect(build(world, 'road', tile.x, tile.z).ok).toBe(true);
-    expect(build(world, 'road', up.x, up.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'road', down.x, down.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'road', tile.x, tile.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'road', up.x, up.z).ok).toBe(true);
     primaryCity(world).walkers.push(bareWalker(map, tile, up, 0.6));
 
-    expect(demolish(world, down.x, down.z).ok).toBe(true);
+    expect(demolish(world, primaryCity(world), down.x, down.z).ok).toBe(true);
     expect(primaryCity(world).walkers).toHaveLength(0);
   });
 
   test('a walker on an untouched segment survives an unrelated road mutation', () => {
     const { map, tile, up, down } = orientedStairFixture('east');
     const world = createWorld(STAIR_SEED);
-    expect(build(world, 'road', down.x, down.z).ok).toBe(true);
-    expect(build(world, 'road', tile.x, tile.z).ok).toBe(true);
-    expect(build(world, 'road', up.x, up.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'road', down.x, down.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'road', tile.x, tile.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'road', up.x, up.z).ok).toBe(true);
     primaryCity(world).walkers.push(bareWalker(map, tile, up, 0.5));
 
     const spot = spotFor(world, 'maintenance', farCorner(world))!;
-    expect(build(world, 'maintenance', spot.x, spot.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'maintenance', spot.x, spot.z).ok).toBe(true);
     expect(primaryCity(world).walkers).toHaveLength(1);
   });
 
   test('dropping a woodcutter never touches wildlife, even if its tile-index quarry collides with an animal id', () => {
     const { map, tile, up, down } = orientedStairFixture('east');
     const world = createWorld(STAIR_SEED);
-    expect(build(world, 'road', tile.x, tile.z).ok).toBe(true);
-    expect(build(world, 'road', up.x, up.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'road', tile.x, tile.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'road', up.x, up.z).ok).toBe(true);
     const animal = world.wildlife[0];
     animal.cornered = true;
     const walker = bareWalker(map, tile, up, 0.4);
@@ -1078,7 +1079,7 @@ describe('in-flight walkers when a stair changes underfoot', () => {
     walker.quarry = animal.id;
     primaryCity(world).walkers.push(walker);
 
-    expect(build(world, 'road', down.x, down.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'road', down.x, down.z).ok).toBe(true);
     expect(primaryCity(world).walkers).toHaveLength(0);
     expect(world.wildlife.find((candidate) => candidate.id === animal.id)!.cornered).toBe(true);
   });

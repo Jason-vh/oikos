@@ -294,8 +294,8 @@ export function deserializeWorld(raw: string): World | null {
     regrowth: regrowth as number,
     cities: [city],
   };
-  recomputeConnectivity(world);
-  dropInvalidWalkers(world);
+  recomputeConnectivity(world, city);
+  dropInvalidWalkers(world, city);
   return world;
 }
 

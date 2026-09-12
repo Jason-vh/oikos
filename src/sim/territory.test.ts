@@ -21,7 +21,7 @@ for (const tool of TOOLS) {
     const preview = placement(world, primaryCity(world), tool, spot.x, spot.z);
     expect(preview.ok).toBe(false);
     expect(preview.reason).toContain('settled island');
-    expect(build(world, tool, spot.x, spot.z).ok).toBe(false);
+    expect(build(world, primaryCity(world), tool, spot.x, spot.z).ok).toBe(false);
     expect(serializeWorld(world)).toBe(before);
     if (tool !== 'road') {
       expect(footprintTileIssues(world, primaryCity(world), tool, spot.x, spot.z, 0).every((tile) => tile.blocked)).toBe(true);
@@ -37,7 +37,7 @@ test('a road batch reaching an unsettled island is rejected atomically', () => {
   const before = serializeWorld(world);
   const tiles = [local, foreign];
   expect(roadPathPlacement(world, primaryCity(world), tiles).reason).toContain('settled island');
-  expect(placeRoadPath(world, tiles).ok).toBe(false);
+  expect(placeRoadPath(world, primaryCity(world), tiles).ok).toBe(false);
   expect(serializeWorld(world)).toBe(before);
 });
 
@@ -55,12 +55,12 @@ test('legacy outlying construction remains loadable and can be removed', () => {
   const world = createWorld(1, 0);
   const other = createWorld(1, 7);
   const spot = spotFor(other, 'house')!;
-  expect(build(other, 'house', spot.x, spot.z).ok).toBe(true);
+  expect(build(other, primaryCity(other), 'house', spot.x, spot.z).ok).toBe(true);
   const building = { ...primaryCity(other).buildings[0], id: world.nextId++, connected: false };
   primaryCity(world).buildings.push(building);
   const loaded = deserializeWorld(serializeWorld(world));
   expect(loaded).not.toBeNull();
   expect(primaryCity(loaded!).buildings).toContainEqual(building);
-  expect(demolish(loaded!, spot.x, spot.z).ok).toBe(true);
+  expect(demolish(loaded!, primaryCity(loaded!), spot.x, spot.z).ok).toBe(true);
   expect(primaryCity(loaded!).buildings).toHaveLength(0);
 });

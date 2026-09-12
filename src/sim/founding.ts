@@ -1,6 +1,5 @@
 import type { City, ActionResult, Placement, World } from './types';
 import { footprint } from './catalog';
-import { primaryCity } from './city';
 import { accessDoors, bfsReachable, entryTileIndex, mapOf } from './grid';
 import { buildable, insideMapOn, levelOn, onHomeIsland, terrainOn, tileIndexOn } from './island';
 import { recomputeConnectivity } from './world';
@@ -35,13 +34,12 @@ export function foundingPlacement(world: World, city: City, x: number, z: number
   return { ok: true, reason: '', cost: 0, tiles };
 }
 
-export function foundHarbour(world: World, x: number, z: number): ActionResult {
-  const city = primaryCity(world);
+export function foundHarbour(world: World, city: City, x: number, z: number): ActionResult {
   const result = foundingPlacement(world, city, x, z);
   if (!result.ok) return { ok: false, reason: result.reason };
   city.harbour.x = x;
   city.harbour.z = z;
   city.founded = true;
-  recomputeConnectivity(world);
+  recomputeConnectivity(world, city);
   return { ok: true, reason: 'Your city is founded. Build homes beside the harbour road.' };
 }

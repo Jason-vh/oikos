@@ -70,10 +70,11 @@ function frontDoor(kind: BuildingKind, x: number, z: number): Tile {
 }
 
 export function planStarterNeighbourhood(world: World): StarterPlan | null {
+  const cityId = primaryCity(world).id;
   if (!primaryCity(world).founded) return null;
   const map = islandFor(world.seed, primaryCity(world).home);
   const trial = structuredClone(world);
-  const trialCity = primaryCity(trial);
+  const trialCity = trial.cities.find((candidate) => candidate.id === cityId)!;
   const trialRoads = trialCity.roads;
   const roads = new Set(trialRoads);
   const plan: StarterPlan = { buildings: [], roads: [] };
@@ -95,9 +96,9 @@ export function planStarterNeighbourhood(world: World): StarterPlan | null {
         }
         const path = roadReachable(trial, trialCity, map, roads, nearest, door, ownFootprint);
         if (!path || path.length > 24) continue;
-        const built = build(trial, kind, tile.x, tile.z, 0);
+        const built = build(trial, trialCity, kind, tile.x, tile.z, 0);
         if (!built.ok) continue;
-        const laid = placeRoadPath(trial, path);
+        const laid = placeRoadPath(trial, trialCity, path);
         if (!laid.ok) continue;
         for (const step of path) {
           const index = tileIndexOn(map, step.x, step.z);
@@ -119,13 +120,14 @@ export function planStarterNeighbourhood(world: World): StarterPlan | null {
 export function buildStarterNeighbourhood(world: World): ActionResult {
   const plan = planStarterNeighbourhood(world);
   if (!plan) return { ok: false, reason: 'No room for a starter neighbourhood on this island.' };
+  const city = primaryCity(world);
   for (const item of plan.buildings) {
-    const result = build(world, item.kind, item.x, item.z, 0);
+    const result = build(world, city, item.kind, item.x, item.z, 0);
     if (!result.ok) return result;
   }
-  const laid = placeRoadPath(world, plan.roads);
+  const laid = placeRoadPath(world, city, plan.roads);
   if (!laid.ok) return laid;
-  const agora = primaryCity(world).buildings.find((building) => building.kind === 'agora');
+  const agora = city.buildings.find((building) => building.kind === 'agora');
   if (!agora) return { ok: false, reason: 'agora missing' };
-  return setVendor(world, agora.id, true);
+  return setVendor(city, agora.id, true);
 }

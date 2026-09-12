@@ -9,8 +9,10 @@ Terrain, time, remainder, the entity allocator, wildlife, felled trees and regro
 belong to World. Settlement metadata, roads, buildings and walkers belong to City.
 The collection move landed in version 9. Read-only queries (grid routing and map
 helpers, placement/road-path/founding previews, construction and logistics
-queries, getSummary/buildingStatus/walkerStatus) now take an explicit City;
-mutation and the simulation tick are the next step.
+queries, getSummary/buildingStatus/walkerStatus) and construction commands
+(build, placeRoadPath, demolish, setVendor, foundHarbour, applyCommand) now take
+an explicit City. The economic simulation tick (staffing, production, delivery,
+housing, finances) is the next step.
 
 City-specific engine functions must take `(world, city, …)` explicitly. Resolve
 city IDs against the canonical World at command boundaries; never accept an

@@ -40,7 +40,7 @@ try {
           const tiles = [{ x: x + dx, z: z + dz }, { x, z }, { x: x - dx, z: z - dz }];
           if (tiles.some((tile) => state.cities[0].roads.includes(tile.z * map.width + tile.x) || map.terrain[tile.z * map.width + tile.x] === 'forest')) continue;
           const prospective = structuredClone(state);
-          if (!placeRoadPath(prospective, tiles).ok) continue;
+          if (!placeRoadPath(prospective, prospective.cities[0], tiles).ok) continue;
           if (stairLayout(map, new Set(prospective.cities[0].roads)).get(index)?.down !== tiles[0].z * map.width + tiles[0].x) continue;
           candidates.push(tiles);
         }

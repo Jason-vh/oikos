@@ -75,7 +75,7 @@ export function createWorld(seed = DEFAULT_SEED, home?: number, founded = true):
     cities: [city],
   };
   world.wildlife = spawnWildlife(world);
-  recomputeConnectivity(world);
+  recomputeConnectivity(world, city);
   return world;
 }
 
@@ -217,8 +217,7 @@ export function placement(world: World, city: City, tool: BuildTool, x: number, 
   return evaluatePlacement(world, city, tool, x, z, rotation);
 }
 
-export function build(world: World, tool: BuildTool, x: number, z: number, rotation: Rotation = 0): ActionResult {
-  const city = primaryCity(world);
+export function build(world: World, city: City, tool: BuildTool, x: number, z: number, rotation: Rotation = 0): ActionResult {
   const result = evaluatePlacement(world, city, tool, x, z, rotation);
   if (!result.ok) return result;
   const beforeStairs = stairLayout(mapOf(world, city), new Set(city.roads));
@@ -253,8 +252,8 @@ export function build(world: World, tool: BuildTool, x: number, z: number, rotat
     };
     city.buildings.push(building);
   }
-  recomputeConnectivity(world);
-  dropInvalidWalkers(world, beforeStairs);
+  recomputeConnectivity(world, city);
+  dropInvalidWalkers(world, city, beforeStairs);
   return { ok: true, reason };
 }
 
@@ -294,8 +293,7 @@ export function roadPathPlacement(world: World, city: City, tiles: Tile[]): Plac
   return evaluateRoadPath(world, city, tiles);
 }
 
-export function placeRoadPath(world: World, tiles: Tile[]): ActionResult {
-  const city = primaryCity(world);
+export function placeRoadPath(world: World, city: City, tiles: Tile[]): ActionResult {
   const result = evaluateRoadPath(world, city, tiles);
   if (!result.ok) return { ok: false, reason: result.reason };
   const beforeStairs = stairLayout(mapOf(world, city), new Set(city.roads));
@@ -303,13 +301,12 @@ export function placeRoadPath(world: World, tiles: Tile[]): ActionResult {
   const existing = new Set(city.roads);
   city.money -= result.cost;
   for (const tile of result.tiles) if (!existing.has(tile)) city.roads.push(tile);
-  recomputeConnectivity(world);
-  dropInvalidWalkers(world, beforeStairs);
+  recomputeConnectivity(world, city);
+  dropInvalidWalkers(world, city, beforeStairs);
   return { ok: true, reason: 'Road laid.' };
 }
 
-export function demolish(world: World, x: number, z: number): ActionResult {
-  const city = primaryCity(world);
+export function demolish(world: World, city: City, x: number, z: number): ActionResult {
   if (!city.founded) return { ok: false, reason: REASON.foundingRequired };
   const map = mapOf(world, city);
   if (!insideMapOn(map, x, z)) return { ok: false, reason: REASON.outOfBounds };
@@ -320,8 +317,8 @@ export function demolish(world: World, x: number, z: number): ActionResult {
     if (building.kind === 'harbour') return { ok: false, reason: REASON.harbourPermanent };
     const refund = Math.floor((BUILDINGS[building.kind].cost + (building.vendorInstalled ? VENDOR_COST : 0)) / 2);
     city.money += refund;
-    removeBuilding(world, building.id);
-    recomputeConnectivity(world);
+    removeBuilding(city, building.id);
+    recomputeConnectivity(world, city);
     return { ok: true, reason: `Demolished, ${refund} drachmas refunded.` };
   }
 
@@ -329,13 +326,12 @@ export function demolish(world: World, x: number, z: number): ActionResult {
   if (index === -1) return { ok: false, reason: REASON.nothingToDemolish };
   const beforeStairs = stairLayout(map, new Set(city.roads));
   city.roads.splice(index, 1);
-  recomputeConnectivity(world);
-  dropInvalidWalkers(world, beforeStairs);
+  recomputeConnectivity(world, city);
+  dropInvalidWalkers(world, city, beforeStairs);
   return { ok: true, reason: 'Demolished. Roads are not refunded.' };
 }
 
-function removeBuilding(world: World, id: number): void {
-  const city = primaryCity(world);
+function removeBuilding(city: City, id: number): void {
   city.buildings = city.buildings.filter((building) => building.id !== id);
   city.walkers = city.walkers.filter((walker) => walker.homeId !== id);
   for (const walker of city.walkers) {
@@ -373,8 +369,7 @@ function currentSegmentChanged(before: ReadonlyMap<number, Stair>, after: Readon
   return stairSignature(before, next) !== stairSignature(after, next);
 }
 
-export function dropInvalidWalkers(world: World, beforeStairs?: ReadonlyMap<number, Stair>): void {
-  const city = primaryCity(world);
+export function dropInvalidWalkers(world: World, city: City, beforeStairs?: ReadonlyMap<number, Stair>): void {
   const map = mapOf(world, city);
   const roads = new Set(city.roads);
   const stairs = stairLayout(map, roads);
@@ -390,8 +385,7 @@ export function dropInvalidWalkers(world: World, beforeStairs?: ReadonlyMap<numb
   });
 }
 
-export function setVendor(world: World, id: number, enabled: boolean): ActionResult {
-  const city = primaryCity(world);
+export function setVendor(city: City, id: number, enabled: boolean): ActionResult {
   if (!city.founded) return { ok: false, reason: REASON.foundingRequired };
   if (id === city.harbour.id) return setHarbourTrade(city.harbour, enabled);
   const building = city.buildings.find((candidate) => candidate.id === id);
@@ -414,8 +408,7 @@ export function setVendor(world: World, id: number, enabled: boolean): ActionRes
   return { ok: true, reason: 'Vendor resumed.' };
 }
 
-export function recomputeConnectivity(world: World): void {
-  const city = primaryCity(world);
+export function recomputeConnectivity(world: World, city: City): void {
   const roads = new Set(city.roads);
   const map = mapOf(world, city);
   const entry = entryTileIndex(world, city);

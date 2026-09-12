@@ -14,7 +14,7 @@ function fixture(motion = true) {
   const city = new CityScene(stage, islandFor(world.seed), motion);
   const site = planStarterNeighbourhood(world)!.buildings.find((building) => building.kind === 'house')!;
   function placeHouse() {
-    expect(build(world, 'house', site.x, site.z, 0).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'house', site.x, site.z, 0).ok).toBe(true);
     city.sync(world);
     return primaryCity(world).buildings[0];
   }
@@ -82,7 +82,7 @@ test('demolition during assembly cleans up both models after the departure', () 
       owned++;
       child.geometry.addEventListener('dispose', () => { disposed++; });
     });
-    expect(demolish(world, site.x, site.z).ok).toBe(true);
+    expect(demolish(world, primaryCity(world), site.x, site.z).ok).toBe(true);
     city.sync(world);
     city.transitions(1);
     expect(previous.parent).toBeNull();

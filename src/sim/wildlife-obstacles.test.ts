@@ -35,11 +35,11 @@ test('new construction and demolition are reflected without stale obstacle cache
   const tile = spot.z * map.width + spot.x;
   const before = wildlifeObstacles(world);
   expect(before.has(tile)).toBe(false);
-  expect(build(world, 'house', spot.x, spot.z, 1).ok).toBe(true);
+  expect(build(world, primaryCity(world), 'house', spot.x, spot.z, 1).ok).toBe(true);
   const built = wildlifeObstacles(world);
   expect(built.has(tile)).toBe(true);
   expect(before.has(tile)).toBe(false);
-  expect(demolish(world, spot.x, spot.z).ok).toBe(true);
+  expect(demolish(world, primaryCity(world), spot.x, spot.z).ok).toBe(true);
   expect(wildlifeObstacles(world).has(tile)).toBe(false);
   expect(built.has(tile)).toBe(true);
 });

@@ -15,7 +15,7 @@ describe('suitableFarmGround', () => {
     const spot = spotFor(world, 'farm')!;
     const before = suitableFarmGround(world, primaryCity(world));
     expect(before.some((tile) => tile.x === spot.x && tile.z === spot.z)).toBe(true);
-    expect(build(world, 'farm', spot.x, spot.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'farm', spot.x, spot.z).ok).toBe(true);
     const after = suitableFarmGround(world, primaryCity(world));
     expect(after.some((tile) => tile.x === spot.x && tile.z === spot.z)).toBe(false);
     expect(after.every((tile) => terrainOn(mapOf(world), tile.x, tile.z) === 'fertile')).toBe(true);
@@ -83,7 +83,7 @@ describe('demolitionPreview', () => {
   test('reports half the base cost for a plain building', () => {
     const world = createWorld();
     const spot = spotFor(world, 'house')!;
-    build(world, 'house', spot.x, spot.z);
+    build(world, primaryCity(world), 'house', spot.x, spot.z);
     const preview = demolitionPreview(world, primaryCity(world), spot.x, spot.z);
     expect(preview?.kind).toBe('house');
     expect(preview?.refund).toBe(Math.floor(BUILDINGS.house.cost / 2));
@@ -92,9 +92,9 @@ describe('demolitionPreview', () => {
   test('includes the vendor fee once installed on an agora', () => {
     const world = createWorld();
     const spot = spotFor(world, 'agora')!;
-    build(world, 'agora', spot.x, spot.z);
+    build(world, primaryCity(world), 'agora', spot.x, spot.z);
     const agora = primaryCity(world).buildings.find((building) => building.kind === 'agora')!;
-    setVendor(world, agora.id, true);
+    setVendor(primaryCity(world), agora.id, true);
     const preview = demolitionPreview(world, primaryCity(world), spot.x, spot.z);
     expect(preview?.refund).toBe(Math.floor((BUILDINGS.agora.cost + VENDOR_COST) / 2));
   });

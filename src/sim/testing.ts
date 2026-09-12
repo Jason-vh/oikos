@@ -156,15 +156,16 @@ function routeToRoad(world: World, map: IslandMap, roads: Set<number>, start: nu
 }
 
 export function connect(world: World, building: Building): ActionResult {
+  const city = primaryCity(world);
   const map = mapOf(world);
-  const roads = new Set(primaryCity(world).roads);
+  const roads = new Set(city.roads);
   let best: number[] | null = null;
   for (const start of perimeterTiles(map, building)) {
     const path = routeToRoad(world, map, roads, start);
     if (path && (!best || path.length < best.length)) best = path;
   }
   if (!best) return { ok: false, reason: 'No route to the road network.' };
-  return placeRoadPath(world, best.map((tile) => tileAtOn(map, tile)));
+  return placeRoadPath(world, city, best.map((tile) => tileAtOn(map, tile)));
 }
 
 export function isolatedRoadPair(world: World, near: Tile): [Tile, Tile] | null {

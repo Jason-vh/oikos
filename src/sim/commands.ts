@@ -53,14 +53,16 @@ export function parseCommand(raw: unknown): CityCommand | null {
   return null;
 }
 
-export function applyCommand(world: World, raw: unknown): ActionResult {
+export function applyCommand(world: World, cityId: number, raw: unknown): ActionResult {
   const command = parseCommand(raw);
   if (!command) return { ok: false, reason: 'Invalid city command.' };
+  const city = world.cities.find((candidate) => candidate.id === cityId);
+  if (!city) return { ok: false, reason: 'No such city.' };
   switch (command.type) {
-    case 'build': return build(world, command.tool, command.x, command.z, command.rotation);
-    case 'roadPath': return placeRoadPath(world, command.tiles);
-    case 'demolish': return demolish(world, command.x, command.z);
-    case 'vendor': return setVendor(world, command.id, command.enabled);
-    case 'foundHarbour': return foundHarbour(world, command.x, command.z);
+    case 'build': return build(world, city, command.tool, command.x, command.z, command.rotation);
+    case 'roadPath': return placeRoadPath(world, city, command.tiles);
+    case 'demolish': return demolish(world, city, command.x, command.z);
+    case 'vendor': return setVendor(city, command.id, command.enabled);
+    case 'foundHarbour': return foundHarbour(world, city, command.x, command.z);
   }
 }

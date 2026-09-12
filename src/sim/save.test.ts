@@ -20,13 +20,13 @@ function huntingWorld() {
   const world = createWorld(1);
   const boar = world.wildlife.find((animal) => animal.kind === 'boar' && onHomeIsland(world, Math.floor(animal.homeX), Math.floor(animal.homeZ)))!;
   const lodgeSpot = spotFor(world, 'lodge', { x: Math.floor(boar.homeX), z: Math.floor(boar.homeZ) })!;
-  build(world, 'lodge', lodgeSpot.x, lodgeSpot.z);
+  build(world, primaryCity(world), 'lodge', lodgeSpot.x, lodgeSpot.z);
   connect(world, primaryCity(world).buildings[0]);
   const granarySpot = spotFor(world, 'granary', lodgeSpot)!;
-  build(world, 'granary', granarySpot.x, granarySpot.z);
+  build(world, primaryCity(world), 'granary', granarySpot.x, granarySpot.z);
   connect(world, primaryCity(world).buildings[1]);
   const houseSpot = spotFor(world, 'house', islandFor(world.seed).entry)!;
-  build(world, 'house', houseSpot.x, houseSpot.z);
+  build(world, primaryCity(world), 'house', houseSpot.x, houseSpot.z);
   connect(world, primaryCity(world).buildings[2]);
   return world;
 }
@@ -79,7 +79,7 @@ describe('gathering saves', () => {
   test('a save with a lodge and stockpile round-trips', () => {
     const world = huntingWorld();
     const stockpileSpot = spotFor(world, 'stockpile', islandFor(world.seed).entry)!;
-    build(world, 'stockpile', stockpileSpot.x, stockpileSpot.z);
+    build(world, primaryCity(world), 'stockpile', stockpileSpot.x, stockpileSpot.z);
     connect(world, primaryCity(world).buildings[3]);
     const restored = deserializeWorld(serializeWorld(world));
     expect(restored).not.toBeNull();
@@ -113,13 +113,13 @@ describe('gathering saves', () => {
       if (candidate && Math.abs(candidate.x - tree.x) + Math.abs(candidate.z - tree.z) < 7) spot = candidate;
     }
     expect(spot).not.toBeNull();
-    build(world, 'woodcutter', spot!.x, spot!.z);
+    build(world, primaryCity(world), 'woodcutter', spot!.x, spot!.z);
     connect(world, primaryCity(world).buildings[0]);
     const pileSpot = spotFor(world, 'stockpile', spot!)!;
-    build(world, 'stockpile', pileSpot.x, pileSpot.z);
+    build(world, primaryCity(world), 'stockpile', pileSpot.x, pileSpot.z);
     connect(world, primaryCity(world).buildings[1]);
     const houseSpot = spotFor(world, 'house', islandFor(world.seed).entry)!;
-    build(world, 'house', houseSpot.x, houseSpot.z);
+    build(world, primaryCity(world), 'house', houseSpot.x, houseSpot.z);
     connect(world, primaryCity(world).buildings[2]);
 
     let carrying = false;
@@ -310,7 +310,7 @@ describe('legacy topology quarantine', () => {
     primaryCity(world).roads = [...primaryCity(world).roads, lowIndex, highIndex, ambiguousIndex, eastDownIndex, northDownIndex];
 
     const spot = spotFor(world, 'maintenance', low)!;
-    build(world, 'maintenance', spot.x, spot.z);
+    build(world, primaryCity(world), 'maintenance', spot.x, spot.z);
     const home = primaryCity(world).buildings[0];
 
     const eastWalker = bareWalker({ id: world.nextId++, homeId: home.id, path: [eastDownIndex, ambiguousIndex] });
@@ -336,7 +336,7 @@ describe('legacy topology quarantine', () => {
     primaryCity(world).roads = [...primaryCity(world).roads, lowIndex, highIndex, ambiguousIndex, eastDownIndex, northDownIndex];
 
     const spot = spotFor(world, 'lodge', low)!;
-    build(world, 'lodge', spot.x, spot.z);
+    build(world, primaryCity(world), 'lodge', spot.x, spot.z);
     const lodge = primaryCity(world).buildings[0];
     const boar = world.wildlife.find((animal) => animal.kind === 'boar' && onHomeIsland(world, Math.floor(animal.homeX), Math.floor(animal.homeZ)))!;
     boar.cornered = true;

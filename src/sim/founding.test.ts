@@ -27,7 +27,7 @@ for (const seed of [1, 2]) {
       const world = createWorld(seed, home, false);
       const city = primaryCity(world);
       expect(city.harbour.connected).toBe(false);
-      expect(foundHarbour(world, city.harbour.x, city.harbour.z).ok).toBe(true);
+      expect(foundHarbour(world, primaryCity(world), city.harbour.x, city.harbour.z).ok).toBe(true);
       expect(city.founded).toBe(true);
       expect(city.harbour.connected).toBe(true);
       expect(buildStarterNeighbourhood(world).ok).toBe(true);
@@ -41,7 +41,7 @@ test('founding can choose a different dockyard site, which survives saves and ca
   const world = createWorld(2, 0, false);
   const site = alternateSite(world);
   const money = primaryCity(world).money;
-  expect(foundHarbour(world, site.x, site.z).ok).toBe(true);
+  expect(foundHarbour(world, primaryCity(world), site.x, site.z).ok).toBe(true);
   const city = primaryCity(world);
   expect(city.harbour.x).toBe(site.x);
   expect(city.harbour.z).toBe(site.z);
@@ -49,7 +49,7 @@ test('founding can choose a different dockyard site, which survives saves and ca
   expect(city.harbour.connected).toBe(true);
   expect(deserializeWorld(serializeWorld(world))).toEqual(world);
   const before = serializeWorld(world);
-  expect(foundHarbour(world, site.x + 1, site.z).ok).toBe(false);
+  expect(foundHarbour(world, primaryCity(world), site.x + 1, site.z).ok).toBe(false);
   expect(serializeWorld(world)).toBe(before);
 });
 
@@ -66,7 +66,7 @@ test('invalid sites do not consume the founding opportunity or mutate the city',
   ];
   for (const { x, z } of sites) {
     expect(foundingPlacement(world, primaryCity(world), x, z).ok).toBe(false);
-    expect(foundHarbour(world, x, z).ok).toBe(false);
+    expect(foundHarbour(world, primaryCity(world), x, z).ok).toBe(false);
     expect(serializeWorld(world)).toBe(before);
   }
 });
@@ -76,10 +76,10 @@ test('an unfinished founding round-trips and rejects normal commands without adv
   const before = serializeWorld(world);
   const { entry } = mapOf(world, primaryCity(world));
   expect(placement(world, primaryCity(world), 'house', entry.x + 2, entry.z - 6).ok).toBe(false);
-  expect(build(world, 'house', entry.x + 2, entry.z - 6).ok).toBe(false);
-  expect(placeRoadPath(world, [entry]).ok).toBe(false);
-  expect(demolish(world, entry.x, entry.z).ok).toBe(false);
-  expect(setVendor(world, 0, true).ok).toBe(false);
+  expect(build(world, primaryCity(world), 'house', entry.x + 2, entry.z - 6).ok).toBe(false);
+  expect(placeRoadPath(world, primaryCity(world), [entry]).ok).toBe(false);
+  expect(demolish(world, primaryCity(world), entry.x, entry.z).ok).toBe(false);
+  expect(setVendor(primaryCity(world), 0, true).ok).toBe(false);
   advance(world, 600);
   expect(serializeWorld(world)).toBe(before);
   expect(deserializeWorld(before)).toEqual(world);
@@ -102,7 +102,7 @@ test('unfinished saves must retain the prepared roads and starting treasury', ()
   const loaded = deserializeWorld(serializeWorld({ ...world, cities: reversedCities }));
   expect(loaded).not.toBeNull();
   const harbour = primaryCity(loaded!).harbour;
-  expect(foundHarbour(loaded!, harbour.x, harbour.z).ok).toBe(true);
+  expect(foundHarbour(loaded!, primaryCity(loaded!), harbour.x, harbour.z).ok).toBe(true);
 });
 
 test('saves cannot hide a populated or progressed city behind an unfinished founding', () => {

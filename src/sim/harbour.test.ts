@@ -9,7 +9,7 @@ import { primaryCity } from './city';
 function stockpileWorld(seed = 1) {
   const world = createWorld(seed);
   const spot = spotFor(world, 'stockpile')!;
-  expect(build(world, 'stockpile', spot.x, spot.z).ok).toBe(true);
+  expect(build(world, primaryCity(world), 'stockpile', spot.x, spot.z).ok).toBe(true);
   const stockpile = primaryCity(world).buildings[0];
   expect(connect(world, stockpile).ok).toBe(true);
   return { world, stockpile };
@@ -31,7 +31,7 @@ describe('the harbour is always present', () => {
 
   test('cannot be demolished', () => {
     const world = createWorld();
-    const result = demolish(world, primaryCity(world).harbour.x, primaryCity(world).harbour.z);
+    const result = demolish(world, primaryCity(world), primaryCity(world).harbour.x, primaryCity(world).harbour.z);
     expect(result.ok).toBe(false);
     expect(primaryCity(world).harbour.tier).toBe(1);
   });
@@ -67,13 +67,13 @@ describe('rebuilding the harbour in stone', () => {
       if (candidate && Math.abs(candidate.x - tree.x) + Math.abs(candidate.z - tree.z) < 7) spot = candidate;
     }
     expect(spot).not.toBeNull();
-    build(world, 'woodcutter', spot!.x, spot!.z);
+    build(world, primaryCity(world), 'woodcutter', spot!.x, spot!.z);
     connect(world, primaryCity(world).buildings[0]);
     const pileSpot = spotFor(world, 'stockpile', spot!)!;
-    build(world, 'stockpile', pileSpot.x, pileSpot.z);
+    build(world, primaryCity(world), 'stockpile', pileSpot.x, pileSpot.z);
     connect(world, primaryCity(world).buildings[1]);
     const houseSpot = spotFor(world, 'house', map.entry)!;
-    build(world, 'house', houseSpot.x, houseSpot.z);
+    build(world, primaryCity(world), 'house', houseSpot.x, houseSpot.z);
     connect(world, primaryCity(world).buildings[2]);
     let upgraded = false;
     for (let t = 0; t < 6000 && !upgraded; t++) {
@@ -87,7 +87,7 @@ describe('rebuilding the harbour in stone', () => {
 describe('the renewable lumber trade', () => {
   test('refuses to start before the harbour is rebuilt', () => {
     const { world } = stockpileWorld();
-    const result = setVendor(world, primaryCity(world).harbour.id, true);
+    const result = setVendor(primaryCity(world), primaryCity(world).harbour.id, true);
     expect(result.ok).toBe(false);
     expect(primaryCity(world).harbour.vendorEnabled).toBe(false);
   });
@@ -104,7 +104,7 @@ describe('the renewable lumber trade', () => {
   test('an enabled trade ships lumber for money, repeatedly, as more lumber arrives', () => {
     const { world, stockpile } = improvedWorld();
     addStore(stockpile, 'lumber', HARBOUR_DOCK_CAP * 4);
-    expect(setVendor(world, primaryCity(world).harbour.id, true).ok).toBe(true);
+    expect(setVendor(primaryCity(world), primaryCity(world).harbour.id, true).ok).toBe(true);
 
     const startingMoney = primaryCity(world).money;
     let payouts = 0;
@@ -122,15 +122,15 @@ describe('the renewable lumber trade', () => {
 
   test('pausing and resuming the trade order never charges twice', () => {
     const { world } = improvedWorld();
-    expect(setVendor(world, primaryCity(world).harbour.id, true).reason).toBe('Lumber trade started.');
-    expect(setVendor(world, primaryCity(world).harbour.id, false).reason).toBe('Lumber trade paused.');
-    expect(setVendor(world, primaryCity(world).harbour.id, true).reason).toBe('Lumber trade resumed.');
+    expect(setVendor(primaryCity(world), primaryCity(world).harbour.id, true).reason).toBe('Lumber trade started.');
+    expect(setVendor(primaryCity(world), primaryCity(world).harbour.id, false).reason).toBe('Lumber trade paused.');
+    expect(setVendor(primaryCity(world), primaryCity(world).harbour.id, true).reason).toBe('Lumber trade resumed.');
   });
 
   test('a ship never departs below the minimum cargo threshold', () => {
     const { world, stockpile } = improvedWorld();
     addStore(stockpile, 'lumber', HARBOUR_MIN_CARGO - 1);
-    setVendor(world, primaryCity(world).harbour.id, true);
+    setVendor(primaryCity(world), primaryCity(world).harbour.id, true);
     advance(world, 300);
     expect(primaryCity(world).harbour.progress).toBe(0);
   });
@@ -146,7 +146,7 @@ describe('robustness', () => {
       dispatched = primaryCity(world).walkers.some((walker) => walker.kind === 'porter');
     }
     expect(dispatched).toBe(true);
-    demolish(world, stockpile.x, stockpile.z);
+    demolish(world, primaryCity(world), stockpile.x, stockpile.z);
     expect(primaryCity(world).walkers.some((walker) => walker.kind === 'porter')).toBe(false);
     expect(() => advance(world, 20)).not.toThrow();
     expect(primaryCity(world).harbour.stores.lumber ?? 0).toBeGreaterThanOrEqual(0);
@@ -165,7 +165,7 @@ describe('robustness', () => {
     const map = mapOf(world);
     const midTile = porter!.path[Math.floor(porter!.path.length / 2)];
     const { x, z } = tileAtOn(map, midTile);
-    demolish(world, x, z);
+    demolish(world, primaryCity(world), x, z);
     expect(() => advance(world, 30)).not.toThrow();
     expect(primaryCity(world).walkers.some((walker) => walker.kind === 'porter' && walker.id === porter!.id)).toBe(false);
     expect(primaryCity(world).harbour.stores.lumber ?? 0).toBeGreaterThanOrEqual(0);
@@ -199,7 +199,7 @@ describe('save and load', () => {
   test('a rebuilt, trading harbour round-trips its progress exactly', () => {
     const { world, stockpile } = improvedWorld();
     addStore(stockpile, 'lumber', HARBOUR_DOCK_CAP);
-    setVendor(world, primaryCity(world).harbour.id, true);
+    setVendor(primaryCity(world), primaryCity(world).harbour.id, true);
     let departed = false;
     for (let t = 0; t < 600 && !departed; t++) {
       advance(world, 1);

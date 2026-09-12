@@ -84,13 +84,13 @@ through the complete neighbourhood loop and save/load continuation.
   the world, and reports the cost and the tiles it would occupy, whether or not the
   placement is legal. It reads the given `City` explicitly, never `primaryCity(world)`
   implicitly.
-- `build(world, tool, x, z, rotation)` does the same check and, if it passes,
-  deducts the cost and adds the building or road tile.
-- `placeRoadPath(world, tiles)` places a whole drag of road tiles atomically: if any
-  tile in the batch is invalid the whole thing is rejected and nothing is charged.
-  Tiles that are already roads cost nothing, whether placed one at a time or as part
-  of a path.
-- `demolish(world, x, z)` removes whatever is on that tile. Demolishing a building
+- `build(world, city, tool, x, z, rotation)` does the same check and, if it passes,
+  deducts the cost and adds the building or road tile to the given `City`.
+- `placeRoadPath(world, city, tiles)` places a whole drag of road tiles atomically:
+  if any tile in the batch is invalid the whole thing is rejected and nothing is
+  charged. Tiles that are already roads cost nothing, whether placed one at a time
+  or as part of a path.
+- `demolish(world, city, x, z)` removes whatever is on that tile. Demolishing a building
   refunds half its base cost (plus half the vendor fee, if one was installed on an
   agora being torn down). Demolishing a road never refunds anything — including the
   starter roads — so there's no way to profit by paving and immediately tearing up
@@ -99,16 +99,20 @@ through the complete neighbourhood loop and save/load continuation.
 ### Serializable player commands
 
 The game UI submits construction, road strokes, demolition, vendor changes, and
-founding through `applyCommand(world, raw)` in `src/sim/commands.ts`. `CityCommand`
-is a plain JSON union. `parseCommand()` checks action names, building tools,
-integer coordinates and ids, rotations, booleans, and road strokes of 1–1024 tiles.
-It copies accepted data and strips unrelated fields, so queued commands do not
-retain caller-owned arrays. Invalid commands fail without changing simulation state.
+founding through `applyCommand(world, cityId, raw)` in `src/sim/commands.ts`.
+`CityCommand` is a plain JSON union. `parseCommand()` checks action names, building
+tools, integer coordinates and ids, rotations, booleans, and road strokes of
+1–1024 tiles. It copies accepted data and strips unrelated fields, so queued
+commands do not retain caller-owned arrays. `applyCommand` resolves `cityId`
+against `world.cities`, rejecting an unknown id without touching the world, then
+passes the resolved `City` to the mutator. Invalid commands fail without changing
+simulation state.
 
 Valid commands still pass through the ordinary placement, founding, and territory
-rules. This is the command boundary for a future authoritative server, not yet
-player authentication or multiplayer ownership. Scenario helpers remain direct
-simulation utilities; local undo remains a checkpoint operation.
+rules. Resolving the target city by id is not yet ownership: there is still one
+playable, persisted city, and this is the command boundary for a future
+authoritative server rather than player authentication. Scenario helpers remain
+direct simulation utilities; local undo remains a checkpoint operation.
 
 Every `ActionResult` carries a human-readable `reason`, suitable for a HUD toast
 as-is:
@@ -180,7 +184,7 @@ Every workplace needs staff to do any of this: about half the population is
 available for work, split across every connected workplace's job slots in
 proportion to how many it offers. A disconnected workplace never gets workers.
 
-A vendor is a one-time purchase: `setVendor(world, agora.id, true)` charges
+A vendor is a one-time purchase: `setVendor(city, agora.id, true)` charges
 `VENDOR_COST` only the first time it's switched on for a given agora. Turning it
 off and back on again doesn't charge a second time.
 

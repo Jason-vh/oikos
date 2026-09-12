@@ -19,7 +19,7 @@ for (const version of [4, 5, 6]) {
     const original = { ...primaryCity(world).harbour };
     for (const tile of [...primaryCity(world).roads]) {
       const { x, z } = tileAtOn(mapOf(world, primaryCity(world)), tile);
-      expect(demolish(world, x, z).ok).toBe(true);
+      expect(demolish(world, primaryCity(world), x, z).ok).toBe(true);
     }
     expect(primaryCity(world).harbour.connected).toBe(false);
     const raw = JSON.parse(serializeWorld(world));

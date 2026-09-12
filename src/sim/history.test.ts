@@ -9,7 +9,7 @@ test('undoing construction restores its cost without rewinding simulated time', 
   const world = createWorld();
   const before = structuredClone(world);
   const spot = spotFor(world, 'house')!;
-  expect(build(world, 'house', spot.x, spot.z).ok).toBe(true);
+  expect(build(world, primaryCity(world), 'house', spot.x, spot.z).ok).toBe(true);
   advance(world, 4.1);
   const expected = structuredClone(before);
   advance(expected, 4.1);
@@ -23,7 +23,7 @@ test('undoing demolition resimulates the intact city without duplicating deliver
   advance(world, 180);
   const before = structuredClone(world);
   const granary = primaryCity(world).buildings.find((building) => building.kind === 'granary')!;
-  expect(demolish(world, granary.x, granary.z).ok).toBe(true);
+  expect(demolish(world, primaryCity(world), granary.x, granary.z).ok).toBe(true);
   advance(world, 10);
   const expected = structuredClone(before);
   advance(expected, 10);

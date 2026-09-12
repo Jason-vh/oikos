@@ -20,14 +20,14 @@ describe('hunting', () => {
     const world = createWorld(1);
     const boar = world.wildlife.find((animal) => animal.kind === 'boar' && onHomeIsland(world, Math.floor(animal.homeX), Math.floor(animal.homeZ)))!;
     const spot = spotFor(world, 'lodge', { x: Math.floor(boar.homeX), z: Math.floor(boar.homeZ) })!;
-    expect(build(world, 'lodge', spot.x, spot.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'lodge', spot.x, spot.z).ok).toBe(true);
     const lodge = primaryCity(world).buildings[0];
     expect(connect(world, lodge).ok).toBe(true);
     const granarySpot = spotFor(world, 'granary', spot)!;
-    expect(build(world, 'granary', granarySpot.x, granarySpot.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'granary', granarySpot.x, granarySpot.z).ok).toBe(true);
     expect(connect(world, primaryCity(world).buildings[1]).ok).toBe(true);
     const house = spotFor(world, 'house', islandFor(world.seed).entry)!;
-    expect(build(world, 'house', house.x, house.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'house', house.x, house.z).ok).toBe(true);
     expect(connect(world, primaryCity(world).buildings[2]).ok).toBe(true);
     let hunted = false;
     for (let t = 0; t < 1600 && !hunted; t++) {
@@ -62,13 +62,13 @@ describe('woodcutting', () => {
     const world = createWorld(1);
     const spot = nearForest(world, 'woodcutter')!;
     expect(spot).not.toBeNull();
-    expect(build(world, 'woodcutter', spot.x, spot.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'woodcutter', spot.x, spot.z).ok).toBe(true);
     expect(connect(world, primaryCity(world).buildings[0]).ok).toBe(true);
     const pileSpot = spotFor(world, 'stockpile', spot)!;
-    expect(build(world, 'stockpile', pileSpot.x, pileSpot.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'stockpile', pileSpot.x, pileSpot.z).ok).toBe(true);
     expect(connect(world, primaryCity(world).buildings[1]).ok).toBe(true);
     const house = spotFor(world, 'house', islandFor(world.seed).entry)!;
-    expect(build(world, 'house', house.x, house.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'house', house.x, house.z).ok).toBe(true);
     expect(connect(world, primaryCity(world).buildings[2]).ok).toBe(true);
     let felled = false;
     for (let t = 0; t < 400 && !felled; t++) {
@@ -90,13 +90,13 @@ describe('woodcutting', () => {
   test('lumber never goes to a granary and meat never to a stockpile', () => {
     const world = createWorld(1);
     const spot = nearForest(world, 'woodcutter')!;
-    build(world, 'woodcutter', spot.x, spot.z);
+    build(world, primaryCity(world), 'woodcutter', spot.x, spot.z);
     connect(world, primaryCity(world).buildings[0]);
     const granarySpot = spotFor(world, 'granary', spot)!;
-    build(world, 'granary', granarySpot.x, granarySpot.z);
+    build(world, primaryCity(world), 'granary', granarySpot.x, granarySpot.z);
     connect(world, primaryCity(world).buildings[1]);
     const house = spotFor(world, 'house', islandFor(world.seed).entry)!;
-    build(world, 'house', house.x, house.z);
+    build(world, primaryCity(world), 'house', house.x, house.z);
     connect(world, primaryCity(world).buildings[2]);
     advance(world, 400);
     expect(primaryCity(world).buildings[1].stores.lumber ?? 0).toBe(0);
@@ -108,10 +108,10 @@ describe('working at the site', () => {
   test('a woodcutter stands at the tree for FELL_SECONDS before it falls', () => {
     const world = createWorld(1);
     const spot = nearForest(world, 'woodcutter')!;
-    build(world, 'woodcutter', spot.x, spot.z);
+    build(world, primaryCity(world), 'woodcutter', spot.x, spot.z);
     connect(world, primaryCity(world).buildings[0]);
     const house = spotFor(world, 'house', islandFor(world.seed).entry)!;
-    build(world, 'house', house.x, house.z);
+    build(world, primaryCity(world), 'house', house.x, house.z);
     connect(world, primaryCity(world).buildings[1]);
     let working: number | null = null;
     for (let t = 0; t < 1600 && working === null; t++) {

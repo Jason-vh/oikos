@@ -33,7 +33,7 @@ test('invalid city commands cannot mutate simulation state', () => {
   ];
   for (const raw of invalid) {
     expect(parseCommand(raw)).toBeNull();
-    expect(applyCommand(world, raw)).toEqual({ ok: false, reason: 'Invalid city command.' });
+    expect(applyCommand(world, primaryCity(world).id, raw)).toEqual({ ok: false, reason: 'Invalid city command.' });
     expect(serializeWorld(world)).toBe(before);
   }
 });
@@ -54,7 +54,7 @@ test('JSON commands found and grow exactly the same city as the direct simulatio
   const commands: CityCommand[] = [];
   const execute = (command: CityCommand) => {
     commands.push(command);
-    expect(applyCommand(world, JSON.parse(JSON.stringify(command))).ok).toBe(true);
+    expect(applyCommand(world, primaryCity(world).id, JSON.parse(JSON.stringify(command))).ok).toBe(true);
   };
   execute({ type: 'foundHarbour', x: primaryCity(world).harbour.x, z: primaryCity(world).harbour.z });
   const plan = planStarterNeighbourhood(world)!;
@@ -62,7 +62,7 @@ test('JSON commands found and grow exactly the same city as the direct simulatio
   for (const building of plan.buildings) execute({ type: 'build', tool: building.kind, x: building.x, z: building.z, rotation: 0 });
   execute({ type: 'roadPath', tiles: plan.roads });
   execute({ type: 'vendor', id: primaryCity(world).buildings.find((building) => building.kind === 'agora')!.id, enabled: true });
-  for (const command of commands) expect(applyCommand(replay, command).ok).toBe(true);
+  for (const command of commands) expect(applyCommand(replay, primaryCity(replay).id, command).ok).toBe(true);
   const direct = createWorld(2, 0);
   expect(buildStarterNeighbourhood(direct).ok).toBe(true);
   advance(world, 180);
@@ -72,7 +72,7 @@ test('JSON commands found and grow exactly the same city as the direct simulatio
   expect(world).toEqual(replay);
   expect(world).toEqual(direct);
   const house = primaryCity(world).buildings.find((building) => building.kind === 'house')!;
-  expect(applyCommand(world, { type: 'demolish', x: house.x, z: house.z }).ok).toBe(true);
+  expect(applyCommand(world, primaryCity(world).id, { type: 'demolish', x: house.x, z: house.z }).ok).toBe(true);
   expect(primaryCity(world).buildings.some((building) => building.id === house.id)).toBe(false);
 });
 
@@ -81,9 +81,9 @@ test('well-formed commands still enforce founding and territory rules', () => {
   const foreign = createWorld(1, 7);
   const spot = spotFor(foreign, 'house')!;
   const command: CityCommand = { type: 'build', tool: 'house', x: spot.x, z: spot.z, rotation: 0 };
-  expect(applyCommand(world, command).reason).toContain('founding harbour');
-  expect(applyCommand(world, { type: 'foundHarbour', x: primaryCity(world).harbour.x, z: primaryCity(world).harbour.z }).ok).toBe(true);
+  expect(applyCommand(world, primaryCity(world).id, command).reason).toContain('founding harbour');
+  expect(applyCommand(world, primaryCity(world).id, { type: 'foundHarbour', x: primaryCity(world).harbour.x, z: primaryCity(world).harbour.z }).ok).toBe(true);
   const before = serializeWorld(world);
-  expect(applyCommand(world, command).reason).toContain('settled island');
+  expect(applyCommand(world, primaryCity(world).id, command).reason).toContain('settled island');
   expect(serializeWorld(world)).toBe(before);
 });

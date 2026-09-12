@@ -3,6 +3,7 @@ import { advance, build, createWorld } from './world';
 import { islandFor, terrainOn } from './island';
 import { SPECIES, animalStatus, spawnWildlife } from './wildlife';
 import { spotFor } from './testing';
+import { primaryCity } from './city';
 
 describe('wildlife', () => {
   test('spawns every species in its habitat, deterministically per seed', () => {
@@ -39,7 +40,7 @@ describe('wildlife', () => {
   test('land animals never walk through buildings', () => {
     const world = createWorld(1);
     const spot = spotFor(world, "house")!;
-    build(world, 'house', spot.x, spot.z);
+    build(world, primaryCity(world), 'house', spot.x, spot.z);
     advance(world, 60);
     for (const animal of world.wildlife) {
       if (animal.kind === 'fish' || animal.kind === 'gull') continue;

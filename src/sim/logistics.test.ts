@@ -26,7 +26,7 @@ describe('serviceRoute', () => {
   test('a disconnected building has no service route', () => {
     const world = createWorld();
     const spot = spotFor(world, 'fountain', farCorner(world))!;
-    build(world, 'fountain', spot.x, spot.z);
+    build(world, primaryCity(world), 'fountain', spot.x, spot.z);
     const fountain = findByKind(world, 'fountain');
     expect(fountain.connected).toBe(false);
     expect(serviceRoute(world, primaryCity(world), fountain)).toBeNull();
@@ -42,7 +42,7 @@ describe('serviceRoute', () => {
   test('an agora without an installed vendor has no route', () => {
     const world = createWorld();
     const spot = spotFor(world, 'agora')!;
-    build(world, 'agora', spot.x, spot.z);
+    build(world, primaryCity(world), 'agora', spot.x, spot.z);
     const agora = findByKind(world, 'agora');
     expect(agora.connected).toBe(true);
     expect(serviceRoute(world, primaryCity(world), agora)).toBeNull();
@@ -149,15 +149,15 @@ describe('deliveryRoutes', () => {
     const world = createWorld(1);
     const spot = nearForest(world)!;
     expect(spot).not.toBeNull();
-    expect(build(world, 'woodcutter', spot.x, spot.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'woodcutter', spot.x, spot.z).ok).toBe(true);
     const woodcutter = primaryCity(world).buildings[0];
     expect(connect(world, woodcutter).ok).toBe(true);
     const pileSpot = spotFor(world, 'stockpile', spot)!;
-    expect(build(world, 'stockpile', pileSpot.x, pileSpot.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'stockpile', pileSpot.x, pileSpot.z).ok).toBe(true);
     const stockpile = primaryCity(world).buildings[1];
     expect(connect(world, stockpile).ok).toBe(true);
     const house = spotFor(world, 'house', islandFor(world.seed).entry)!;
-    expect(build(world, 'house', house.x, house.z).ok).toBe(true);
+    expect(build(world, primaryCity(world), 'house', house.x, house.z).ok).toBe(true);
     expect(connect(world, primaryCity(world).buildings[2]).ok).toBe(true);
     let route: DeliveryRoute | undefined;
     for (let t = 0; t < 1600 && !route; t++) {
