@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { islandFor, tileAtOn } from '../sim/island';
-import { admit, foundedActor, freshAuthority, rid, sequenceRow } from './authority-fixtures.test';
+import { admit, foundedActor, freshAuthority, rid, roadTileOf, sequenceRow } from './authority-fixtures.test';
 
 const cleanups: Array<() => void> = [];
 
@@ -27,9 +27,17 @@ function extraSymbolObjectCommand(): unknown {
   return command;
 }
 
+function arrayWithExtraKey(sparse: boolean, enumerable: boolean): unknown[] {
+  const array = sparse ? Array(1) : [null];
+  Object.defineProperty(array, 'extra', { value: null, enumerable });
+  return array;
+}
+
 describe('finite-JSON shape edge cases', () => {
   test.each([
     ['a sparse array field', sparseArrayCommand()],
+    ['a sparse array with a balancing extra key', arrayWithExtraKey(true, true)],
+    ['an array with a hidden extra key', arrayWithExtraKey(false, false)],
     ['an object with a hidden non-enumerable key', extraKeyObjectCommand()],
     ['an object with a symbol-keyed extra property', extraSymbolObjectCommand()],
   ] as const)('%s is rejected without writes or poisoning the authority', (_label, command) => {
@@ -44,14 +52,16 @@ describe('finite-JSON shape edge cases', () => {
     expect(authority.snapshot()).toEqual(before);
     expect(sequenceRow(authority, credential)).toEqual(beforeSequence);
 
-    const validCommand = authority.submit(credential, 3, rid(3), { kind: 'command', cityId, command: { type: 'demolish', x: 0, z: 0 } });
-    expect(validCommand.status).toBe('processed');
+    const tile = roadTileOf(authority, cityId);
+    const validCommand = authority.submit(credential, 3, rid(3), { kind: 'command', cityId, command: { type: 'demolish', x: tile.x, z: tile.z } });
+    expect(validCommand.ok).toBe(true);
+    expect(authority.snapshot().cities.find((city) => city.id === cityId)!.roads).not.toContain(tile.index);
     expect(authority.admitInvite(authority.issueInvite()).ok).toBe(true);
   });
 });
 
 describe('normalize once, execute the same value', () => {
-  test('a stateful getter is read once: the tile that is fingerprinted is the tile that is demolished', () => {
+  test('fingerprinting and execution use the same captured demolition', () => {
     const { authority } = freshAuthority(cleanups);
     const { credential, cityId } = foundedActor(authority, 0);
     const city = authority.snapshot().cities.find((c) => c.id === cityId)!;
