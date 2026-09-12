@@ -1,5 +1,4 @@
 import type { ActionResult, Building, BuildTool, City, Food, Placement, Resource, Rotation, Stores, Summary, Tile, Walker, WalkerKind, World } from './types';
-import { primaryCity } from './city';
 import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, STARTING_MONEY, VENDOR_COST, footprint, isFood } from './catalog';
 import { spawnWildlife, stepWildlife } from './wildlife';
 import { gatherArrival, gatherFinished, regrowForest, updateGatherer } from './gathering';
@@ -465,14 +464,14 @@ export function hasActiveWalker(city: City, homeId: number, kind: WalkerKind): b
 
 type WalkerSeed = Omit<Walker, 'id' | 'overland' | 'quarry' | 'working'> & Partial<Pick<Walker, 'overland' | 'quarry' | 'working'>>;
 
-export function spawnWalker(world: World, partial: WalkerSeed): Walker {
+export function spawnWalker(world: World, city: City, partial: WalkerSeed): Walker {
   const walker: Walker = { id: world.nextId++, overland: [], quarry: null, working: 0, ...partial };
-  primaryCity(world).walkers.push(walker);
+  city.walkers.push(walker);
   return walker;
 }
 
-function updateStaffing(world: World): void {
-  const buildings = primaryCity(world).buildings;
+function updateStaffing(city: City): void {
+  const buildings = city.buildings;
   const workplaces = buildings.filter((building) => building.kind !== 'house');
   const population = buildings
     .filter((building) => building.kind === 'house')
@@ -487,24 +486,23 @@ function updateStaffing(world: World): void {
   }
 }
 
-function updateFarm(world: World, farm: Building, dt: number): void {
+function updateFarm(world: World, city: City, farm: Building, dt: number): void {
   if (farm.connected && farm.workers > 0) {
     const ratio = farm.workers / jobsOf(farm);
     farm.progress += (dt / FARM_GROW_SECONDS) * ratio;
     if (farm.progress >= 1) {
       farm.progress -= 1;
       addStore(farm, 'wheat', Math.min(HARVEST_UNITS, FARM_STOCK_CAP - totalStock(farm)));
-      primaryCity(world).produced += HARVEST_UNITS;
+      city.produced += HARVEST_UNITS;
     }
   }
 
-  sendCart(world, farm);
+  sendCart(world, city, farm);
 }
 
-export function sendCart(world: World, producer: Building): void {
+export function sendCart(world: World, city: City, producer: Building): void {
   if (!producer.connected || producer.workers <= 0) return;
   if (totalStock(producer) <= 0) return;
-  const city = primaryCity(world);
   if (hasActiveWalker(city, producer.id, 'cart')) return;
   const resource = (Object.keys(producer.stores) as Resource[])[0];
   const exit = exitTile(world, city, producer);
@@ -516,7 +514,7 @@ export function sendCart(world: World, producer: Building): void {
   const cargo = Math.min(producer.stores[resource] ?? 0, CART_CAPACITY, storeCapacity(found.building) - totalStock(found.building));
   if (cargo <= 0) return;
   addStore(producer, resource, -cargo);
-  spawnWalker(world, {
+  spawnWalker(world, city, {
     kind: 'cart',
     homeId: producer.id,
     targetId: found.building.id,
@@ -535,10 +533,9 @@ export function storeCapacity(building: Building): number {
   return GRANARY_CAP;
 }
 
-function updateAgora(world: World, agora: Building, dt: number): void {
+function updateAgora(world: World, city: City, agora: Building, dt: number): void {
   void dt;
   if (!agora.connected || agora.workers <= 0) return;
-  const city = primaryCity(world);
 
   if (!hasActiveWalker(city, agora.id, 'buyer') && totalStock(agora) < AGORA_CAP) {
     const exit = exitTile(world, city, agora);
@@ -550,7 +547,7 @@ function updateAgora(world: World, agora: Building, dt: number): void {
         const cargo = food ? Math.min(found.building.stores[food] ?? 0, BUYER_FETCH_CAPACITY, AGORA_CAP - totalStock(agora)) : 0;
         if (food && cargo > 0) {
           addStore(found.building, food, -cargo);
-          spawnWalker(world, {
+          spawnWalker(world, city, {
             kind: 'buyer',
             homeId: agora.id,
             targetId: found.building.id,
@@ -574,7 +571,7 @@ function updateAgora(world: World, agora: Building, dt: number): void {
       const path = buildServiceCircuit(world, city, exit, ROAD_BUDGET);
       if (path.length > 1) {
         addStore(agora, food!, -cargo);
-        spawnWalker(world, {
+        spawnWalker(world, city, {
           kind: 'vendor',
           homeId: agora.id,
           targetId: null,
@@ -590,15 +587,14 @@ function updateAgora(world: World, agora: Building, dt: number): void {
   }
 }
 
-function updateCircuitDispatch(world: World, building: Building, kind: WalkerKind): void {
+function updateCircuitDispatch(world: World, city: City, building: Building, kind: WalkerKind): void {
   if (!building.connected || building.workers <= 0) return;
-  const city = primaryCity(world);
   if (hasActiveWalker(city, building.id, kind)) return;
   const exit = exitTile(world, city, building);
   if (exit === -1) return;
   const path = buildServiceCircuit(world, city, exit, ROAD_BUDGET);
   if (path.length <= 1) return;
-  spawnWalker(world, {
+  spawnWalker(world, city, {
     kind,
     homeId: building.id,
     targetId: null,
@@ -611,8 +607,7 @@ function updateCircuitDispatch(world: World, building: Building, kind: WalkerKin
   });
 }
 
-function buildingsAdjacentToTile(world: World, tile: number): Building[] {
-  const city = primaryCity(world);
+function buildingsAdjacentToTile(world: World, city: City, tile: number): Building[] {
   const map = mapOf(world, city);
   const roads = new Set(city.roads);
   return city.buildings.filter((building) => accessDoors(map, roads, building).includes(tile));
@@ -625,13 +620,13 @@ function reverseForReturn(walker: Walker): void {
   walker.returning = true;
 }
 
-function serviceTileVisit(world: World, walker: Walker): void {
+function serviceTileVisit(world: World, city: City, walker: Walker): void {
   if (walker.kind !== 'vendor' && walker.kind !== 'water' && walker.kind !== 'maintenance') return;
   const index = walker.step;
   const tile = walker.path[index];
   if (walker.path.indexOf(tile) !== index) return;
 
-  for (const building of buildingsAdjacentToTile(world, tile)) {
+  for (const building of buildingsAdjacentToTile(world, city, tile)) {
     if (walker.kind === 'vendor') {
       if (building.kind !== 'house' || walker.cargo <= 0) continue;
       const room = HOUSE_FOOD_CAP - building.food;
@@ -639,7 +634,7 @@ function serviceTileVisit(world: World, walker: Walker): void {
       if (deliver <= 0) continue;
       building.food += deliver;
       walker.cargo -= deliver;
-      primaryCity(world).delivered += deliver;
+      city.delivered += deliver;
     } else if (walker.kind === 'water') {
       if (building.kind !== 'house') continue;
       building.water = HOUSE_WATER_CAP;
@@ -649,9 +644,8 @@ function serviceTileVisit(world: World, walker: Walker): void {
   }
 }
 
-function onFinalArrival(world: World, walker: Walker): boolean {
-  const city = primaryCity(world);
-  if (walker.kind === 'hunter' || walker.kind === 'woodcutter') return gatherArrival(world, walker);
+function onFinalArrival(world: World, city: City, walker: Walker): boolean {
+  if (walker.kind === 'hunter' || walker.kind === 'woodcutter') return gatherArrival(world, city, walker);
   if (walker.kind === 'immigrant') {
     const house = city.buildings.find((building) => building.id === walker.targetId);
     if (house && house.kind === 'house') house.residents = Math.min(HOUSE_CAPACITY[house.tier], house.residents + walker.cargo);
@@ -698,8 +692,7 @@ function onFinalArrival(world: World, walker: Walker): boolean {
   return true;
 }
 
-function moveWalkers(world: World, dt: number): void {
-  const city = primaryCity(world);
+function moveWalkers(world: World, city: City, dt: number): void {
   const map = mapOf(world, city);
   const roads = new Set(city.roads);
   const stairs = stairLayout(map, roads);
@@ -708,11 +701,11 @@ function moveWalkers(world: World, dt: number): void {
     if (!walkerPathValid(map, roads, stairs, walker)) continue;
     if (walker.working > 0) {
       walker.working = Math.max(0, walker.working - dt);
-      if (walker.working > 0 || !gatherFinished(world, walker)) alive.push(walker);
+      if (walker.working > 0 || !gatherFinished(world, city, walker)) alive.push(walker);
       continue;
     }
     if (walker.path.length === 1) {
-      if (!onFinalArrival(world, walker)) alive.push(walker);
+      if (!onFinalArrival(world, city, walker)) alive.push(walker);
       continue;
     }
 
@@ -728,9 +721,9 @@ function moveWalkers(world: World, dt: number): void {
       travel -= toNext;
       walker.step += 1;
       walker.progress = 0;
-      serviceTileVisit(world, walker);
+      serviceTileVisit(world, city, walker);
       if (walker.step >= walker.path.length - 1) {
-        done = onFinalArrival(world, walker);
+        done = onFinalArrival(world, city, walker);
         break;
       }
     }
@@ -739,20 +732,19 @@ function moveWalkers(world: World, dt: number): void {
   city.walkers = alive;
 }
 
-function arrivingResidents(world: World, houseId: number): number {
-  return primaryCity(world).walkers
+function arrivingResidents(city: City, houseId: number): number {
+  return city.walkers
     .filter((walker) => walker.kind === 'immigrant' && walker.targetId === houseId)
     .reduce((sum, walker) => sum + walker.cargo, 0);
 }
 
-function sendImmigrants(world: World, house: Building, party: number): void {
+function sendImmigrants(world: World, city: City, house: Building, party: number): void {
   if (party <= 0) return;
-  const city = primaryCity(world);
   const roads = new Set(city.roads);
   const goals = new Set(accessTiles(world, city, house));
   const path = bfsShortest(mapOf(world, city), roads, entryTileIndex(world, city), (tile) => goals.has(tile));
   if (!path) return;
-  spawnWalker(world, {
+  spawnWalker(world, city, {
     kind: 'immigrant',
     homeId: house.id,
     targetId: house.id,
@@ -771,8 +763,7 @@ function meetsTierNeed(tier: number, food: number, water: number): boolean {
   return (!needsFood || food > 0) && (!needsWater || water > 0);
 }
 
-function tickHouse(world: World, house: Building, dt: number): void {
-  void world;
+function tickHouse(world: World, city: City, house: Building, dt: number): void {
   if (house.residents > 0) {
     house.food = Math.max(0, house.food - FOOD_CONSUMPTION_PER_RESIDENT * house.residents * dt);
   }
@@ -801,12 +792,12 @@ function tickHouse(world: World, house: Building, dt: number): void {
   }
 
   const capacity = HOUSE_CAPACITY[house.tier];
-  const expected = arrivingResidents(world, house.id);
+  const expected = arrivingResidents(city, house.id);
   if (house.residents + expected < capacity) {
     house.upgradeTimer += dt;
     if (house.upgradeTimer >= ARRIVAL_INTERVAL) {
       house.upgradeTimer = 0;
-      sendImmigrants(world, house, Math.min(IMMIGRANT_PARTY, capacity - house.residents - expected));
+      sendImmigrants(world, city, house, Math.min(IMMIGRANT_PARTY, capacity - house.residents - expected));
     }
     return;
   }
@@ -830,35 +821,39 @@ function tickHouse(world: World, house: Building, dt: number): void {
   }
 }
 
-function updateFinances(world: World, dt: number): void {
-  const city = primaryCity(world);
+function updateFinances(city: City, dt: number): void {
   const summary = getSummary(city);
   city.money += summary.balance * (dt / MONTH_SECONDS);
 }
 
 function simulationStep(world: World, dt: number): void {
   world.time += dt;
-  updateStaffing(world);
-  const buildings = primaryCity(world).buildings;
-  for (const building of buildings) {
-    if (building.kind === 'farm') updateFarm(world, building, dt);
-    else if (building.kind === 'lodge' || building.kind === 'woodcutter') updateGatherer(world, building);
-    else if (building.kind === 'agora') updateAgora(world, building, dt);
-    else if (building.kind === 'fountain') updateCircuitDispatch(world, building, 'water');
-    else if (building.kind === 'maintenance') updateCircuitDispatch(world, building, 'maintenance');
+  for (const city of world.cities) {
+    if (!city.founded) continue;
+    updateStaffing(city);
+    for (const building of city.buildings) {
+      if (building.kind === 'farm') updateFarm(world, city, building, dt);
+      else if (building.kind === 'lodge' || building.kind === 'woodcutter') updateGatherer(world, city, building);
+      else if (building.kind === 'agora') updateAgora(world, city, building, dt);
+      else if (building.kind === 'fountain') updateCircuitDispatch(world, city, building, 'water');
+      else if (building.kind === 'maintenance') updateCircuitDispatch(world, city, building, 'maintenance');
+    }
+    updateHarbour(world, city, dt);
+    moveWalkers(world, city, dt);
   }
-  updateHarbour(world, dt);
-  moveWalkers(world, dt);
   stepWildlife(world, dt);
   regrowForest(world, dt);
-  for (const building of buildings) {
-    if (building.kind === 'house') tickHouse(world, building, dt);
+  for (const city of world.cities) {
+    if (!city.founded) continue;
+    for (const building of city.buildings) {
+      if (building.kind === 'house') tickHouse(world, city, building, dt);
+    }
+    updateFinances(city, dt);
   }
-  updateFinances(world, dt);
 }
 
 export function advance(world: World, seconds: number): void {
-  if (!primaryCity(world).founded) return;
+  if (world.cities.every((city) => !city.founded)) return;
   world.remainder += seconds;
   while (world.remainder >= STEP) {
     world.remainder -= STEP;

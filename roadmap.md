@@ -203,11 +203,14 @@ new shipping network to supply these sanctuaries.”
   ownership checks and execution. Local play and undo still work as before.
 - Settlement metadata now lives in `World.cities`. Version-4–8 saves migrate without
   changing their city or shared world state. Roads, buildings, and walkers have
-  followed: a city is now a complete, self-contained settlement. Read-only
-  engine queries and construction commands (build, roads, demolition, vendors,
-  founding) now take an explicit City, resolved from `world.cities` by id at the
-  command boundary. The economic simulation tick still assumes the single primary
-  city, ready for the ownership and multi-city work ahead.
+  followed: a city is now a complete, self-contained settlement. Engine queries,
+  construction commands (build, roads, demolition, vendors, founding), and the
+  economic simulation tick (staffing, production, delivery, gathering, the
+  harbour, housing, finances) all take an explicit City, resolved from
+  `world.cities` by id at the command boundary. In-memory tests already run two
+  independent city economies under one shared clock and wildlife population;
+  saving still accepts only a single city, ready for the ownership and
+  multi-city work ahead.
 - This remains a local, single-player game. Unrestricted coastal harbour siting,
   player identity, shared ownership data, and the persistent server are still ahead.
 

@@ -6,6 +6,7 @@ export const UNDO_SECONDS = 15;
 
 export function canUndoConstruction(world: World, checkpoint: World | null): checkpoint is World {
   if (!checkpoint) return false;
+  if (world.cities.length !== 1 || checkpoint.cities.length !== 1) return false;
   const city = primaryCity(world);
   const checkpointCity = primaryCity(checkpoint);
   if (checkpoint.seed !== world.seed || checkpointCity.id !== city.id || checkpointCity.home !== city.home || checkpointCity.founded !== city.founded || checkpoint.version !== world.version) return false;

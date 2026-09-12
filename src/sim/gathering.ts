@@ -1,6 +1,5 @@
-import type { Animal, Building, Walker, World } from './types';
+import type { Animal, Building, City, Walker, World } from './types';
 import { footprint } from './catalog';
-import { primaryCity } from './city';
 import { buildable, islandFor, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import { accessTiles, footprintTiles, mapOf } from './grid';
 import { addStore, hasActiveWalker, sendCart, spawnWalker, totalStock } from './world';
@@ -19,14 +18,13 @@ function passable(world: World, map: IslandMap, roads: Set<number>, index: numbe
   const terrain = terrainOn(map, x, z);
   if (terrain === 'water' || terrain === 'rock') return false;
   if (!buildable(terrain) && terrain !== 'forest' && terrain !== 'cliff') return false;
-  return !primaryCity(world).buildings.some((building) => {
+  return !world.cities.some((candidateCity) => candidateCity.buildings.some((building) => {
     const size = footprint(building.kind, building.rotation);
     return x >= building.x && x < building.x + size.width && z >= building.z && z < building.z + size.depth;
-  });
+  }));
 }
 
-export function overlandPath(world: World, start: number, isGoal: (tile: number) => boolean, limit: number): number[] | null {
-  const city = primaryCity(world);
+export function overlandPath(world: World, city: City, start: number, isGoal: (tile: number) => boolean, limit: number): number[] | null {
   const map = mapOf(world, city);
   const roads = new Set(city.roads);
   const stairs = stairLayout(map, roads);
@@ -84,11 +82,10 @@ function nearestAdjacentToForest(world: World, map: IslandMap, index: number): b
   });
 }
 
-export function updateGatherer(world: World, building: Building): void {
+export function updateGatherer(world: World, city: City, building: Building): void {
   if (!building.connected || building.workers <= 0) return;
-  sendCart(world, building);
+  sendCart(world, city, building);
   const kind = building.kind === 'lodge' ? 'hunter' : 'woodcutter';
-  const city = primaryCity(world);
   if (hasActiveWalker(city, building.id, kind)) return;
   if (totalStock(building) >= GATHER_STOCK_CAP) return;
   const map = mapOf(world, city);
@@ -96,8 +93,8 @@ export function updateGatherer(world: World, building: Building): void {
   if (doors.length === 0) return;
   const start = doors[0];
   const path = kind === 'hunter'
-    ? overlandPath(world, start, (tile) => world.wildlife.some((animal) => huntable(animal) && animalTile(map, animal) === tile), GATHER_RANGE)
-    : overlandPath(world, start, (tile) => !new Set(footprintTiles(map, building)).has(tile) && nearestAdjacentToForest(world, map, tile), GATHER_RANGE);
+    ? overlandPath(world, city, start, (tile) => world.wildlife.some((animal) => huntable(animal) && animalTile(map, animal) === tile), GATHER_RANGE)
+    : overlandPath(world, city, start, (tile) => !new Set(footprintTiles(map, building)).has(tile) && nearestAdjacentToForest(world, map, tile), GATHER_RANGE);
   if (!path) return;
   let quarry: number | null = null;
   if (kind === 'hunter') {
@@ -111,7 +108,7 @@ export function updateGatherer(world: World, building: Building): void {
     }
   }
   const roads = new Set(city.roads);
-  spawnWalker(world, {
+  spawnWalker(world, city, {
     kind,
     homeId: building.id,
     targetId: null,
@@ -129,13 +126,13 @@ export function updateGatherer(world: World, building: Building): void {
 export const HUNT_SECONDS = 2;
 export const FELL_SECONDS = 4;
 
-export function gatherArrival(world: World, walker: Walker): boolean {
+export function gatherArrival(world: World, city: City, walker: Walker): boolean {
   if (walker.returning) {
-    const home = primaryCity(world).buildings.find((building) => building.id === walker.homeId);
+    const home = city.buildings.find((building) => building.id === walker.homeId);
     if (home && walker.food && walker.cargo > 0) addStore(home, walker.food, Math.min(walker.cargo, GATHER_STOCK_CAP - totalStock(home)));
     return true;
   }
-  const map = mapOf(world, primaryCity(world));
+  const map = mapOf(world, city);
   if (walker.kind === 'hunter') {
     const prey = world.wildlife.find((animal) => animal.id === walker.quarry);
     if (prey && huntable(prey) && withinReach(map, walker, prey)) {
@@ -151,21 +148,21 @@ export function gatherArrival(world: World, walker: Walker): boolean {
   return false;
 }
 
-export function gatherFinished(world: World, walker: Walker): boolean {
-  const map = mapOf(world, primaryCity(world));
+export function gatherFinished(world: World, city: City, walker: Walker): boolean {
+  const map = mapOf(world, city);
   if (walker.kind === 'hunter') {
     const prey = world.wildlife.find((animal) => animal.id === walker.quarry);
     if (prey && huntable(prey) && withinReach(map, walker, prey)) {
       walker.cargo = killAnimal(prey);
       walker.food = 'meat';
-      primaryCity(world).produced += walker.cargo;
+      city.produced += walker.cargo;
     }
     if (prey) prey.cornered = false;
   } else if (walker.quarry !== null && standingForest(world, map, walker.quarry)) {
     world.felled.push(walker.quarry);
     walker.cargo = LUMBER_PER_TREE;
     walker.food = 'lumber';
-    primaryCity(world).produced += walker.cargo;
+    city.produced += walker.cargo;
   }
   turnHome(walker);
   return false;
@@ -190,9 +187,11 @@ export function regrowForest(world: World, dt: number): void {
   if (world.regrowth < REGROW_SECONDS) return;
   world.regrowth = 0;
   const map = islandFor(world.seed);
-  const city = primaryCity(world);
-  const occupied = new Set(city.roads);
-  for (const building of city.buildings) for (const tile of footprintTiles(map, building)) occupied.add(tile);
+  const occupied = new Set<number>();
+  for (const city of world.cities) {
+    for (const road of city.roads) occupied.add(road);
+    for (const building of city.buildings) for (const tile of footprintTiles(map, building)) occupied.add(tile);
+  }
   const oldest = world.felled.find((tile) => !occupied.has(tile));
   if (oldest !== undefined) world.felled = world.felled.filter((tile) => tile !== oldest);
 }

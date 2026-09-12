@@ -1,6 +1,5 @@
 import type { ActionResult, Building, City, Stores, Tile, World } from './types';
 import { footprint } from './catalog';
-import { primaryCity } from './city';
 import { buildable, insideMapOn, islandFor, levelOn, terrainOn, tileIndexOn, type IslandMap } from './island';
 import { exitTile, findNearestConnected, footprintTiles } from './grid';
 import { addStore, spawnWalker, totalStock } from './world';
@@ -122,8 +121,7 @@ export function validateHarbourProgress(raw: unknown): HarbourProgress | null {
   return { tier, stores: parsedStores, vendorEnabled, vendorInstalled, progress };
 }
 
-function dispatchPorter(world: World): void {
-  const city = primaryCity(world);
+function dispatchPorter(world: World, city: City): void {
   const harbour = city.harbour;
   if (city.walkers.some((walker) => walker.kind === 'porter')) return;
   const room = HARBOUR_DOCK_CAP - totalStock(harbour);
@@ -136,7 +134,7 @@ function dispatchPorter(world: World): void {
   const cargo = Math.min(found.building.stores.lumber ?? 0, PORTER_CAPACITY, room);
   if (cargo <= 0) return;
   addStore(found.building, 'lumber', -cargo);
-  spawnWalker(world, {
+  spawnWalker(world, city, {
     kind: 'porter',
     homeId: found.building.id,
     targetId: null,
@@ -149,8 +147,8 @@ function dispatchPorter(world: World): void {
   });
 }
 
-export function updateHarbour(world: World, dt: number): void {
-  const harbour = primaryCity(world).harbour;
+export function updateHarbour(world: World, city: City, dt: number): void {
+  const harbour = city.harbour;
   if (!harbour.connected) return;
   if (harbour.progress > 0) {
     const next = harbour.progress + dt / HARBOUR_VOYAGE_SECONDS;
@@ -163,17 +161,17 @@ export function updateHarbour(world: World, dt: number): void {
       addStore(harbour, 'lumber', -HARBOUR_UPGRADE_LUMBER);
       harbour.tier = 2;
     } else {
-      dispatchPorter(world);
+      dispatchPorter(world, city);
     }
     return;
   }
   if (!harbour.vendorEnabled) return;
   if (stock >= HARBOUR_MIN_CARGO) {
-    primaryCity(world).money += stock * HARBOUR_LUMBER_PRICE;
+    city.money += stock * HARBOUR_LUMBER_PRICE;
     addStore(harbour, 'lumber', -stock);
     harbour.progress = Math.min(.999, dt / HARBOUR_VOYAGE_SECONDS);
   } else {
-    dispatchPorter(world);
+    dispatchPorter(world, city);
   }
 }
 

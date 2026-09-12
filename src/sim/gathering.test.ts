@@ -172,7 +172,7 @@ describe('gatherers and carved stairs', () => {
     primaryCity(world).roads = [tileIndexOn(map, down.x, down.z), tileIndexOn(map, tile.x, tile.z)];
     const start = tileIndexOn(map, down.x, down.z);
     const goal = tileIndexOn(map, up.x, up.z);
-    const path = overlandPath(world, start, (candidate) => candidate === goal, 4);
+    const path = overlandPath(world, primaryCity(world), start, (candidate) => candidate === goal, 4);
     expect(path).toEqual([start, tileIndexOn(map, tile.x, tile.z), goal]);
   });
 
@@ -182,7 +182,7 @@ describe('gatherers and carved stairs', () => {
     primaryCity(world).roads = [tileIndexOn(map, down.x, down.z), tileIndexOn(map, tile.x, tile.z)];
     const start = tileIndexOn(map, north.x, north.z);
     const goal = tileIndexOn(map, south.x, south.z);
-    const path = overlandPath(world, start, (candidate) => candidate === goal, 4);
+    const path = overlandPath(world, primaryCity(world), start, (candidate) => candidate === goal, 4);
     expect(path).toBeNull();
   });
 });

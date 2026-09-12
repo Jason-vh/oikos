@@ -9,10 +9,12 @@ Terrain, time, remainder, the entity allocator, wildlife, felled trees and regro
 belong to World. Settlement metadata, roads, buildings and walkers belong to City.
 The collection move landed in version 9. Read-only queries (grid routing and map
 helpers, placement/road-path/founding previews, construction and logistics
-queries, getSummary/buildingStatus/walkerStatus) and construction commands
-(build, placeRoadPath, demolish, setVendor, foundHarbour, applyCommand) now take
-an explicit City. The economic simulation tick (staffing, production, delivery,
-housing, finances) is the next step.
+queries, getSummary/buildingStatus/walkerStatus), construction commands (build,
+placeRoadPath, demolish, setVendor, foundHarbour, applyCommand), and the economic
+simulation tick (staffing, farms, agora and service dispatch, gathering, the
+harbour, walker movement, housing, finances) all take an explicit City. The
+engine has no remaining primary-city defaults outside the constructor, the
+single-city save loader, and local UI/test wrappers.
 
 City-specific engine functions must take `(world, city, …)` explicitly. Resolve
 city IDs against the canonical World at command boundaries; never accept an
@@ -68,7 +70,8 @@ Viewing a city grants no writes. Keep viewed/active city IDs in client UI state,
 not by reordering or replacing World.cities. Founding another city must not reset
 the archipelago; retain a separate, clearly labelled local-world reset action.
 
-Whole-world checkpoint undo is only safe in local single-city play. Disable it
+Whole-world checkpoint undo is only safe in local single-city play; `canUndoConstruction`
+already refuses whenever either World holds more than one city. Disable it further
 before independent owners can issue commands. Clearing history on a city switch
 alone is insufficient. A future shared undo would need an authorized compensating
 command, not snapshot rollback.
