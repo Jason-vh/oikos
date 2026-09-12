@@ -24,6 +24,7 @@ export function claimIsland(world: World, home: number): ClaimResult {
   if (!Number.isInteger(home) || home < 0 || home >= ISLAND_COUNT) return { ok: false, reason: 'Unknown starting island.', city: null };
   if (world.cities.some((city) => city.home === home)) return { ok: false, reason: 'That island is already claimed.', city: null };
   if (islandHeldByAnotherCity(world, home)) return { ok: false, reason: 'That island already holds another city\'s infrastructure.', city: null };
+  if (world.nextCityId >= Number.MAX_SAFE_INTEGER || world.nextId >= Number.MAX_SAFE_INTEGER) return { ok: false, reason: 'No safe ids remain to claim another city.', city: null };
 
   const map = islandFor(world.seed, home);
   const roads = landingRoads(map);

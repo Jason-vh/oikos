@@ -6,7 +6,7 @@ import { foundHarbour } from './founding';
 import { buildStarterNeighbourhood } from './scenario';
 import { ISLAND_COUNT, islandFor } from './island';
 import { HARBOUR_ID } from './harbour';
-import type { City, World } from './types';
+import type { Building, City, World } from './types';
 
 function foundAt(world: World, home: number): City {
   const result = claimIsland(world, home);
@@ -61,7 +61,7 @@ describe('deserializeSharedWorld round trips', () => {
     expect(restored!.cities.find((city) => city.id === pending.id)).toEqual(world.cities.find((city) => city.id === pending.id));
   });
 
-  test('a shared world with every city pending stays frozen at zero shared time through a round trip', () => {
+  test('a naturally frozen all-pending shared world round-trips at zero shared time', () => {
     const world = createSharedWorld();
     claimIsland(world, 0);
     claimIsland(world, 1);
@@ -71,6 +71,43 @@ describe('deserializeSharedWorld round trips', () => {
     const restored = deserializeSharedWorld(serializeWorld(world));
     expect(restored).toEqual(world);
     expect(restored!.time).toBe(0);
+  });
+
+  test('an aged all-pending shared world round-trips, preserving its shared time, remainder, felled trees and regrowth', () => {
+    const world = createSharedWorld();
+    claimIsland(world, 0);
+    claimIsland(world, 1);
+    const raw = JSON.parse(serializeWorld(world));
+    raw.time = 500;
+    raw.remainder = 0.1;
+    raw.regrowth = 300;
+    raw.felled = [world.cities[0].roads[0]];
+
+    const restored = deserializeSharedWorld(JSON.stringify(raw));
+
+    expect(restored).not.toBeNull();
+    expect(restored!.time).toBe(500);
+    expect(restored!.remainder).toBeCloseTo(0.1, 10);
+    expect(restored!.regrowth).toBe(300);
+    expect(restored!.felled).toEqual(raw.felled);
+  });
+
+  test('an aged, empty shared world round-trips, preserving its shared ecology with no cities at all', () => {
+    const world = createSharedWorld();
+    const raw = JSON.parse(serializeWorld(world));
+    raw.time = 500;
+    raw.remainder = 0.2;
+    raw.regrowth = 150;
+    raw.felled = [42];
+
+    const restored = deserializeSharedWorld(JSON.stringify(raw));
+
+    expect(restored).not.toBeNull();
+    expect(restored!.cities).toEqual([]);
+    expect(restored!.time).toBe(500);
+    expect(restored!.remainder).toBeCloseTo(0.2, 10);
+    expect(restored!.regrowth).toBe(150);
+    expect(restored!.felled).toEqual([42]);
   });
 });
 
@@ -197,16 +234,39 @@ describe('cross-city physical overlap is rejected on load', () => {
     expect(deserializeSharedWorld(JSON.stringify(raw))).toBeNull();
   });
 
-  test('a founded harbour overlapping another city\'s building is rejected', () => {
+  function legacyFountain(id: number, at: { x: number; z: number }): Building {
+    return {
+      id, x: at.x, z: at.z, kind: 'fountain', rotation: 0, tier: 1, residents: 0, food: 0, water: 0,
+      condition: 100, stores: {}, progress: 0, workers: 0, vendorEnabled: false, vendorInstalled: false,
+      connected: false, serviceTimer: 0, upgradeTimer: 0,
+    };
+  }
+
+  function scenario(order: 'legacy city claimed first' | 'harbour city claimed first', found: boolean): World {
     const world = createSharedWorld();
-    const city1 = foundAt(world, 0);
-    foundAt(world, 1);
-    expect(buildStarterNeighbourhood(world, city1).ok).toBe(true);
-    const raw = JSON.parse(serializeWorld(world));
-    raw.cities[1].harbour.x = raw.cities[0].buildings[0].x;
-    raw.cities[1].harbour.z = raw.cities[0].buildings[0].z;
-    expect(deserializeSharedWorld(JSON.stringify(raw))).toBeNull();
-  });
+    let legacyCity: City;
+    let harbourCity: City;
+    if (order === 'legacy city claimed first') {
+      legacyCity = foundAt(world, 0);
+      harbourCity = claimIsland(world, 1).city!;
+    } else {
+      harbourCity = claimIsland(world, 1).city!;
+      legacyCity = foundAt(world, 0);
+    }
+    if (found) expect(foundHarbour(world, harbourCity, harbourCity.harbour.x, harbourCity.harbour.z).ok).toBe(true);
+    legacyCity.buildings.push(legacyFountain(world.nextId++, harbourCity.harbour));
+    return world;
+  }
+
+  for (const order of ['legacy city claimed first', 'harbour city claimed first'] as const) {
+    test(`a founded harbour overlapping another city's legacy building is rejected while the same spot as a pending placeholder is accepted (${order})`, () => {
+      const pendingWorld = scenario(order, false);
+      expect(deserializeSharedWorld(serializeWorld(pendingWorld))).not.toBeNull();
+
+      const foundedWorld = scenario(order, true);
+      expect(deserializeSharedWorld(serializeWorld(foundedWorld))).toBeNull();
+    });
+  }
 
   test('a pending city\'s placeholder harbour does not count as occupancy, even sitting where another city\'s legacy building already is', () => {
     const world = createSharedWorld();
@@ -223,15 +283,102 @@ describe('cross-city physical overlap is rejected on load', () => {
 });
 
 describe('walker references stay local to their own city', () => {
-  test('rejects a walker in one city referencing a building id owned by another city', () => {
+  function developedTwoCityWorld(): { world: World; city1: City; city2: City } {
     const world = createSharedWorld();
     const city1 = foundAt(world, 0);
     const city2 = foundAt(world, 1);
     expect(buildStarterNeighbourhood(world, city1).ok).toBe(true);
     expect(buildStarterNeighbourhood(world, city2).ok).toBe(true);
+    return { world, city1, city2 };
+  }
+
+  test('rejects a walker whose homeId references another city\'s building', () => {
+    const { world, city1, city2 } = developedTwoCityWorld();
+    let hasWalker = false;
+    for (let t = 0; t < 400 && !hasWalker; t++) {
+      advance(world, 1);
+      hasWalker = city2.walkers.length > 0;
+    }
+    expect(hasWalker).toBe(true);
+
     const raw = JSON.parse(serializeWorld(world));
-    if (raw.cities[1].walkers.length === 0) return;
-    raw.cities[1].walkers[0].homeId = raw.cities[0].buildings[0].id;
+    expect(deserializeSharedWorld(JSON.stringify(raw))).not.toBeNull();
+
+    const cityRaw2 = raw.cities.find((city: any) => city.id === city2.id);
+    const cityRaw1 = raw.cities.find((city: any) => city.id === city1.id);
+    cityRaw2.walkers[0].homeId = cityRaw1.buildings[0].id;
     expect(deserializeSharedWorld(JSON.stringify(raw))).toBeNull();
+  });
+
+  test('rejects a walker whose targetId references another city\'s building', () => {
+    const { world, city1, city2 } = developedTwoCityWorld();
+    let targeting: number | null = null;
+    for (let t = 0; t < 400 && targeting === null; t++) {
+      advance(world, 1);
+      const found = city2.walkers.find((walker) => walker.targetId !== null);
+      if (found) targeting = found.id;
+    }
+    expect(targeting).not.toBeNull();
+
+    const raw = JSON.parse(serializeWorld(world));
+    expect(deserializeSharedWorld(JSON.stringify(raw))).not.toBeNull();
+
+    const cityRaw2 = raw.cities.find((city: any) => city.id === city2.id);
+    const cityRaw1 = raw.cities.find((city: any) => city.id === city1.id);
+    const walkerRaw = cityRaw2.walkers.find((walker: any) => walker.id === targeting);
+    walkerRaw.targetId = cityRaw1.buildings[0].id;
+    expect(deserializeSharedWorld(JSON.stringify(raw))).toBeNull();
+  });
+});
+
+describe('ids and allocators must be safe integers', () => {
+  test('accepts a building id just below a safe-integer nextId ceiling, rejects an unsafe nextId outright', () => {
+    const world = createSharedWorld();
+    foundAt(world, 0);
+    const raw = JSON.parse(serializeWorld(world));
+    raw.cities[0].buildings.push({
+      id: Number.MAX_SAFE_INTEGER - 1, x: 0, z: 0, kind: 'house', rotation: 0, tier: 1, residents: 0, food: 0, water: 0,
+      condition: 100, stores: {}, progress: 0, workers: 0, vendorEnabled: false, vendorInstalled: false,
+      connected: false, serviceTimer: 0, upgradeTimer: 0,
+    });
+    raw.nextId = Number.MAX_SAFE_INTEGER;
+    expect(deserializeSharedWorld(JSON.stringify(raw))).not.toBeNull();
+
+    raw.nextId = Number.MAX_SAFE_INTEGER + 1;
+    expect(deserializeSharedWorld(JSON.stringify(raw))).toBeNull();
+  });
+
+  test('rejects a building id that has reached the safe-integer nextId ceiling', () => {
+    const world = createSharedWorld();
+    foundAt(world, 0);
+    const raw = JSON.parse(serializeWorld(world));
+    raw.cities[0].buildings.push({
+      id: Number.MAX_SAFE_INTEGER, x: 0, z: 0, kind: 'house', rotation: 0, tier: 1, residents: 0, food: 0, water: 0,
+      condition: 100, stores: {}, progress: 0, workers: 0, vendorEnabled: false, vendorInstalled: false,
+      connected: false, serviceTimer: 0, upgradeTimer: 0,
+    });
+    raw.nextId = Number.MAX_SAFE_INTEGER;
+    expect(deserializeSharedWorld(JSON.stringify(raw))).toBeNull();
+  });
+
+  test('rejects nextCityId at or beyond Number.MAX_SAFE_INTEGER, accepts a city id at the safe boundary just below it', () => {
+    const world = createSharedWorld();
+    foundAt(world, 0);
+    const raw = JSON.parse(serializeWorld(world));
+    raw.cities[0].id = Number.MAX_SAFE_INTEGER - 1;
+    raw.nextCityId = Number.MAX_SAFE_INTEGER;
+    expect(deserializeSharedWorld(JSON.stringify(raw))).not.toBeNull();
+
+    raw.nextCityId = Number.MAX_SAFE_INTEGER + 1;
+    expect(deserializeSharedWorld(JSON.stringify(raw))).toBeNull();
+  });
+
+  test('a v9 city id at Number.MAX_SAFE_INTEGER cannot safely seed nextCityId on migration', () => {
+    const world = createWorld();
+    const raw = JSON.parse(serializeWorld(world));
+    raw.cities[0].id = Number.MAX_SAFE_INTEGER;
+    delete raw.nextCityId;
+    raw.version = 9;
+    expect(deserializeWorld(JSON.stringify(raw))).toBeNull();
   });
 });

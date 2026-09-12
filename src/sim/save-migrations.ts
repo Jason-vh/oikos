@@ -25,7 +25,7 @@ function addCityIdAllocator(v9: RawRecord | null): RawRecord | null {
   const { cities, ...rest } = v9;
   if (!Array.isArray(cities) || cities.length !== 1 || !isPlainObject(cities[0])) return null;
   const id = cities[0].id;
-  if (typeof id !== 'number' || !Number.isInteger(id) || id <= 0) return null;
+  if (typeof id !== 'number' || !Number.isSafeInteger(id) || id <= 0 || id >= Number.MAX_SAFE_INTEGER) return null;
   return { ...rest, version: CURRENT_VERSION, cities, nextCityId: id + 1 };
 }
 

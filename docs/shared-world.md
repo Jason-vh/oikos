@@ -96,9 +96,20 @@ overlap check, matching construction-time occupancy, but its id is still
 reserved and validated. Legacy off-home infrastructure is still accepted for a
 City's own records; the overlap check only rejects two different Cities
 physically colliding. Time, remainder, felled trees and regrowth are shared
-fields with no per-City invariant, except that they must all still be zero
-while every City in the save remains pending — nothing could have advanced
-them otherwise.
+fields with no per-City invariant at all, pending or not: a save with every
+City pending, or none, can still carry an aged shared clock and ecology.
+`advance` still freezes while every City is unfounded, but that is a runtime
+rule, not a loader constraint — the loader accepts whatever well-formed shared
+state the save actually holds rather than re-deriving what `advance` would have
+produced.
+
+Every id and every allocator (`nextId`, `nextCityId`, and every building,
+walker, wildlife and harbour id) must be a JavaScript safe integer
+(`Number.isSafeInteger`), not merely `Number.isInteger`; ids at or beyond
+`Number.MAX_SAFE_INTEGER` are refused rather than silently losing precision.
+`claimIsland` checks both allocators against that ceiling before incrementing
+either, so a successful claim can never itself push an allocator into unsafe
+territory, and an exhausted allocator leaves the World unchanged.
 
 `src/sim/claims.ts` is a trusted internal API, not yet a `CityCommand`: no
 networking, identity, or ownership check is wired up. `claimIsland(world, home)`

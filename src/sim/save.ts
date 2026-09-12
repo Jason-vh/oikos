@@ -28,6 +28,10 @@ function isInteger(value: unknown): value is number {
   return isFiniteNumber(value) && Number.isInteger(value);
 }
 
+function isSafeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value);
+}
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -69,7 +73,7 @@ function validateBuilding(map: IslandMap, raw: unknown, roads: Set<number>, occu
   if (!isPlainObject(raw)) return null;
   const { id, x, z, kind, rotation, tier, residents, food, water, condition, stores, progress, workers, vendorEnabled, vendorInstalled, connected, serviceTimer, upgradeTimer } = raw;
 
-  if (!isInteger(id) || id <= 0) return null;
+  if (!isSafeInteger(id) || id <= 0) return null;
   if (!isInteger(x) || !isInteger(z)) return null;
   if (typeof kind !== 'string' || !BUILDING_KINDS.includes(kind as BuildingKind)) return null;
   if (![0, 1, 2, 3].includes(rotation as number)) return null;
@@ -126,7 +130,7 @@ function validateBuilding(map: IslandMap, raw: unknown, roads: Set<number>, occu
 function validateHarbour(map: IslandMap, raw: unknown, roads: Set<number>, occupied: Set<number>): Building | null {
   if (!isPlainObject(raw)) return null;
   const { id, kind, rotation, x, z } = raw;
-  if (!isInteger(id) || id < 0 || kind !== 'harbour' || rotation !== 0) return null;
+  if (!isSafeInteger(id) || id < 0 || kind !== 'harbour' || rotation !== 0) return null;
   if (!isInteger(x) || !isInteger(z)) return null;
   const progress = validateHarbourProgress(raw);
   if (!progress) return null;
@@ -160,7 +164,7 @@ function validateWalker(map: IslandMap, raw: unknown, roads: Set<number>, buildi
   if (!parsedOverland) return null;
   if (quarry !== null && !isInteger(quarry)) return null;
 
-  if (!isInteger(id) || id <= 0) return null;
+  if (!isSafeInteger(id) || id <= 0) return null;
   if (typeof kind !== 'string' || !WALKER_KINDS.includes(kind as WalkerKind)) return null;
   if (!isInteger(homeId) || !buildingIds.has(homeId as number)) return null;
   if (targetId !== null && (!isInteger(targetId) || !buildingIds.has(targetId as number))) return null;
@@ -225,8 +229,8 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
   if (!isInteger(seed) || seed < 0 || seed > 0xffffffff) return null;
   if (!isNonNegativeFinite(time)) return null;
   if (!isNonNegativeFinite(remainder)) return null;
-  if (!isInteger(nextId) || nextId <= 0) return null;
-  if (!isInteger(nextCityId) || nextCityId <= 0) return null;
+  if (!isSafeInteger(nextId) || nextId <= 0) return null;
+  if (!isSafeInteger(nextCityId) || nextCityId <= 0) return null;
   if (!Array.isArray(rawCities) || !cityCountAllowed(rawCities.length)) return null;
 
   const atlas = islandFor(seed);
@@ -244,7 +248,7 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
   for (const rawCity of rawCities) {
     if (!isPlainObject(rawCity)) return null;
     const { id, home, founded, money, harbour: rawHarbour, produced, delivered, roads: rawRoads, buildings: rawBuildings, walkers: rawWalkers } = rawCity;
-    if (!isInteger(id) || id <= 0) return null;
+    if (!isSafeInteger(id) || id <= 0) return null;
     if (usedCityIds.has(id) || id >= (nextCityId as number)) return null;
     usedCityIds.add(id);
     if (!isInteger(home) || home < 0 || home >= ISLAND_COUNT) return null;
@@ -316,10 +320,6 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
     cities.push(city);
   }
 
-  if (cities.every((city) => !city.founded)) {
-    if ((time as number) !== 0 || (remainder as number) !== 0 || (regrowth as number) !== 0 || felled.length > 0) return null;
-  }
-
   if (!Array.isArray(rawWildlife)) return null;
   const wildlife: Animal[] = [];
   for (const entry of rawWildlife) {
@@ -363,7 +363,7 @@ export function parseStores(raw: unknown): Stores | null {
 function validateAnimal(map: IslandMap, raw: unknown): Animal | null {
   if (!isPlainObject(raw)) return null;
   const { id, kind, x, z, homeX, homeZ, heading, phase, respawn, cornered } = raw;
-  if (!isInteger(id) || id <= 0) return null;
+  if (!isSafeInteger(id) || id <= 0) return null;
   if (typeof kind !== 'string' || !ANIMAL_KINDS.includes(kind as AnimalKind)) return null;
   for (const value of [x, homeX]) if (!isFiniteNumber(value) || value < 0 || value > map.width) return null;
   for (const value of [z, homeZ]) if (!isFiniteNumber(value) || value < 0 || value > map.depth) return null;

@@ -132,4 +132,41 @@ describe('claimIsland', () => {
     const { x, z } = tileAtOn(map, city.roads[0]);
     expect(build(world, city, 'road', x, z)).toEqual({ ok: true, reason: 'Road laid.' });
   });
+
+  test('an exhausted nextCityId is rejected before any increment, without mutating the World', () => {
+    const world = createSharedWorld();
+    world.nextCityId = Number.MAX_SAFE_INTEGER;
+    const before = structuredClone(world);
+
+    const result = claimIsland(world, 0);
+
+    expect(result.ok).toBe(false);
+    expect(result.city).toBeNull();
+    expect(world).toEqual(before);
+  });
+
+  test('an exhausted shared nextId is rejected before any increment, without mutating the World', () => {
+    const world = createSharedWorld();
+    world.nextId = Number.MAX_SAFE_INTEGER;
+    const before = structuredClone(world);
+
+    const result = claimIsland(world, 0);
+
+    expect(result.ok).toBe(false);
+    expect(result.city).toBeNull();
+    expect(world).toEqual(before);
+  });
+
+  test('a nextCityId or nextId just below the safe-integer ceiling still allows a claim', () => {
+    const world = createSharedWorld();
+    world.nextCityId = Number.MAX_SAFE_INTEGER - 1;
+    world.nextId = Number.MAX_SAFE_INTEGER - 1;
+
+    const result = claimIsland(world, 0);
+
+    expect(result.ok).toBe(true);
+    expect(result.city!.id).toBe(Number.MAX_SAFE_INTEGER - 1);
+    expect(world.nextCityId).toBe(Number.MAX_SAFE_INTEGER);
+    expect(world.nextId).toBe(Number.MAX_SAFE_INTEGER);
+  });
 });
