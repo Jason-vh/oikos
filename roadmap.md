@@ -227,8 +227,12 @@ new shipping network to supply these sanctuaries.”
 - A private SQLite authority now persists the shared World, invite admission,
   ownership, and bounded command receipts. Authenticated claims and commands are
   atomic, replay-safe, and fail closed on storage errors.
-- The playable client remains local and single-player. Network transport, joining,
-  reconnecting, and unrestricted coastal harbour siting are not available yet.
+- A private Bun server now serves authenticated WebSocket snapshots and commands.
+  Its clock pauses when no authenticated socket is open; offline owners' cities
+  keep advancing while others play. Tick checkpoints survive restarts without
+  offline catch-up.
+- The playable client remains local. Shared joining/reconnecting UI and
+  unrestricted coastal harbour siting are still ahead.
 
 ## Roadmap
 

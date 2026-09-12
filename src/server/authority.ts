@@ -4,6 +4,7 @@ import type { World } from '../sim/types';
 import { claimIsland } from '../sim/claims';
 import { applyCommand, parseCommand } from '../sim/commands';
 import { ISLAND_COUNT } from '../sim/island';
+import { advance } from '../sim/world';
 import { type AuthorityDb, closeStore, openStore, readWorldRow, selectAll, selectOne, writeWorldRow } from './store';
 
 export const ACTOR_CAP = ISLAND_COUNT;
@@ -242,6 +243,7 @@ export class Authority {
   private world: World;
   private revision: number;
   private poisoned = false;
+  private dirty = false;
 
   private constructor(store: AuthorityDb, world: World, revision: number) {
     this.store = store;
@@ -267,7 +269,29 @@ export class Authority {
   }
 
   snapshot(): World {
-    return structuredClone(this.world);
+    return this.poison(() => structuredClone(this.world));
+  }
+
+  advance(seconds: number): void {
+    this.guardWritable();
+    if (!Number.isFinite(seconds) || seconds < 0 || seconds > 5) throw new Error('Invalid authority clock interval.');
+    if (seconds === 0 || !this.world.cities.some((city) => city.founded)) return;
+    this.poison(() => {
+      advance(this.world, seconds);
+      this.dirty = true;
+    });
+  }
+
+  checkpoint(): boolean {
+    this.guardWritable();
+    if (!this.dirty) return false;
+    return this.poison(() => {
+      if (this.revision >= Number.MAX_SAFE_INTEGER) throw new Error('Authority store world revision is exhausted.');
+      this.store.db.transaction(() => writeWorldRow(this.store.db, this.revision, this.world)).exclusive();
+      this.revision += 1;
+      this.dirty = false;
+      return true;
+    });
   }
 
   private guardWritable(): void {
@@ -391,6 +415,7 @@ export class Authority {
       if (persisting) {
         this.world = outcome.world!;
         this.revision += 1;
+        this.dirty = false;
       }
       return publicOutcome;
     });
