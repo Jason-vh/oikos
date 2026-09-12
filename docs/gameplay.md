@@ -43,6 +43,10 @@ caches whole archipelagos; the world stores only the seed.
 no buildings, and a starter road running north from the chosen island's entry. Omitting
 `home` selects the most central island. Menu → New island offers all eight starting
 islands in a fresh archipelago; cancelling leaves the current city unchanged.
+The dialog previews that exact archipelago using the shared art palette, with
+land, fertile-ground, and forest counts for the selected island. Clicking land
+selects an island; the native select provides the same choice without using the
+map. Clicking open sea does nothing. Browsing never writes to the current city.
 
 New islands from the menu start with `founded = false`. `foundingPlacement()`
 previews a free 3×2 dockyard on flat lowland beside the prepared landing road;

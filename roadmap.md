@@ -190,7 +190,8 @@ new shipping network to supply these sanctuaries.”
 ## Implementation progress
 
 - Starting-island selection is playable through Menu → New island. All eight
-  islands have prepared landing roads and support the existing village loop.
+  islands have prepared landing roads and support the existing village loop. A
+  clickable atlas previews their coastlines, farmland, and forests before choosing.
 - New islands begin with on-map founding: preview and place the dockyard beside
   the landing road before building the city. Unfinished founding can be saved and
   resumed, and the chosen harbour site stays fixed when roads change.

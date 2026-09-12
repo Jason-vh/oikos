@@ -291,6 +291,11 @@ function clearAround(width: number, depth: number, terrain: Terrain[], level: Ui
   }
 }
 
+export function nextArchipelagoSeed(seed: number): number {
+  if (seed === 1) return 2;
+  return (seed * 1103515245 + 12345) % 0x7fffffff;
+}
+
 export function landingRoads(map: IslandMap): number[] {
   const roads: number[] = [];
   for (let z = map.entry.z; z >= map.entry.z - 8 && terrainOn(map, map.entry.x, z) !== 'water'; z--) {
