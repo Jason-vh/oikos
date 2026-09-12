@@ -14,7 +14,7 @@ placeRoadPath, demolish, setVendor, foundHarbour, applyCommand), and the economi
 simulation tick (staffing, farms, agora and service dispatch, gathering, the
 harbour, walker movement, housing, finances) all take an explicit City. The
 engine has no remaining primary-city defaults outside the constructor, the
-single-city save loader, and local UI/test wrappers.
+single-city save loader, local UI/test wrappers, and single-city checkpoint undo.
 
 City-specific engine functions must take `(world, city, …)` explicitly. Resolve
 city IDs against the canonical World at command boundaries; never accept an

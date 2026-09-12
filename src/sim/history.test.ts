@@ -50,3 +50,20 @@ test('undo cannot cross into a checkpoint from a different city', () => {
   expect(canUndoConstruction(world, before)).toBe(false);
   expect(undoConstruction(world, before)).toBeNull();
 });
+
+test('undo is refused whenever either side holds more than one city', () => {
+  const world = createWorld();
+  const before = structuredClone(world);
+  const extraCity = structuredClone(primaryCity(world));
+  extraCity.id = primaryCity(world).id + 1;
+
+  const worldWithTwoCities = structuredClone(world);
+  worldWithTwoCities.cities.push(structuredClone(extraCity));
+  expect(canUndoConstruction(worldWithTwoCities, before)).toBe(false);
+  expect(undoConstruction(worldWithTwoCities, before)).toBeNull();
+
+  const checkpointWithTwoCities = structuredClone(before);
+  checkpointWithTwoCities.cities.push(structuredClone(extraCity));
+  expect(canUndoConstruction(world, checkpointWithTwoCities)).toBe(false);
+  expect(undoConstruction(world, checkpointWithTwoCities)).toBeNull();
+});

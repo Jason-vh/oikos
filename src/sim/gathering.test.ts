@@ -4,7 +4,7 @@ import { islandFor, terrainOn, tileAtOn, tileIndexOn } from './island';
 import { connect, homeTiles, onHomeIsland, spotFor } from './testing';
 import { GATHER_RANGE, overlandPath } from './gathering';
 import { primaryCity } from './city';
-import type { Tile, World } from './types';
+import type { Building, City, Tile, World } from './types';
 
 function nearForest(world: World, kind: 'lodge' | 'woodcutter'): Tile | null {
   const forest = homeTiles(world, (map, x, z) => terrainOn(map, x, z) === 'forest');
@@ -184,5 +184,29 @@ describe('gatherers and carved stairs', () => {
     const goal = tileIndexOn(map, south.x, south.z);
     const path = overlandPath(world, primaryCity(world), start, (candidate) => candidate === goal, 4);
     expect(path).toBeNull();
+  });
+});
+
+describe('cross-city occupancy', () => {
+  test('a tile that is one city\'s own road but another city\'s building blocks overland travel, even though the overlap is currently constructible in-memory', () => {
+    const { map, down, tile, up } = gatherStairFixture();
+    const world = createWorld(GATHER_STAIR_SEED);
+    const city1 = primaryCity(world);
+    const downIndex = tileIndexOn(map, down.x, down.z);
+    const tileIndex = tileIndexOn(map, tile.x, tile.z);
+    const upIndex = tileIndexOn(map, up.x, up.z);
+    city1.roads = [downIndex, tileIndex];
+
+    expect(overlandPath(world, city1, downIndex, (candidate) => candidate === upIndex, 4)).not.toBeNull();
+
+    const foreignBuilding: Building = {
+      id: world.nextId++, x: tile.x, z: tile.z, kind: 'fountain', rotation: 0, tier: 1, residents: 0, food: 0, water: 0,
+      condition: 100, stores: {}, progress: 0, workers: 0, vendorEnabled: false, vendorInstalled: false,
+      connected: false, serviceTimer: 0, upgradeTimer: 0,
+    };
+    const foreignCity: City = { ...structuredClone(city1), id: city1.id + 1, roads: [], walkers: [], buildings: [foreignBuilding] };
+    world.cities.push(foreignCity);
+
+    expect(overlandPath(world, city1, downIndex, (candidate) => candidate === upIndex, 4)).toBeNull();
   });
 });

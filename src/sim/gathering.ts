@@ -13,15 +13,16 @@ export const REGROW_SECONDS = 480;
 export const CATCH_RADIUS = 2;
 
 function passable(world: World, map: IslandMap, roads: Set<number>, index: number): boolean {
-  if (roads.has(index)) return true;
   const { x, z } = tileAtOn(map, index);
-  const terrain = terrainOn(map, x, z);
-  if (terrain === 'water' || terrain === 'rock') return false;
-  if (!buildable(terrain) && terrain !== 'forest' && terrain !== 'cliff') return false;
-  return !world.cities.some((candidateCity) => candidateCity.buildings.some((building) => {
+  const onAnyCityBuilding = world.cities.some((candidateCity) => candidateCity.buildings.some((building) => {
     const size = footprint(building.kind, building.rotation);
     return x >= building.x && x < building.x + size.width && z >= building.z && z < building.z + size.depth;
   }));
+  if (onAnyCityBuilding) return false;
+  if (roads.has(index)) return true;
+  const terrain = terrainOn(map, x, z);
+  if (terrain === 'water' || terrain === 'rock') return false;
+  return buildable(terrain) || terrain === 'forest' || terrain === 'cliff';
 }
 
 export function overlandPath(world: World, city: City, start: number, isGoal: (tile: number) => boolean, limit: number): number[] | null {
