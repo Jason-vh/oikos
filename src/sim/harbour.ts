@@ -1,4 +1,4 @@
-import type { ActionResult, Building, Stores, World } from './types';
+import type { ActionResult, Building, Stores, Tile, World } from './types';
 import { footprint } from './catalog';
 import { buildable, insideMapOn, islandFor, levelOn, terrainOn, tileIndexOn, type IslandMap } from './island';
 import { exitTile, findNearestConnected, footprintTiles } from './grid';
@@ -74,6 +74,10 @@ export function siteHarbour(seed: number, roads: number[], progress: HarbourProg
   const map = islandFor(seed, home);
   const { width, depth } = footprint('harbour', 0);
   const site = findHarbourSite(map, new Set(roads), width, depth);
+  return harbourAt(site, progress);
+}
+
+export function harbourAt(site: Tile, progress: HarbourProgress): Building {
   return {
     id: HARBOUR_ID,
     x: site.x,

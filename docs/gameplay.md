@@ -300,11 +300,13 @@ another building, and that every walker's path is a real, road-adjacent route
 (no jump between two tiles that aren't neighbours). Anything that doesn't pass is
 rejected as unsupported rather than partially loaded. A valid save round-trips
 exactly, including walkers already mid-journey, which keep walking correctly after
-a reload. Only the harbour's progress (tier, stock, trade order, voyage) is stored;
-its site is re-derived from the seed on load, so a save from before the harbour
-existed gets one sited fresh rather than needing its position migrated.
+a reload. The harbour's site and progress (tier, stock, trade order, voyage) are preserved
+exactly. Version 6 validates the saved footprint rather than choosing another site
+from the current road layout: demolishing roads cannot move the harbour on reload.
+Invalid sites and overlaps are rejected instead of silently relocated.
 Version 5 stores the chosen home island explicitly. Version-4 archipelago saves
-migrate to their original central island without moving their cities; versions
+migrate to their original central island without moving their cities. Version-5
+saves retain their chosen homes and harbour sites; versions
 before the archipelago remain unsupported. Camera preferences identify the chosen
 home as well as the seed. Restoring a different home rebuilds the scene even when
 the archipelago seed is unchanged.

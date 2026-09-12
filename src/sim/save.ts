@@ -3,10 +3,10 @@ import type { Animal, AnimalKind, Building, BuildingKind, Resource, Stores, Walk
 const ANIMAL_KINDS: AnimalKind[] = ['boar', 'rabbit', 'fish', 'gull'];
 
 import { BUILDINGS, HOUSE_CAPACITY, RESOURCES } from './catalog';
-import { islandFor, insideMapOn, type IslandMap } from './island';
+import { buildable, islandFor, insideMapOn, levelOn, onHomeIsland, terrainOn, tileAtOn, type IslandMap } from './island';
 import { neighbours } from './grid';
 import { dropInvalidWalkers, recomputeConnectivity } from './world';
-import { siteHarbour, validateHarbourProgress } from './harbour';
+import { harbourAt, validateHarbourProgress } from './harbour';
 import { ARCHIPELAGO_VERSION, CURRENT_VERSION, migrateSave } from './save-migrations';
 
 export function serializeWorld(world: World): string {
@@ -123,6 +123,26 @@ function validateBuilding(map: IslandMap, raw: unknown, roads: Set<number>, occu
   };
 }
 
+function validateHarbour(map: IslandMap, raw: unknown, roads: Set<number>, occupied: Set<number>): Building | null {
+  if (!isPlainObject(raw)) return null;
+  const { id, kind, rotation, x, z } = raw;
+  if (id !== 0 || kind !== 'harbour' || rotation !== 0) return null;
+  if (!isInteger(x) || !isInteger(z)) return null;
+  const progress = validateHarbourProgress(raw);
+  if (!progress) return null;
+  const tiles = footprintFor(map, 'harbour', 0, x, z);
+  if (!tiles) return null;
+  const level = levelOn(map, x, z);
+  for (const tile of tiles) {
+    const position = tileAtOn(map, tile);
+    if (!onHomeIsland(map, position.x, position.z)) return null;
+    if (!buildable(terrainOn(map, position.x, position.z))) return null;
+    if (levelOn(map, position.x, position.z) !== level) return null;
+    if (roads.has(tile) || occupied.has(tile)) return null;
+  }
+  return harbourAt({ x, z }, progress);
+}
+
 function pathIsAdjacent(map: IslandMap, path: number[], roads: Set<number>, overland: Set<number>): boolean {
   for (let i = 0; i < path.length; i++) {
     if (!roads.has(path[i]) && !overland.has(path[i])) return false;
@@ -203,9 +223,6 @@ export function deserializeWorld(raw: string): World | null {
   if (!isInteger(nextId) || nextId <= 0) return null;
   if (!isNonNegativeFinite(produced)) return null;
   if (!isNonNegativeFinite(delivered)) return null;
-  const harbourProgress = validateHarbourProgress(rawHarbour);
-  if (!harbourProgress) return null;
-
   const roads = validateRoads(map, rawRoads);
   if (!roads) return null;
   const roadSet = new Set(roads);
@@ -221,6 +238,9 @@ export function deserializeWorld(raw: string): World | null {
     usedIds.add(building.id);
     buildings.push(building);
   }
+
+  const harbour = validateHarbour(map, rawHarbour, roadSet, occupied);
+  if (!harbour) return null;
 
   if (!Array.isArray(rawWalkers)) return null;
   const buildingIds = new Set(buildings.map((building) => building.id));
@@ -264,7 +284,7 @@ export function deserializeWorld(raw: string): World | null {
     regrowth: regrowth as number,
     produced: produced as number,
     delivered: delivered as number,
-    harbour: siteHarbour(seed as number, roads, harbourProgress, home),
+    harbour,
   };
   recomputeConnectivity(world);
   dropInvalidWalkers(world);
