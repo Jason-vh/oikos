@@ -3,6 +3,7 @@ import { claimIsland } from './claims';
 import { advance, createSharedWorld, createWorld, build } from './world';
 import { foundHarbour } from './founding';
 import { buildStarterNeighbourhood } from './scenario';
+import { deserializeSharedWorld, serializeWorld } from './save';
 import { ISLAND_COUNT, islandFor, tileAtOn } from './island';
 import { STARTING_MONEY } from './catalog';
 import { HARBOUR_ID } from './harbour';
@@ -83,14 +84,14 @@ describe('claimIsland', () => {
 
   test('an island already holding another city\'s legacy off-home infrastructure is rejected without mutating the World', () => {
     const world = createSharedWorld();
-    const first = claimIsland(world, 0);
-    expect(first.ok).toBe(true);
-    const city1 = first.city!;
+    const city1 = claimIsland(world, 0).city!;
+    expect(foundHarbour(world, city1, city1.harbour.x, city1.harbour.z).ok).toBe(true);
 
     const otherHome = 1;
     const otherMap = createWorld(world.seed, otherHome);
     const legacyRoad = otherMap.cities[0].roads[0];
     city1.roads.push(legacyRoad);
+    expect(deserializeSharedWorld(serializeWorld(world))).not.toBeNull();
     const before = structuredClone(world);
 
     const result = claimIsland(world, otherHome);
@@ -103,8 +104,10 @@ describe('claimIsland', () => {
   test('an island untouched by any city\'s infrastructure claims normally, unaffected by another city\'s unrelated legacy road elsewhere', () => {
     const world = createSharedWorld();
     const city1 = claimIsland(world, 0).city!;
+    expect(foundHarbour(world, city1, city1.harbour.x, city1.harbour.z).ok).toBe(true);
     const otherMap = createWorld(world.seed, 1);
     city1.roads.push(otherMap.cities[0].roads[0]);
+    expect(deserializeSharedWorld(serializeWorld(world))).not.toBeNull();
     const before = structuredClone(world);
 
     const result = claimIsland(world, 2);
@@ -114,9 +117,33 @@ describe('claimIsland', () => {
     expect(world.cities.length).toBe(before.cities.length + 1);
   });
 
-  test('an island already holding another city\'s legacy building footprint, with no road there, is rejected without mutating the World', () => {
+  test('an ordinary legacy building fully inside another city\'s target island, with no road there, is rejected without mutating the World', () => {
     const world = createSharedWorld();
     const city1 = claimIsland(world, 0).city!;
+    expect(foundHarbour(world, city1, city1.harbour.x, city1.harbour.z).ok).toBe(true);
+
+    const otherHome = 1;
+    const map = islandFor(world.seed, otherHome);
+    const island = map.islands[otherHome];
+    const anchor = { x: island.x + Math.floor(island.width / 2), z: island.z + Math.floor(island.depth / 2) };
+    city1.buildings.push({
+      id: world.nextId++, x: anchor.x, z: anchor.z, kind: 'house', rotation: 0, tier: 1, residents: 0, food: 0, water: 0,
+      condition: 100, stores: {}, progress: 0, workers: 0, vendorEnabled: false, vendorInstalled: false, connected: false, serviceTimer: 0, upgradeTimer: 0,
+    });
+    expect(deserializeSharedWorld(serializeWorld(world))).not.toBeNull();
+    const before = structuredClone(world);
+
+    const result = claimIsland(world, otherHome);
+
+    expect(result.ok).toBe(false);
+    expect(result.city).toBeNull();
+    expect(world).toEqual(before);
+  });
+
+  test('a legacy building whose footprint only edges onto another city\'s target island is rejected (synthetic geometry, not asserted save-valid)', () => {
+    const world = createSharedWorld();
+    const city1 = claimIsland(world, 0).city!;
+    expect(foundHarbour(world, city1, city1.harbour.x, city1.harbour.z).ok).toBe(true);
 
     const otherHome = 1;
     const map = islandFor(world.seed, otherHome);
@@ -141,16 +168,19 @@ describe('claimIsland', () => {
     expect(foundHarbour(world, established, established.harbour.x, established.harbour.z).ok).toBe(true);
     expect(buildStarterNeighbourhood(world, established).ok).toBe(true);
     advance(world, 300);
+    world.remainder = 0.1;
+    world.felled = [established.roads[0]];
+    world.regrowth = 123;
     const before = structuredClone(world);
 
     const result = claimIsland(world, 1);
 
     expect(result.ok).toBe(true);
     expect(world.time).toBe(before.time);
-    expect(world.remainder).toBe(before.remainder);
+    expect(world.remainder).toBe(0.1);
     expect(world.wildlife).toEqual(before.wildlife);
-    expect(world.felled).toEqual(before.felled);
-    expect(world.regrowth).toBe(before.regrowth);
+    expect(world.felled).toEqual([established.roads[0]]);
+    expect(world.regrowth).toBe(123);
     expect(world.cities[0]).toEqual(before.cities[0]);
     expect(world.cities.length).toBe(before.cities.length + 1);
     expect(world.nextCityId).toBe(before.nextCityId + 1);
