@@ -88,6 +88,10 @@ server snapshots rather than relying on cross-engine floating-point lockstep.
 Persist world and identity mappings consistently; never silently replace an
 unreadable server save with a fresh world.
 
+Production deployment deletes and replaces the checkout. Keep server state in a
+persistent Docker volume outside that checkout, not beside the source or build.
+Redeployment must preserve that volume and the stored identities.
+
 ## Acceptance checks
 
 - Two cities sustain separate village loops, treasuries, workforces and deliveries.
