@@ -104,11 +104,11 @@ function boot(): void {
     city.sync(world);
     overlay.setRoads(homeCity.roads);
     city.select(selected, walker?.id ?? animal?.id ?? null);
-    if (walker) hud.update(world, getSummary(world), { kind: 'person', name: walkerName(walker), role: WALKER_ROLES[walker.kind], status: walkerStatus(world, walker) });
-    else if (animal) hud.update(world, getSummary(world), { kind: 'person', name: animalName(animal), role: 'Wildlife', status: animalStatus(animal) });
-    else if (selected) hud.update(world, getSummary(world), { kind: 'building', building: selected, status: buildingStatus(world, selected) });
-    else hud.update(world, getSummary(world), null);
-    const debt = primaryCity(world).money < 0;
+    if (walker) hud.update(world, getSummary(homeCity), { kind: 'person', name: walkerName(walker), role: WALKER_ROLES[walker.kind], status: walkerStatus(homeCity, walker) });
+    else if (animal) hud.update(world, getSummary(homeCity), { kind: 'person', name: animalName(animal), role: 'Wildlife', status: animalStatus(animal) });
+    else if (selected) hud.update(world, getSummary(homeCity), { kind: 'building', building: selected, status: buildingStatus(homeCity, selected) });
+    else hud.update(world, getSummary(homeCity), null);
+    const debt = homeCity.money < 0;
     if (debt && !inDebt) hud.notify('The treasury is in debt: upkeep outweighs income.', true);
     inDebt = debt;
     const nextMilestones = cityMilestones(world);
@@ -341,27 +341,28 @@ function boot(): void {
 
   function roadPreview(): Placement {
     const path = roadPath();
-    const preview = roadPathPlacement(world, path);
+    const preview = roadPathPlacement(world, primaryCity(world), path);
     const tiles = path.filter(insideMap).map((tile) => tileIndexOn(map(), tile.x, tile.z));
     const reason = preview.ok ? `Road · ${preview.cost} drachmas` : preview.reason;
     return { ...preview, reason, tiles };
   }
 
   function updatePreview(pointer: { x: number; y: number } | null = null): void {
-    if (!primaryCity(world).founded) {
-      const site = hover ?? primaryCity(world).harbour;
-      const preview = foundingPlacement(world, site.x, site.z);
+    const homeCity = primaryCity(world);
+    if (!homeCity.founded) {
+      const site = hover ?? homeCity.harbour;
+      const preview = foundingPlacement(world, homeCity, site.x, site.z);
       city.showPreview('harbour', site.x, site.z, 0, preview);
       city.clearHover();
       overlay.setFertileGround(null);
       overlay.setBlockedTiles([]);
       overlay.setDemolitionTarget([]);
-      overlay.setHarbourRoute(preview.ok ? harbourRoute(world, preview.tiles) : null);
+      overlay.setHarbourRoute(preview.ok ? harbourRoute(world, homeCity, preview.tiles) : null);
       stage.canvas.style.cursor = preview.ok ? 'crosshair' : 'not-allowed';
       hud.setHint(preview.ok ? 'Found your city here · Harbour is free · H returns to the landing · Escape opens the menu' : preview.reason);
       return;
     }
-    overlay.setFertileGround(tool === 'farm' ? suitableFarmGround(world) : null);
+    overlay.setFertileGround(tool === 'farm' ? suitableFarmGround(world, homeCity) : null);
     stage.canvas.style.cursor = tool === 'inspect' ? '' : 'crosshair';
     if (tool !== 'inspect') city.clearHover();
     if (!hover || tool === 'inspect') {
@@ -374,7 +375,7 @@ function boot(): void {
       return;
     }
     if (tool === 'demolish') {
-      const found = demolitionPreview(world, hover.x, hover.z);
+      const found = demolitionPreview(world, homeCity, hover.x, hover.z);
       overlay.setBlockedTiles([]);
       overlay.setHarbourRoute(null);
       overlay.setDemolitionTarget(found?.footprint ?? []);
@@ -389,19 +390,19 @@ function boot(): void {
       city.showPreview(tool, hover.x, hover.z, rotation, preview);
       overlay.setBlockedTiles([]);
       overlay.setDemolitionTarget([]);
-      overlay.setHarbourRoute(preview.ok ? harbourRoute(world, preview.tiles) : null);
+      overlay.setHarbourRoute(preview.ok ? harbourRoute(world, homeCity, preview.tiles) : null);
       if (!preview.ok) stage.canvas.style.cursor = 'not-allowed';
       hud.setHint(`${preview.reason} · Hold Shift to bend the other way · Escape cancels`);
       return;
     }
-    const preview = placement(world, tool, hover.x, hover.z, rotation);
-    const issues = footprintTileIssues(world, tool, hover.x, hover.z, rotation);
+    const preview = placement(world, homeCity, tool, hover.x, hover.z, rotation);
+    const issues = footprintTileIssues(world, homeCity, tool, hover.x, hover.z, rotation);
     const validTiles = issues.filter((tile) => !tile.blocked);
     const invalidTiles = issues.filter((tile) => tile.blocked && insideMap(tile));
     city.showPreview(tool, hover.x, hover.z, rotation, { ...preview, ok: true, tiles: validTiles.map((tile) => tileIndexOn(map(), tile.x, tile.z)) });
     overlay.setBlockedTiles(invalidTiles);
     overlay.setDemolitionTarget([]);
-    overlay.setHarbourRoute(harbourRoute(world, validTiles.map((tile) => tileIndexOn(map(), tile.x, tile.z))));
+    overlay.setHarbourRoute(harbourRoute(world, homeCity, validTiles.map((tile) => tileIndexOn(map(), tile.x, tile.z))));
     if (!preview.ok) stage.canvas.style.cursor = 'not-allowed';
     hud.setHint(preview.ok ? `${BUILDINGS[tool].name} · ${preview.cost} drachmas · R to rotate · Escape cancels` : preview.reason);
   }
@@ -576,7 +577,7 @@ function boot(): void {
     Reflect.set(window, 'oikos', {
       get state() { return structuredClone(world); },
       freshWorld: (seed: number, home: number, founded = true) => createWorld(seed, home, founded),
-      get summary() { return getSummary(world); },
+      get summary() { return getSummary(primaryCity(world)); },
       get frames() { return stage.frames; },
       get drawCalls() { return stage.renderer.info.render.calls; },
       get sceneBudget() {
@@ -615,7 +616,7 @@ function boot(): void {
       },
       advance: (seconds: number) => { setSpeed(0); advance(world, seconds); refresh(); dirtySave = true; stage.shadows(); },
       get plan() { return planStarterNeighbourhood(world); },
-      foundingPlacement: (x: number, z: number) => foundingPlacement(world, x, z),
+      foundingPlacement: (x: number, z: number) => foundingPlacement(world, primaryCity(world), x, z),
       buildPlan: () => { const result = buildStarterNeighbourhood(world); refresh(); save(true); stage.shadows(); return result; },
       build: (tool: BuildTool, x: number, z: number) => { const result = applyCommand(world, { type: 'build', tool, x, z, rotation: 0 }); refresh(); save(true); return result; },
       road: (tiles: Tile[]) => { const result = applyCommand(world, { type: 'roadPath', tiles }); refresh(); save(true); return result; },

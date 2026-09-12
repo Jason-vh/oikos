@@ -38,8 +38,8 @@ describe('the harbour is always present', () => {
 
   test('nothing can be built or paved over its footprint', () => {
     const world = createWorld();
-    expect(placement(world, 'house', primaryCity(world).harbour.x, primaryCity(world).harbour.z).ok).toBe(false);
-    expect(placement(world, 'road', primaryCity(world).harbour.x, primaryCity(world).harbour.z).ok).toBe(false);
+    expect(placement(world, primaryCity(world), 'house', primaryCity(world).harbour.x, primaryCity(world).harbour.z).ok).toBe(false);
+    expect(placement(world, primaryCity(world), 'road', primaryCity(world).harbour.x, primaryCity(world).harbour.z).ok).toBe(false);
   });
 });
 

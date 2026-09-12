@@ -73,7 +73,8 @@ export function planStarterNeighbourhood(world: World): StarterPlan | null {
   if (!primaryCity(world).founded) return null;
   const map = islandFor(world.seed, primaryCity(world).home);
   const trial = structuredClone(world);
-  const trialRoads = primaryCity(trial).roads;
+  const trialCity = primaryCity(trial);
+  const trialRoads = trialCity.roads;
   const roads = new Set(trialRoads);
   const plan: StarterPlan = { buildings: [], roads: [] };
   const roadTop = { x: map.entry.x, z: Math.min(...trialRoads.map((index) => Math.floor(index / map.width))) };
@@ -81,7 +82,7 @@ export function planStarterNeighbourhood(world: World): StarterPlan | null {
     let placed = false;
     for (let radius = 2; radius <= 22 && !placed; radius++) {
       for (const tile of ringAround(map, roadTop, radius)) {
-        const check = placement(trial, kind, tile.x, tile.z, 0);
+        const check = placement(trial, trialCity, kind, tile.x, tile.z, 0);
         if (!check.ok) continue;
         const door = frontDoor(kind, tile.x, tile.z);
         if (!buildable(terrainOn(map, door.x, door.z)) && !roads.has(tileIndexOn(map, door.x, door.z))) continue;

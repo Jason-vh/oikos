@@ -12,12 +12,12 @@ for (let choice = 0; choice < ISLAND_COUNT * 2; choice++) {
   const home = choice % ISLAND_COUNT;
   test(`seed ${seed}, island ${home + 1} supports a settled, supplied neighbourhood and exact saves`, () => {
     const world = createWorld(seed, home);
-    const map = mapOf(world);
+    const map = mapOf(world, primaryCity(world));
     const island = map.islands[home];
     const city = primaryCity(world);
     expect(city.home).toBe(home);
     expect(map.entry).toEqual(island.entry);
-    expect(city.roads).toContain(entryTileIndex(world));
+    expect(city.roads).toContain(entryTileIndex(world, city));
     for (const tile of [...city.roads, ...footprintTiles(map, city.harbour)]) {
       const { x, z } = tileAtOn(map, tile);
       expect(islandAt(map, x, z)).toEqual(island);
@@ -26,7 +26,7 @@ for (let choice = 0; choice < ISLAND_COUNT * 2; choice++) {
     expect(city.harbour.connected).toBe(true);
     expect(buildStarterNeighbourhood(world).ok).toBe(true);
     advance(world, 180);
-    expect(getSummary(world).goal).toBe(true);
+    expect(getSummary(primaryCity(world)).goal).toBe(true);
     expect(city.walkers.length).toBeGreaterThan(0);
     const loaded = deserializeWorld(serializeWorld(world));
     expect(loaded).toEqual(world);

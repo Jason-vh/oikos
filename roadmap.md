@@ -203,8 +203,10 @@ new shipping network to supply these sanctuaries.”
   ownership checks and execution. Local play and undo still work as before.
 - Settlement metadata now lives in `World.cities`. Version-4–8 saves migrate without
   changing their city or shared world state. Roads, buildings, and walkers have
-  followed: a city is now a complete, self-contained settlement, ready for the
-  ownership and multi-city work ahead.
+  followed: a city is now a complete, self-contained settlement. Read-only
+  engine queries now take an explicit City; mutation and the simulation tick
+  still assume the single primary city, ready for the ownership and multi-city
+  work ahead.
 - This remains a local, single-player game. Unrestricted coastal harbour siting,
   player identity, shared ownership data, and the persistent server are still ahead.
 

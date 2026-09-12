@@ -1,7 +1,6 @@
-import type { Building, BuildingKind, Walker, WalkerKind, World } from './types';
+import type { Building, BuildingKind, City, Walker, WalkerKind, World } from './types';
 import { ROAD_BUDGET } from './balance';
 import { accessDoors, buildServiceCircuit, exitTile, mapOf } from './grid';
-import { primaryCity } from './city';
 
 const CIRCUIT_WALKER: Partial<Record<BuildingKind, WalkerKind>> = {
   agora: 'vendor',
@@ -15,17 +14,16 @@ export interface ServiceRoute {
   live: boolean;
 }
 
-export function serviceRoute(world: World, building: Building): ServiceRoute | null {
+export function serviceRoute(world: World, city: City, building: Building): ServiceRoute | null {
   const kind = CIRCUIT_WALKER[building.kind];
   if (!kind || !building.connected) return null;
   if (building.kind === 'agora' && !building.vendorInstalled) return null;
 
-  const city = primaryCity(world);
   const active = city.walkers.find((walker) => walker.homeId === building.id && walker.kind === kind);
-  const path = active ? active.path : plannedCircuit(world, building);
+  const path = active ? active.path : plannedCircuit(world, city, building);
   if (path.length <= 1) return null;
 
-  const map = mapOf(world);
+  const map = mapOf(world, city);
   const roads = new Set(city.roads);
   const onRoute = new Set(path);
   const servesEveryKind = kind === 'maintenance';
@@ -38,9 +36,9 @@ export function serviceRoute(world: World, building: Building): ServiceRoute | n
   return { path, servedIds, live: active !== undefined };
 }
 
-function plannedCircuit(world: World, building: Building): number[] {
-  const exit = exitTile(world, building);
-  return exit === -1 ? [] : buildServiceCircuit(world, exit, ROAD_BUDGET);
+function plannedCircuit(world: World, city: City, building: Building): number[] {
+  const exit = exitTile(world, city, building);
+  return exit === -1 ? [] : buildServiceCircuit(world, city, exit, ROAD_BUDGET);
 }
 
 export function walkerRoute(walker: Walker): number[] {
@@ -55,10 +53,10 @@ export interface DeliveryRoute {
   otherId: number;
 }
 
-export function deliveryRoutes(world: World, building: Building): DeliveryRoute[] {
+export function deliveryRoutes(city: City, building: Building): DeliveryRoute[] {
   if (!SUPPLY_KINDS.has(building.kind)) return [];
   const routes: DeliveryRoute[] = [];
-  for (const walker of primaryCity(world).walkers) {
+  for (const walker of city.walkers) {
     if (walker.targetId === null) continue;
     if ((walker.kind === 'cart' || walker.kind === 'buyer') && walker.homeId === building.id) {
       routes.push({ walkerId: walker.id, path: walker.path, otherId: walker.targetId });

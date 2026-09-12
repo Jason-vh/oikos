@@ -18,7 +18,7 @@ for (const version of [4, 5, 6]) {
     const world = createWorld(2);
     const original = { ...primaryCity(world).harbour };
     for (const tile of [...primaryCity(world).roads]) {
-      const { x, z } = tileAtOn(mapOf(world), tile);
+      const { x, z } = tileAtOn(mapOf(world, primaryCity(world)), tile);
       expect(demolish(world, x, z).ok).toBe(true);
     }
     expect(primaryCity(world).harbour.connected).toBe(false);
@@ -55,7 +55,7 @@ test('rejects missing, fractional, off-map, and foreign harbour sites instead of
 test('rejects road and building overlaps with the saved harbour', () => {
   const world = createWorld(1);
   const raw = JSON.parse(serializeWorld(world));
-  const tile = footprintTiles(mapOf(world), primaryCity(world).harbour)[0];
+  const tile = footprintTiles(mapOf(world, primaryCity(world)), primaryCity(world).harbour)[0];
   raw.cities[0].roads.push(tile);
   expect(deserializeWorld(JSON.stringify(raw))).toBeNull();
   raw.cities[0].roads.pop();

@@ -68,7 +68,7 @@ test('JSON commands found and grow exactly the same city as the direct simulatio
   advance(world, 180);
   advance(replay, 180);
   advance(direct, 180);
-  expect(getSummary(world).goal).toBe(true);
+  expect(getSummary(primaryCity(world)).goal).toBe(true);
   expect(world).toEqual(replay);
   expect(world).toEqual(direct);
   const house = primaryCity(world).buildings.find((building) => building.kind === 'house')!;

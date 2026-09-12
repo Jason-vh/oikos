@@ -11,10 +11,11 @@ export interface CityMilestones {
 }
 
 export function cityMilestones(world: World): CityMilestones {
-  const summary = getSummary(world);
+  const city = primaryCity(world);
+  const summary = getSummary(city);
   return {
     settled: summary.population > 0,
-    delivered: primaryCity(world).delivered > 0,
+    delivered: city.delivered > 0,
     courtyard: summary.prosperous > 0,
     thriving: summary.goal,
   };

@@ -79,8 +79,8 @@ export function createWorld(seed = DEFAULT_SEED, home?: number, founded = true):
   return world;
 }
 
-function mapOf(world: World): IslandMap {
-  return islandFor(world.seed, primaryCity(world).home);
+function mapOf(world: World, city: City): IslandMap {
+  return islandFor(world.seed, city.home);
 }
 
 const REASON = {
@@ -103,10 +103,9 @@ const REASON = {
   foundingRequired: 'Place your founding harbour first.',
 } as const;
 
-function buildingAt(world: World, tile: number): Building | undefined {
-  const city = primaryCity(world);
+function buildingAt(world: World, city: City, tile: number): Building | undefined {
   if (harbourTiles(world).includes(tile)) return city.harbour;
-  const map = mapOf(world);
+  const map = mapOf(world, city);
   return city.buildings.find((building) => footprintTiles(map, building).includes(tile));
 }
 
@@ -165,16 +164,15 @@ function stairPlacementIssue(map: IslandMap, roads: ReadonlySet<number>, newTile
   return null;
 }
 
-function evaluatePlacement(world: World, tool: BuildTool, x: number, z: number, rotation: Rotation): Placement {
-  const city = primaryCity(world);
+function evaluatePlacement(world: World, city: City, tool: BuildTool, x: number, z: number, rotation: Rotation): Placement {
   if (!city.founded) return { ok: false, reason: REASON.foundingRequired, cost: 0, tiles: [] };
-  const map = mapOf(world);
+  const map = mapOf(world, city);
   if (tool === 'road') {
     if (!insideMapOn(map, x, z)) return { ok: false, reason: REASON.outOfBounds, cost: 0, tiles: [] };
     const tile = tileIndexOn(map, x, z);
     if (!terrainAllows(map, tool, x, z)) return { ok: false, reason: REASON.unsuitableTerrain, cost: 0, tiles: [tile] };
     if (!onHomeIsland(map, x, z)) return { ok: false, reason: REASON.unsettledIsland, cost: 0, tiles: [tile] };
-    if (buildingAt(world, tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: [tile] };
+    if (buildingAt(world, city, tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: [tile] };
     if (neighbourGradeIssue(map, new Set(city.roads), tile)) return { ok: false, reason: REASON.roadTooSteep, cost: 0, tiles: [tile] };
     const already = city.roads.includes(tile);
     if (!already) {
@@ -209,21 +207,21 @@ function evaluatePlacement(world: World, tool: BuildTool, x: number, z: number, 
     }
     if (!onHomeIsland(map, tx, tz)) return { ok: false, reason: REASON.unsettledIsland, cost: definition.cost, tiles };
     if (city.roads.includes(tile)) return { ok: false, reason: REASON.tileOccupiedByRoad, cost: definition.cost, tiles };
-    if (buildingAt(world, tile)) return { ok: false, reason: REASON.tileOccupied, cost: definition.cost, tiles };
+    if (buildingAt(world, city, tile)) return { ok: false, reason: REASON.tileOccupied, cost: definition.cost, tiles };
   }
   if (definition.cost > city.money) return { ok: false, reason: REASON.notEnoughMoney, cost: definition.cost, tiles };
   return { ok: true, reason: '', cost: definition.cost, tiles };
 }
 
-export function placement(world: World, tool: BuildTool, x: number, z: number, rotation: Rotation = 0): Placement {
-  return evaluatePlacement(world, tool, x, z, rotation);
+export function placement(world: World, city: City, tool: BuildTool, x: number, z: number, rotation: Rotation = 0): Placement {
+  return evaluatePlacement(world, city, tool, x, z, rotation);
 }
 
 export function build(world: World, tool: BuildTool, x: number, z: number, rotation: Rotation = 0): ActionResult {
-  const result = evaluatePlacement(world, tool, x, z, rotation);
-  if (!result.ok) return result;
   const city = primaryCity(world);
-  const beforeStairs = stairLayout(mapOf(world), new Set(city.roads));
+  const result = evaluatePlacement(world, city, tool, x, z, rotation);
+  if (!result.ok) return result;
+  const beforeStairs = stairLayout(mapOf(world, city), new Set(city.roads));
 
   city.money -= result.cost;
   let reason: string;
@@ -260,10 +258,9 @@ export function build(world: World, tool: BuildTool, x: number, z: number, rotat
   return { ok: true, reason };
 }
 
-function evaluateRoadPath(world: World, tiles: Tile[]): Placement {
-  const city = primaryCity(world);
+function evaluateRoadPath(world: World, city: City, tiles: Tile[]): Placement {
   if (!city.founded) return { ok: false, reason: REASON.foundingRequired, cost: 0, tiles: [] };
-  const map = mapOf(world);
+  const map = mapOf(world, city);
   const seen = new Set<number>();
   const indices: number[] = [];
   for (const { x, z } of tiles) {
@@ -273,7 +270,7 @@ function evaluateRoadPath(world: World, tiles: Tile[]): Placement {
     seen.add(tile);
     if (!terrainAllows(map, 'road', x, z)) return { ok: false, reason: REASON.unsuitableTerrain, cost: 0, tiles: indices };
     if (!onHomeIsland(map, x, z)) return { ok: false, reason: REASON.unsettledIsland, cost: 0, tiles: [...indices, tile] };
-    if (buildingAt(world, tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: indices };
+    if (buildingAt(world, city, tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: indices };
     indices.push(tile);
   }
 
@@ -293,15 +290,15 @@ function evaluateRoadPath(world: World, tiles: Tile[]): Placement {
   return { ok: true, reason: '', cost, tiles: indices };
 }
 
-export function roadPathPlacement(world: World, tiles: Tile[]): Placement {
-  return evaluateRoadPath(world, tiles);
+export function roadPathPlacement(world: World, city: City, tiles: Tile[]): Placement {
+  return evaluateRoadPath(world, city, tiles);
 }
 
 export function placeRoadPath(world: World, tiles: Tile[]): ActionResult {
-  const result = evaluateRoadPath(world, tiles);
-  if (!result.ok) return { ok: false, reason: result.reason };
   const city = primaryCity(world);
-  const beforeStairs = stairLayout(mapOf(world), new Set(city.roads));
+  const result = evaluateRoadPath(world, city, tiles);
+  if (!result.ok) return { ok: false, reason: result.reason };
+  const beforeStairs = stairLayout(mapOf(world, city), new Set(city.roads));
 
   const existing = new Set(city.roads);
   city.money -= result.cost;
@@ -314,11 +311,11 @@ export function placeRoadPath(world: World, tiles: Tile[]): ActionResult {
 export function demolish(world: World, x: number, z: number): ActionResult {
   const city = primaryCity(world);
   if (!city.founded) return { ok: false, reason: REASON.foundingRequired };
-  const map = mapOf(world);
+  const map = mapOf(world, city);
   if (!insideMapOn(map, x, z)) return { ok: false, reason: REASON.outOfBounds };
   const tile = tileIndexOn(map, x, z);
 
-  const building = buildingAt(world, tile);
+  const building = buildingAt(world, city, tile);
   if (building) {
     if (building.kind === 'harbour') return { ok: false, reason: REASON.harbourPermanent };
     const refund = Math.floor((BUILDINGS[building.kind].cost + (building.vendorInstalled ? VENDOR_COST : 0)) / 2);
@@ -377,8 +374,8 @@ function currentSegmentChanged(before: ReadonlyMap<number, Stair>, after: Readon
 }
 
 export function dropInvalidWalkers(world: World, beforeStairs?: ReadonlyMap<number, Stair>): void {
-  const map = mapOf(world);
   const city = primaryCity(world);
+  const map = mapOf(world, city);
   const roads = new Set(city.roads);
   const stairs = stairLayout(map, roads);
   city.walkers = city.walkers.filter((walker) => {
@@ -420,8 +417,8 @@ export function setVendor(world: World, id: number, enabled: boolean): ActionRes
 export function recomputeConnectivity(world: World): void {
   const city = primaryCity(world);
   const roads = new Set(city.roads);
-  const map = mapOf(world);
-  const entry = entryTileIndex(world);
+  const map = mapOf(world, city);
+  const entry = entryTileIndex(world, city);
   const reachable = roads.has(entry) ? bfsReachable(map, roads, entry) : new Set<number>();
   for (const building of city.buildings) {
     building.connected = accessDoors(map, roads, building).some((tile) => reachable.has(tile));
@@ -452,8 +449,8 @@ function jobsOf(building: Building): number {
   return BUILDINGS[building.kind].jobs;
 }
 
-export function hasActiveWalker(world: World, homeId: number, kind: WalkerKind): boolean {
-  return primaryCity(world).walkers.some((walker) => walker.homeId === homeId && walker.kind === kind);
+export function hasActiveWalker(city: City, homeId: number, kind: WalkerKind): boolean {
+  return city.walkers.some((walker) => walker.homeId === homeId && walker.kind === kind);
 }
 
 type WalkerSeed = Omit<Walker, 'id' | 'overland' | 'quarry' | 'working'> & Partial<Pick<Walker, 'overland' | 'quarry' | 'working'>>;
@@ -497,13 +494,14 @@ function updateFarm(world: World, farm: Building, dt: number): void {
 export function sendCart(world: World, producer: Building): void {
   if (!producer.connected || producer.workers <= 0) return;
   if (totalStock(producer) <= 0) return;
-  if (hasActiveWalker(world, producer.id, 'cart')) return;
+  const city = primaryCity(world);
+  if (hasActiveWalker(city, producer.id, 'cart')) return;
   const resource = (Object.keys(producer.stores) as Resource[])[0];
-  const exit = exitTile(world, producer);
+  const exit = exitTile(world, city, producer);
   if (exit === -1) return;
   const storeKind = isFood(resource) ? 'granary' : 'stockpile';
-  const stores = primaryCity(world).buildings.filter((building) => building.kind === storeKind && building.connected && totalStock(building) < storeCapacity(building));
-  const found = findNearestConnected(world, exit, stores);
+  const stores = city.buildings.filter((building) => building.kind === storeKind && building.connected && totalStock(building) < storeCapacity(building));
+  const found = findNearestConnected(world, city, exit, stores);
   if (!found) return;
   const cargo = Math.min(producer.stores[resource] ?? 0, CART_CAPACITY, storeCapacity(found.building) - totalStock(found.building));
   if (cargo <= 0) return;
@@ -530,12 +528,13 @@ export function storeCapacity(building: Building): number {
 function updateAgora(world: World, agora: Building, dt: number): void {
   void dt;
   if (!agora.connected || agora.workers <= 0) return;
+  const city = primaryCity(world);
 
-  if (!hasActiveWalker(world, agora.id, 'buyer') && totalStock(agora) < AGORA_CAP) {
-    const exit = exitTile(world, agora);
-    const granaries = primaryCity(world).buildings.filter((building) => building.kind === 'granary' && building.connected && totalStock(building) > 0);
+  if (!hasActiveWalker(city, agora.id, 'buyer') && totalStock(agora) < AGORA_CAP) {
+    const exit = exitTile(world, city, agora);
+    const granaries = city.buildings.filter((building) => building.kind === 'granary' && building.connected && totalStock(building) > 0);
     if (exit !== -1 && granaries.length > 0) {
-      const found = findNearestConnected(world, exit, granaries);
+      const found = findNearestConnected(world, city, exit, granaries);
       if (found) {
         const food = richestFood(found.building.stores);
         const cargo = food ? Math.min(found.building.stores[food] ?? 0, BUYER_FETCH_CAPACITY, AGORA_CAP - totalStock(agora)) : 0;
@@ -557,12 +556,12 @@ function updateAgora(world: World, agora: Building, dt: number): void {
     }
   }
 
-  if (agora.vendorEnabled && totalStock(agora) > 0 && !hasActiveWalker(world, agora.id, 'vendor')) {
-    const exit = exitTile(world, agora);
+  if (agora.vendorEnabled && totalStock(agora) > 0 && !hasActiveWalker(city, agora.id, 'vendor')) {
+    const exit = exitTile(world, city, agora);
     if (exit !== -1) {
       const food = richestFood(agora.stores);
       const cargo = food ? Math.min(agora.stores[food] ?? 0, VENDOR_TRIP_CAPACITY) : 0;
-      const path = buildServiceCircuit(world, exit, ROAD_BUDGET);
+      const path = buildServiceCircuit(world, city, exit, ROAD_BUDGET);
       if (path.length > 1) {
         addStore(agora, food!, -cargo);
         spawnWalker(world, {
@@ -583,10 +582,11 @@ function updateAgora(world: World, agora: Building, dt: number): void {
 
 function updateCircuitDispatch(world: World, building: Building, kind: WalkerKind): void {
   if (!building.connected || building.workers <= 0) return;
-  if (hasActiveWalker(world, building.id, kind)) return;
-  const exit = exitTile(world, building);
+  const city = primaryCity(world);
+  if (hasActiveWalker(city, building.id, kind)) return;
+  const exit = exitTile(world, city, building);
   if (exit === -1) return;
-  const path = buildServiceCircuit(world, exit, ROAD_BUDGET);
+  const path = buildServiceCircuit(world, city, exit, ROAD_BUDGET);
   if (path.length <= 1) return;
   spawnWalker(world, {
     kind,
@@ -602,8 +602,8 @@ function updateCircuitDispatch(world: World, building: Building, kind: WalkerKin
 }
 
 function buildingsAdjacentToTile(world: World, tile: number): Building[] {
-  const map = mapOf(world);
   const city = primaryCity(world);
+  const map = mapOf(world, city);
   const roads = new Set(city.roads);
   return city.buildings.filter((building) => accessDoors(map, roads, building).includes(tile));
 }
@@ -689,8 +689,8 @@ function onFinalArrival(world: World, walker: Walker): boolean {
 }
 
 function moveWalkers(world: World, dt: number): void {
-  const map = mapOf(world);
   const city = primaryCity(world);
+  const map = mapOf(world, city);
   const roads = new Set(city.roads);
   const stairs = stairLayout(map, roads);
   const alive: Walker[] = [];
@@ -737,9 +737,10 @@ function arrivingResidents(world: World, houseId: number): number {
 
 function sendImmigrants(world: World, house: Building, party: number): void {
   if (party <= 0) return;
-  const roads = new Set(primaryCity(world).roads);
-  const goals = new Set(accessTiles(world, house));
-  const path = bfsShortest(mapOf(world), roads, entryTileIndex(world), (tile) => goals.has(tile));
+  const city = primaryCity(world);
+  const roads = new Set(city.roads);
+  const goals = new Set(accessTiles(world, city, house));
+  const path = bfsShortest(mapOf(world, city), roads, entryTileIndex(world, city), (tile) => goals.has(tile));
   if (!path) return;
   spawnWalker(world, {
     kind: 'immigrant',
@@ -820,8 +821,9 @@ function tickHouse(world: World, house: Building, dt: number): void {
 }
 
 function updateFinances(world: World, dt: number): void {
-  const summary = getSummary(world);
-  primaryCity(world).money += summary.balance * (dt / MONTH_SECONDS);
+  const city = primaryCity(world);
+  const summary = getSummary(city);
+  city.money += summary.balance * (dt / MONTH_SECONDS);
 }
 
 function simulationStep(world: World, dt: number): void {
@@ -854,8 +856,7 @@ export function advance(world: World, seconds: number): void {
   }
 }
 
-export function getSummary(world: World): Summary {
-  const city = primaryCity(world);
+export function getSummary(city: City): Summary {
   const houses = city.buildings.filter((building) => building.kind === 'house');
   const workplaces = city.buildings.filter((building) => building.kind !== 'house');
   const population = houses.reduce((sum, house) => sum + house.residents, 0);
@@ -872,7 +873,7 @@ export function getSummary(world: World): Summary {
   return { population, workers, jobs, food, income, upkeep, balance, prosperous, goal };
 }
 
-function houseStatus(world: World, building: Building): string[] {
+function houseStatus(city: City, building: Building): string[] {
   const lines: string[] = [];
   const capacity = HOUSE_CAPACITY[building.tier];
   const needsFoodNow = building.tier >= 2;
@@ -894,18 +895,18 @@ function houseStatus(world: World, building: Building): string[] {
     lines.push('A thriving courtyard house.');
   }
 
-  if (building.condition < 50) lines.push(neglectAdvice(world));
+  if (building.condition < 50) lines.push(neglectAdvice(city));
   return lines;
 }
 
-function neglectAdvice(world: World): string {
-  const caretakers = primaryCity(world).buildings.some((candidate) => candidate.kind === 'maintenance' && candidate.connected);
+function neglectAdvice(city: City): string {
+  const caretakers = city.buildings.some((candidate) => candidate.kind === 'maintenance' && candidate.connected);
   return caretakers ? 'Neglected; a caretaker will repair it.' : 'Neglected; build a maintenance post.';
 }
 
-export function buildingStatus(world: World, building: Building): string[] {
+export function buildingStatus(city: City, building: Building): string[] {
   if (!building.connected) return ['Not linked to a road; nobody can reach it.'];
-  if (building.kind === 'house') return houseStatus(world, building);
+  if (building.kind === 'house') return houseStatus(city, building);
 
   const definition = BUILDINGS[building.kind];
   const lines: string[] = [];
@@ -913,7 +914,7 @@ export function buildingStatus(world: World, building: Building): string[] {
   if (building.workers < definition.jobs * .999) {
     lines.push(building.workers > 0 ? 'Short of workers; more settlers are needed.' : 'Unstaffed; settlers are needed for work.');
   } else if (building.kind === 'farm') {
-    if (totalStock(building) > 0 && !hasActiveWalker(world, building.id, 'cart')) {
+    if (totalStock(building) > 0 && !hasActiveWalker(city, building.id, 'cart')) {
       lines.push('Harvest ready, but no granary to send it to.');
     } else {
       lines.push(`Growing wheat, ${Math.round(building.progress * 100)}% to harvest.`);
@@ -922,17 +923,17 @@ export function buildingStatus(world: World, building: Building): string[] {
     lines.push(totalStock(building) > 0 ? 'Stocked and ready for buyers.' : 'Empty; waiting for a farm cart.');
   } else if (building.kind === 'agora') {
     if (!building.vendorInstalled) lines.push('Add a food vendor to start deliveries.');
-    else if (hasActiveWalker(world, building.id, 'vendor')) lines.push('Vendor on the streets.');
+    else if (hasActiveWalker(city, building.id, 'vendor')) lines.push('Vendor on the streets.');
     else lines.push('Vendor resting at market.');
   } else if (building.kind === 'fountain') {
-    lines.push(hasActiveWalker(world, building.id, 'water') ? 'Water carrier making the rounds.' : 'Water carrier resting at the fountain.');
+    lines.push(hasActiveWalker(city, building.id, 'water') ? 'Water carrier making the rounds.' : 'Water carrier resting at the fountain.');
   } else if (building.kind === 'maintenance') {
-    lines.push(hasActiveWalker(world, building.id, 'maintenance') ? 'Caretaker doing rounds.' : 'Caretaker resting at the post.');
+    lines.push(hasActiveWalker(city, building.id, 'maintenance') ? 'Caretaker doing rounds.' : 'Caretaker resting at the post.');
   } else if (building.kind === 'harbour') {
     lines.push(...harbourStatus(building));
   }
 
-  if (building.condition < 50) lines.push(neglectAdvice(world));
+  if (building.condition < 50) lines.push(neglectAdvice(city));
   return lines;
 }
 
@@ -956,10 +957,9 @@ export function walkerName(walker: Walker): string {
   return NAMES[walker.id % NAMES.length];
 }
 
-export function walkerStatus(world: World, walker: Walker): string[] {
-  const buildings = primaryCity(world).buildings;
-  const home = buildings.find((building) => building.id === walker.homeId);
-  const target = buildings.find((building) => building.id === walker.targetId);
+export function walkerStatus(city: City, walker: Walker): string[] {
+  const home = city.buildings.find((building) => building.id === walker.homeId);
+  const target = city.buildings.find((building) => building.id === walker.targetId);
   const named = (building: Building | undefined) => building ? (building.kind === 'house' ? 'a house' : `the ${BUILDINGS[building.kind].name.toLowerCase()}`) : 'home';
   const load = walker.food ? `${Math.round(walker.cargo)} ${walker.food}` : '';
   switch (walker.kind) {

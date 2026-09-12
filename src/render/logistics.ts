@@ -81,15 +81,16 @@ export class LogisticsOverlay {
       this.clear();
       return;
     }
-    const building = buildingId !== null ? primaryCity(world).buildings.find((candidate) => candidate.id === buildingId) ?? null : null;
+    const city = primaryCity(world);
+    const building = buildingId !== null ? city.buildings.find((candidate) => candidate.id === buildingId) ?? null : null;
     if (building) {
-      const circuit = serviceRoute(world, building);
+      const circuit = serviceRoute(world, city, building);
       if (circuit) {
         const key = `b:${building.id}:${circuit.live}:${circuit.path.join(',')}`;
         this.apply(world, key, [circuit.path], circuit.servedIds, circuit.live ? 'live' : 'planned');
         return;
       }
-      const deliveries = deliveryRoutes(world, building);
+      const deliveries = deliveryRoutes(city, building);
       if (deliveries.length > 0) {
         const key = `d:${building.id}:${deliveries.map((route) => `${route.walkerId}=${route.path.join('-')}`).join(',')}`;
         this.apply(world, key, deliveries.map((route) => route.path), deliveries.map((route) => route.otherId), 'delivery');
@@ -98,7 +99,7 @@ export class LogisticsOverlay {
       this.clear();
       return;
     }
-    const walker = walkerId !== null ? primaryCity(world).walkers.find((candidate) => candidate.id === walkerId) ?? null : null;
+    const walker = walkerId !== null ? city.walkers.find((candidate) => candidate.id === walkerId) ?? null : null;
     if (walker) {
       const path = walkerRoute(walker);
       const key = `w:${walker.id}:${path.join(',')}`;

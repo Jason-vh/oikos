@@ -1,12 +1,14 @@
 import type { ActionResult, Building, BuildingKind, BuildTool, Rotation, Tile, World } from './types';
 import { footprint } from './catalog';
 import { buildable, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn, type IslandMap, type IslandPlacement } from './island';
-import { mapOf, neighbours, perimeterTiles, footprintTiles } from './grid';
+import { mapOf as gridMapOf, neighbours, perimeterTiles, footprintTiles } from './grid';
 import { harbourTiles } from './harbour';
 import { placement, placeRoadPath } from './world';
 import { primaryCity } from './city';
 
-export { mapOf };
+export function mapOf(world: World): IslandMap {
+  return gridMapOf(world, primaryCity(world));
+}
 
 export function homeIsland(world: World): IslandPlacement {
   const map = mapOf(world);
@@ -49,14 +51,16 @@ export function findTile(world: World, predicate: (map: IslandMap, x: number, z:
 }
 
 export function spotFor(world: World, kind: BuildTool, near?: Tile, rotation: Rotation = 0): Tile | null {
-  return findTile(world, (_map, x, z) => placement(world, kind, x, z, rotation).ok, near);
+  const city = primaryCity(world);
+  return findTile(world, (_map, x, z) => placement(world, city, kind, x, z, rotation).ok, near);
 }
 
 export function freshRoadSpot(world: World, near?: Tile): Tile | null {
+  const city = primaryCity(world);
   const map = mapOf(world);
   return findTile(world, (_map, x, z) => {
-    if (primaryCity(world).roads.includes(tileIndexOn(map, x, z))) return false;
-    return placement(world, 'road', x, z).ok;
+    if (city.roads.includes(tileIndexOn(map, x, z))) return false;
+    return placement(world, city, 'road', x, z).ok;
   }, near);
 }
 
@@ -76,6 +80,7 @@ function placeholderBuilding(kind: BuildingKind, rotation: Rotation, x: number, 
 }
 
 export function spotAdjacentTo(world: World, kind: Exclude<BuildingKind, 'harbour'>, tile: Tile, rotation: Rotation = 0): Tile | null {
+  const city = primaryCity(world);
   const map = mapOf(world);
   const { width, depth } = footprint(kind, rotation);
   const target = tileIndexOn(map, tile.x, tile.z);
@@ -85,7 +90,7 @@ export function spotAdjacentTo(world: World, kind: Exclude<BuildingKind, 'harbou
       const z = tile.z + dz;
       if (x < 0 || z < 0 || x + width > map.width || z + depth > map.depth) continue;
       if (!perimeterTiles(map, placeholderBuilding(kind, rotation, x, z)).includes(target)) continue;
-      if (placement(world, kind, x, z, rotation).ok) return { x, z };
+      if (placement(world, city, kind, x, z, rotation).ok) return { x, z };
     }
   }
   return null;

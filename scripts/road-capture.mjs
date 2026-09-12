@@ -53,14 +53,15 @@ try {
     const { placement } = await import('/src/sim/world.ts');
     const { islandFor, tileAtOn, groundHeight } = await import('/src/sim/island.ts');
     const world = window.oikos.state;
+    const city = world.cities[0];
     const map = islandFor(world.seed);
-    for (const index of world.cities[0].roads) {
+    for (const index of city.roads) {
       const tile = tileAtOn(map, index);
       for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const next = { x: tile.x + dx, z: tile.z + dz };
-        if (world.cities[0].roads.includes(next.z * map.width + next.x)) continue;
+        if (city.roads.includes(next.z * map.width + next.x)) continue;
         if (groundHeight(map, tile.x, tile.z) !== groundHeight(map, next.x, next.z)) continue;
-        if (placement(world, 'road', next.x, next.z).ok) return next;
+        if (placement(world, city, 'road', next.x, next.z).ok) return next;
       }
     }
   });

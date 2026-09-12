@@ -1,11 +1,10 @@
-import type { Building, World } from './types';
+import type { Building, City, World } from './types';
 import { footprint } from './catalog';
-import { primaryCity } from './city';
 import { islandFor, insideMapOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import { doorTiles, roadStepAllowed, stairLayout } from './stairs';
 
-export function mapOf(world: World): IslandMap {
-  return islandFor(world.seed, primaryCity(world).home);
+export function mapOf(world: World, city: City): IslandMap {
+  return islandFor(world.seed, city.home);
 }
 
 export function neighbours(map: IslandMap, tile: number): number[] {
@@ -52,23 +51,23 @@ function* clockwiseRing(map: IslandMap, building: Building): Generator<number> {
   for (const [tx, tz] of points) if (insideMapOn(map, tx, tz)) yield tileIndexOn(map, tx, tz);
 }
 
-export function accessTiles(world: World, building: Building): number[] {
-  const map = mapOf(world);
-  const roads = new Set(primaryCity(world).roads);
+export function accessTiles(world: World, city: City, building: Building): number[] {
+  const map = mapOf(world, city);
+  const roads = new Set(city.roads);
   return accessDoors(map, roads, building).filter((tile) => roads.has(tile));
 }
 
-export function exitTile(world: World, building: Building): number {
-  const map = mapOf(world);
-  const doors = new Set(accessTiles(world, building));
+export function exitTile(world: World, city: City, building: Building): number {
+  const map = mapOf(world, city);
+  const doors = new Set(accessTiles(world, city, building));
   for (const tile of clockwiseRing(map, building)) {
     if (doors.has(tile)) return tile;
   }
   return -1;
 }
 
-export function entryTileIndex(world: World): number {
-  const map = mapOf(world);
+export function entryTileIndex(world: World, city: City): number {
+  const map = mapOf(world, city);
   return tileIndexOn(map, map.entry.x, map.entry.z);
 }
 
@@ -116,9 +115,9 @@ function reconstruct(cameFrom: Map<number, number>, goal: number): number[] {
   return path.reverse();
 }
 
-export function buildServiceCircuit(world: World, start: number, budget: number): number[] {
-  const map = mapOf(world);
-  const roads = new Set(primaryCity(world).roads);
+export function buildServiceCircuit(world: World, city: City, start: number, budget: number): number[] {
+  const map = mapOf(world, city);
+  const roads = new Set(city.roads);
   const stairs = stairLayout(map, roads);
   if (!roads.has(start)) return [start];
   const visited = new Set<number>([start]);
@@ -150,14 +149,15 @@ export function buildServiceCircuit(world: World, start: number, budget: number)
 
 export function findNearestConnected(
   world: World,
+  city: City,
   fromTile: number,
   candidates: Building[],
 ): { building: Building; path: number[] } | null {
-  const map = mapOf(world);
-  const roads = new Set(primaryCity(world).roads);
+  const map = mapOf(world, city);
+  const roads = new Set(city.roads);
   let best: { building: Building; path: number[] } | null = null;
   for (const candidate of candidates) {
-    const goals = new Set(accessTiles(world, candidate));
+    const goals = new Set(accessTiles(world, city, candidate));
     if (goals.size === 0) continue;
     const path = bfsShortest(map, roads, fromTile, (tile) => goals.has(tile));
     if (!path) continue;

@@ -10,12 +10,12 @@ import { advance, build, createWorld, demolish, getSummary, placement, placeRoad
 import { primaryCity } from './city';
 
 function alternateSite(world: World) {
-  const { entry } = mapOf(world);
+  const { entry } = mapOf(world, primaryCity(world));
   const harbour = primaryCity(world).harbour;
   for (let z = entry.z - FOUNDING_RANGE; z < entry.z; z++) {
     for (let x = entry.x - FOUNDING_RANGE; x <= entry.x + FOUNDING_RANGE; x++) {
       if (x === harbour.x && z === harbour.z) continue;
-      if (foundingPlacement(world, x, z).ok) return { x, z };
+      if (foundingPlacement(world, primaryCity(world), x, z).ok) return { x, z };
     }
   }
   throw new Error('No alternative founding site.');
@@ -32,7 +32,7 @@ for (const seed of [1, 2]) {
       expect(city.harbour.connected).toBe(true);
       expect(buildStarterNeighbourhood(world).ok).toBe(true);
       advance(world, 180);
-      expect(getSummary(world).goal).toBe(true);
+      expect(getSummary(primaryCity(world)).goal).toBe(true);
     });
   }
 }
@@ -55,7 +55,7 @@ test('founding can choose a different dockyard site, which survives saves and ca
 
 test('invalid sites do not consume the founding opportunity or mutate the city', () => {
   const world = createWorld(1, 0, false);
-  const { entry, islands } = mapOf(world);
+  const { entry, islands } = mapOf(world, primaryCity(world));
   const before = serializeWorld(world);
   const sites = [
     { x: -1, z: -1 },
@@ -65,7 +65,7 @@ test('invalid sites do not consume the founding opportunity or mutate the city',
     islands[7].entry,
   ];
   for (const { x, z } of sites) {
-    expect(foundingPlacement(world, x, z).ok).toBe(false);
+    expect(foundingPlacement(world, primaryCity(world), x, z).ok).toBe(false);
     expect(foundHarbour(world, x, z).ok).toBe(false);
     expect(serializeWorld(world)).toBe(before);
   }
@@ -74,8 +74,8 @@ test('invalid sites do not consume the founding opportunity or mutate the city',
 test('an unfinished founding round-trips and rejects normal commands without advancing time', () => {
   const world = createWorld(2, 7, false);
   const before = serializeWorld(world);
-  const { entry } = mapOf(world);
-  expect(placement(world, 'house', entry.x + 2, entry.z - 6).ok).toBe(false);
+  const { entry } = mapOf(world, primaryCity(world));
+  expect(placement(world, primaryCity(world), 'house', entry.x + 2, entry.z - 6).ok).toBe(false);
   expect(build(world, 'house', entry.x + 2, entry.z - 6).ok).toBe(false);
   expect(placeRoadPath(world, [entry]).ok).toBe(false);
   expect(demolish(world, entry.x, entry.z).ok).toBe(false);

@@ -26,8 +26,9 @@ function passable(world: World, map: IslandMap, roads: Set<number>, index: numbe
 }
 
 export function overlandPath(world: World, start: number, isGoal: (tile: number) => boolean, limit: number): number[] | null {
-  const map = mapOf(world);
-  const roads = new Set(primaryCity(world).roads);
+  const city = primaryCity(world);
+  const map = mapOf(world, city);
+  const roads = new Set(city.roads);
   const stairs = stairLayout(map, roads);
   const cameFrom = new Map<number, number>([[start, -1]]);
   const distance = new Map<number, number>([[start, 0]]);
@@ -87,10 +88,11 @@ export function updateGatherer(world: World, building: Building): void {
   if (!building.connected || building.workers <= 0) return;
   sendCart(world, building);
   const kind = building.kind === 'lodge' ? 'hunter' : 'woodcutter';
-  if (hasActiveWalker(world, building.id, kind)) return;
+  const city = primaryCity(world);
+  if (hasActiveWalker(city, building.id, kind)) return;
   if (totalStock(building) >= GATHER_STOCK_CAP) return;
-  const map = mapOf(world);
-  const doors = accessTiles(world, building);
+  const map = mapOf(world, city);
+  const doors = accessTiles(world, city, building);
   if (doors.length === 0) return;
   const start = doors[0];
   const path = kind === 'hunter'
@@ -108,7 +110,7 @@ export function updateGatherer(world: World, building: Building): void {
       if (standingForest(world, map, candidate)) { quarry = candidate; break; }
     }
   }
-  const roads = new Set(primaryCity(world).roads);
+  const roads = new Set(city.roads);
   spawnWalker(world, {
     kind,
     homeId: building.id,
@@ -133,7 +135,7 @@ export function gatherArrival(world: World, walker: Walker): boolean {
     if (home && walker.food && walker.cargo > 0) addStore(home, walker.food, Math.min(walker.cargo, GATHER_STOCK_CAP - totalStock(home)));
     return true;
   }
-  const map = mapOf(world);
+  const map = mapOf(world, primaryCity(world));
   if (walker.kind === 'hunter') {
     const prey = world.wildlife.find((animal) => animal.id === walker.quarry);
     if (prey && huntable(prey) && withinReach(map, walker, prey)) {
@@ -150,7 +152,7 @@ export function gatherArrival(world: World, walker: Walker): boolean {
 }
 
 export function gatherFinished(world: World, walker: Walker): boolean {
-  const map = mapOf(world);
+  const map = mapOf(world, primaryCity(world));
   if (walker.kind === 'hunter') {
     const prey = world.wildlife.find((animal) => animal.id === walker.quarry);
     if (prey && huntable(prey) && withinReach(map, walker, prey)) {

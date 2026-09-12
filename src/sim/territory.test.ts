@@ -16,15 +16,15 @@ for (const tool of TOOLS) {
     const other = createWorld(1, 7);
     const spot = spotFor(other, tool)!;
     expect(spot).not.toBeNull();
-    expect(placement(other, tool, spot.x, spot.z).ok).toBe(true);
+    expect(placement(other, primaryCity(other), tool, spot.x, spot.z).ok).toBe(true);
     const before = serializeWorld(world);
-    const preview = placement(world, tool, spot.x, spot.z);
+    const preview = placement(world, primaryCity(world), tool, spot.x, spot.z);
     expect(preview.ok).toBe(false);
     expect(preview.reason).toContain('settled island');
     expect(build(world, tool, spot.x, spot.z).ok).toBe(false);
     expect(serializeWorld(world)).toBe(before);
     if (tool !== 'road') {
-      expect(footprintTileIssues(world, tool, spot.x, spot.z, 0).every((tile) => tile.blocked)).toBe(true);
+      expect(footprintTileIssues(world, primaryCity(world), tool, spot.x, spot.z, 0).every((tile) => tile.blocked)).toBe(true);
     }
   });
 }
@@ -36,7 +36,7 @@ test('a road batch reaching an unsettled island is rejected atomically', () => {
   const foreign = spotFor(other, 'road')!;
   const before = serializeWorld(world);
   const tiles = [local, foreign];
-  expect(roadPathPlacement(world, tiles).reason).toContain('settled island');
+  expect(roadPathPlacement(world, primaryCity(world), tiles).reason).toContain('settled island');
   expect(placeRoadPath(world, tiles).ok).toBe(false);
   expect(serializeWorld(world)).toBe(before);
 });
@@ -44,8 +44,8 @@ test('a road batch reaching an unsettled island is rejected atomically', () => {
 test('fertility overlays only advertise fields on the selected island', () => {
   for (let home = 0; home < ISLAND_COUNT; home++) {
     const world = createWorld(1, home);
-    const map = mapOf(world);
-    const fields = suitableFarmGround(world);
+    const map = mapOf(world, primaryCity(world));
+    const fields = suitableFarmGround(world, primaryCity(world));
     expect(fields.length).toBeGreaterThan(0);
     expect(fields.every(({ x, z }) => onHomeIsland(map, x, z))).toBe(true);
   }

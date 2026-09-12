@@ -7,7 +7,10 @@ that multiplayer has shipped. The current game remains local and single-city.
 
 Terrain, time, remainder, the entity allocator, wildlife, felled trees and regrowth
 belong to World. Settlement metadata, roads, buildings and walkers belong to City.
-The collection move landed in version 9; City context threading is the next step.
+The collection move landed in version 9. Read-only queries (grid routing and map
+helpers, placement/road-path/founding previews, construction and logistics
+queries, getSummary/buildingStatus/walkerStatus) now take an explicit City;
+mutation and the simulation tick are the next step.
 
 City-specific engine functions must take `(world, city, …)` explicitly. Resolve
 city IDs against the canonical World at command boundaries; never accept an

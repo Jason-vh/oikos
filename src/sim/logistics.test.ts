@@ -29,14 +29,14 @@ describe('serviceRoute', () => {
     build(world, 'fountain', spot.x, spot.z);
     const fountain = findByKind(world, 'fountain');
     expect(fountain.connected).toBe(false);
-    expect(serviceRoute(world, fountain)).toBeNull();
+    expect(serviceRoute(world, primaryCity(world), fountain)).toBeNull();
   });
 
   test('non-service building kinds have no route', () => {
     const world = createWorld();
     expect(buildStarterNeighbourhood(world).ok).toBe(true);
-    expect(serviceRoute(world, findByKind(world, 'house'))).toBeNull();
-    expect(serviceRoute(world, findByKind(world, 'granary'))).toBeNull();
+    expect(serviceRoute(world, primaryCity(world), findByKind(world, 'house'))).toBeNull();
+    expect(serviceRoute(world, primaryCity(world), findByKind(world, 'granary'))).toBeNull();
   });
 
   test('an agora without an installed vendor has no route', () => {
@@ -45,17 +45,17 @@ describe('serviceRoute', () => {
     build(world, 'agora', spot.x, spot.z);
     const agora = findByKind(world, 'agora');
     expect(agora.connected).toBe(true);
-    expect(serviceRoute(world, agora)).toBeNull();
+    expect(serviceRoute(world, primaryCity(world), agora)).toBeNull();
   });
 
   test('an idle connected service building shows the planned circuit, shared with the road-planning algorithm', () => {
     const world = createWorld();
     expect(buildStarterNeighbourhood(world).ok).toBe(true);
     const fountain = findByKind(world, 'fountain');
-    const route = serviceRoute(world, fountain);
+    const route = serviceRoute(world, primaryCity(world), fountain);
     expect(route).not.toBeNull();
     expect(route!.live).toBe(false);
-    const expected = buildServiceCircuit(world, exitTile(world, fountain), ROAD_BUDGET);
+    const expected = buildServiceCircuit(world, primaryCity(world), exitTile(world, primaryCity(world), fountain), ROAD_BUDGET);
     expect(route!.path).toEqual(expected);
     const houseIds = primaryCity(world).buildings.filter((building) => building.kind === 'house').map((building) => building.id).sort();
     expect(route!.servedIds.sort()).toEqual(houseIds);
@@ -67,7 +67,7 @@ describe('serviceRoute', () => {
     expect(advanceUntilWalker(world, 'water')).toBe(true);
     const fountain = findByKind(world, 'fountain');
     const walker = primaryCity(world).walkers.find((candidate) => candidate.kind === 'water' && candidate.homeId === fountain.id)!;
-    const route = serviceRoute(world, fountain);
+    const route = serviceRoute(world, primaryCity(world), fountain);
     expect(route).not.toBeNull();
     expect(route!.live).toBe(true);
     expect(route!.path).toEqual(walker.path);
@@ -78,7 +78,7 @@ describe('serviceRoute', () => {
     expect(buildStarterNeighbourhood(world).ok).toBe(true);
     expect(advanceUntilWalker(world, 'maintenance')).toBe(true);
     const maintenance = findByKind(world, 'maintenance');
-    const route = serviceRoute(world, maintenance);
+    const route = serviceRoute(world, primaryCity(world), maintenance);
     expect(route).not.toBeNull();
     const servedKinds = new Set(route!.servedIds.map((id) => primaryCity(world).buildings.find((building) => building.id === id)!.kind));
     expect(servedKinds.has('house')).toBe(true);
@@ -98,8 +98,8 @@ describe('deliveryRoutes', () => {
   test('non-supply-chain building kinds have no delivery routes', () => {
     const world = createWorld();
     expect(buildStarterNeighbourhood(world).ok).toBe(true);
-    expect(deliveryRoutes(world, findByKind(world, 'house'))).toEqual([]);
-    expect(deliveryRoutes(world, findByKind(world, 'fountain'))).toEqual([]);
+    expect(deliveryRoutes(primaryCity(world), findByKind(world, 'house'))).toEqual([]);
+    expect(deliveryRoutes(primaryCity(world), findByKind(world, 'fountain'))).toEqual([]);
   });
 
   test('a connected, idle farm shows no route: connectivity alone never implies a delivery', () => {
@@ -107,7 +107,7 @@ describe('deliveryRoutes', () => {
     expect(buildStarterNeighbourhood(world).ok).toBe(true);
     const farm = findByKind(world, 'farm');
     expect(farm.connected).toBe(true);
-    expect(deliveryRoutes(world, farm)).toEqual([]);
+    expect(deliveryRoutes(primaryCity(world), farm)).toEqual([]);
   });
 
   test('a farm with an outgoing cart shows its actual in-flight path to the granary', () => {
@@ -121,11 +121,11 @@ describe('deliveryRoutes', () => {
       cart = primaryCity(world).walkers.find((walker) => walker.kind === 'cart' && walker.homeId === farm.id);
     }
     expect(cart).toBeTruthy();
-    const routes = deliveryRoutes(world, farm);
+    const routes = deliveryRoutes(primaryCity(world), farm);
     expect(routes).toHaveLength(1);
     expect(routes[0].path).toEqual(cart!.path);
     expect(routes[0].otherId).toBe(granary.id);
-    const fromGranary = deliveryRoutes(world, granary);
+    const fromGranary = deliveryRoutes(primaryCity(world), granary);
     expect(fromGranary).toHaveLength(1);
     expect(fromGranary[0].otherId).toBe(farm.id);
   });
@@ -141,7 +141,7 @@ describe('deliveryRoutes', () => {
       buyer = primaryCity(world).walkers.find((walker) => walker.kind === 'buyer' && walker.targetId === granary.id);
     }
     expect(buyer).toBeTruthy();
-    const routes = deliveryRoutes(world, granary);
+    const routes = deliveryRoutes(primaryCity(world), granary);
     expect(routes.some((route) => route.walkerId === buyer!.id && route.otherId === agora.id)).toBe(true);
   });
 
@@ -162,7 +162,7 @@ describe('deliveryRoutes', () => {
     let route: DeliveryRoute | undefined;
     for (let t = 0; t < 1600 && !route; t++) {
       advance(world, .25);
-      route = deliveryRoutes(world, stockpile).find((candidate) => candidate.otherId === woodcutter.id);
+      route = deliveryRoutes(primaryCity(world), stockpile).find((candidate) => candidate.otherId === woodcutter.id);
     }
     expect(route).toBeTruthy();
   });
