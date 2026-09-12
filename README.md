@@ -48,6 +48,7 @@ npm run art:capture -- http://localhost:5180    # model captures into artifacts/
 - [Art direction](docs/art-direction.md)
 - [Model authoring and visual checks](docs/art-tooling.md)
 - [Deployment](deploy/README.md)
+- [Private server transport](docs/server-transport.md) (no game client yet)
 
 `src/sim/` owns serializable, deterministic game state; `src/render/` reads it.
 `src/art/` owns procedural models; `src/ui/` provides the interface. No original
