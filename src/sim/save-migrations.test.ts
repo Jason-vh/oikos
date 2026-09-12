@@ -7,7 +7,7 @@ import { primaryCity } from './city';
 
 function currentRaw(): Record<string, any> {
   const world = createWorld();
-  buildStarterNeighbourhood(world);
+  buildStarterNeighbourhood(world, primaryCity(world));
   advance(world, 40);
   return JSON.parse(serializeWorld(world));
 }
@@ -77,7 +77,7 @@ describe('v4-v8 saves migrate their one city into world.cities', () => {
 
   test('a matching deserialized world preserves every City field and the shared clock, allocator, entities and wildlife exactly', () => {
     const world = createWorld(2);
-    expect(buildStarterNeighbourhood(world).ok).toBe(true);
+    expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
     advance(world, 60);
     const raw = JSON.parse(serializeWorld(world));
     for (const version of [4, 5, 6, 7, 8]) {

@@ -57,14 +57,14 @@ test('JSON commands found and grow exactly the same city as the direct simulatio
     expect(applyCommand(world, primaryCity(world).id, JSON.parse(JSON.stringify(command))).ok).toBe(true);
   };
   execute({ type: 'foundHarbour', x: primaryCity(world).harbour.x, z: primaryCity(world).harbour.z });
-  const plan = planStarterNeighbourhood(world)!;
+  const plan = planStarterNeighbourhood(world, primaryCity(world))!;
   expect(plan).not.toBeNull();
   for (const building of plan.buildings) execute({ type: 'build', tool: building.kind, x: building.x, z: building.z, rotation: 0 });
   execute({ type: 'roadPath', tiles: plan.roads });
   execute({ type: 'vendor', id: primaryCity(world).buildings.find((building) => building.kind === 'agora')!.id, enabled: true });
   for (const command of commands) expect(applyCommand(replay, primaryCity(replay).id, command).ok).toBe(true);
   const direct = createWorld(2, 0);
-  expect(buildStarterNeighbourhood(direct).ok).toBe(true);
+  expect(buildStarterNeighbourhood(direct, primaryCity(direct)).ok).toBe(true);
   advance(world, 180);
   advance(replay, 180);
   advance(direct, 180);

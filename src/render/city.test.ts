@@ -12,7 +12,7 @@ function fixture(motion = true) {
   const scene = new T.Scene();
   const stage = { scene, shadows() {}, shadowsFromMotion() {}, invalidate() {} } as Stage;
   const city = new CityScene(stage, islandFor(world.seed), motion);
-  const site = planStarterNeighbourhood(world)!.buildings.find((building) => building.kind === 'house')!;
+  const site = planStarterNeighbourhood(world, primaryCity(world))!.buildings.find((building) => building.kind === 'house')!;
   function placeHouse() {
     expect(build(world, primaryCity(world), 'house', site.x, site.z, 0).ok).toBe(true);
     city.sync(world);

@@ -10,7 +10,7 @@ import { primaryCity } from './city';
 
 test('the obstacle set matches the original per-animal road and building checks on every tile', () => {
   const world = createWorld(2);
-  expect(buildStarterNeighbourhood(world).ok).toBe(true);
+  expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
   const map = islandFor(world.seed);
   const before = serializeWorld(world);
   const obstacles = wildlifeObstacles(world);

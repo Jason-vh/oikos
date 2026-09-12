@@ -27,7 +27,7 @@ try {
       const { buildStarterNeighbourhood } = await import('/src/sim/scenario.ts');
       const { serializeWorld } = await import('/src/sim/save.ts');
       const world = createWorld(seed);
-      buildStarterNeighbourhood(world);
+      buildStarterNeighbourhood(world, world.cities[0]);
       advance(world, 240);
       return serializeWorld(world);
     }, seed);

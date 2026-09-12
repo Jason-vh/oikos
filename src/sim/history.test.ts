@@ -19,7 +19,7 @@ test('undoing construction restores its cost without rewinding simulated time', 
 
 test('undoing demolition resimulates the intact city without duplicating deliveries or refunds', () => {
   const world = createWorld();
-  expect(buildStarterNeighbourhood(world).ok).toBe(true);
+  expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
   advance(world, 180);
   const before = structuredClone(world);
   const granary = primaryCity(world).buildings.find((building) => building.kind === 'granary')!;

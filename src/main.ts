@@ -615,9 +615,9 @@ function boot(): void {
         return stage.project(p.x, groundHeight(map(), building.x, building.z) + 1.5, p.z);
       },
       advance: (seconds: number) => { setSpeed(0); advance(world, seconds); refresh(); dirtySave = true; stage.shadows(); },
-      get plan() { return planStarterNeighbourhood(world); },
+      get plan() { return planStarterNeighbourhood(world, primaryCity(world)); },
       foundingPlacement: (x: number, z: number) => foundingPlacement(world, primaryCity(world), x, z),
-      buildPlan: () => { const result = buildStarterNeighbourhood(world); refresh(); save(true); stage.shadows(); return result; },
+      buildPlan: () => { const result = buildStarterNeighbourhood(world, primaryCity(world)); refresh(); save(true); stage.shadows(); return result; },
       build: (tool: BuildTool, x: number, z: number) => { const result = applyCommand(world, primaryCity(world).id, { type: 'build', tool, x, z, rotation: 0 }); refresh(); save(true); return result; },
       road: (tiles: Tile[]) => { const result = applyCommand(world, primaryCity(world).id, { type: 'roadPath', tiles }); refresh(); save(true); return result; },
       projectWalker: (id: number) => {

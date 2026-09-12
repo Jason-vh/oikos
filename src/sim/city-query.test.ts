@@ -83,7 +83,7 @@ describe('queries take an explicit City rather than defaulting to the primary on
 
   test('hasActiveWalker checks only the given City\'s own walkers', () => {
     const world = createWorld();
-    expect(buildStarterNeighbourhood(world).ok).toBe(true);
+    expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
     advance(world, 90);
     const primary = primaryCity(world);
     expect(primary.walkers.length).toBeGreaterThan(0);

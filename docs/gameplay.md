@@ -140,11 +140,13 @@ links it back to the entry.
 
 ## The four-house neighbourhood
 
-`src/sim/scenario.ts` exports `planStarterNeighbourhood(world)`, which searches the
-ground near the harbour road for a legal spot for each building (farm first, then
-granary, four houses, agora, fountain, maintenance post) and the road needed to
-connect each one, and `buildStarterNeighbourhood(world)` which builds that plan and
-enables the vendor. Seeds 1–8 all yield a plan that reaches its first food in under
+`src/sim/scenario.ts` exports `planStarterNeighbourhood(world, city)`, which
+searches the ground near the harbour road for a legal spot for each building (farm
+first, then granary, four houses, agora, fountain, maintenance post) and the road
+needed to connect each one, and `buildStarterNeighbourhood(world, city)` which
+builds that plan and enables the vendor. Both read and build for the given `City`
+explicitly; planning clones the `World` and resolves that city's trial copy by
+its stable id, so it never mutates the original. Seeds 1–8 all yield a plan that reaches its first food in under
 a minute and the goal in two to three simulated minutes. The browser walkthrough
 builds the plan through the real UI.
 

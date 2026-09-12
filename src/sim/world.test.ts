@@ -388,7 +388,7 @@ describe('labour', () => {
 
   test('employment is roughly half of population, split across jobs', () => {
     const world = createWorld();
-    buildStarterNeighbourhood(world);
+    buildStarterNeighbourhood(world, primaryCity(world));
     advance(world, 30);
     const summary = getSummary(primaryCity(world));
     expect(summary.workers).toBeGreaterThan(0);
@@ -399,7 +399,7 @@ describe('labour', () => {
 describe('the full supply chain', () => {
   test('reaches first food well under 90 seconds and a tier upgrade under 240 seconds', () => {
     const world = createWorld();
-    expect(buildStarterNeighbourhood(world).ok).toBe(true);
+    expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
 
     let firstFoodAt: number | null = null;
     let firstUpgradeAt: number | null = null;
@@ -418,7 +418,7 @@ describe('the full supply chain', () => {
 
   test('the recommended neighbourhood becomes sustainable and reaches the goal', () => {
     const world = createWorld();
-    buildStarterNeighbourhood(world);
+    buildStarterNeighbourhood(world, primaryCity(world));
     advance(world, 300);
     const summary = getSummary(primaryCity(world));
     expect(summary.goal).toBe(true);
@@ -429,7 +429,7 @@ describe('the full supply chain', () => {
 
   test('sustains for 10+ simulated minutes without instability', () => {
     const world = createWorld();
-    buildStarterNeighbourhood(world);
+    buildStarterNeighbourhood(world, primaryCity(world));
     advance(world, 700);
     const summary = getSummary(primaryCity(world));
     expect(Number.isFinite(primaryCity(world).money)).toBe(true);
@@ -448,7 +448,7 @@ describe('the full supply chain', () => {
 describe('water and maintenance', () => {
   test('a fountain fills the water of houses it passes', () => {
     const world = createWorld();
-    buildStarterNeighbourhood(world);
+    buildStarterNeighbourhood(world, primaryCity(world));
     advance(world, 200);
     const houses = primaryCity(world).buildings.filter((building) => building.kind === 'house' && building.tier === 3);
     expect(houses.length).toBeGreaterThan(0);
@@ -464,7 +464,7 @@ describe('water and maintenance', () => {
     expect(lonelyHouse.condition).toBeLessThan(100);
 
     const maintained = createWorld();
-    buildStarterNeighbourhood(maintained);
+    buildStarterNeighbourhood(maintained, primaryCity(maintained));
     advance(maintained, 1200);
     for (const building of primaryCity(maintained).buildings) {
       expect(building.condition).toBeGreaterThan(90);
@@ -475,7 +475,7 @@ describe('water and maintenance', () => {
 describe('housing grace and devolution', () => {
   test('a tier-2 house devolves after sustained food loss beyond the grace period', () => {
     const world = createWorld();
-    buildStarterNeighbourhood(world);
+    buildStarterNeighbourhood(world, primaryCity(world));
     advance(world, 90);
     const house = primaryCity(world).buildings.find((building) => building.kind === 'house' && building.tier >= 2)!;
     expect(house).toBeTruthy();
@@ -497,7 +497,7 @@ describe('housing grace and devolution', () => {
 describe('road breaks and demolition cargo', () => {
   test('cutting the road under an in-flight walker drops it without corrupting stock', () => {
     const world = createWorld();
-    buildStarterNeighbourhood(world);
+    buildStarterNeighbourhood(world, primaryCity(world));
     advance(world, 5);
     expect(primaryCity(world).walkers.length).toBeGreaterThan(0);
 
@@ -523,7 +523,7 @@ describe('road breaks and demolition cargo', () => {
 
   test('demolishing a cart target reverses the walker instead of corrupting supplies', () => {
     const world = createWorld();
-    buildStarterNeighbourhood(world);
+    buildStarterNeighbourhood(world, primaryCity(world));
     advance(world, 5);
     const cart = primaryCity(world).walkers.find((walker) => walker.kind === 'cart');
     if (!cart) return;
@@ -539,7 +539,7 @@ describe('road breaks and demolition cargo', () => {
 
   test('demolishing a cart source removes it cleanly', () => {
     const world = createWorld();
-    buildStarterNeighbourhood(world);
+    buildStarterNeighbourhood(world, primaryCity(world));
     advance(world, 5);
     const cart = primaryCity(world).walkers.find((walker) => walker.kind === 'cart');
     if (!cart) return;
@@ -553,9 +553,9 @@ describe('road breaks and demolition cargo', () => {
 describe('determinism', () => {
   test('advancing in one big step matches many small steps', () => {
     const worldA = createWorld();
-    buildStarterNeighbourhood(worldA);
+    buildStarterNeighbourhood(worldA, primaryCity(worldA));
     const worldB = createWorld();
-    buildStarterNeighbourhood(worldB);
+    buildStarterNeighbourhood(worldB, primaryCity(worldB));
 
     advance(worldA, 123);
     for (let i = 0; i < 123; i++) advance(worldB, 1);
@@ -712,7 +712,7 @@ describe('player-facing building status', () => {
 
   test('an installed but idle vendor is resting, an active one is on the streets', () => {
     const world = createWorld();
-    buildStarterNeighbourhood(world);
+    buildStarterNeighbourhood(world, primaryCity(world));
     const agora = findByKind(world, 'agora');
 
     let sawResting = false;
@@ -730,7 +730,8 @@ describe('player-facing building status', () => {
 
 describe('scenario helper', () => {
   test('plans a four-house neighbourhood with one of each workplace', () => {
-    const plan = planStarterNeighbourhood(createWorld())!;
+    const scenarioWorld = createWorld();
+    const plan = planStarterNeighbourhood(scenarioWorld, primaryCity(scenarioWorld))!;
     expect(plan).not.toBeNull();
     const houses = plan.buildings.filter((item) => item.kind === 'house');
     expect(houses.length).toBe(4);
@@ -815,7 +816,8 @@ describe('island generation', () => {
 
   test('every seed from 1 to 8 yields a buildable starter plan', () => {
     for (let seed = 1; seed <= 8; seed++) {
-      const plan = planStarterNeighbourhood(createWorld(seed));
+      const seedWorld = createWorld(seed);
+      const plan = planStarterNeighbourhood(seedWorld, primaryCity(seedWorld));
       expect(plan).not.toBeNull();
       expect(plan!.buildings.length).toBe(9);
     }
