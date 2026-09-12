@@ -1,5 +1,5 @@
 import type { Animal, AnimalKind, Food, World } from './types';
-import { footprint } from './catalog';
+import { footprintTiles } from './grid';
 import { buildable, islandFor, levelOn, terrainOn, type IslandMap } from './island';
 import { hash } from './island';
 
@@ -73,6 +73,7 @@ function canRoam(map: IslandMap, kind: AnimalKind, x: number, z: number, level: 
 
 export function stepWildlife(world: World, dt: number): void {
   const map = islandFor(world.seed);
+  const obstacles = wildlifeObstacles(world);
   for (const animal of world.wildlife) {
     const species = SPECIES[animal.kind];
     if (animal.respawn > 0) {
@@ -102,7 +103,7 @@ export function stepWildlife(world: World, dt: number): void {
     const nextX = animal.x + Math.cos(animal.heading) * species.speed * dt;
     const nextZ = animal.z + Math.sin(animal.heading) * species.speed * dt;
     const level = levelOn(map, Math.floor(animal.homeX), Math.floor(animal.homeZ));
-    if (canRoam(map, animal.kind, nextX, nextZ, level) && !occupied(world, nextX, nextZ)) {
+    if (canRoam(map, animal.kind, nextX, nextZ, level) && !obstacles.has(Math.floor(nextZ) * map.width + Math.floor(nextX))) {
       animal.x = nextX;
       animal.z = nextZ;
     } else {
@@ -111,15 +112,13 @@ export function stepWildlife(world: World, dt: number): void {
   }
 }
 
-function occupied(world: World, x: number, z: number): boolean {
-  const tx = Math.floor(x);
-  const tz = Math.floor(z);
+export function wildlifeObstacles(world: World): ReadonlySet<number> {
   const map = islandFor(world.seed);
-  if (world.roads.includes(tz * map.width + tx)) return true;
-  return world.buildings.some((building) => {
-    const { width, depth } = footprint(building.kind, building.rotation);
-    return tx >= building.x && tz >= building.z && tx < building.x + width && tz < building.z + depth;
-  });
+  const occupied = new Set(world.roads);
+  for (const building of world.buildings) {
+    for (const tile of footprintTiles(map, building)) occupied.add(tile);
+  }
+  return occupied;
 }
 
 export function animalName(animal: Animal): string {

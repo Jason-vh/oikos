@@ -285,7 +285,10 @@ side walls. Removing roads recomputes the cuts and restores unused cliff surface
 rabbits in scrub, shoals of fish in coastal shallows, gulls over sand and shore.
 Each animal (`world.wildlife`) wanders deterministically around a home tile within
 its species' range, staying on terrain it can roam and off roads and buildings;
-they are saved with the world. `SPECIES` declares each animal's `food` and `yield`
+they are saved with the world. Road and building obstacles are indexed once per
+step, rather than scanned separately for every animal. The index is rebuilt each
+step so construction and demolition cannot leave stale obstacles.
+`SPECIES` declares each animal's `food` and `yield`
 (boar 40 meat, rabbit 8 meat, a shoal 30 fish, gulls nothing) for the hunters and
 fishers to come. Animals can be inspected like people.
 
