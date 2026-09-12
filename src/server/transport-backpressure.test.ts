@@ -22,7 +22,7 @@ test('negotiates real compression and limits decompressed incoming payloads', as
   const receipt = wire.packets.find((packet) => packet.type === 'receipt');
   expect(receipt).toMatchObject({ result: { ok: true, status: 'processed' } });
   wire.send('x'.repeat(MAX_REQUEST_BYTES + 1), true);
-  await wire.closed;
+  await wire.waitClosed();
   const { snapshot } = await connect(cleanups, f, cookie);
   expect(snapshot.session.nextSeq).toBe(2);
   expect(snapshot.world.cities).toHaveLength(1);
@@ -38,18 +38,30 @@ test('slow readers do not queue every snapshot or stall peers; control backpress
   wire.socket.pause();
   const fast = await connect(cleanups, f, cookie);
   let latest = fast.snapshot.serial;
-  for (let i = 0; i < 200; i++) {
-    f.clock.step();
-    latest = (await fast.peer.next('snapshot')).serial;
+  let offered = 0;
+  let attempts = 0;
+  for (let batch = 0; batch < 64 && f.runtime.server.pendingWebSockets > 1; batch++) {
+    for (let i = 0; i < 16; i++) {
+      f.clock.step();
+      latest = (await fast.peer.next('snapshot')).serial;
+      offered++;
+    }
+    if (f.runtime.server.pendingWebSockets === 1) break;
+    const seq = ++attempts;
+    const home = seq === 1 ? 0 : 1;
+    f.clock.time += 250;
+    wire.send(JSON.stringify({ type: 'request', requestId: rid(seq), seq, operation: { kind: 'claim', home } }));
+    const observed = await fast.peer.next('snapshot');
+    expect(observed.session.nextSeq).toBe(seq + 1);
+    latest = observed.serial;
+    offered++;
   }
-  f.clock.time += 250;
-  wire.send(JSON.stringify({ type: 'request', requestId: rid(1), seq: 1, operation: { kind: 'claim', home: 0 } }));
-  expect((await fast.peer.next('snapshot')).session.nextSeq).toBe(2);
+  expect(f.runtime.server.pendingWebSockets).toBe(1);
   wire.socket.resume();
-  await wire.closed;
+  await wire.waitClosed();
   const snapshots = wire.packets.filter((packet) => packet.type === 'snapshot');
   expect(snapshots.length).toBeGreaterThan(1);
-  expect(snapshots.length).toBeLessThan(200);
+  expect(snapshots.length).toBeLessThan(offered + 1);
   expect(snapshots.at(-1)!.serial).toBeLessThan(latest);
   const reconnected = await connect(cleanups, f, cookie);
   expect(reconnected.snapshot.world.cities).toHaveLength(1);
@@ -74,12 +86,11 @@ test('receipts precede current snapshots without raising the four-Hz snapshot ca
   peer.ws.send('{');
   expect((await peer.next('reject')).code).toBe('invalid-request');
   expect(peer.packets).toEqual([]);
-  f.clock.step(1);
-  const snapshot = await peer.next('snapshot');
-  expect(snapshot.session.nextSeq).toBe(9);
-  expect(snapshot.world.cities).toHaveLength(1);
+  f.clock.time += 1;
+  peer.send(9, { kind: 'claim', home: 1 });
+  expect(await peer.next(['receipt', 'snapshot'])).toMatchObject({ type: 'receipt', seq: 9 });
+  expect(await peer.next(['receipt', 'snapshot'])).toMatchObject({ type: 'snapshot', session: { nextSeq: 10 }, world: { cities: [{ home: 0 }] } });
 });
-
 
 test('shutdown completes with an OPEN paused reader and checkpoints the last live World', async () => {
   let actor!: ReturnType<typeof foundedActor>;

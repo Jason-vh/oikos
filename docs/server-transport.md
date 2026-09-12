@@ -66,8 +66,8 @@ sequences per actor. Multiple sockets share that actor's sequence and rate bucke
 
 ## Clock and bounds
 
-A monotonic 250 ms loop advances every founded city while a socket remains.
-Zero sockets pause; joining the first socket resets the anchor. Requests and last
+A monotonic 250 ms loop advances every founded city while a socket is OPEN.
+Zero OPEN sockets pause; opening the first socket resets the anchor. Requests and last
 close settle elapsed time. Gaps over five seconds are pauses, not catch-up.
 Tick-only changes checkpoint every five seconds and on last close/graceful stop.
 Successful mutations already persist current World; replay and logical failure

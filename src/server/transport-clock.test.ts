@@ -8,6 +8,7 @@ import { startServer } from './runtime';
 import { readWorldRow } from './store';
 import { deserializeSharedWorld } from '../sim/save';
 import { planStarterNeighbourhood } from '../sim/scenario';
+import { islandFor, tileAtOn } from '../sim/island';
 
 const cleanups: Array<() => unknown> = [];
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup(); });
@@ -91,6 +92,9 @@ test('a real checkpoint failure stops the listener and sockets, emits no false r
   expect(baseline.world.time).toBeCloseTo(5);
   const committed = durable(f.path);
   expect(committed.world).toEqual(baseline.world);
+  const city = baseline.world.cities[0];
+  const tile = tileAtOn(islandFor(baseline.world.seed, city.home), city.roads[0]);
+  peer.send(3, { kind: 'command', cityId: city.id, command: { type: 'demolish', x: tile.x, z: tile.z } });
   f.clock.step(5000);
   await f.runtime.failed;
   await peer.closed;
@@ -98,7 +102,10 @@ test('a real checkpoint failure stops the listener and sockets, emits no false r
   expect(f.runtime.healthy).toBe(false);
   expect(peer.packets.filter((packet) => packet.type === 'receipt')).toEqual([]);
   const reopened = Authority.open(f.path);
-  try { expect(reopened.snapshot()).toEqual(committed.world); } finally { reopened.close(); }
+  try {
+    expect(reopened.snapshot()).toEqual(committed.world);
+    expect(reopened.authenticate(actor.credential)?.nextSeq).toBe(3);
+  } finally { reopened.close(); }
   f.clock.step(5000);
   expect(durable(f.path)).toEqual(committed);
   expect(await fetch(`${f.base}/healthz`).then(() => true, () => false)).toBe(false);

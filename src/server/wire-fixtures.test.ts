@@ -83,5 +83,13 @@ export class WirePeer {
       this.listeners.add(notify);
     });
   }
-  async close() { this.socket.destroy(); await this.closed; }
+  async waitClosed() {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([this.closed, new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Wire close deadline.')), 3000);
+      })]);
+    } finally { clearTimeout(timer); }
+  }
+  async close() { this.socket.destroy(); await this.waitClosed(); }
 }
