@@ -1,5 +1,10 @@
 # Multiplayer: several islands, one map
 
+Historical proposal. Its measurements and implementation assumptions are not
+current. Follow [the roadmap](../roadmap.md) and
+[shared-world implementation notes](../docs/shared-world.md); in particular,
+ownership now develops around City records and networking precedes sea trade.
+
 Each player settles their own island on a shared map, keeps their own treasury,
 and trades by sea. A shared sea rather than a world per player: one coordinate
 space keeps `src/sim/grid.ts`, pathing, picking and rendering as they are, and it
