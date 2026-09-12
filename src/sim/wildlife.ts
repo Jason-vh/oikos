@@ -1,5 +1,6 @@
 import type { Animal, AnimalKind, Food, World } from './types';
 import { footprintTiles } from './grid';
+import { primaryCity } from './city';
 import { buildable, islandFor, levelOn, terrainOn, type IslandMap } from './island';
 import { hash } from './island';
 
@@ -114,8 +115,9 @@ export function stepWildlife(world: World, dt: number): void {
 
 export function wildlifeObstacles(world: World): ReadonlySet<number> {
   const map = islandFor(world.seed);
-  const occupied = new Set(world.roads);
-  for (const building of world.buildings) {
+  const city = primaryCity(world);
+  const occupied = new Set(city.roads);
+  for (const building of city.buildings) {
     for (const tile of footprintTiles(map, building)) occupied.add(tile);
   }
   return occupied;

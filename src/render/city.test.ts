@@ -5,6 +5,7 @@ import type { Stage } from './stage';
 import { islandFor } from '../sim/island';
 import { build, createWorld, demolish } from '../sim/world';
 import { planStarterNeighbourhood } from '../sim/scenario';
+import { primaryCity } from '../sim/city';
 
 function fixture(motion = true) {
   const world = createWorld();
@@ -15,7 +16,7 @@ function fixture(motion = true) {
   function placeHouse() {
     expect(build(world, 'house', site.x, site.z, 0).ok).toBe(true);
     city.sync(world);
-    return world.buildings[0];
+    return primaryCity(world).buildings[0];
   }
   function model(id: number): T.Object3D {
     return scene.children.find((child) => child.userData.buildingId === id)!;

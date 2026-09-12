@@ -5,6 +5,7 @@ import { tileAtOn, tileIndexOn, terrainOn } from './island';
 import { entryTileIndex } from './grid';
 import { build, createWorld, setVendor } from './world';
 import { freshRoadSpot, mapOf, spotFor } from './testing';
+import { primaryCity } from './city';
 
 const FOOTPRINT_SEED = 5_551_212;
 
@@ -23,7 +24,7 @@ describe('suitableFarmGround', () => {
   test('excludes tiles under existing roads', () => {
     const world = createWorld();
     const map = mapOf(world);
-    const road = world.roads[0];
+    const road = primaryCity(world).roads[0];
     const { x, z } = tileAtOn(map, road);
     const tiles = suitableFarmGround(world);
     expect(tiles.some((tile) => tile.x === x && tile.z === z)).toBe(false);
@@ -56,16 +57,16 @@ describe('harbourRoute', () => {
   test('finds a route from the harbour entry to a road-adjacent target', () => {
     const world = createWorld();
     const entry = entryTileIndex(world);
-    const road = world.roads[world.roads.length - 1];
+    const road = primaryCity(world).roads[primaryCity(world).roads.length - 1];
     const route = harbourRoute(world, [road]);
     expect(route).not.toBeNull();
     expect(route![0]).toBe(entry);
-    expect(world.roads.includes(route![route!.length - 1])).toBe(true);
+    expect(primaryCity(world).roads.includes(route![route!.length - 1])).toBe(true);
   });
 
   test('returns null when nothing connects to the harbour', () => {
     const world = createWorld();
-    world.roads = [];
+    primaryCity(world).roads = [];
     const spot = spotFor(world, 'house')!;
     const map = mapOf(world);
     const route = harbourRoute(world, [tileIndexOn(map, spot.x, spot.z)]);
@@ -92,7 +93,7 @@ describe('demolitionPreview', () => {
     const world = createWorld();
     const spot = spotFor(world, 'agora')!;
     build(world, 'agora', spot.x, spot.z);
-    const agora = world.buildings.find((building) => building.kind === 'agora')!;
+    const agora = primaryCity(world).buildings.find((building) => building.kind === 'agora')!;
     setVendor(world, agora.id, true);
     const preview = demolitionPreview(world, spot.x, spot.z);
     expect(preview?.refund).toBe(Math.floor((BUILDINGS.agora.cost + VENDOR_COST) / 2));
@@ -101,7 +102,7 @@ describe('demolitionPreview', () => {
   test('reports no refund for a road tile', () => {
     const world = createWorld();
     const map = mapOf(world);
-    const road = world.roads[0];
+    const road = primaryCity(world).roads[0];
     const { x, z } = tileAtOn(map, road);
     const preview = demolitionPreview(world, x, z);
     expect(preview?.kind).toBe('road');

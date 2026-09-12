@@ -98,11 +98,11 @@ function boot(): void {
 
   function refresh(): void {
     const homeCity = primaryCity(world);
-    const selected = world.buildings.find((building) => building.id === selectedId) ?? (homeCity.harbour.id === selectedId ? homeCity.harbour : null);
-    const walker = selected ? null : world.walkers.find((candidate) => candidate.id === selectedId) ?? null;
+    const selected = homeCity.buildings.find((building) => building.id === selectedId) ?? (homeCity.harbour.id === selectedId ? homeCity.harbour : null);
+    const walker = selected ? null : homeCity.walkers.find((candidate) => candidate.id === selectedId) ?? null;
     const animal = selected || walker ? null : world.wildlife.find((candidate) => candidate.id === selectedId) ?? null;
     city.sync(world);
-    overlay.setRoads(world.roads);
+    overlay.setRoads(homeCity.roads);
     city.select(selected, walker?.id ?? animal?.id ?? null);
     if (walker) hud.update(world, getSummary(world), { kind: 'person', name: walkerName(walker), role: WALKER_ROLES[walker.kind], status: walkerStatus(world, walker) });
     else if (animal) hud.update(world, getSummary(world), { kind: 'person', name: animalName(animal), role: 'Wildlife', status: animalStatus(animal) });
@@ -183,7 +183,7 @@ function boot(): void {
   }
 
   function focusVillage(): void {
-    const homes = world.buildings.filter((building) => building.kind === 'house');
+    const homes = primaryCity(world).buildings.filter((building) => building.kind === 'house');
     if (homes.length === 0) {
       const view = viewFor(world.seed);
       stage.focus(view.target[0], view.target[2]);
@@ -440,7 +440,7 @@ function boot(): void {
         }
       } else if (tool === 'inspect' || tool === 'demolish') {
         const picked = city.pick(event.clientX, event.clientY);
-        const hit = world.buildings.find((building) => building.id === picked.building);
+        const hit = primaryCity(world).buildings.find((building) => building.id === picked.building);
         if (tool === 'inspect') {
           selectedId = picked.walker ?? picked.animal ?? picked.building;
           refresh();
@@ -450,7 +450,7 @@ function boot(): void {
         const buildingTool = tool;
         const result = construct({ type: 'build', tool: buildingTool, x: hover.x, z: hover.z, rotation });
         if (result.ok) {
-          selectedId = world.buildings.find((building) => building.x === hover!.x && building.z === hover!.z)?.id ?? null;
+          selectedId = primaryCity(world).buildings.find((building) => building.x === hover!.x && building.z === hover!.z)?.id ?? null;
           refresh();
         }
       }
@@ -604,10 +604,10 @@ function boot(): void {
       get triangles() { return stage.renderer.info.render.triangles; },
       get foamVersion() { return (city.scenery.foam.mesh.geometry.attributes.position as T.BufferAttribute).version; },
       get camera() { return [...stage.camera.position.toArray(), ...stage.controls.target.toArray(), stage.camera.zoom]; },
-      projectTile: (x: number, z: number) => { const p = worldPositionOn(map(), x + .5, z + .5); return stage.project(p.x, roadHeight(map(), stairLayout(map(), new Set(world.roads)), x + .5, z + .5), p.z); },
+      projectTile: (x: number, z: number) => { const p = worldPositionOn(map(), x + .5, z + .5); return stage.project(p.x, roadHeight(map(), stairLayout(map(), new Set(primaryCity(world).roads)), x + .5, z + .5), p.z); },
       projectPoint: (x: number, z: number, y = 0) => { const p = worldPositionOn(map(), x, z); return stage.project(p.x, groundHeight(map(), Math.floor(x), Math.floor(z)) + y, p.z); },
       projectBuilding: (id: number) => {
-        const building = world.buildings.find((candidate) => candidate.id === id);
+        const building = primaryCity(world).buildings.find((candidate) => candidate.id === id);
         if (!building) return null;
         const size = footprint(building.kind, building.rotation);
         const p = worldPositionOn(map(), building.x + size.width / 2, building.z + size.depth / 2);

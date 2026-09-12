@@ -63,17 +63,17 @@ export interface City {
   harbour: Building;
   produced: number;
   delivered: number;
+  roads: number[];
+  buildings: Building[];
+  walkers: Walker[];
 }
 export interface World {
-  version: 8;
+  version: 9;
   island: 'kalliste';
   seed: number;
   time: number;
   remainder: number;
   nextId: number;
-  roads: number[];
-  buildings: Building[];
-  walkers: Walker[];
   wildlife: Animal[];
   felled: number[];
   regrowth: number;

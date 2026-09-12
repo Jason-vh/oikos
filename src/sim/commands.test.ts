@@ -61,7 +61,7 @@ test('JSON commands found and grow exactly the same city as the direct simulatio
   expect(plan).not.toBeNull();
   for (const building of plan.buildings) execute({ type: 'build', tool: building.kind, x: building.x, z: building.z, rotation: 0 });
   execute({ type: 'roadPath', tiles: plan.roads });
-  execute({ type: 'vendor', id: world.buildings.find((building) => building.kind === 'agora')!.id, enabled: true });
+  execute({ type: 'vendor', id: primaryCity(world).buildings.find((building) => building.kind === 'agora')!.id, enabled: true });
   for (const command of commands) expect(applyCommand(replay, command).ok).toBe(true);
   const direct = createWorld(2, 0);
   expect(buildStarterNeighbourhood(direct).ok).toBe(true);
@@ -71,9 +71,9 @@ test('JSON commands found and grow exactly the same city as the direct simulatio
   expect(getSummary(world).goal).toBe(true);
   expect(world).toEqual(replay);
   expect(world).toEqual(direct);
-  const house = world.buildings.find((building) => building.kind === 'house')!;
+  const house = primaryCity(world).buildings.find((building) => building.kind === 'house')!;
   expect(applyCommand(world, { type: 'demolish', x: house.x, z: house.z }).ok).toBe(true);
-  expect(world.buildings.some((building) => building.id === house.id)).toBe(false);
+  expect(primaryCity(world).buildings.some((building) => building.id === house.id)).toBe(false);
 });
 
 test('well-formed commands still enforce founding and territory rules', () => {

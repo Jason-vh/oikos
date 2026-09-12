@@ -54,7 +54,7 @@ function* clockwiseRing(map: IslandMap, building: Building): Generator<number> {
 
 export function accessTiles(world: World, building: Building): number[] {
   const map = mapOf(world);
-  const roads = new Set(world.roads);
+  const roads = new Set(primaryCity(world).roads);
   return accessDoors(map, roads, building).filter((tile) => roads.has(tile));
 }
 
@@ -118,7 +118,7 @@ function reconstruct(cameFrom: Map<number, number>, goal: number): number[] {
 
 export function buildServiceCircuit(world: World, start: number, budget: number): number[] {
   const map = mapOf(world);
-  const roads = new Set(world.roads);
+  const roads = new Set(primaryCity(world).roads);
   const stairs = stairLayout(map, roads);
   if (!roads.has(start)) return [start];
   const visited = new Set<number>([start]);
@@ -154,7 +154,7 @@ export function findNearestConnected(
   candidates: Building[],
 ): { building: Building; path: number[] } | null {
   const map = mapOf(world);
-  const roads = new Set(world.roads);
+  const roads = new Set(primaryCity(world).roads);
   let best: { building: Building; path: number[] } | null = null;
   for (const candidate of candidates) {
     const goals = new Set(accessTiles(world, candidate));

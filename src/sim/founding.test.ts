@@ -93,10 +93,13 @@ test('unfinished saves must retain the prepared roads and starting treasury', ()
     const cities = [{ ...primaryCity(world), money }];
     expect(deserializeWorld(serializeWorld({ ...world, cities }))).toBeNull();
   }
-  for (const roads of [[], world.roads.slice(1), [...world.roads, 0], [0, ...world.roads.slice(1)]]) {
-    expect(deserializeWorld(serializeWorld({ ...world, roads }))).toBeNull();
+  const preparedRoads = primaryCity(world).roads;
+  for (const roads of [[], preparedRoads.slice(1), [...preparedRoads, 0], [0, ...preparedRoads.slice(1)]]) {
+    const cities = [{ ...primaryCity(world), roads }];
+    expect(deserializeWorld(serializeWorld({ ...world, cities }))).toBeNull();
   }
-  const loaded = deserializeWorld(serializeWorld({ ...world, roads: [...world.roads].reverse() }));
+  const reversedCities = [{ ...primaryCity(world), roads: [...preparedRoads].reverse() }];
+  const loaded = deserializeWorld(serializeWorld({ ...world, cities: reversedCities }));
   expect(loaded).not.toBeNull();
   const harbour = primaryCity(loaded!).harbour;
   expect(foundHarbour(loaded!, harbour.x, harbour.z).ok).toBe(true);

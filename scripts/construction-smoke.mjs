@@ -87,7 +87,7 @@ try {
   await game.clock.runFor(700);
   await game.screenshot({ path: path.join(output, 'city-finished.png') });
   assert.equal(await game.evaluate(() => window.oikos.state.time), before, 'Construction advanced the paused simulation');
-  assert.equal(await game.evaluate(() => window.oikos.state.buildings.length), 1);
+  assert.equal(await game.evaluate(() => window.oikos.state.cities[0].buildings.length), 1);
   const nextHouse = await game.evaluate(() => window.oikos.plan.buildings.find((building) => building.kind === 'house'));
   assert.equal(await game.evaluate(({ x, z }) => window.oikos.build('house', x, z).ok, nextHouse), true);
   await game.clock.runFor(200);

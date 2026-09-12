@@ -17,8 +17,8 @@ for (let choice = 0; choice < ISLAND_COUNT * 2; choice++) {
     const city = primaryCity(world);
     expect(city.home).toBe(home);
     expect(map.entry).toEqual(island.entry);
-    expect(world.roads).toContain(entryTileIndex(world));
-    for (const tile of [...world.roads, ...footprintTiles(map, city.harbour)]) {
+    expect(city.roads).toContain(entryTileIndex(world));
+    for (const tile of [...city.roads, ...footprintTiles(map, city.harbour)]) {
       const { x, z } = tileAtOn(map, tile);
       expect(islandAt(map, x, z)).toEqual(island);
       expect(terrainOn(map, x, z)).not.toBe('water');
@@ -27,7 +27,7 @@ for (let choice = 0; choice < ISLAND_COUNT * 2; choice++) {
     expect(buildStarterNeighbourhood(world).ok).toBe(true);
     advance(world, 180);
     expect(getSummary(world).goal).toBe(true);
-    expect(world.walkers.length).toBeGreaterThan(0);
+    expect(city.walkers.length).toBeGreaterThan(0);
     const loaded = deserializeWorld(serializeWorld(world));
     expect(loaded).toEqual(world);
     advance(world, 20);

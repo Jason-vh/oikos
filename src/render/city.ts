@@ -103,16 +103,17 @@ export class CityScene {
   }
 
   private roadModels(world: World): void {
-    const key = world.roads.join(',');
+    const roads = primaryCity(world).roads;
+    const key = roads.join(',');
     if (key === this.roadKey) return;
     this.roadKey = key;
-    this.stairs = stairLayout(this.map, new Set(world.roads));
+    this.stairs = stairLayout(this.map, new Set(roads));
     this.scenery.setStairs(this.stairs);
     disposeModel(this.roads);
     this.roads.clear();
-    const roads = buildRoads(this.map, world.roads);
-    this.stairMeshes = roads.children.filter((model) => model.userData.stairs === true);
-    this.roads.add(roads);
+    const roadModels = buildRoads(this.map, roads);
+    this.stairMeshes = roadModels.children.filter((model) => model.userData.stairs === true);
+    this.roads.add(roadModels);
     this.stage.shadows();
   }
 
@@ -126,7 +127,7 @@ export class CityScene {
     this.departures.length = 0;
     this.dust.clear();
     const city = primaryCity(world);
-    const visibleBuildings = city.founded ? [...world.buildings, city.harbour] : world.buildings;
+    const visibleBuildings = city.founded ? [...city.buildings, city.harbour] : city.buildings;
     const ids = new Set(visibleBuildings.map((building) => building.id));
     for (const [id, entry] of this.buildings) {
       entry.construction?.settle();
@@ -145,9 +146,9 @@ export class CityScene {
     this.lastWorld = world;
     this.roadModels(world);
     const city = primaryCity(world);
-    const allBuildings = city.founded ? [...world.buildings, city.harbour] : world.buildings;
+    const allBuildings = city.founded ? [...city.buildings, city.harbour] : city.buildings;
     const ids = new Set(allBuildings.map((building) => building.id));
-    const occupied = new Set(world.roads);
+    const occupied = new Set(city.roads);
     for (const [id, entry] of this.buildings) {
       if (ids.has(id)) continue;
       this.buildings.delete(id);
@@ -191,7 +192,7 @@ export class CityScene {
       if (animated) this.settle(entry);
       this.stage.shadows();
     }
-    for (const building of world.buildings) {
+    for (const building of city.buildings) {
       const entry = this.buildings.get(building.id);
       if (!entry) continue;
       syncHouseSupplies(entry.model, building);
@@ -199,13 +200,13 @@ export class CityScene {
     }
     this.primed = true;
     this.scenery.clearDecor(occupied, new Set(world.felled));
-    const walkerIds = new Set(world.walkers.map((walker) => walker.id));
+    const walkerIds = new Set(city.walkers.map((walker) => walker.id));
     for (const [id, entry] of this.walkers) {
       if (walkerIds.has(id)) continue;
       entry.model.removeFromParent();
       this.walkers.delete(id);
     }
-    for (const walker of world.walkers) this.syncWalker(walker);
+    for (const walker of city.walkers) this.syncWalker(walker);
     const animalIds = new Set(world.wildlife.map((animal) => animal.id));
     for (const id of [...this.animals.keys()]) {
       if (animalIds.has(id)) continue;
@@ -524,7 +525,7 @@ export class CityScene {
 
   hover(clientX: number, clientY: number, world: World): boolean {
     const picked = this.pick(clientX, clientY);
-    const building = world.buildings.find((candidate) => candidate.id === picked.building);
+    const building = primaryCity(world).buildings.find((candidate) => candidate.id === picked.building);
     const mover = this.moverPosition(picked.walker ?? picked.animal);
     this.hoverMark.visible = building !== undefined || mover !== null;
     if (mover) {
@@ -568,7 +569,7 @@ export class CityScene {
     const tiles = new Set(placement.tiles.filter((index) => index >= 0 && index < this.map.width * this.map.depth));
     let stairs = this.stairs;
     if (tool === 'road') {
-      stairs = stairLayout(this.map, new Set([...(this.lastWorld?.roads ?? []), ...tiles]));
+      stairs = stairLayout(this.map, new Set([...(this.lastWorld ? primaryCity(this.lastWorld).roads : []), ...tiles]));
       for (const stair of stairs.values()) if (this.stairs.get(stair.tile)?.down !== stair.down) tiles.add(stair.tile);
     }
     for (const index of tiles) {

@@ -6,6 +6,7 @@ import { deserializeWorld, serializeWorld } from './save';
 import { spotFor } from './testing';
 import type { BuildTool } from './types';
 import { build, createWorld, demolish, placement, placeRoadPath, roadPathPlacement } from './world';
+import { primaryCity } from './city';
 
 const TOOLS: BuildTool[] = ['road', 'house', 'farm', 'granary', 'agora', 'fountain', 'maintenance', 'lodge', 'woodcutter', 'stockpile'];
 
@@ -55,11 +56,11 @@ test('legacy outlying construction remains loadable and can be removed', () => {
   const other = createWorld(1, 7);
   const spot = spotFor(other, 'house')!;
   expect(build(other, 'house', spot.x, spot.z).ok).toBe(true);
-  const building = { ...other.buildings[0], id: world.nextId++, connected: false };
-  world.buildings.push(building);
+  const building = { ...primaryCity(other).buildings[0], id: world.nextId++, connected: false };
+  primaryCity(world).buildings.push(building);
   const loaded = deserializeWorld(serializeWorld(world));
   expect(loaded).not.toBeNull();
-  expect(loaded!.buildings).toContainEqual(building);
+  expect(primaryCity(loaded!).buildings).toContainEqual(building);
   expect(demolish(loaded!, spot.x, spot.z).ok).toBe(true);
-  expect(loaded!.buildings).toHaveLength(0);
+  expect(primaryCity(loaded!).buildings).toHaveLength(0);
 });

@@ -36,7 +36,7 @@ try {
   await page.waitForFunction(() => document.body.dataset.ready === 'true');
   await page.getByRole('button', { name: /pause/i }).first().click();
   assert.deepEqual(await state(page), pending, 'Reload lost or advanced the unfinished founding');
-  for (const corruption of [{ roads: [] }, { cities: [{ ...pending.cities[0], money: pending.cities[0].money + 1 }] }]) {
+  for (const corruption of [{ cities: [{ ...pending.cities[0], roads: [] }] }, { cities: [{ ...pending.cities[0], money: pending.cities[0].money + 1 }] }]) {
     await menuChoice(page, 'import');
     await page.getByTestId('import-file').setInputFiles({ name: 'invalid-founding.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ ...pending, ...corruption })) });
     await paint(page);

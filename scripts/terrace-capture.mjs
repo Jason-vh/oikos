@@ -38,10 +38,10 @@ try {
         for (const [dx, dz] of [[1, 0], [0, 1]]) {
           if (map.level[(z + dz) * map.width + x + dx] !== 0) continue;
           const tiles = [{ x: x + dx, z: z + dz }, { x, z }, { x: x - dx, z: z - dz }];
-          if (tiles.some((tile) => state.roads.includes(tile.z * map.width + tile.x) || map.terrain[tile.z * map.width + tile.x] === 'forest')) continue;
+          if (tiles.some((tile) => state.cities[0].roads.includes(tile.z * map.width + tile.x) || map.terrain[tile.z * map.width + tile.x] === 'forest')) continue;
           const prospective = structuredClone(state);
           if (!placeRoadPath(prospective, tiles).ok) continue;
-          if (stairLayout(map, new Set(prospective.roads)).get(index)?.down !== tiles[0].z * map.width + tiles[0].x) continue;
+          if (stairLayout(map, new Set(prospective.cities[0].roads)).get(index)?.down !== tiles[0].z * map.width + tiles[0].x) continue;
           candidates.push(tiles);
         }
       }
@@ -55,7 +55,7 @@ try {
   assert(crossing, 'No legal decorated terrace crossing');
   const [foot, stair, landing] = crossing;
   await page.evaluate(({ x, z }) => window.oikos.focusTile(x, z), stair);
-  const originalRoads = await page.evaluate(() => window.oikos.state.roads);
+  const originalRoads = await page.evaluate(() => window.oikos.state.cities[0].roads);
   const originalMap = await page.evaluate(() => window.oikos.map);
   let bare;
   for (const phase of ['bare', 'stairs']) {
@@ -73,7 +73,7 @@ try {
       await page.mouse.up();
       await page.keyboard.press('Escape');
       await page.mouse.move(1, 1);
-      const roads = await page.evaluate(() => window.oikos.state.roads);
+      const roads = await page.evaluate(() => window.oikos.state.cities[0].roads);
       for (const tile of crossing) assert(roads.includes(tile.z * originalMap.width + tile.x), 'Stair drag failed');
     }
     const state = await page.evaluate(() => window.oikos.state);
@@ -108,7 +108,7 @@ try {
   await page.keyboard.press('Escape');
   await page.mouse.move(1, 1);
   await paint(page, 8);
-  assert.deepEqual(await page.evaluate(() => window.oikos.state.roads), originalRoads, 'Demolition picked the wrong tile');
+  assert.deepEqual(await page.evaluate(() => window.oikos.state.cities[0].roads), originalRoads, 'Demolition picked the wrong tile');
   assert.deepEqual(await page.evaluate(() => window.oikos.map), originalMap, 'Stairs mutated the island');
   const restored = await page.locator('canvas').screenshot({ path: `${output}/restored.png`, style: '#ui { visibility: hidden; }' });
   assert(bare.equals(restored), 'Demolition did not restore the exact cliffs and outcrops');

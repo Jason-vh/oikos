@@ -34,14 +34,14 @@ function fixture(dx = 1, dz = 0) {
     },
   } as unknown as Stage;
   const world = createWorld(map.seed);
-  world.roads = [12 - dx - dz * map.width, 12, 12 + dx + dz * map.width];
-  world.buildings = [];
-  world.walkers = [];
+  primaryCity(world).roads = [12 - dx - dz * map.width, 12, 12 + dx + dz * map.width];
+  primaryCity(world).buildings = [];
+  primaryCity(world).walkers = [];
   world.wildlife = [];
   const city = new CityScene(stage, map, false);
   city.sync(world);
   scene.updateMatrixWorld(true);
-  return { city, map, world, scene, camera, renders, stairs: stairLayout(map, new Set(world.roads)) };
+  return { city, map, world, scene, camera, renders, stairs: stairLayout(map, new Set(primaryCity(world).roads)) };
 }
 
 test('actual treads, risers and cut walls are pickable from every side', () => {
@@ -93,7 +93,7 @@ test('walkers follow the full-cell profile in both directions, including interpo
   const { city, map, world, scene, stairs, renders } = fixture();
   const before = new Set(scene.children);
   const walker: Walker = { id: 9876, kind: 'immigrant', homeId: primaryCity(world).harbour.id, targetId: null, path: [11, 12, 13], step: 0, progress: 0, food: null, cargo: 0, returning: false, overland: [], quarry: null, working: 0 };
-  world.walkers.push(walker);
+  primaryCity(world).walkers.push(walker);
   city.sync(world);
   const model = scene.children.find((child) => !before.has(child))!;
   expect(model).toBeDefined();

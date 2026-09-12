@@ -4,6 +4,7 @@ import { buildable, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn, type I
 import { mapOf, neighbours, perimeterTiles, footprintTiles } from './grid';
 import { harbourTiles } from './harbour';
 import { placement, placeRoadPath } from './world';
+import { primaryCity } from './city';
 
 export { mapOf };
 
@@ -54,7 +55,7 @@ export function spotFor(world: World, kind: BuildTool, near?: Tile, rotation: Ro
 export function freshRoadSpot(world: World, near?: Tile): Tile | null {
   const map = mapOf(world);
   return findTile(world, (_map, x, z) => {
-    if (world.roads.includes(tileIndexOn(map, x, z))) return false;
+    if (primaryCity(world).roads.includes(tileIndexOn(map, x, z))) return false;
     return placement(world, 'road', x, z).ok;
   }, near);
 }
@@ -115,7 +116,7 @@ function passableForRoad(world: World, map: IslandMap, roads: Set<number>, tile:
   const { x, z } = tileAtOn(map, tile);
   const terrain = terrainOn(map, x, z);
   if (!(buildable(terrain) || terrain === 'forest')) return false;
-  return !world.buildings.some((candidate) => footprintTiles(map, candidate).includes(tile));
+  return !primaryCity(world).buildings.some((candidate) => footprintTiles(map, candidate).includes(tile));
 }
 
 function reconstruct(cameFrom: Map<number, number>, goal: number): number[] {
@@ -151,7 +152,7 @@ function routeToRoad(world: World, map: IslandMap, roads: Set<number>, start: nu
 
 export function connect(world: World, building: Building): ActionResult {
   const map = mapOf(world);
-  const roads = new Set(world.roads);
+  const roads = new Set(primaryCity(world).roads);
   let best: number[] | null = null;
   for (const start of perimeterTiles(map, building)) {
     const path = routeToRoad(world, map, roads, start);
@@ -165,7 +166,7 @@ export function isolatedRoadPair(world: World, near: Tile): [Tile, Tile] | null 
   const map = mapOf(world);
   const first = findTile(world, (candidateMap, x, z) => {
     if (!buildable(terrainOn(candidateMap, x, z))) return false;
-    if (world.roads.includes(tileIndexOn(candidateMap, x, z))) return false;
+    if (primaryCity(world).roads.includes(tileIndexOn(candidateMap, x, z))) return false;
     return secondOf(candidateMap, x, z) !== null;
   }, near);
   if (!first) return null;
@@ -177,7 +178,7 @@ export function isolatedRoadPair(world: World, near: Tile): [Tile, Tile] | null 
       const nx = x + dx;
       const nz = z + dz;
       if (nx < 0 || nz < 0 || nx >= candidateMap.width || nz >= candidateMap.depth) continue;
-      if (world.roads.includes(tileIndexOn(candidateMap, nx, nz))) continue;
+      if (primaryCity(world).roads.includes(tileIndexOn(candidateMap, nx, nz))) continue;
       if (!buildable(terrainOn(candidateMap, nx, nz))) continue;
       if (levelOn(candidateMap, nx, nz) !== levelOn(candidateMap, x, z)) continue;
       return { x: nx, z: nz };

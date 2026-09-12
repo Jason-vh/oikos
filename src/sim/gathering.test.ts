@@ -21,18 +21,18 @@ describe('hunting', () => {
     const boar = world.wildlife.find((animal) => animal.kind === 'boar' && onHomeIsland(world, Math.floor(animal.homeX), Math.floor(animal.homeZ)))!;
     const spot = spotFor(world, 'lodge', { x: Math.floor(boar.homeX), z: Math.floor(boar.homeZ) })!;
     expect(build(world, 'lodge', spot.x, spot.z).ok).toBe(true);
-    const lodge = world.buildings[0];
+    const lodge = primaryCity(world).buildings[0];
     expect(connect(world, lodge).ok).toBe(true);
     const granarySpot = spotFor(world, 'granary', spot)!;
     expect(build(world, 'granary', granarySpot.x, granarySpot.z).ok).toBe(true);
-    expect(connect(world, world.buildings[1]).ok).toBe(true);
+    expect(connect(world, primaryCity(world).buildings[1]).ok).toBe(true);
     const house = spotFor(world, 'house', islandFor(world.seed).entry)!;
     expect(build(world, 'house', house.x, house.z).ok).toBe(true);
-    expect(connect(world, world.buildings[2]).ok).toBe(true);
+    expect(connect(world, primaryCity(world).buildings[2]).ok).toBe(true);
     let hunted = false;
     for (let t = 0; t < 1600 && !hunted; t++) {
       advance(world, .25);
-      hunted = world.walkers.some((walker) => walker.kind === 'hunter' && walker.returning && walker.cargo > 0);
+      hunted = primaryCity(world).walkers.some((walker) => walker.kind === 'hunter' && walker.returning && walker.cargo > 0);
     }
     expect(hunted).toBe(true);
     const killed = world.wildlife.filter((animal) => animal.respawn > 0);
@@ -40,7 +40,7 @@ describe('hunting', () => {
     let stored = false;
     for (let t = 0; t < 400 && !stored; t++) {
       advance(world, 1);
-      stored = (world.buildings[1].stores.meat ?? 0) > 0;
+      stored = (primaryCity(world).buildings[1].stores.meat ?? 0) > 0;
     }
     expect(stored).toBe(true);
     expect(primaryCity(world).produced).toBeGreaterThan(0);
@@ -63,13 +63,13 @@ describe('woodcutting', () => {
     const spot = nearForest(world, 'woodcutter')!;
     expect(spot).not.toBeNull();
     expect(build(world, 'woodcutter', spot.x, spot.z).ok).toBe(true);
-    expect(connect(world, world.buildings[0]).ok).toBe(true);
+    expect(connect(world, primaryCity(world).buildings[0]).ok).toBe(true);
     const pileSpot = spotFor(world, 'stockpile', spot)!;
     expect(build(world, 'stockpile', pileSpot.x, pileSpot.z).ok).toBe(true);
-    expect(connect(world, world.buildings[1]).ok).toBe(true);
+    expect(connect(world, primaryCity(world).buildings[1]).ok).toBe(true);
     const house = spotFor(world, 'house', islandFor(world.seed).entry)!;
     expect(build(world, 'house', house.x, house.z).ok).toBe(true);
-    expect(connect(world, world.buildings[2]).ok).toBe(true);
+    expect(connect(world, primaryCity(world).buildings[2]).ok).toBe(true);
     let felled = false;
     for (let t = 0; t < 400 && !felled; t++) {
       advance(world, 1);
@@ -82,7 +82,7 @@ describe('woodcutting', () => {
     let stored = false;
     for (let t = 0; t < 400 && !stored; t++) {
       advance(world, 1);
-      stored = (world.buildings[1].stores.lumber ?? 0) > 0;
+      stored = (primaryCity(world).buildings[1].stores.lumber ?? 0) > 0;
     }
     expect(stored).toBe(true);
   });
@@ -91,15 +91,15 @@ describe('woodcutting', () => {
     const world = createWorld(1);
     const spot = nearForest(world, 'woodcutter')!;
     build(world, 'woodcutter', spot.x, spot.z);
-    connect(world, world.buildings[0]);
+    connect(world, primaryCity(world).buildings[0]);
     const granarySpot = spotFor(world, 'granary', spot)!;
     build(world, 'granary', granarySpot.x, granarySpot.z);
-    connect(world, world.buildings[1]);
+    connect(world, primaryCity(world).buildings[1]);
     const house = spotFor(world, 'house', islandFor(world.seed).entry)!;
     build(world, 'house', house.x, house.z);
-    connect(world, world.buildings[2]);
+    connect(world, primaryCity(world).buildings[2]);
     advance(world, 400);
-    expect(world.buildings[1].stores.lumber ?? 0).toBe(0);
+    expect(primaryCity(world).buildings[1].stores.lumber ?? 0).toBe(0);
     expect(tileIndexOn(islandFor(1), 0, 0)).toBe(0);
   });
 });
@@ -109,14 +109,14 @@ describe('working at the site', () => {
     const world = createWorld(1);
     const spot = nearForest(world, 'woodcutter')!;
     build(world, 'woodcutter', spot.x, spot.z);
-    connect(world, world.buildings[0]);
+    connect(world, primaryCity(world).buildings[0]);
     const house = spotFor(world, 'house', islandFor(world.seed).entry)!;
     build(world, 'house', house.x, house.z);
-    connect(world, world.buildings[1]);
+    connect(world, primaryCity(world).buildings[1]);
     let working: number | null = null;
     for (let t = 0; t < 1600 && working === null; t++) {
       advance(world, .25);
-      const cutter = world.walkers.find((walker) => walker.kind === 'woodcutter' && walker.working > 0);
+      const cutter = primaryCity(world).walkers.find((walker) => walker.kind === 'woodcutter' && walker.working > 0);
       if (cutter) working = cutter.working;
     }
     expect(working).not.toBeNull();
@@ -169,7 +169,7 @@ describe('gatherers and carved stairs', () => {
   test('an overland route may cross a stair front to back', () => {
     const { map, down, tile, up } = gatherStairFixture();
     const world = createWorld(GATHER_STAIR_SEED);
-    world.roads = [tileIndexOn(map, down.x, down.z), tileIndexOn(map, tile.x, tile.z)];
+    primaryCity(world).roads = [tileIndexOn(map, down.x, down.z), tileIndexOn(map, tile.x, tile.z)];
     const start = tileIndexOn(map, down.x, down.z);
     const goal = tileIndexOn(map, up.x, up.z);
     const path = overlandPath(world, start, (candidate) => candidate === goal, 4);
@@ -179,7 +179,7 @@ describe('gatherers and carved stairs', () => {
   test('an overland route cannot cut through a stair\'s side', () => {
     const { map, down, tile, north, south } = gatherStairFixture();
     const world = createWorld(GATHER_STAIR_SEED);
-    world.roads = [tileIndexOn(map, down.x, down.z), tileIndexOn(map, tile.x, tile.z)];
+    primaryCity(world).roads = [tileIndexOn(map, down.x, down.z), tileIndexOn(map, tile.x, tile.z)];
     const start = tileIndexOn(map, north.x, north.z);
     const goal = tileIndexOn(map, south.x, south.z);
     const path = overlandPath(world, start, (candidate) => candidate === goal, 4);

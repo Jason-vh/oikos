@@ -17,7 +17,7 @@ for (const version of [4, 5, 6]) {
   test(`version ${version} keeps its harbour site after the entry roads are demolished`, () => {
     const world = createWorld(2);
     const original = { ...primaryCity(world).harbour };
-    for (const tile of [...world.roads]) {
+    for (const tile of [...primaryCity(world).roads]) {
       const { x, z } = tileAtOn(mapOf(world), tile);
       expect(demolish(world, x, z).ok).toBe(true);
     }
@@ -56,9 +56,9 @@ test('rejects road and building overlaps with the saved harbour', () => {
   const world = createWorld(1);
   const raw = JSON.parse(serializeWorld(world));
   const tile = footprintTiles(mapOf(world), primaryCity(world).harbour)[0];
-  raw.roads.push(tile);
+  raw.cities[0].roads.push(tile);
   expect(deserializeWorld(JSON.stringify(raw))).toBeNull();
-  raw.roads.pop();
-  raw.buildings.push({ ...raw.cities[0].harbour, id: raw.nextId++, kind: 'fountain' });
+  raw.cities[0].roads.pop();
+  raw.cities[0].buildings.push({ ...raw.cities[0].harbour, id: raw.nextId++, kind: 'fountain' });
   expect(deserializeWorld(JSON.stringify(raw))).toBeNull();
 });

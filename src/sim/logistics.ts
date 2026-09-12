@@ -1,6 +1,7 @@
 import type { Building, BuildingKind, Walker, WalkerKind, World } from './types';
 import { ROAD_BUDGET } from './balance';
 import { accessDoors, buildServiceCircuit, exitTile, mapOf } from './grid';
+import { primaryCity } from './city';
 
 const CIRCUIT_WALKER: Partial<Record<BuildingKind, WalkerKind>> = {
   agora: 'vendor',
@@ -19,15 +20,16 @@ export function serviceRoute(world: World, building: Building): ServiceRoute | n
   if (!kind || !building.connected) return null;
   if (building.kind === 'agora' && !building.vendorInstalled) return null;
 
-  const active = world.walkers.find((walker) => walker.homeId === building.id && walker.kind === kind);
+  const city = primaryCity(world);
+  const active = city.walkers.find((walker) => walker.homeId === building.id && walker.kind === kind);
   const path = active ? active.path : plannedCircuit(world, building);
   if (path.length <= 1) return null;
 
   const map = mapOf(world);
-  const roads = new Set(world.roads);
+  const roads = new Set(city.roads);
   const onRoute = new Set(path);
   const servesEveryKind = kind === 'maintenance';
-  const servedIds = world.buildings
+  const servedIds = city.buildings
     .filter((candidate) => candidate.id !== building.id)
     .filter((candidate) => servesEveryKind || candidate.kind === 'house')
     .filter((candidate) => accessDoors(map, roads, candidate).some((tile) => onRoute.has(tile)))
@@ -56,7 +58,7 @@ export interface DeliveryRoute {
 export function deliveryRoutes(world: World, building: Building): DeliveryRoute[] {
   if (!SUPPLY_KINDS.has(building.kind)) return [];
   const routes: DeliveryRoute[] = [];
-  for (const walker of world.walkers) {
+  for (const walker of primaryCity(world).walkers) {
     if (walker.targetId === null) continue;
     if ((walker.kind === 'cart' || walker.kind === 'buyer') && walker.homeId === building.id) {
       routes.push({ walkerId: walker.id, path: walker.path, otherId: walker.targetId });

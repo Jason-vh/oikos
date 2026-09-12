@@ -58,17 +58,17 @@ export function createWorld(seed = DEFAULT_SEED, home?: number, founded = true):
     harbour: freshHarbour(seed, roadList, map.home),
     produced: 0,
     delivered: 0,
+    roads: roadList,
+    buildings: [],
+    walkers: [],
   };
   const world: World = {
-    version: 8,
+    version: 9,
     island: 'kalliste',
     seed,
     time: 0,
     remainder: 0,
     nextId: 1,
-    roads: roadList,
-    buildings: [],
-    walkers: [],
     wildlife: [],
     felled: [],
     regrowth: 0,
@@ -104,9 +104,10 @@ const REASON = {
 } as const;
 
 function buildingAt(world: World, tile: number): Building | undefined {
-  if (harbourTiles(world).includes(tile)) return primaryCity(world).harbour;
+  const city = primaryCity(world);
+  if (harbourTiles(world).includes(tile)) return city.harbour;
   const map = mapOf(world);
-  return world.buildings.find((building) => footprintTiles(map, building).includes(tile));
+  return city.buildings.find((building) => footprintTiles(map, building).includes(tile));
 }
 
 function terrainAllows(map: IslandMap, kind: BuildTool, x: number, z: number): boolean {
@@ -174,10 +175,10 @@ function evaluatePlacement(world: World, tool: BuildTool, x: number, z: number, 
     if (!terrainAllows(map, tool, x, z)) return { ok: false, reason: REASON.unsuitableTerrain, cost: 0, tiles: [tile] };
     if (!onHomeIsland(map, x, z)) return { ok: false, reason: REASON.unsettledIsland, cost: 0, tiles: [tile] };
     if (buildingAt(world, tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: [tile] };
-    if (neighbourGradeIssue(map, new Set(world.roads), tile)) return { ok: false, reason: REASON.roadTooSteep, cost: 0, tiles: [tile] };
-    const already = world.roads.includes(tile);
+    if (neighbourGradeIssue(map, new Set(city.roads), tile)) return { ok: false, reason: REASON.roadTooSteep, cost: 0, tiles: [tile] };
+    const already = city.roads.includes(tile);
     if (!already) {
-      const tentative = new Set(world.roads);
+      const tentative = new Set(city.roads);
       tentative.add(tile);
       const issue = stairPlacementIssue(map, tentative, [tile]);
       if (issue) return { ok: false, reason: stairReason(issue), cost: 0, tiles: [tile] };
@@ -207,7 +208,7 @@ function evaluatePlacement(world: World, tool: BuildTool, x: number, z: number, 
       return { ok: false, reason, cost: definition.cost, tiles };
     }
     if (!onHomeIsland(map, tx, tz)) return { ok: false, reason: REASON.unsettledIsland, cost: definition.cost, tiles };
-    if (world.roads.includes(tile)) return { ok: false, reason: REASON.tileOccupiedByRoad, cost: definition.cost, tiles };
+    if (city.roads.includes(tile)) return { ok: false, reason: REASON.tileOccupiedByRoad, cost: definition.cost, tiles };
     if (buildingAt(world, tile)) return { ok: false, reason: REASON.tileOccupied, cost: definition.cost, tiles };
   }
   if (definition.cost > city.money) return { ok: false, reason: REASON.notEnoughMoney, cost: definition.cost, tiles };
@@ -221,13 +222,14 @@ export function placement(world: World, tool: BuildTool, x: number, z: number, r
 export function build(world: World, tool: BuildTool, x: number, z: number, rotation: Rotation = 0): ActionResult {
   const result = evaluatePlacement(world, tool, x, z, rotation);
   if (!result.ok) return result;
-  const beforeStairs = stairLayout(mapOf(world), new Set(world.roads));
+  const city = primaryCity(world);
+  const beforeStairs = stairLayout(mapOf(world), new Set(city.roads));
 
-  primaryCity(world).money -= result.cost;
+  city.money -= result.cost;
   let reason: string;
   if (tool === 'road') {
     const tile = result.tiles[0];
-    if (!world.roads.includes(tile)) world.roads.push(tile);
+    if (!city.roads.includes(tile)) city.roads.push(tile);
     reason = 'Road laid.';
   } else {
     reason = `${BUILDINGS[tool].name} built.`;
@@ -251,7 +253,7 @@ export function build(world: World, tool: BuildTool, x: number, z: number, rotat
       serviceTimer: 0,
       upgradeTimer: 0,
     };
-    world.buildings.push(building);
+    city.buildings.push(building);
   }
   recomputeConnectivity(world);
   dropInvalidWalkers(world, beforeStairs);
@@ -275,7 +277,7 @@ function evaluateRoadPath(world: World, tiles: Tile[]): Placement {
     indices.push(tile);
   }
 
-  const existing = new Set(world.roads);
+  const existing = new Set(city.roads);
   const fresh = indices.filter((tile) => !existing.has(tile));
   const cost = fresh.length * ROAD_COST;
 
@@ -298,18 +300,20 @@ export function roadPathPlacement(world: World, tiles: Tile[]): Placement {
 export function placeRoadPath(world: World, tiles: Tile[]): ActionResult {
   const result = evaluateRoadPath(world, tiles);
   if (!result.ok) return { ok: false, reason: result.reason };
-  const beforeStairs = stairLayout(mapOf(world), new Set(world.roads));
+  const city = primaryCity(world);
+  const beforeStairs = stairLayout(mapOf(world), new Set(city.roads));
 
-  const existing = new Set(world.roads);
-  primaryCity(world).money -= result.cost;
-  for (const tile of result.tiles) if (!existing.has(tile)) world.roads.push(tile);
+  const existing = new Set(city.roads);
+  city.money -= result.cost;
+  for (const tile of result.tiles) if (!existing.has(tile)) city.roads.push(tile);
   recomputeConnectivity(world);
   dropInvalidWalkers(world, beforeStairs);
   return { ok: true, reason: 'Road laid.' };
 }
 
 export function demolish(world: World, x: number, z: number): ActionResult {
-  if (!primaryCity(world).founded) return { ok: false, reason: REASON.foundingRequired };
+  const city = primaryCity(world);
+  if (!city.founded) return { ok: false, reason: REASON.foundingRequired };
   const map = mapOf(world);
   if (!insideMapOn(map, x, z)) return { ok: false, reason: REASON.outOfBounds };
   const tile = tileIndexOn(map, x, z);
@@ -318,25 +322,26 @@ export function demolish(world: World, x: number, z: number): ActionResult {
   if (building) {
     if (building.kind === 'harbour') return { ok: false, reason: REASON.harbourPermanent };
     const refund = Math.floor((BUILDINGS[building.kind].cost + (building.vendorInstalled ? VENDOR_COST : 0)) / 2);
-    primaryCity(world).money += refund;
+    city.money += refund;
     removeBuilding(world, building.id);
     recomputeConnectivity(world);
     return { ok: true, reason: `Demolished, ${refund} drachmas refunded.` };
   }
 
-  const index = world.roads.indexOf(tile);
+  const index = city.roads.indexOf(tile);
   if (index === -1) return { ok: false, reason: REASON.nothingToDemolish };
-  const beforeStairs = stairLayout(map, new Set(world.roads));
-  world.roads.splice(index, 1);
+  const beforeStairs = stairLayout(map, new Set(city.roads));
+  city.roads.splice(index, 1);
   recomputeConnectivity(world);
   dropInvalidWalkers(world, beforeStairs);
   return { ok: true, reason: 'Demolished. Roads are not refunded.' };
 }
 
 function removeBuilding(world: World, id: number): void {
-  world.buildings = world.buildings.filter((building) => building.id !== id);
-  world.walkers = world.walkers.filter((walker) => walker.homeId !== id);
-  for (const walker of world.walkers) {
+  const city = primaryCity(world);
+  city.buildings = city.buildings.filter((building) => building.id !== id);
+  city.walkers = city.walkers.filter((walker) => walker.homeId !== id);
+  for (const walker of city.walkers) {
     if (walker.targetId !== id) continue;
     const travelled = walker.path.slice(0, walker.step + 1).reverse();
     walker.path = travelled;
@@ -373,9 +378,10 @@ function currentSegmentChanged(before: ReadonlyMap<number, Stair>, after: Readon
 
 export function dropInvalidWalkers(world: World, beforeStairs?: ReadonlyMap<number, Stair>): void {
   const map = mapOf(world);
-  const roads = new Set(world.roads);
+  const city = primaryCity(world);
+  const roads = new Set(city.roads);
   const stairs = stairLayout(map, roads);
-  world.walkers = world.walkers.filter((walker) => {
+  city.walkers = city.walkers.filter((walker) => {
     const valid = walkerPathValid(map, roads, stairs, walker);
     const changed = beforeStairs ? currentSegmentChanged(beforeStairs, stairs, walker) : false;
     if (valid && !changed) return true;
@@ -391,7 +397,7 @@ export function setVendor(world: World, id: number, enabled: boolean): ActionRes
   const city = primaryCity(world);
   if (!city.founded) return { ok: false, reason: REASON.foundingRequired };
   if (id === city.harbour.id) return setHarbourTrade(city.harbour, enabled);
-  const building = world.buildings.find((candidate) => candidate.id === id);
+  const building = city.buildings.find((candidate) => candidate.id === id);
   if (!building) return { ok: false, reason: REASON.noSuchBuilding };
   if (building.kind !== 'agora') return { ok: false, reason: REASON.onlyAgoraHostsVendor };
 
@@ -412,14 +418,14 @@ export function setVendor(world: World, id: number, enabled: boolean): ActionRes
 }
 
 export function recomputeConnectivity(world: World): void {
-  const roads = new Set(world.roads);
+  const city = primaryCity(world);
+  const roads = new Set(city.roads);
   const map = mapOf(world);
   const entry = entryTileIndex(world);
   const reachable = roads.has(entry) ? bfsReachable(map, roads, entry) : new Set<number>();
-  for (const building of world.buildings) {
+  for (const building of city.buildings) {
     building.connected = accessDoors(map, roads, building).some((tile) => reachable.has(tile));
   }
-  const city = primaryCity(world);
   city.harbour.connected = city.founded && accessDoors(map, roads, city.harbour).some((tile) => reachable.has(tile));
 }
 
@@ -447,20 +453,21 @@ function jobsOf(building: Building): number {
 }
 
 export function hasActiveWalker(world: World, homeId: number, kind: WalkerKind): boolean {
-  return world.walkers.some((walker) => walker.homeId === homeId && walker.kind === kind);
+  return primaryCity(world).walkers.some((walker) => walker.homeId === homeId && walker.kind === kind);
 }
 
 type WalkerSeed = Omit<Walker, 'id' | 'overland' | 'quarry' | 'working'> & Partial<Pick<Walker, 'overland' | 'quarry' | 'working'>>;
 
 export function spawnWalker(world: World, partial: WalkerSeed): Walker {
   const walker: Walker = { id: world.nextId++, overland: [], quarry: null, working: 0, ...partial };
-  world.walkers.push(walker);
+  primaryCity(world).walkers.push(walker);
   return walker;
 }
 
 function updateStaffing(world: World): void {
-  const workplaces = world.buildings.filter((building) => building.kind !== 'house');
-  const population = world.buildings
+  const buildings = primaryCity(world).buildings;
+  const workplaces = buildings.filter((building) => building.kind !== 'house');
+  const population = buildings
     .filter((building) => building.kind === 'house')
     .reduce((sum, house) => sum + house.residents, 0);
   const availableWorkers = Math.floor(population * EMPLOYMENT_SHARE);
@@ -495,7 +502,7 @@ export function sendCart(world: World, producer: Building): void {
   const exit = exitTile(world, producer);
   if (exit === -1) return;
   const storeKind = isFood(resource) ? 'granary' : 'stockpile';
-  const stores = world.buildings.filter((building) => building.kind === storeKind && building.connected && totalStock(building) < storeCapacity(building));
+  const stores = primaryCity(world).buildings.filter((building) => building.kind === storeKind && building.connected && totalStock(building) < storeCapacity(building));
   const found = findNearestConnected(world, exit, stores);
   if (!found) return;
   const cargo = Math.min(producer.stores[resource] ?? 0, CART_CAPACITY, storeCapacity(found.building) - totalStock(found.building));
@@ -526,7 +533,7 @@ function updateAgora(world: World, agora: Building, dt: number): void {
 
   if (!hasActiveWalker(world, agora.id, 'buyer') && totalStock(agora) < AGORA_CAP) {
     const exit = exitTile(world, agora);
-    const granaries = world.buildings.filter((building) => building.kind === 'granary' && building.connected && totalStock(building) > 0);
+    const granaries = primaryCity(world).buildings.filter((building) => building.kind === 'granary' && building.connected && totalStock(building) > 0);
     if (exit !== -1 && granaries.length > 0) {
       const found = findNearestConnected(world, exit, granaries);
       if (found) {
@@ -596,8 +603,9 @@ function updateCircuitDispatch(world: World, building: Building, kind: WalkerKin
 
 function buildingsAdjacentToTile(world: World, tile: number): Building[] {
   const map = mapOf(world);
-  const roads = new Set(world.roads);
-  return world.buildings.filter((building) => accessDoors(map, roads, building).includes(tile));
+  const city = primaryCity(world);
+  const roads = new Set(city.roads);
+  return city.buildings.filter((building) => accessDoors(map, roads, building).includes(tile));
 }
 
 function reverseForReturn(walker: Walker): void {
@@ -632,15 +640,16 @@ function serviceTileVisit(world: World, walker: Walker): void {
 }
 
 function onFinalArrival(world: World, walker: Walker): boolean {
+  const city = primaryCity(world);
   if (walker.kind === 'hunter' || walker.kind === 'woodcutter') return gatherArrival(world, walker);
   if (walker.kind === 'immigrant') {
-    const house = world.buildings.find((building) => building.id === walker.targetId);
+    const house = city.buildings.find((building) => building.id === walker.targetId);
     if (house && house.kind === 'house') house.residents = Math.min(HOUSE_CAPACITY[house.tier], house.residents + walker.cargo);
     return true;
   }
   if (walker.kind === 'cart') {
     if (walker.returning) return true;
-    const store = world.buildings.find((building) => building.id === walker.targetId);
+    const store = city.buildings.find((building) => building.id === walker.targetId);
     if (store && walker.food) {
       const deliver = Math.min(walker.cargo, storeCapacity(store) - totalStock(store));
       addStore(store, walker.food, deliver);
@@ -651,7 +660,7 @@ function onFinalArrival(world: World, walker: Walker): boolean {
   }
   if (walker.kind === 'buyer') {
     if (walker.returning) return true;
-    const agora = world.buildings.find((building) => building.id === walker.homeId);
+    const agora = city.buildings.find((building) => building.id === walker.homeId);
     if (agora && walker.food) {
       const deliver = Math.min(walker.cargo, AGORA_CAP - totalStock(agora));
       addStore(agora, walker.food, deliver);
@@ -662,7 +671,7 @@ function onFinalArrival(world: World, walker: Walker): boolean {
   }
   if (walker.kind === 'porter') {
     if (walker.returning) return true;
-    const harbour = primaryCity(world).harbour;
+    const harbour = city.harbour;
     if (walker.food) {
       const deliver = Math.min(walker.cargo, storeCapacity(harbour) - totalStock(harbour));
       addStore(harbour, walker.food, deliver);
@@ -672,7 +681,7 @@ function onFinalArrival(world: World, walker: Walker): boolean {
     return false;
   }
   if (walker.kind === 'vendor' && walker.cargo > 0) {
-    const agora = world.buildings.find((building) => building.id === walker.homeId);
+    const agora = city.buildings.find((building) => building.id === walker.homeId);
     if (agora && walker.food) addStore(agora, walker.food, Math.min(walker.cargo, AGORA_CAP - totalStock(agora)));
     walker.cargo = 0;
   }
@@ -681,10 +690,11 @@ function onFinalArrival(world: World, walker: Walker): boolean {
 
 function moveWalkers(world: World, dt: number): void {
   const map = mapOf(world);
-  const roads = new Set(world.roads);
+  const city = primaryCity(world);
+  const roads = new Set(city.roads);
   const stairs = stairLayout(map, roads);
   const alive: Walker[] = [];
-  for (const walker of world.walkers) {
+  for (const walker of city.walkers) {
     if (!walkerPathValid(map, roads, stairs, walker)) continue;
     if (walker.working > 0) {
       walker.working = Math.max(0, walker.working - dt);
@@ -716,18 +726,18 @@ function moveWalkers(world: World, dt: number): void {
     }
     if (!done) alive.push(walker);
   }
-  world.walkers = alive;
+  city.walkers = alive;
 }
 
 function arrivingResidents(world: World, houseId: number): number {
-  return world.walkers
+  return primaryCity(world).walkers
     .filter((walker) => walker.kind === 'immigrant' && walker.targetId === houseId)
     .reduce((sum, walker) => sum + walker.cargo, 0);
 }
 
 function sendImmigrants(world: World, house: Building, party: number): void {
   if (party <= 0) return;
-  const roads = new Set(world.roads);
+  const roads = new Set(primaryCity(world).roads);
   const goals = new Set(accessTiles(world, house));
   const path = bfsShortest(mapOf(world), roads, entryTileIndex(world), (tile) => goals.has(tile));
   if (!path) return;
@@ -817,7 +827,8 @@ function updateFinances(world: World, dt: number): void {
 function simulationStep(world: World, dt: number): void {
   world.time += dt;
   updateStaffing(world);
-  for (const building of world.buildings) {
+  const buildings = primaryCity(world).buildings;
+  for (const building of buildings) {
     if (building.kind === 'farm') updateFarm(world, building, dt);
     else if (building.kind === 'lodge' || building.kind === 'woodcutter') updateGatherer(world, building);
     else if (building.kind === 'agora') updateAgora(world, building, dt);
@@ -828,7 +839,7 @@ function simulationStep(world: World, dt: number): void {
   moveWalkers(world, dt);
   stepWildlife(world, dt);
   regrowForest(world, dt);
-  for (const building of world.buildings) {
+  for (const building of buildings) {
     if (building.kind === 'house') tickHouse(world, building, dt);
   }
   updateFinances(world, dt);
@@ -844,19 +855,19 @@ export function advance(world: World, seconds: number): void {
 }
 
 export function getSummary(world: World): Summary {
-  const houses = world.buildings.filter((building) => building.kind === 'house');
-  const workplaces = world.buildings.filter((building) => building.kind !== 'house');
+  const city = primaryCity(world);
+  const houses = city.buildings.filter((building) => building.kind === 'house');
+  const workplaces = city.buildings.filter((building) => building.kind !== 'house');
   const population = houses.reduce((sum, house) => sum + house.residents, 0);
   const workers = workplaces.reduce((sum, building) => sum + building.workers, 0);
   const jobs = workplaces.reduce((sum, building) => sum + jobsOf(building), 0);
-  const food = world.buildings
+  const food = city.buildings
     .filter((building) => building.kind === 'granary' || building.kind === 'agora')
     .reduce((sum, building) => sum + totalStock(building), 0);
   const income = houses.reduce((sum, house) => sum + house.residents * INCOME_PER_RESIDENT, 0);
   const upkeep = workplaces.reduce((sum, building) => sum + BUILDINGS[building.kind].upkeep, 0);
   const balance = income - upkeep;
   const prosperous = houses.filter((house) => house.tier === 3 && house.residents > 0).length;
-  const city = primaryCity(world);
   const goal = prosperous >= 4 && balance >= 0 && city.produced > 0 && city.delivered > 0;
   return { population, workers, jobs, food, income, upkeep, balance, prosperous, goal };
 }
@@ -888,7 +899,7 @@ function houseStatus(world: World, building: Building): string[] {
 }
 
 function neglectAdvice(world: World): string {
-  const caretakers = world.buildings.some((candidate) => candidate.kind === 'maintenance' && candidate.connected);
+  const caretakers = primaryCity(world).buildings.some((candidate) => candidate.kind === 'maintenance' && candidate.connected);
   return caretakers ? 'Neglected; a caretaker will repair it.' : 'Neglected; build a maintenance post.';
 }
 
@@ -946,8 +957,9 @@ export function walkerName(walker: Walker): string {
 }
 
 export function walkerStatus(world: World, walker: Walker): string[] {
-  const home = world.buildings.find((building) => building.id === walker.homeId);
-  const target = world.buildings.find((building) => building.id === walker.targetId);
+  const buildings = primaryCity(world).buildings;
+  const home = buildings.find((building) => building.id === walker.homeId);
+  const target = buildings.find((building) => building.id === walker.targetId);
   const named = (building: Building | undefined) => building ? (building.kind === 'house' ? 'a house' : `the ${BUILDINGS[building.kind].name.toLowerCase()}`) : 'home';
   const load = walker.food ? `${Math.round(walker.cargo)} ${walker.food}` : '';
   switch (walker.kind) {

@@ -21,7 +21,7 @@ export function foundingPlacement(world: World, x: number, z: number): Placement
   const reject = (reason: string): Placement => ({ ok: false, reason, cost: 0, tiles });
   if (!onHomeIsland(map, x, z) || !onHomeIsland(map, x + width - 1, z + depth - 1)) return reject('Choose a harbour site on your starting island.');
   if (Math.abs(x - map.entry.x) > FOUNDING_RANGE || map.entry.z - z > FOUNDING_RANGE || z + depth > map.entry.z) return reject('Place the dockyard beside the prepared landing road. H returns to the landing.');
-  const roads = new Set(world.roads);
+  const roads = new Set(primaryCity(world).roads);
   for (const tile of tiles) {
     const tx = tile % map.width;
     const tz = Math.floor(tile / map.width);

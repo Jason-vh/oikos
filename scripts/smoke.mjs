@@ -40,8 +40,8 @@ try {
   await page.getByRole('button', { name: /pause/i }).first().click();
   assert.match(await page.locator('[data-field="time"]').textContent(), /^[1-3] Jan 421 BC$/);
   let world = await state(page);
-  assert.equal(world.buildings.length, 0);
-  assert(world.roads.length >= 5, 'Starter roads missing');
+  assert.equal(world.cities[0].buildings.length, 0);
+  assert(world.cities[0].roads.length >= 5, 'Starter roads missing');
   await page.screenshot({ path: path.join(output, '01-empty-island.png') });
 
   const plan = await page.evaluate(() => window.oikos.plan);
@@ -64,18 +64,18 @@ try {
     await selectTool(page, labels[item.kind]);
     await clickTile(page, item.x, item.z);
     world = await state(page);
-    assert(world.buildings.some((building) => building.kind === item.kind && building.x === item.x && building.z === item.z), `Could not place ${item.kind} at ${item.x},${item.z}`);
+    assert(world.cities[0].buildings.some((building) => building.kind === item.kind && building.x === item.x && building.z === item.z), `Could not place ${item.kind} at ${item.x},${item.z}`);
   }
   await selectTool(page, 'Dwelling');
   await page.evaluate(([x, z]) => window.oikos.focusTile(x, z), waterTile);
   await paint(page);
   await clickTile(page, waterTile[0], waterTile[1]);
-  assert.equal((await state(page)).buildings.length, plan.buildings.length, 'Placed a house on water');
+  assert.equal((await state(page)).cities[0].buildings.length, plan.buildings.length, 'Placed a house on water');
   await selectTool(page, 'Wheat farm');
   await page.evaluate(([x, z]) => window.oikos.focusTile(x, z), grassTile);
   await paint(page);
   await clickTile(page, grassTile[0], grassTile[1]);
-  assert.equal((await state(page)).buildings.length, plan.buildings.length, 'Farm accepted outside fertile ground');
+  assert.equal((await state(page)).cities[0].buildings.length, plan.buildings.length, 'Farm accepted outside fertile ground');
   await selectTool(page, 'Road');
   for (const run of roadStrokes) {
     const straight = run.every((tile) => tile.x === run[0].x) || run.every((tile) => tile.z === run[0].z);
@@ -95,9 +95,9 @@ try {
     }
   }
   world = await state(page);
-  for (const tile of plan.roads) assert(world.roads.includes(tile.z * island.width + tile.x), `Road missing at ${tile.x},${tile.z}`);
+  for (const tile of plan.roads) assert(world.cities[0].roads.includes(tile.z * island.width + tile.x), `Road missing at ${tile.x},${tile.z}`);
   await page.keyboard.press('Escape');
-  const agora = (await state(page)).buildings.find((building) => building.kind === 'agora');
+  const agora = (await state(page)).cities[0].buildings.find((building) => building.kind === 'agora');
   assert(agora, 'Agora missing');
   await page.evaluate(([x, z]) => window.oikos.focusTile(x, z), [agora.x, agora.z]);
   await paint(page);
@@ -110,15 +110,15 @@ try {
   await vendorButton.click();
   await paint(page);
   world = await state(page);
-  const agoraAfter = world.buildings.find((building) => building.id === agora.id);
+  const agoraAfter = world.cities[0].buildings.find((building) => building.id === agora.id);
   assert.equal(agoraAfter.vendorEnabled, true, 'Vendor not enabled');
   assert.equal(before - world.cities[0].money, 50, 'Vendor did not cost 50');
-  assert(world.buildings.every((building) => building.connected), 'A building is disconnected');
+  assert(world.cities[0].buildings.every((building) => building.connected), 'A building is disconnected');
   await page.screenshot({ path: path.join(output, '02-neighbourhood.png') });
 
   await advance(page, 120);
   world = await state(page);
-  assert(world.buildings.filter((building) => building.kind === 'house').every((house) => house.residents > 0), 'Settlers did not arrive');
+  assert(world.cities[0].buildings.filter((building) => building.kind === 'house').every((house) => house.residents > 0), 'Settlers did not arrive');
   let delivered = false;
   for (let i = 0; i < 10 && !delivered; i++) {
     await advance(page, 60);
@@ -126,7 +126,7 @@ try {
     delivered = world.cities[0].delivered > 0;
   }
   assert(delivered, 'No food was delivered within 12 simulated minutes');
-  const roamer = world.walkers.find((walker) => walker.kind === 'vendor' || walker.kind === 'water' || walker.kind === 'maintenance');
+  const roamer = world.cities[0].walkers.find((walker) => walker.kind === 'vendor' || walker.kind === 'water' || walker.kind === 'maintenance');
   assert(roamer, 'No service walker on the streets');
   const roamerTile = roamer.path[Math.min(roamer.step, roamer.path.length - 1)];
   await page.evaluate(([x, z]) => window.oikos.focusTile(x, z), [roamerTile % island.width, Math.floor(roamerTile / island.width)]);
@@ -136,7 +136,7 @@ try {
   await page.mouse.click(roamerPoint.x, roamerPoint.y);
   await paint(page);
   assert.match(await page.locator('[data-field="inspector-tier"]').textContent(), /vendor|carrier|caretaker/i, 'Clicking a walker did not inspect them');
-  assert(world.walkers.length > 0 || world.cities[0].produced > 0, 'Nothing moved');
+  assert(world.cities[0].walkers.length > 0 || world.cities[0].produced > 0, 'Nothing moved');
   await page.screenshot({ path: path.join(output, '03-first-deliveries.png') });
   let goal = false;
   for (let i = 0; i < 20 && !goal; i++) {
@@ -144,7 +144,7 @@ try {
     goal = (await summary(page)).goal;
   }
   world = await state(page);
-  const courtyards = world.buildings.filter((building) => building.kind === 'house' && building.tier === 3 && building.residents > 0).length;
+  const courtyards = world.cities[0].buildings.filter((building) => building.kind === 'house' && building.tier === 3 && building.residents > 0).length;
   assert(goal, `Goal not met after 32 simulated minutes: courtyards=${courtyards}, balance=${(await summary(page)).balance}, money=${world.cities[0].money}`);
   await expectChecked(page.locator('[data-milestone="courtyards"]'));
   await page.screenshot({ path: path.join(output, '04-thriving.png') });
@@ -154,22 +154,22 @@ try {
   await page.waitForFunction(() => document.body.dataset.ready);
   await page.getByRole('button', { name: /pause/i }).first().click();
   const restored = await state(page);
-  assert.equal(restored.buildings.length, world.buildings.length, 'Save did not restore buildings');
+  assert.equal(restored.cities[0].buildings.length, world.cities[0].buildings.length, 'Save did not restore buildings');
   assert(restored.time >= world.time, 'Save lost simulation time');
   const tampered = await page.evaluate(() => { const key = 'oikos.checkpoint.v1'; localStorage.setItem(key, '{"version":1,"buildings":"nope"}'); return key; });
   await menuChoice(page, 'load');
-  assert.equal((await state(page)).buildings.length, restored.buildings.length, 'Corrupt save replaced the island');
+  assert.equal((await state(page)).cities[0].buildings.length, restored.cities[0].buildings.length, 'Corrupt save replaced the island');
   assert(tampered);
   await menuChoice(page, 'save');
   await menuChoice(page, 'new-island');
   await page.getByRole('button', { name: 'Cancel' }).click();
-  assert.equal((await state(page)).buildings.length, restored.buildings.length, 'Cancelled new island cleared the city');
+  assert.equal((await state(page)).cities[0].buildings.length, restored.cities[0].buildings.length, 'Cancelled new island cleared the city');
   await menuChoice(page, 'new-island');
   await page.getByRole('button', { name: 'New island' }).last().click();
   await paint(page);
-  assert.equal((await state(page)).buildings.length, 0, 'Confirmed new island kept the old city');
+  assert.equal((await state(page)).cities[0].buildings.length, 0, 'Confirmed new island kept the old city');
   await menuChoice(page, 'load');
-  assert.equal((await state(page)).buildings.length, restored.buildings.length, 'New island destroyed the manual checkpoint');
+  assert.equal((await state(page)).cities[0].buildings.length, restored.cities[0].buildings.length, 'New island destroyed the manual checkpoint');
   const beforePan = await page.evaluate(() => window.oikos.camera);
   await page.keyboard.down('d');
   await paint(page, 12);

@@ -64,12 +64,15 @@ pre-founded; Menu → New island uses the on-map founding flow.
 
 ## One city, for now
 
-A `World` holds one shared map, roads, buildings and walkers, plus `cities: City[]` —
-each city's own `home`, `founded`, `money`, `harbour`, `produced` and `delivered`.
-Only a single city is supported today; `primaryCity(world)` in `src/sim/city.ts`
-names that transitional assumption at every call site that reads or writes city
-metadata. Saves are rejected if they contain anything other than exactly one city.
-Multiple, separately owned cities sharing one archipelago are future work.
+A `World` holds the shared map seed, simulation clock, entity allocator, and
+wildlife, plus `cities: City[]`. Each city owns `home`, `founded`, `money`,
+`harbour`, `produced`, `delivered`, `roads`, `buildings`, and `walkers` — the
+whole of one settlement's infrastructure. Only a single city is supported
+today; `primaryCity(world)` in `src/sim/city.ts` names that transitional
+assumption at every call site that reads or writes city state. Saves are
+rejected if they contain anything other than exactly one city. Multiple,
+separately owned cities sharing one archipelago, and the ownership and
+actor checks that come with them, are future work.
 
 Nobody lives on the island yet — population only arrives once a dwelling is built
 and connected, by road, back to that entry. All eight islands on seeds 1 and 2 are tested
@@ -346,10 +349,12 @@ another building, and that every walker's path is a real, road-adjacent route
 rejected as unsupported rather than partially loaded. A valid save round-trips
 exactly, including walkers already mid-journey, which keep walking correctly after
 a reload. The harbour's site and progress (tier, stock, trade order, voyage) are preserved
-exactly. Version 8 moves each city's `home`, `founded`, `money`, `harbour`,
-`produced` and `delivered` into `world.cities`, stripping the flat root copies;
-older saves migrate onto a single `cities[0]` without changing that economic or
-harbour state, and are rejected if they ever contain more than one city.
+exactly. Version 9 moves each city's `roads`, `buildings`, and `walkers` into
+`world.cities` alongside the metadata version 8 already nested there, leaving
+terrain seed, clock, remainder, entity allocator, wildlife, felled trees, and
+regrowth timer as the only fields left on `World`. Older saves migrate onto a
+single `cities[0]` without changing that economic, harbour, or entity state,
+and are rejected if they ever contain more than one city.
 Version 6 validates the saved footprint rather than choosing another site
 from the current road layout: demolishing roads cannot move the harbour on reload.
 Invalid sites and overlaps are rejected instead of silently relocated.

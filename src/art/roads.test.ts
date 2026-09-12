@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test';
 import * as T from 'three';
 import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, generateIsland, soleIsland, tileAtOn, worldPositionOn, type IslandMap } from '../sim/island';
 import { createWorld } from '../sim/world';
+import { primaryCity } from '../sim/city';
 import { buildStarterNeighbourhood } from '../sim/scenario';
 import { buildRoads } from './roads';
 import { STAIR_STEPS as ROAD_STEPS } from '../sim/stairs';
@@ -128,17 +129,18 @@ test('road art is seeded, insertion-order independent, and does not mutate its i
     buildStarterNeighbourhood(world);
     const map = generateIsland(seed);
     const before = structuredClone({ map, world });
-    const model = buildRoads(map, world.roads);
-    const reversed = buildRoads(map, [...world.roads].reverse());
-    const restored = buildRoads(map, JSON.parse(JSON.stringify(world.roads)));
-    const varied = buildRoads({ ...map, seed: seed + 1 }, world.roads);
+    const roads = primaryCity(world).roads;
+    const model = buildRoads(map, roads);
+    const reversed = buildRoads(map, [...roads].reverse());
+    const restored = buildRoads(map, JSON.parse(JSON.stringify(roads)));
+    const varied = buildRoads({ ...map, seed: seed + 1 }, roads);
     try {
       expect(vertices(model)).toEqual(vertices(reversed));
       expect(vertices(model)).toEqual(vertices(restored));
       expect(vertices(model)).not.toEqual(vertices(varied));
       expect({ map, world }).toEqual(before);
       expect(model.children.length).toBeLessThanOrEqual(5);
-      expect(vertices(model).reduce((sum, positions) => sum + positions.length / 9, 0)).toBeLessThan(world.roads.length * 180);
+      expect(vertices(model).reduce((sum, positions) => sum + positions.length / 9, 0)).toBeLessThan(roads.length * 180);
     } finally {
       for (const road of [model, reversed, restored, varied]) disposeModel(road);
     }

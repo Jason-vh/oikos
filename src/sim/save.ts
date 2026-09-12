@@ -143,20 +143,6 @@ function validateHarbour(map: IslandMap, raw: unknown, roads: Set<number>, occup
   return harbourAt({ x, z }, progress);
 }
 
-function validateCity(map: IslandMap, seed: number, raw: unknown, roads: Set<number>, occupied: Set<number>): City | null {
-  if (!isPlainObject(raw)) return null;
-  const { id, home, founded, money, harbour, produced, delivered } = raw;
-  if (!isInteger(id) || id <= 0) return null;
-  if (!isInteger(home) || home < 0 || home >= islandFor(seed).islands.length) return null;
-  if (typeof founded !== 'boolean') return null;
-  if (!isFiniteNumber(money)) return null;
-  if (!isNonNegativeFinite(produced)) return null;
-  if (!isNonNegativeFinite(delivered)) return null;
-  const validatedHarbour = validateHarbour(map, harbour, roads, occupied);
-  if (!validatedHarbour) return null;
-  return { id: id as number, home: home as number, founded, money: money as number, harbour: validatedHarbour, produced: produced as number, delivered: delivered as number };
-}
-
 function pathIsAdjacent(map: IslandMap, path: number[], roads: Set<number>, overland: Set<number>): boolean {
   for (let i = 0; i < path.length; i++) {
     if (!roads.has(path[i]) && !overland.has(path[i])) return false;
@@ -224,15 +210,22 @@ export function deserializeWorld(raw: string): World | null {
   if (!isPlainObject(parsed)) return null;
   const migrated = migrateSave(parsed);
   if (!migrated) return null;
-  const { version, island, seed, time, remainder, nextId, roads: rawRoads, buildings: rawBuildings, walkers: rawWalkers, wildlife: rawWildlife, felled: rawFelled, regrowth, cities: rawCities } = migrated;
+  const { version, island, seed, time, remainder, nextId, wildlife: rawWildlife, felled: rawFelled, regrowth, cities: rawCities } = migrated;
 
   if (version !== CURRENT_VERSION) return null;
   if (island !== 'kalliste') return null;
   if (!isInteger(seed) || seed < 0 || seed > 0xffffffff) return null;
   if (!Array.isArray(rawCities) || rawCities.length !== 1) return null;
   const rawCity = rawCities[0];
-  if (!isPlainObject(rawCity) || !isInteger(rawCity.home) || (rawCity.home as number) < 0 || (rawCity.home as number) >= islandFor(seed).islands.length) return null;
-  const map = islandFor(seed, rawCity.home as number);
+  if (!isPlainObject(rawCity)) return null;
+  const { id, home, founded, money, harbour: rawHarbour, produced, delivered, roads: rawRoads, buildings: rawBuildings, walkers: rawWalkers } = rawCity;
+  if (!isInteger(id) || id <= 0) return null;
+  if (!isInteger(home) || home < 0 || home >= islandFor(seed).islands.length) return null;
+  const map = islandFor(seed, home as number);
+  if (typeof founded !== 'boolean') return null;
+  if (!isFiniteNumber(money)) return null;
+  if (!isNonNegativeFinite(produced)) return null;
+  if (!isNonNegativeFinite(delivered)) return null;
   if (!isNonNegativeFinite(time)) return null;
   if (!isNonNegativeFinite(remainder)) return null;
   if (!isInteger(nextId) || nextId <= 0) return null;
@@ -252,8 +245,8 @@ export function deserializeWorld(raw: string): World | null {
     buildings.push(building);
   }
 
-  const city = validateCity(map, seed as number, rawCity, roadSet, occupied);
-  if (!city) return null;
+  const harbour = validateHarbour(map, rawHarbour, roadSet, occupied);
+  if (!harbour) return null;
 
   if (!Array.isArray(rawWalkers)) return null;
   const buildingIds = new Set(buildings.map((building) => building.id));
@@ -279,6 +272,8 @@ export function deserializeWorld(raw: string): World | null {
   if (!Array.isArray(rawFelled) || !rawFelled.every((tile) => tileInBounds(map, tile))) return null;
   const felled = rawFelled as number[];
   if (!isNonNegativeFinite(regrowth)) return null;
+
+  const city: City = { id: id as number, home: home as number, founded, money: money as number, harbour, produced: produced as number, delivered: delivered as number, roads, buildings, walkers };
   if (!city.founded) {
     const preparedRoads = landingRoads(map);
     if (city.money !== STARTING_MONEY || roads.length !== preparedRoads.length || preparedRoads.some((tile) => !roadSet.has(tile))) return null;
@@ -294,9 +289,6 @@ export function deserializeWorld(raw: string): World | null {
     time: time as number,
     remainder: remainder as number,
     nextId: nextId as number,
-    roads,
-    buildings,
-    walkers,
     wildlife,
     felled,
     regrowth: regrowth as number,

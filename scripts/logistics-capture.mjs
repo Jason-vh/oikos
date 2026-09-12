@@ -65,7 +65,7 @@ try {
   await page.keyboard.press('Escape');
 
   let world = await state(page);
-  const agora = world.buildings.find((building) => building.kind === 'agora');
+  const agora = world.cities[0].buildings.find((building) => building.kind === 'agora');
   await page.evaluate(([x, z]) => window.oikos.focusTile(x, z), [agora.x, agora.z]);
   await paint(page);
   const agoraPoint = await page.evaluate((id) => window.oikos.projectBuilding(id), agora.id);
@@ -84,19 +84,19 @@ try {
   await page.screenshot({ path: path.join(output, '00-city-idle.png') });
 
   world = await state(page);
-  const fountain = world.buildings.find((building) => building.kind === 'fountain');
+  const fountain = world.cities[0].buildings.find((building) => building.kind === 'fountain');
   const fountainPoint = await page.evaluate((id) => window.oikos.projectBuilding(id), fountain.id);
   await page.mouse.click(fountainPoint.x, fountainPoint.y);
   await paint(page);
   await page.screenshot({ path: path.join(output, '01-fountain-selected.png') });
 
-  const maintenance = world.buildings.find((building) => building.kind === 'maintenance');
+  const maintenance = world.cities[0].buildings.find((building) => building.kind === 'maintenance');
   const maintenancePoint = await page.evaluate((id) => window.oikos.projectBuilding(id), maintenance.id);
   await page.mouse.click(maintenancePoint.x, maintenancePoint.y);
   await paint(page);
   await page.screenshot({ path: path.join(output, '02-maintenance-selected.png') });
 
-  const agoraAfter = world.buildings.find((building) => building.kind === 'agora');
+  const agoraAfter = world.cities[0].buildings.find((building) => building.kind === 'agora');
   const agoraPoint2 = await page.evaluate((id) => window.oikos.projectBuilding(id), agoraAfter.id);
   await page.mouse.click(agoraPoint2.x, agoraPoint2.y);
   await paint(page);
@@ -105,7 +105,7 @@ try {
   let roamer = null;
   for (let i = 0; i < 20 && !roamer; i++) {
     world = await state(page);
-    roamer = world.walkers.find((walker) => walker.kind === 'vendor' || walker.kind === 'water' || walker.kind === 'maintenance');
+    roamer = world.cities[0].walkers.find((walker) => walker.kind === 'vendor' || walker.kind === 'water' || walker.kind === 'maintenance');
     if (!roamer) await advance(page, 30);
   }
   if (roamer) {
@@ -122,7 +122,7 @@ try {
   }
 
   await advance(page, 300);
-  const houses = (await state(page)).buildings.filter((building) => building.kind === 'house');
+  const houses = (await state(page)).cities[0].buildings.filter((building) => building.kind === 'house');
   for (const house of houses.slice(0, 4)) {
     const point = await page.evaluate((id) => window.oikos.projectBuilding(id), house.id);
     await page.evaluate(([x, z]) => window.oikos.focusTile(x, z), [house.x, house.z]);

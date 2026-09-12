@@ -14,7 +14,7 @@ try {
   await page.getByRole('button', { name: /pause/i }).first().click();
   const original = await page.evaluate(() => window.oikos.state);
   await page.getByRole('button', { name: /^Demolish,/ }).click();
-  for (const tile of original.roads) {
+  for (const tile of original.cities[0].roads) {
     const point = await page.evaluate((index) => {
       const width = window.oikos.map.width;
       return window.oikos.projectTile(index % width, Math.floor(index / width));
@@ -22,7 +22,7 @@ try {
     await page.mouse.click(point.x, point.y);
     await paint(page);
   }
-  assert.equal((await page.evaluate(() => window.oikos.state)).roads.length, 0);
+  assert.equal((await page.evaluate(() => window.oikos.state)).cities[0].roads.length, 0);
   await page.keyboard.press('Escape');
   await page.getByTestId('menu').click();
   await page.getByTestId('save').click();
@@ -35,7 +35,7 @@ try {
   assert.equal(loaded.cities[0].harbour.x, original.cities[0].harbour.x, 'Harbour moved horizontally on reload');
   assert.equal(loaded.cities[0].harbour.z, original.cities[0].harbour.z, 'Harbour moved vertically on reload');
   assert.equal(loaded.cities[0].harbour.connected, false);
-  assert.deepEqual(loaded.roads, saved.roads);
+  assert.deepEqual(loaded.cities[0].roads, saved.cities[0].roads);
   assert.equal(loaded.cities[0].money, saved.cities[0].money);
   assert.deepEqual(errors, []);
   console.log('Harbour site smoke passed: removing the entry road cannot move the saved harbour.');

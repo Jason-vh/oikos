@@ -95,7 +95,7 @@ interface Milestones {
 }
 
 function computeMilestones(world: World, summary: Summary): Milestones {
-  const connected = world.buildings.filter((building) => building.connected);
+  const connected = primaryCity(world).buildings.filter((building) => building.connected);
   const houses = connected.filter((building) => building.kind === 'house');
   const farms = connected.some((building) => building.kind === 'farm');
   const granaries = connected.some((building) => building.kind === 'granary');

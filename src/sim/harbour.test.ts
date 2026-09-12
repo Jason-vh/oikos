@@ -10,7 +10,7 @@ function stockpileWorld(seed = 1) {
   const world = createWorld(seed);
   const spot = spotFor(world, 'stockpile')!;
   expect(build(world, 'stockpile', spot.x, spot.z).ok).toBe(true);
-  const stockpile = world.buildings[0];
+  const stockpile = primaryCity(world).buildings[0];
   expect(connect(world, stockpile).ok).toBe(true);
   return { world, stockpile };
 }
@@ -54,7 +54,7 @@ describe('rebuilding the harbour in stone', () => {
     }
     expect(upgraded).toBe(true);
     expect(primaryCity(world).harbour.stores.lumber ?? 0).toBe(0);
-    expect(world.walkers.some((walker) => walker.kind === 'porter')).toBe(false);
+    expect(primaryCity(world).walkers.some((walker) => walker.kind === 'porter')).toBe(false);
   });
 
   test('a woodcutter-fed stockpile eventually rebuilds it too', () => {
@@ -68,13 +68,13 @@ describe('rebuilding the harbour in stone', () => {
     }
     expect(spot).not.toBeNull();
     build(world, 'woodcutter', spot!.x, spot!.z);
-    connect(world, world.buildings[0]);
+    connect(world, primaryCity(world).buildings[0]);
     const pileSpot = spotFor(world, 'stockpile', spot!)!;
     build(world, 'stockpile', pileSpot.x, pileSpot.z);
-    connect(world, world.buildings[1]);
+    connect(world, primaryCity(world).buildings[1]);
     const houseSpot = spotFor(world, 'house', map.entry)!;
     build(world, 'house', houseSpot.x, houseSpot.z);
-    connect(world, world.buildings[2]);
+    connect(world, primaryCity(world).buildings[2]);
     let upgraded = false;
     for (let t = 0; t < 6000 && !upgraded; t++) {
       advance(world, .5);
@@ -143,11 +143,11 @@ describe('robustness', () => {
     let dispatched = false;
     for (let t = 0; t < 400 && !dispatched; t++) {
       advance(world, .25);
-      dispatched = world.walkers.some((walker) => walker.kind === 'porter');
+      dispatched = primaryCity(world).walkers.some((walker) => walker.kind === 'porter');
     }
     expect(dispatched).toBe(true);
     demolish(world, stockpile.x, stockpile.z);
-    expect(world.walkers.some((walker) => walker.kind === 'porter')).toBe(false);
+    expect(primaryCity(world).walkers.some((walker) => walker.kind === 'porter')).toBe(false);
     expect(() => advance(world, 20)).not.toThrow();
     expect(primaryCity(world).harbour.stores.lumber ?? 0).toBeGreaterThanOrEqual(0);
     expect(Number.isFinite(primaryCity(world).harbour.stores.lumber ?? 0)).toBe(true);
@@ -156,10 +156,10 @@ describe('robustness', () => {
   test('cutting the road under an in-flight porter drops it instead of letting it jump the gap', () => {
     const { world, stockpile } = stockpileWorld();
     addStore(stockpile, 'lumber', HARBOUR_UPGRADE_LUMBER);
-    let porter = world.walkers.find((walker) => walker.kind === 'porter');
+    let porter = primaryCity(world).walkers.find((walker) => walker.kind === 'porter');
     for (let t = 0; t < 400 && !porter; t++) {
       advance(world, .25);
-      porter = world.walkers.find((walker) => walker.kind === 'porter');
+      porter = primaryCity(world).walkers.find((walker) => walker.kind === 'porter');
     }
     expect(porter).toBeDefined();
     const map = mapOf(world);
@@ -167,7 +167,7 @@ describe('robustness', () => {
     const { x, z } = tileAtOn(map, midTile);
     demolish(world, x, z);
     expect(() => advance(world, 30)).not.toThrow();
-    expect(world.walkers.some((walker) => walker.kind === 'porter' && walker.id === porter!.id)).toBe(false);
+    expect(primaryCity(world).walkers.some((walker) => walker.kind === 'porter' && walker.id === porter!.id)).toBe(false);
     expect(primaryCity(world).harbour.stores.lumber ?? 0).toBeGreaterThanOrEqual(0);
   });
 });
@@ -176,10 +176,10 @@ describe('save and load', () => {
   test('an in-flight porter round-trips exactly, then keeps working', () => {
     const { world, stockpile } = stockpileWorld();
     addStore(stockpile, 'lumber', HARBOUR_UPGRADE_LUMBER);
-    let porter = world.walkers.find((walker) => walker.kind === 'porter');
+    let porter = primaryCity(world).walkers.find((walker) => walker.kind === 'porter');
     for (let t = 0; t < 400 && !porter; t++) {
       advance(world, .25);
-      porter = world.walkers.find((walker) => walker.kind === 'porter');
+      porter = primaryCity(world).walkers.find((walker) => walker.kind === 'porter');
     }
     expect(porter).toBeDefined();
 

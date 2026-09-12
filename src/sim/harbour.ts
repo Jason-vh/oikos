@@ -124,13 +124,14 @@ export function validateHarbourProgress(raw: unknown): HarbourProgress | null {
 }
 
 function dispatchPorter(world: World): void {
-  const harbour = primaryCity(world).harbour;
-  if (world.walkers.some((walker) => walker.kind === 'porter')) return;
+  const city = primaryCity(world);
+  const harbour = city.harbour;
+  if (city.walkers.some((walker) => walker.kind === 'porter')) return;
   const room = HARBOUR_DOCK_CAP - totalStock(harbour);
   if (room <= 0) return;
   const exit = exitTile(world, harbour);
   if (exit === -1) return;
-  const stockpiles = world.buildings.filter((building) => building.kind === 'stockpile' && building.connected && (building.stores.lumber ?? 0) > 0);
+  const stockpiles = city.buildings.filter((building) => building.kind === 'stockpile' && building.connected && (building.stores.lumber ?? 0) > 0);
   const found = findNearestConnected(world, exit, stockpiles);
   if (!found) return;
   const cargo = Math.min(found.building.stores.lumber ?? 0, PORTER_CAPACITY, room);

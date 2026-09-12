@@ -201,8 +201,10 @@ new shipping network to supply these sanctuaries.”
   available to explore but cannot yet be built on; colony claims will unlock them.
 - Player actions use a validated, serializable command API, ready for server-side
   ownership checks and execution. Local play and undo still work as before.
-- Settlement metadata now lives in `World.cities`. Version-4–7 saves migrate without
-  changing their city or shared world state. Roads, buildings, and walkers are next.
+- Settlement metadata now lives in `World.cities`. Version-4–8 saves migrate without
+  changing their city or shared world state. Roads, buildings, and walkers have
+  followed: a city is now a complete, self-contained settlement, ready for the
+  ownership and multi-city work ahead.
 - This remains a local, single-player game. Unrestricted coastal harbour siting,
   player identity, shared ownership data, and the persistent server are still ahead.
 

@@ -21,13 +21,13 @@ function huntingWorld() {
   const boar = world.wildlife.find((animal) => animal.kind === 'boar' && onHomeIsland(world, Math.floor(animal.homeX), Math.floor(animal.homeZ)))!;
   const lodgeSpot = spotFor(world, 'lodge', { x: Math.floor(boar.homeX), z: Math.floor(boar.homeZ) })!;
   build(world, 'lodge', lodgeSpot.x, lodgeSpot.z);
-  connect(world, world.buildings[0]);
+  connect(world, primaryCity(world).buildings[0]);
   const granarySpot = spotFor(world, 'granary', lodgeSpot)!;
   build(world, 'granary', granarySpot.x, granarySpot.z);
-  connect(world, world.buildings[1]);
+  connect(world, primaryCity(world).buildings[1]);
   const houseSpot = spotFor(world, 'house', islandFor(world.seed).entry)!;
   build(world, 'house', houseSpot.x, houseSpot.z);
-  connect(world, world.buildings[2]);
+  connect(world, primaryCity(world).buildings[2]);
   return world;
 }
 
@@ -49,7 +49,7 @@ describe('round trip', () => {
 
   test('continues identically to an unsaved world with in-flight walkers', () => {
     const world = advancedWorld();
-    expect(world.walkers.length).toBeGreaterThan(0);
+    expect(primaryCity(world).walkers.length).toBeGreaterThan(0);
 
     const reloaded = deserializeWorld(serializeWorld(world))!;
     advance(world, 200);
@@ -57,8 +57,8 @@ describe('round trip', () => {
 
     expect(reloaded.time).toBe(world.time);
     expect(primaryCity(reloaded).money).toBeCloseTo(primaryCity(world).money, 6);
-    expect(reloaded.buildings).toEqual(world.buildings);
-    expect(reloaded.walkers).toEqual(world.walkers);
+    expect(primaryCity(reloaded).buildings).toEqual(primaryCity(world).buildings);
+    expect(primaryCity(reloaded).walkers).toEqual(primaryCity(world).walkers);
   });
 
   test('supports a freshly created world with no buildings', () => {
@@ -80,7 +80,7 @@ describe('gathering saves', () => {
     const world = huntingWorld();
     const stockpileSpot = spotFor(world, 'stockpile', islandFor(world.seed).entry)!;
     build(world, 'stockpile', stockpileSpot.x, stockpileSpot.z);
-    connect(world, world.buildings[3]);
+    connect(world, primaryCity(world).buildings[3]);
     const restored = deserializeWorld(serializeWorld(world));
     expect(restored).not.toBeNull();
     expect(restored).toEqual(world);
@@ -91,7 +91,7 @@ describe('gathering saves', () => {
     let working = false;
     for (let t = 0; t < 1600 && !working; t++) {
       advance(world, .25);
-      working = world.walkers.some((walker) => walker.kind === 'hunter' && walker.working > 0);
+      working = primaryCity(world).walkers.some((walker) => walker.kind === 'hunter' && walker.working > 0);
     }
     expect(working).toBe(true);
     const restored = deserializeWorld(serializeWorld(world));
@@ -114,18 +114,18 @@ describe('gathering saves', () => {
     }
     expect(spot).not.toBeNull();
     build(world, 'woodcutter', spot!.x, spot!.z);
-    connect(world, world.buildings[0]);
+    connect(world, primaryCity(world).buildings[0]);
     const pileSpot = spotFor(world, 'stockpile', spot!)!;
     build(world, 'stockpile', pileSpot.x, pileSpot.z);
-    connect(world, world.buildings[1]);
+    connect(world, primaryCity(world).buildings[1]);
     const houseSpot = spotFor(world, 'house', islandFor(world.seed).entry)!;
     build(world, 'house', houseSpot.x, houseSpot.z);
-    connect(world, world.buildings[2]);
+    connect(world, primaryCity(world).buildings[2]);
 
     let carrying = false;
     for (let t = 0; t < 1600 && !carrying; t++) {
       advance(world, .25);
-      carrying = world.walkers.some((walker) => walker.kind === 'woodcutter' && walker.returning && walker.cargo > 0);
+      carrying = primaryCity(world).walkers.some((walker) => walker.kind === 'woodcutter' && walker.returning && walker.cargo > 0);
     }
     expect(carrying).toBe(true);
     expect(world.felled.length).toBeGreaterThan(0);
@@ -157,7 +157,7 @@ describe('corruption rejection', () => {
   test('rejects a building of an unknown kind', () => {
     const world = advancedWorld();
     const raw = JSON.parse(serializeWorld(world));
-    raw.buildings[0].kind = 'palace';
+    raw.cities[0].buildings[0].kind = 'palace';
     expect(deserializeWorld(JSON.stringify(raw))).toBeNull();
   });
 
@@ -171,15 +171,15 @@ describe('corruption rejection', () => {
   test('rejects duplicate building ids', () => {
     const world = advancedWorld();
     const raw = JSON.parse(serializeWorld(world));
-    if (raw.buildings.length < 2) return;
-    raw.buildings[1].id = raw.buildings[0].id;
+    if (raw.cities[0].buildings.length < 2) return;
+    raw.cities[0].buildings[1].id = raw.cities[0].buildings[0].id;
     expect(deserializeWorld(JSON.stringify(raw))).toBeNull();
   });
 
   test('rejects a building id at or beyond nextId', () => {
     const world = advancedWorld();
     const raw = JSON.parse(serializeWorld(world));
-    raw.buildings[0].id = raw.nextId;
+    raw.cities[0].buildings[0].id = raw.nextId;
     expect(deserializeWorld(JSON.stringify(raw))).toBeNull();
   });
 
@@ -187,7 +187,7 @@ describe('corruption rejection', () => {
     const world = advancedWorld();
     const raw = JSON.parse(serializeWorld(world));
     const map = islandFor(raw.seed);
-    raw.roads.push(tileIndexOn(map, raw.buildings[0].x, raw.buildings[0].z));
+    raw.cities[0].roads.push(tileIndexOn(map, raw.cities[0].buildings[0].x, raw.cities[0].buildings[0].z));
     expect(deserializeWorld(JSON.stringify(raw))).toBeNull();
   });
 
@@ -208,23 +208,23 @@ describe('corruption rejection', () => {
   test('rejects a walker with a non-adjacent path jump', () => {
     const world = advancedWorld();
     const raw = JSON.parse(serializeWorld(world));
-    if (raw.walkers.length === 0) return;
-    raw.walkers[0].path = [raw.walkers[0].path[0], 9999];
+    if (raw.cities[0].walkers.length === 0) return;
+    raw.cities[0].walkers[0].path = [raw.cities[0].walkers[0].path[0], 9999];
     expect(deserializeWorld(JSON.stringify(raw))).toBeNull();
   });
 
   test('rejects a walker referencing a missing home building', () => {
     const world = advancedWorld();
     const raw = JSON.parse(serializeWorld(world));
-    if (raw.walkers.length === 0) return;
-    raw.walkers[0].homeId = 999999;
+    if (raw.cities[0].walkers.length === 0) return;
+    raw.cities[0].walkers[0].homeId = 999999;
     expect(deserializeWorld(JSON.stringify(raw))).toBeNull();
   });
 
   test('rejects a vendor marked enabled but never installed', () => {
     const world = advancedWorld();
     const raw = JSON.parse(serializeWorld(world));
-    const agora = raw.buildings.find((building: { kind: string }) => building.kind === 'agora');
+    const agora = raw.cities[0].buildings.find((building: { kind: string }) => building.kind === 'agora');
     if (!agora) return;
     agora.vendorEnabled = true;
     agora.vendorInstalled = false;
@@ -234,7 +234,7 @@ describe('corruption rejection', () => {
   test('rejects out-of-range road tiles', () => {
     const world = advancedWorld();
     const raw = JSON.parse(serializeWorld(world));
-    raw.roads.push(999999);
+    raw.cities[0].roads.push(999999);
     expect(deserializeWorld(JSON.stringify(raw))).toBeNull();
   });
 
@@ -286,13 +286,13 @@ describe('legacy topology quarantine', () => {
     const ambiguousIndex = tileIndexOn(map, ambiguousTile.x, ambiguousTile.z);
     const eastDownIndex = tileIndexOn(map, eastDown.x, eastDown.z);
     const northDownIndex = tileIndexOn(map, northDown.x, northDown.z);
-    world.roads = [...world.roads, lowIndex, highIndex, ambiguousIndex, eastDownIndex, northDownIndex];
+    primaryCity(world).roads = [...primaryCity(world).roads, lowIndex, highIndex, ambiguousIndex, eastDownIndex, northDownIndex];
 
     const restored = deserializeWorld(serializeWorld(world));
     expect(restored).not.toBeNull();
-    expect([...restored!.roads].sort((a, b) => a - b)).toEqual([...world.roads].sort((a, b) => a - b));
+    expect([...primaryCity(restored!).roads].sort((a, b) => a - b)).toEqual([...primaryCity(world).roads].sort((a, b) => a - b));
 
-    const stairs = stairLayout(map, new Set(restored!.roads));
+    const stairs = stairLayout(map, new Set(primaryCity(restored!).roads));
     expect(stairs.get(highIndex)?.down).toBe(lowIndex);
     expect(stairs.has(ambiguousIndex)).toBe(false);
     expect(roadStepAllowed(map, stairs, ambiguousIndex, eastDownIndex)).toBe(false);
@@ -307,21 +307,21 @@ describe('legacy topology quarantine', () => {
     const ambiguousIndex = tileIndexOn(map, ambiguousTile.x, ambiguousTile.z);
     const eastDownIndex = tileIndexOn(map, eastDown.x, eastDown.z);
     const northDownIndex = tileIndexOn(map, northDown.x, northDown.z);
-    world.roads = [...world.roads, lowIndex, highIndex, ambiguousIndex, eastDownIndex, northDownIndex];
+    primaryCity(world).roads = [...primaryCity(world).roads, lowIndex, highIndex, ambiguousIndex, eastDownIndex, northDownIndex];
 
     const spot = spotFor(world, 'maintenance', low)!;
     build(world, 'maintenance', spot.x, spot.z);
-    const home = world.buildings[0];
+    const home = primaryCity(world).buildings[0];
 
     const eastWalker = bareWalker({ id: world.nextId++, homeId: home.id, path: [eastDownIndex, ambiguousIndex] });
     const northWalker = bareWalker({ id: world.nextId++, homeId: home.id, path: [northDownIndex, ambiguousIndex] });
     const validWalker = bareWalker({ id: world.nextId++, homeId: home.id, path: [lowIndex, highIndex] });
-    world.walkers.push(eastWalker, northWalker, validWalker);
+    primaryCity(world).walkers.push(eastWalker, northWalker, validWalker);
 
     const restored = deserializeWorld(serializeWorld(world));
     expect(restored).not.toBeNull();
-    expect(restored!.walkers.map((walker) => walker.id)).toEqual([validWalker.id]);
-    expect([...restored!.roads].sort((a, b) => a - b)).toEqual([...world.roads].sort((a, b) => a - b));
+    expect(primaryCity(restored!).walkers.map((walker) => walker.id)).toEqual([validWalker.id]);
+    expect([...primaryCity(restored!).roads].sort((a, b) => a - b)).toEqual([...primaryCity(world).roads].sort((a, b) => a - b));
   });
 
   test('dropping a stranded hunter releases its cornered quarry', () => {
@@ -333,22 +333,22 @@ describe('legacy topology quarantine', () => {
     const ambiguousIndex = tileIndexOn(map, ambiguousTile.x, ambiguousTile.z);
     const eastDownIndex = tileIndexOn(map, eastDown.x, eastDown.z);
     const northDownIndex = tileIndexOn(map, northDown.x, northDown.z);
-    world.roads = [...world.roads, lowIndex, highIndex, ambiguousIndex, eastDownIndex, northDownIndex];
+    primaryCity(world).roads = [...primaryCity(world).roads, lowIndex, highIndex, ambiguousIndex, eastDownIndex, northDownIndex];
 
     const spot = spotFor(world, 'lodge', low)!;
     build(world, 'lodge', spot.x, spot.z);
-    const lodge = world.buildings[0];
+    const lodge = primaryCity(world).buildings[0];
     const boar = world.wildlife.find((animal) => animal.kind === 'boar' && onHomeIsland(world, Math.floor(animal.homeX), Math.floor(animal.homeZ)))!;
     boar.cornered = true;
 
     const strandedHunter = bareWalker({
       id: world.nextId++, kind: 'hunter', homeId: lodge.id, path: [northDownIndex, ambiguousIndex], quarry: boar.id, working: 1,
     });
-    world.walkers.push(strandedHunter);
+    primaryCity(world).walkers.push(strandedHunter);
 
     const restored = deserializeWorld(serializeWorld(world));
     expect(restored).not.toBeNull();
-    expect(restored!.walkers).toHaveLength(0);
+    expect(primaryCity(restored!).walkers).toHaveLength(0);
     const restoredBoar = restored!.wildlife.find((animal) => animal.id === boar.id)!;
     expect(restoredBoar.cornered).toBe(false);
   });

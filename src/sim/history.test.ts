@@ -22,7 +22,7 @@ test('undoing demolition resimulates the intact city without duplicating deliver
   expect(buildStarterNeighbourhood(world).ok).toBe(true);
   advance(world, 180);
   const before = structuredClone(world);
-  const granary = world.buildings.find((building) => building.kind === 'granary')!;
+  const granary = primaryCity(world).buildings.find((building) => building.kind === 'granary')!;
   expect(demolish(world, granary.x, granary.z).ok).toBe(true);
   advance(world, 10);
   const expected = structuredClone(before);

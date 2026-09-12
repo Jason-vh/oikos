@@ -19,7 +19,7 @@ function passable(world: World, map: IslandMap, roads: Set<number>, index: numbe
   const terrain = terrainOn(map, x, z);
   if (terrain === 'water' || terrain === 'rock') return false;
   if (!buildable(terrain) && terrain !== 'forest' && terrain !== 'cliff') return false;
-  return !world.buildings.some((building) => {
+  return !primaryCity(world).buildings.some((building) => {
     const size = footprint(building.kind, building.rotation);
     return x >= building.x && x < building.x + size.width && z >= building.z && z < building.z + size.depth;
   });
@@ -27,7 +27,7 @@ function passable(world: World, map: IslandMap, roads: Set<number>, index: numbe
 
 export function overlandPath(world: World, start: number, isGoal: (tile: number) => boolean, limit: number): number[] | null {
   const map = mapOf(world);
-  const roads = new Set(world.roads);
+  const roads = new Set(primaryCity(world).roads);
   const stairs = stairLayout(map, roads);
   const cameFrom = new Map<number, number>([[start, -1]]);
   const distance = new Map<number, number>([[start, 0]]);
@@ -108,7 +108,7 @@ export function updateGatherer(world: World, building: Building): void {
       if (standingForest(world, map, candidate)) { quarry = candidate; break; }
     }
   }
-  const roads = new Set(world.roads);
+  const roads = new Set(primaryCity(world).roads);
   spawnWalker(world, {
     kind,
     homeId: building.id,
@@ -129,7 +129,7 @@ export const FELL_SECONDS = 4;
 
 export function gatherArrival(world: World, walker: Walker): boolean {
   if (walker.returning) {
-    const home = world.buildings.find((building) => building.id === walker.homeId);
+    const home = primaryCity(world).buildings.find((building) => building.id === walker.homeId);
     if (home && walker.food && walker.cargo > 0) addStore(home, walker.food, Math.min(walker.cargo, GATHER_STOCK_CAP - totalStock(home)));
     return true;
   }
@@ -188,8 +188,9 @@ export function regrowForest(world: World, dt: number): void {
   if (world.regrowth < REGROW_SECONDS) return;
   world.regrowth = 0;
   const map = islandFor(world.seed);
-  const occupied = new Set(world.roads);
-  for (const building of world.buildings) for (const tile of footprintTiles(map, building)) occupied.add(tile);
+  const city = primaryCity(world);
+  const occupied = new Set(city.roads);
+  for (const building of city.buildings) for (const tile of footprintTiles(map, building)) occupied.add(tile);
   const oldest = world.felled.find((tile) => !occupied.has(tile));
   if (oldest !== undefined) world.felled = world.felled.filter((tile) => tile !== oldest);
 }

@@ -54,11 +54,11 @@ try {
     const { islandFor, tileAtOn, groundHeight } = await import('/src/sim/island.ts');
     const world = window.oikos.state;
     const map = islandFor(world.seed);
-    for (const index of world.roads) {
+    for (const index of world.cities[0].roads) {
       const tile = tileAtOn(map, index);
       for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const next = { x: tile.x + dx, z: tile.z + dz };
-        if (world.roads.includes(next.z * map.width + next.x)) continue;
+        if (world.cities[0].roads.includes(next.z * map.width + next.x)) continue;
         if (groundHeight(map, tile.x, tile.z) !== groundHeight(map, next.x, next.z)) continue;
         if (placement(world, 'road', next.x, next.z).ok) return next;
       }
@@ -68,7 +68,7 @@ try {
   await page.evaluate(({ x, z }) => window.oikos.focusTile(x, z), candidate);
   await page.mouse.move(1, 1);
   await paint(page, 5);
-  const originalRoads = await page.evaluate(() => window.oikos.state.roads);
+  const originalRoads = await page.evaluate(() => window.oikos.state.cities[0].roads);
   const before = await page.locator('canvas').screenshot({ path: `${output}/rebuild-before.png`, style: '#ui { visibility: hidden; }' });
   assert((await page.evaluate((tile) => window.oikos.road([tile]), candidate)).ok);
   await paint(page, 5);
@@ -80,7 +80,7 @@ try {
   await page.keyboard.press('Escape');
   await page.mouse.move(1, 1);
   await paint(page, 8);
-  assert.deepEqual(await page.evaluate(() => window.oikos.state.roads), originalRoads);
+  assert.deepEqual(await page.evaluate(() => window.oikos.state.cities[0].roads), originalRoads);
   const removed = await page.locator('canvas').screenshot({ path: `${output}/rebuild-removed.png`, style: '#ui { visibility: hidden; }' });
   assert(before.equals(removed), 'Demolition did not restore the original road surface and scenery');
   await page.screenshot({ path: `${output}/after-demolition.png`, style: '.hud-toast-region { visibility: hidden; }' });

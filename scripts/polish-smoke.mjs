@@ -34,7 +34,7 @@ try {
   await paint(page);
   const point = await page.evaluate(({ x, z }) => window.oikos.projectTile(x, z), house);
   await page.mouse.click(point.x, point.y);
-  assert.equal(await page.evaluate(() => window.oikos.state.buildings.length), 1);
+  assert.equal(await page.evaluate(() => window.oikos.state.cities[0].buildings.length), 1);
   await page.getByTestId('undo').click();
   assert.deepEqual(await page.evaluate(() => window.oikos.state), beforeBuild, 'Undo lost money or changed the paused world');
   await page.keyboard.press('Escape');

@@ -53,7 +53,7 @@ try {
   const point = await page.evaluate(({ x, z }) => window.oikos.projectTile(x, z), home);
   await page.mouse.click(point.x, point.y);
   await paint(page);
-  assert.equal((await page.evaluate(() => window.oikos.state)).buildings.length, 1, 'Home-island construction was blocked');
+  assert.equal((await page.evaluate(() => window.oikos.state)).cities[0].buildings.length, 1, 'Home-island construction was blocked');
   await page.screenshot({ path: path.join(output, '02-home-construction.png') });
   assert.deepEqual(errors, []);
   console.log('Territory smoke passed: foreign houses and roads refused, home construction allowed.');

@@ -32,11 +32,11 @@ try {
   const house = await page.evaluate(() => {
     const state = window.oikos.state;
     const map = window.oikos.map;
-    const occupied = new Set(state.roads);
+    const occupied = new Set(state.cities[0].roads);
     const mark = (building, width, depth) => {
       for (let z = building.z; z < building.z + depth; z++) for (let x = building.x; x < building.x + width; x++) occupied.add(z * map.width + x);
     };
-    for (const building of state.buildings) mark(building, building.kind === 'farm' ? 4 : 3, building.kind === 'farm' ? 4 : 3);
+    for (const building of state.cities[0].buildings) mark(building, building.kind === 'farm' ? 4 : 3, building.kind === 'farm' ? 4 : 3);
     mark(state.cities[0].harbour, 3, 2);
     const buildable = new Set(['grass', 'sand', 'scrub', 'fertile']);
     const fits = (x, z) => {
@@ -49,7 +49,7 @@ try {
       }
       return true;
     };
-    for (const tile of state.roads) {
+    for (const tile of state.cities[0].roads) {
       for (const [dx, dz] of [[2, 0], [-2, 0], [0, 2], [0, -2], [2, 2], [-2, -2]]) {
         const nx = (tile % map.width) + dx;
         const nz = Math.floor(tile / map.width) + dz;
@@ -64,7 +64,7 @@ try {
   await paint(page);
   const spot = await page.evaluate(([x, z]) => window.oikos.projectTile(x, z), [house.x, house.z]);
   await page.mouse.click(spot.x, spot.y);
-  assert.equal(await page.evaluate(() => window.oikos.state.buildings.filter((building) => building.kind === 'house').length), 5);
+  assert.equal(await page.evaluate(() => window.oikos.state.cities[0].buildings.filter((building) => building.kind === 'house').length), 5);
   await page.keyboard.press('Escape');
   await paint(page);
   const blocked = await page.evaluate(() => window.oikos.overlayCounts);
@@ -73,18 +73,18 @@ try {
   const run = await page.evaluate(() => {
     const state = window.oikos.state;
     const map = window.oikos.map;
-    const occupied = new Set(state.roads);
+    const occupied = new Set(state.cities[0].roads);
     const mark = (building, width, depth) => {
       for (let z = building.z; z < building.z + depth; z++) for (let x = building.x; x < building.x + width; x++) occupied.add(z * map.width + x);
     };
-    for (const building of state.buildings) mark(building, building.kind === 'farm' ? 4 : 3, building.kind === 'farm' ? 4 : 3);
+    for (const building of state.cities[0].buildings) mark(building, building.kind === 'farm' ? 4 : 3, building.kind === 'farm' ? 4 : 3);
     mark(state.cities[0].harbour, 3, 2);
     const buildable = new Set(['grass', 'sand', 'scrub', 'fertile']);
     const free = (x, z) => {
       const index = z * map.width + x;
       return x > 0 && z > 0 && x < map.width - 1 && z < map.depth - 1 && !occupied.has(index) && buildable.has(map.terrain[index]);
     };
-    for (const tile of state.roads) {
+    for (const tile of state.cities[0].roads) {
       for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const x = (tile % map.width) + dx;
         const z = Math.floor(tile / map.width) + dz;
@@ -99,7 +99,7 @@ try {
   await paint(page);
   const start = await page.evaluate(([x, z]) => window.oikos.projectTile(x, z), [run.x, run.z]);
   const end = await page.evaluate(([x, z]) => window.oikos.projectTile(x, z), [run.x, run.z - 3]);
-  const roadsBefore = await page.evaluate(() => window.oikos.state.roads.length);
+  const roadsBefore = await page.evaluate(() => window.oikos.state.cities[0].roads.length);
   await page.keyboard.down('Shift');
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
@@ -111,21 +111,21 @@ try {
   await page.mouse.up();
   await page.keyboard.up('Shift');
   await paint(page);
-  const roadsAfter = await page.evaluate(() => window.oikos.state.roads.length);
+  const roadsAfter = await page.evaluate(() => window.oikos.state.cities[0].roads.length);
   assert(roadsAfter === roadsBefore + 4, `road drag placed ${roadsAfter - roadsBefore} tiles`);
   await page.getByTestId('undo').click();
-  const roadsUndone = await page.evaluate(() => window.oikos.state.roads.length);
+  const roadsUndone = await page.evaluate(() => window.oikos.state.cities[0].roads.length);
   assert.equal(roadsUndone, roadsBefore, 'undo did not restore roads');
 
   await page.keyboard.press('Escape');
   const gathering = await page.evaluate(() => {
     const state = window.oikos.state;
     const map = window.oikos.map;
-    const occupied = new Set(state.roads);
+    const occupied = new Set(state.cities[0].roads);
     const mark = (building, width, depth) => {
       for (let z = building.z; z < building.z + depth; z++) for (let x = building.x; x < building.x + width; x++) occupied.add(z * map.width + x);
     };
-    for (const building of state.buildings) mark(building, building.kind === 'farm' ? 4 : 3, building.kind === 'farm' ? 4 : 3);
+    for (const building of state.cities[0].buildings) mark(building, building.kind === 'farm' ? 4 : 3, building.kind === 'farm' ? 4 : 3);
     mark(state.cities[0].harbour, 3, 2);
     const forests = [];
     for (let z = 0; z < map.depth; z++) for (let x = 0; x < map.width; x++) if (map.terrain[z * map.width + x] === 'forest') forests.push([x, z]);
@@ -143,7 +143,7 @@ try {
     const besideRoad = (x, z, width, depth) => {
       for (let dz = -1; dz <= depth && !0; dz++) for (let dx = -1; dx <= width; dx++) {
         if ((dx === -1 || dx === width) && (dz === -1 || dz === depth)) continue;
-        if (state.roads.includes((z + dz) * map.width + (x + dx))) return true;
+        if (state.cities[0].roads.includes((z + dz) * map.width + (x + dx))) return true;
       }
       return false;
     };
@@ -171,7 +171,7 @@ try {
     await page.screenshot({ path: `${output}/03-harbour.png` });
   }
 
-  const stockpile = await page.evaluate(() => window.oikos.state.buildings.find((building) => building.kind === 'stockpile'));
+  const stockpile = await page.evaluate(() => window.oikos.state.cities[0].buildings.find((building) => building.kind === 'stockpile'));
   if (stockpile) {
     await page.evaluate(([x, z]) => window.oikos.focusTile(x, z), [stockpile.x, stockpile.z]);
     await paint(page);

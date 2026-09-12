@@ -33,7 +33,7 @@ function roadReachable(world: World, map: IslandMap, roads: Set<number>, from: T
     if (!buildable(terrainOn(map, x, z))) return false;
     if (harbourTiles(world).includes(index)) return false;
     if (excluded.has(index)) return false;
-    return !world.buildings.some((building) => {
+    return !primaryCity(world).buildings.some((building) => {
       const size = footprint(building.kind, building.rotation);
       return x >= building.x && x < building.x + size.width && z >= building.z && z < building.z + size.depth;
     });
@@ -73,9 +73,10 @@ export function planStarterNeighbourhood(world: World): StarterPlan | null {
   if (!primaryCity(world).founded) return null;
   const map = islandFor(world.seed, primaryCity(world).home);
   const trial = structuredClone(world);
-  const roads = new Set(trial.roads);
+  const trialRoads = primaryCity(trial).roads;
+  const roads = new Set(trialRoads);
   const plan: StarterPlan = { buildings: [], roads: [] };
-  const roadTop = { x: map.entry.x, z: Math.min(...trial.roads.map((index) => Math.floor(index / map.width))) };
+  const roadTop = { x: map.entry.x, z: Math.min(...trialRoads.map((index) => Math.floor(index / map.width))) };
   for (const kind of ORDER) {
     let placed = false;
     for (let radius = 2; radius <= 22 && !placed; radius++) {
@@ -123,7 +124,7 @@ export function buildStarterNeighbourhood(world: World): ActionResult {
   }
   const laid = placeRoadPath(world, plan.roads);
   if (!laid.ok) return laid;
-  const agora = world.buildings.find((building) => building.kind === 'agora');
+  const agora = primaryCity(world).buildings.find((building) => building.kind === 'agora');
   if (!agora) return { ok: false, reason: 'agora missing' };
   return setVendor(world, agora.id, true);
 }

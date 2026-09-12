@@ -31,7 +31,7 @@ try {
     const map = await page.evaluate(() => window.oikos.map);
     const state = await page.evaluate(() => window.oikos.state);
     assert.equal(state.seed, seed);
-    assert.equal(state.buildings.length, 0);
+    assert.equal(state.cities[0].buildings.length, 0);
     for (let side = 0; side < 4; side++) {
       await paint(page, 3);
       await page.screenshot({ path: `${output}/seed-${seed}-side-${side}.png`, style: '.hud-toast-region { visibility: hidden; }' });

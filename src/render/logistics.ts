@@ -5,6 +5,7 @@ import { CELL_SIZE, groundHeight, worldPositionOn, type IslandMap } from '../sim
 import { stairLayout } from '../sim/stairs';
 import { addRoadMark } from './road-marks';
 import { deliveryRoutes, serviceRoute, walkerRoute } from '../sim/logistics';
+import { primaryCity } from '../sim/city';
 import type { Building, World } from '../sim/types';
 
 const ROUTE_COLOR = colors.blueLight;
@@ -80,7 +81,7 @@ export class LogisticsOverlay {
       this.clear();
       return;
     }
-    const building = buildingId !== null ? world.buildings.find((candidate) => candidate.id === buildingId) ?? null : null;
+    const building = buildingId !== null ? primaryCity(world).buildings.find((candidate) => candidate.id === buildingId) ?? null : null;
     if (building) {
       const circuit = serviceRoute(world, building);
       if (circuit) {
@@ -97,7 +98,7 @@ export class LogisticsOverlay {
       this.clear();
       return;
     }
-    const walker = walkerId !== null ? world.walkers.find((candidate) => candidate.id === walkerId) ?? null : null;
+    const walker = walkerId !== null ? primaryCity(world).walkers.find((candidate) => candidate.id === walkerId) ?? null : null;
     if (walker) {
       const path = walkerRoute(walker);
       const key = `w:${walker.id}:${path.join(',')}`;
@@ -108,7 +109,8 @@ export class LogisticsOverlay {
   }
 
   private apply(world: World, key: string, paths: number[][], servedIds: number[], style: RouteStyle): void {
-    const layoutKey = `${key}:${world.roads.join(',')}`;
+    const roads = primaryCity(world).roads;
+    const layoutKey = `${key}:${roads.join(',')}`;
     if (layoutKey === this.key) return;
     this.key = layoutKey;
     this.routeTiles.clear();
@@ -117,10 +119,10 @@ export class LogisticsOverlay {
     const routeMaterial = style === 'live' ? this.liveMaterial : style === 'delivery' ? this.deliveryMaterial : this.plannedMaterial;
     const tiles = new Set<number>();
     for (const path of paths) for (const index of path) tiles.add(index);
-    const stairs = stairLayout(this.map, new Set(world.roads));
+    const stairs = stairLayout(this.map, new Set(roads));
     for (const index of tiles) addRoadMark(this.routeTiles, this.map, stairs, index, this.unitPlane, routeMaterial, .2);
     for (const id of new Set(servedIds)) {
-      const served = world.buildings.find((candidate) => candidate.id === id);
+      const served = primaryCity(world).buildings.find((candidate) => candidate.id === id);
       if (!served) continue;
       const { width, depth } = footprint(served.kind, served.rotation);
       const point = worldPositionOn(this.map, served.x + width / 2, served.z + depth / 2);

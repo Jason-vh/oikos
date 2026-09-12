@@ -79,8 +79,9 @@ test('a new city starts on the home island, reaching its own shore and no other'
     const world = createWorld(seed);
     const map = islandFor(seed);
     const island = homeIsland(world);
-    expect(world.roads.length).toBeGreaterThan(0);
-    const reach = bfsReachable(map, new Set(world.roads), world.roads[0]);
+    const roads = primaryCity(world).roads;
+    expect(roads.length).toBeGreaterThan(0);
+    const reach = bfsReachable(map, new Set(roads), roads[0]);
     for (const tile of reach) {
       const x = tile % map.width;
       const z = (tile - x) / map.width;
