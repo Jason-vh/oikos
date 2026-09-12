@@ -3,7 +3,8 @@ import { footprint } from './catalog';
 import { buildable, islandFor, levelOn, terrainOn, tileIndexOn, type IslandMap } from './island';
 import { neighbours } from './grid';
 import { harbourTiles } from './harbour';
-import { build, placement, placeRoadPath, setVendor } from './world';
+import { build, placement, placeRoadPath, roadPathPlacement, setVendor } from './world';
+import { foreignOccupancy, type ForeignOccupancy } from './occupancy';
 
 type PlaceableKind = Exclude<BuildingKind, 'harbour'>;
 export interface PlannedBuilding { kind: PlaceableKind; x: number; z: number; }
@@ -24,11 +25,13 @@ function ringAround(map: IslandMap, centre: Tile, radius: number): Tile[] {
   return tiles;
 }
 
-function roadReachable(world: World, city: City, map: IslandMap, roads: Set<number>, from: Tile, to: Tile, excluded: Set<number>): Tile[] | null {
+export function roadReachable(world: World, city: City, map: IslandMap, roads: Set<number>, foreign: ForeignOccupancy, from: Tile, to: Tile, excluded: Set<number>): Tile[] | null {
   const passable = (index: number) => {
     const x = index % map.width;
     const z = Math.floor(index / map.width);
+    if (foreign.buildings.has(index)) return false;
     if (roads.has(index)) return true;
+    if (foreign.roads.has(index)) return false;
     if (!buildable(terrainOn(map, x, z))) return false;
     if (harbourTiles(world, city).includes(index)) return false;
     if (excluded.has(index)) return false;
@@ -75,6 +78,7 @@ export function planStarterNeighbourhood(world: World, city: City): StarterPlan 
   const trialCity = trial.cities.find((candidate) => candidate.id === city.id)!;
   const trialRoads = trialCity.roads;
   const roads = new Set(trialRoads);
+  const foreign = foreignOccupancy(trial, trialCity);
   const plan: StarterPlan = { buildings: [], roads: [] };
   const roadTop = { x: map.entry.x, z: Math.min(...trialRoads.map((index) => Math.floor(index / map.width))) };
   for (const kind of ORDER) {
@@ -92,8 +96,13 @@ export function planStarterNeighbourhood(world: World, city: City): StarterPlan 
         for (let dz = 0; dz < candidateDepth; dz++) {
           for (let dx = 0; dx < candidateWidth; dx++) ownFootprint.add(tileIndexOn(map, tile.x + dx, tile.z + dz));
         }
-        const path = roadReachable(trial, trialCity, map, roads, nearest, door, ownFootprint);
+        const path = roadReachable(trial, trialCity, map, roads, foreign, nearest, door, ownFootprint);
         if (!path || path.length > 24) continue;
+        const buildingCheck = placement(trial, trialCity, kind, tile.x, tile.z, 0);
+        if (!buildingCheck.ok) continue;
+        const roadCheck = roadPathPlacement(trial, trialCity, path);
+        if (!roadCheck.ok) continue;
+        if (buildingCheck.cost + roadCheck.cost > trialCity.money) continue;
         const built = build(trial, trialCity, kind, tile.x, tile.z, 0);
         if (!built.ok) continue;
         const laid = placeRoadPath(trial, trialCity, path);
