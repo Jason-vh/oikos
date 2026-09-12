@@ -5,14 +5,30 @@ import { CELL_SIZE, groundHeight, worldPositionOn, type IslandMap } from '../sim
 import { stairLayout } from '../sim/stairs';
 import { addRoadMark } from './road-marks';
 import { deliveryRoutes, serviceRoute, walkerRoute } from '../sim/logistics';
-import { primaryCity } from '../sim/city';
-import type { Building, World } from '../sim/types';
+import type { Building, City, Walker, World } from '../sim/types';
 
 const ROUTE_COLOR = colors.blueLight;
 const DELIVERY_COLOR = colors.roof;
 const SERVED_COLOR = colors.gold;
 
 type RouteStyle = 'planned' | 'live' | 'delivery';
+
+function findBuilding(world: World, id: number): { city: City; building: Building } | null {
+  for (const city of world.cities) {
+    if (city.harbour.id === id) return { city, building: city.harbour };
+    const building = city.buildings.find((candidate) => candidate.id === id);
+    if (building) return { city, building };
+  }
+  return null;
+}
+
+function findWalker(world: World, id: number): { city: City; walker: Walker } | null {
+  for (const city of world.cities) {
+    const walker = city.walkers.find((candidate) => candidate.id === id);
+    if (walker) return { city, walker };
+  }
+  return null;
+}
 
 function disconnectedMark(depth: number): T.Group {
   const mark = new T.Group();
@@ -81,9 +97,9 @@ export class LogisticsOverlay {
       this.clear();
       return;
     }
-    const city = primaryCity(world);
-    const building = buildingId !== null ? city.buildings.find((candidate) => candidate.id === buildingId) ?? null : null;
-    if (building) {
+    const found = buildingId !== null ? findBuilding(world, buildingId) : null;
+    if (found) {
+      const { city, building } = found;
       const circuit = serviceRoute(world, city, building);
       if (circuit) {
         const key = `b:${building.id}:${circuit.live}:${circuit.path.join(',')}`;
@@ -99,10 +115,10 @@ export class LogisticsOverlay {
       this.clear();
       return;
     }
-    const walker = walkerId !== null ? city.walkers.find((candidate) => candidate.id === walkerId) ?? null : null;
-    if (walker) {
-      const path = walkerRoute(walker);
-      const key = `w:${walker.id}:${path.join(',')}`;
+    const foundWalker = walkerId !== null ? findWalker(world, walkerId) : null;
+    if (foundWalker) {
+      const path = walkerRoute(foundWalker.walker);
+      const key = `w:${foundWalker.walker.id}:${path.join(',')}`;
       this.apply(world, key, [path], [], 'live');
       return;
     }
@@ -110,7 +126,7 @@ export class LogisticsOverlay {
   }
 
   private apply(world: World, key: string, paths: number[][], servedIds: number[], style: RouteStyle): void {
-    const roads = primaryCity(world).roads;
+    const roads = world.cities.flatMap((city) => city.roads);
     const layoutKey = `${key}:${roads.join(',')}`;
     if (layoutKey === this.key) return;
     this.key = layoutKey;
@@ -123,7 +139,7 @@ export class LogisticsOverlay {
     const stairs = stairLayout(this.map, new Set(roads));
     for (const index of tiles) addRoadMark(this.routeTiles, this.map, stairs, index, this.unitPlane, routeMaterial, .2);
     for (const id of new Set(servedIds)) {
-      const served = primaryCity(world).buildings.find((candidate) => candidate.id === id);
+      const served = findBuilding(world, id)?.building;
       if (!served) continue;
       const { width, depth } = footprint(served.kind, served.rotation);
       const point = worldPositionOn(this.map, served.x + width / 2, served.z + depth / 2);
@@ -149,5 +165,9 @@ export class LogisticsOverlay {
     this.liveMaterial.dispose();
     this.deliveryMaterial.dispose();
     this.servedMaterial.dispose();
+  }
+
+  get counts(): { route: number; served: number } {
+    return { route: this.routeTiles.children.length, served: this.servedMarks.children.length };
   }
 }

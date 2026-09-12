@@ -211,6 +211,15 @@ new shipping network to supply these sanctuaries.”
   independent city economies under one shared clock and wildlife population;
   saving still accepts only a single city, ready for the ownership and
   multi-city work ahead.
+- The client now keeps explicit, nullable viewed/active city ids of its own
+  (`src/ui/city-context.ts`), resolved against `World.cities` rather than
+  assumed; every construction, demolition, vendor and founding command,
+  including debug wrappers, requires the viewed city to be the active one.
+  The renderer draws every founded city's roads, buildings and walkers by
+  their shared ids, so panning never hides another city. Bootstrap still
+  makes today's sole city both viewed and active, so single-city play is
+  unchanged; the read-only visit control stays hidden until a second city
+  exists.
 - This remains a local, single-player game. Unrestricted coastal harbour siting,
   player identity, shared ownership data, and the persistent server are still ahead.
 

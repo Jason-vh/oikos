@@ -1,5 +1,6 @@
 import * as T from 'three';
 import { Stage } from './render/stage';
+import type { View } from './render/stage';
 import { CityScene } from './render/city';
 import { ConstructionOverlay } from './render/construction';
 import { BUILDINGS, footprint, ROAD_COST } from './sim/catalog';
@@ -7,19 +8,19 @@ import { demolitionPreview, footprintTileIssues, harbourRoute, suitableFarmGroun
 import { CELL_SIZE, groundHeight, islandFor, nextArchipelagoSeed, terrainOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
 import { roadHeight, stairLayout } from './sim/stairs';
 import { advance, buildingStatus, createWorld, getSummary, placement, roadPathPlacement, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
-import { primaryCity } from './sim/city';
 import { deserializeWorld, savedBeforeArchipelago, serializeWorld } from './sim/save';
 import { animalName, animalStatus } from './sim/wildlife';
 import { buildStarterNeighbourhood, planStarterNeighbourhood } from './sim/scenario';
-import type { ActionResult, BuildTool, Placement, Rotation, Tile, Tool } from './sim/types';
-import { createHud } from './ui/hud';
+import type { ActionResult, Building, BuildTool, City, Placement, Rotation, Tile, Tool, Walker } from './sim/types';
+import { createHud, type CityScope } from './ui/hud';
 import { AUTOSAVE_KEY, islandFilename, readCheckpoint, writeAutosave, writeCheckpoint } from './ui/save-slots';
 import { createSound } from './ui/sound';
-import { celebration, cityMilestones, rememberMilestones } from './ui/celebrations';
+import { celebration, cityMilestones, NO_MILESTONES, rememberMilestones } from './ui/celebrations';
 import { parseView, VIEW_KEY } from './ui/view';
 import { canUndoConstruction, undoConstruction } from './sim/history';
 import { foundingPlacement } from './sim/founding';
-import { applyCommand, type CityCommand } from './sim/commands';
+import type { CityCommand } from './sim/commands';
+import { activeCity, bootstrapCityContext, canWrite, resolveCity, returnToActive, submitCityCommand, viewedCity, withViewed } from './ui/city-context';
 import './ui/style.css';
 
 const SAVE_KEY = AUTOSAVE_KEY;
@@ -47,11 +48,16 @@ function boot(): void {
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const stage = new Stage(document.querySelector<HTMLElement>('#app')!, false);
   stage.reducedMotion = reducedMotion;
-  let city = new CityScene(stage, islandFor(world.seed, primaryCity(world).home), !reducedMotion);
-  let overlay = new ConstructionOverlay(stage, islandFor(world.seed, primaryCity(world).home));
+  let context = bootstrapCityContext(world);
+  const cameraMemory = new Map<number, View>();
+  function mapFor(home: City | null): ReturnType<typeof islandFor> {
+    return home ? islandFor(world.seed, home.home) : islandFor(world.seed);
+  }
+  let city = new CityScene(stage, mapFor(activeCity(world, context)), !reducedMotion);
+  let overlay = new ConstructionOverlay(stage, mapFor(activeCity(world, context)));
   const map = () => city.map;
-  function viewFor(seed: number): { target: number[]; offset: number[]; size: number } {
-    const island = islandFor(seed, primaryCity(world).home);
+  function viewFor(homeCity: City): { target: number[]; offset: number[]; size: number } {
+    const island = islandFor(world.seed, homeCity.home);
     const harbour = worldPositionOn(island, island.entry.x + .5, island.entry.z - 7);
     return { target: [harbour.x, GROUND_Y, harbour.z], offset: [35, 38, 48], size: 36 };
   }
@@ -60,19 +66,21 @@ function boot(): void {
     return Math.max(island.width, island.depth) * CELL_SIZE / 2 + 20;
   }
   stage.bounds(seaBounds(world.seed));
-  stage.setView(viewFor(world.seed));
+  const initialActive = activeCity(world, context);
+  if (initialActive) stage.setView(viewFor(initialActive));
   try {
-    const saved = parseView(localStorage.getItem(VIEW_KEY), world.seed, primaryCity(world).home);
+    const saved = parseView(localStorage.getItem(VIEW_KEY), world.seed, initialActive?.home);
     if (saved) stage.setView(saved);
   } catch {}
   function rebuildScene(): void {
     city.dispose();
     stage.bounds(seaBounds(world.seed));
-    city = new CityScene(stage, islandFor(world.seed, primaryCity(world).home), !reducedMotion);
+    const home = activeCity(world, context);
+    city = new CityScene(stage, mapFor(home), !reducedMotion);
     city.watch(stage.controls.target, stage.viewSpan());
     overlay.dispose();
-    overlay = new ConstructionOverlay(stage, islandFor(world.seed, primaryCity(world).home));
-    stage.setView(viewFor(world.seed));
+    overlay = new ConstructionOverlay(stage, mapFor(home));
+    if (home) stage.setView(viewFor(home));
     stage.shadows();
   }
   let tool: Tool = 'inspect';
@@ -90,54 +98,86 @@ function boot(): void {
   let menuSpeed: 0 | 1 | 3 | null = null;
   let importing = false;
   let undoCheckpoint: typeof world | null = null;
-  let milestones = cityMilestones(world);
+  let milestones = initialActive ? cityMilestones(initialActive) : NO_MILESTONES;
   const sound = createSound();
   window.addEventListener('pointerdown', sound.unlock, { capture: true });
   window.addEventListener('keydown', sound.unlock, { capture: true });
   const panVelocity = { right: 0, forward: 0 };
 
+  function findBuildingOwner(id: number | null): { city: City; building: Building } | null {
+    if (id === null) return null;
+    for (const candidate of world.cities) {
+      if (candidate.harbour.id === id) return { city: candidate, building: candidate.harbour };
+      const building = candidate.buildings.find((b) => b.id === id);
+      if (building) return { city: candidate, building };
+    }
+    return null;
+  }
+
+  function findWalkerOwner(id: number | null): { city: City; walker: Walker } | null {
+    if (id === null) return null;
+    for (const candidate of world.cities) {
+      const walker = candidate.walkers.find((w) => w.id === id);
+      if (walker) return { city: candidate, walker };
+    }
+    return null;
+  }
+
+  function scopeOf(target: City | null): CityScope | null {
+    return target ? { city: target, summary: getSummary(target) } : null;
+  }
+
   function refresh(): void {
-    const homeCity = primaryCity(world);
-    const selected = homeCity.buildings.find((building) => building.id === selectedId) ?? (homeCity.harbour.id === selectedId ? homeCity.harbour : null);
-    const walker = selected ? null : homeCity.walkers.find((candidate) => candidate.id === selectedId) ?? null;
-    const animal = selected || walker ? null : world.wildlife.find((candidate) => candidate.id === selectedId) ?? null;
+    const viewed = viewedCity(world, context);
+    const active = activeCity(world, context);
+    const found = findBuildingOwner(selectedId);
+    const foundWalker = found ? null : findWalkerOwner(selectedId);
+    const animal = found || foundWalker ? null : world.wildlife.find((candidate) => candidate.id === selectedId) ?? null;
     city.sync(world);
-    overlay.setRoads(homeCity.roads);
-    city.select(selected, walker?.id ?? animal?.id ?? null);
-    if (walker) hud.update(world, getSummary(homeCity), { kind: 'person', name: walkerName(walker), role: WALKER_ROLES[walker.kind], status: walkerStatus(homeCity, walker) });
-    else if (animal) hud.update(world, getSummary(homeCity), { kind: 'person', name: animalName(animal), role: 'Wildlife', status: animalStatus(animal) });
-    else if (selected) hud.update(world, getSummary(homeCity), { kind: 'building', building: selected, status: buildingStatus(homeCity, selected) });
-    else hud.update(world, getSummary(homeCity), null);
-    const debt = homeCity.money < 0;
+    overlay.setRoads(active?.roads ?? []);
+    city.select(found?.building ?? null, foundWalker?.walker.id ?? animal?.id ?? null);
+    const viewedScope = scopeOf(viewed);
+    const activeScope = scopeOf(active);
+    if (foundWalker) hud.update(world, viewedScope, activeScope, { kind: 'person', name: walkerName(foundWalker.walker), role: WALKER_ROLES[foundWalker.walker.kind], status: walkerStatus(foundWalker.city, foundWalker.walker) });
+    else if (animal) hud.update(world, viewedScope, activeScope, { kind: 'person', name: animalName(animal), role: 'Wildlife', status: animalStatus(animal) });
+    else if (found) hud.update(world, viewedScope, activeScope, { kind: 'building', building: found.building, status: buildingStatus(found.city, found.building) });
+    else hud.update(world, viewedScope, activeScope, null);
+    hud.setCities(world.cities.map((candidate) => ({ id: candidate.id, label: candidate.id === active?.id ? 'Your city' : `City ${candidate.id}` })), context.viewedId);
+    const debt = (active?.money ?? 0) < 0;
     if (debt && !inDebt) hud.notify('The treasury is in debt: upkeep outweighs income.', true);
     inDebt = debt;
-    const nextMilestones = cityMilestones(world);
-    const event = celebration(milestones, nextMilestones);
-    milestones = rememberMilestones(milestones, nextMilestones);
-    hud.setUndo(canUndoConstruction(world, undoCheckpoint));
-    if (event) {
-      hud.notify(event.message);
-      sound.play(event.sound);
+    if (active) {
+      const nextMilestones = cityMilestones(active);
+      const event = celebration(milestones, nextMilestones);
+      milestones = rememberMilestones(milestones, nextMilestones);
+      if (event) {
+        hud.notify(event.message);
+        sound.play(event.sound);
+      }
     }
+    hud.setUndo(canUndoConstruction(world, undoCheckpoint));
   }
 
   function selectTool(next: Tool): void {
-    if (!primaryCity(world).founded && next !== 'inspect') {
-      hud.notify('Place your founding harbour first.', true);
-      return;
+    if (next !== 'inspect') {
+      if (!canWrite(context)) { hud.notify('Viewing another city grants no writes.', true); return; }
+      const home = activeCity(world, context);
+      if (!home || !home.founded) { hud.notify('Place your founding harbour first.', true); return; }
     }
     tool = next;
     drag = null;
     hud.setTool(tool, rotation);
     stage.controls.touches.ONE = tool === 'inspect' ? T.TOUCH.ROTATE : null;
-    city.scenery.grid.visible = !primaryCity(world).founded || showGrid || tool !== 'inspect';
+    const home = activeCity(world, context);
+    city.scenery.grid.visible = !(home?.founded ?? false) || showGrid || tool !== 'inspect';
     updatePreview();
     stage.invalidate();
   }
 
   function setGrid(enabled: boolean): void {
     showGrid = enabled;
-    city.scenery.grid.visible = !primaryCity(world).founded || enabled || tool !== 'inspect';
+    const home = activeCity(world, context);
+    city.scenery.grid.visible = !(home?.founded ?? false) || enabled || tool !== 'inspect';
     hud.setGrid(enabled);
     stage.invalidate();
   }
@@ -165,16 +205,18 @@ function boot(): void {
 
   function restore(saved: typeof world): void {
     const previousSeed = world.seed;
-    const previousHome = primaryCity(world).home;
+    const previousHome = activeCity(world, context)?.home;
     world = saved;
+    context = bootstrapCityContext(world);
     undoCheckpoint = null;
-    milestones = cityMilestones(world);
+    const active = activeCity(world, context);
+    milestones = active ? cityMilestones(active) : NO_MILESTONES;
     selectedId = null;
     hover = null;
     accumulator = 0;
     dirtySave = true;
     autoSaveEnabled = true;
-    if (world.seed !== previousSeed || primaryCity(world).home !== previousHome) rebuildScene();
+    if (world.seed !== previousSeed || active?.home !== previousHome) rebuildScene();
     else city.reload(world);
     selectTool('inspect');
     setSpeed(0);
@@ -183,16 +225,39 @@ function boot(): void {
   }
 
   function focusVillage(): void {
-    const homes = primaryCity(world).buildings.filter((building) => building.kind === 'house');
-    if (homes.length === 0) {
-      const view = viewFor(world.seed);
+    if (context.viewedId !== context.activeId) {
+      context = returnToActive(context);
+      selectedId = null;
+      selectTool('inspect');
+      refresh();
+    }
+    const home = activeCity(world, context);
+    if (!home) return;
+    const dwellings = home.buildings.filter((building) => building.kind === 'house');
+    if (dwellings.length === 0) {
+      const view = viewFor(home);
       stage.focus(view.target[0], view.target[2]);
       return;
     }
-    const x = homes.reduce((sum, home) => sum + home.x + 1.5, 0) / homes.length;
-    const z = homes.reduce((sum, home) => sum + home.z + 1.5, 0) / homes.length;
+    const x = dwellings.reduce((sum, dwelling) => sum + dwelling.x + 1.5, 0) / dwellings.length;
+    const z = dwellings.reduce((sum, dwelling) => sum + dwelling.z + 1.5, 0) / dwellings.length;
     const point = worldPositionOn(map(), x, z);
     stage.focus(point.x, point.z);
+  }
+
+  function viewCity(id: number): void {
+    if (id === context.viewedId) return;
+    const target = resolveCity(world, id);
+    if (!target) return;
+    if (context.viewedId !== null) cameraMemory.set(context.viewedId, stage.getView());
+    context = withViewed(context, id);
+    selectedId = null;
+    hover = null;
+    drag = null;
+    selectTool('inspect');
+    stage.setView(cameraMemory.get(id) ?? viewFor(target));
+    refresh();
+    updatePreview();
   }
 
   const hud = createHud(document.querySelector<HTMLElement>('#ui')!, {
@@ -211,8 +276,10 @@ function boot(): void {
     newIsland: (home) => {
       const seed = nextArchipelagoSeed(world.seed);
       world = createWorld(seed, home, false);
+      context = bootstrapCityContext(world);
       undoCheckpoint = null;
-      milestones = cityMilestones(world);
+      const active = activeCity(world, context);
+      milestones = active ? cityMilestones(active) : NO_MILESTONES;
       autoSaveEnabled = true;
       selectedId = null;
       hover = null;
@@ -222,9 +289,9 @@ function boot(): void {
       setSpeed(1);
       refresh();
       save(false);
-      hud.notify(`Island ${primaryCity(world).home + 1} awaits. Place your harbour beside the landing road.`);
+      hud.notify(`Island ${(active?.home ?? 0) + 1} awaits. Place your harbour beside the landing road.`);
     },
-    vendor: (id, enabled) => apply(applyCommand(world, primaryCity(world).id, { type: 'vendor', id, enabled })),
+    vendor: (id, enabled) => apply(submitCityCommand(world, context, { type: 'vendor', id, enabled })),
     focus: (x, z) => { const point = worldPositionOn(map(), x + .5, z + .5); stage.focus(point.x, point.z); },
     grid: setGrid,
     home: focusVillage,
@@ -274,6 +341,7 @@ function boot(): void {
         importing = false;
       }
     },
+    visit: viewCity,
   });
 
   function apply(result: ActionResult): void {
@@ -292,7 +360,7 @@ function boot(): void {
 
   function construct(command: CityCommand): ActionResult {
     const before = structuredClone(world);
-    const result = applyCommand(world, primaryCity(world).id, command);
+    const result = submitCityCommand(world, context, command);
     apply(result);
     if (result.ok) {
       undoCheckpoint = before;
@@ -339,16 +407,28 @@ function boot(): void {
     return tile.x >= 0 && tile.x < map().width && tile.z >= 0 && tile.z < map().depth;
   }
 
-  function roadPreview(): Placement {
+  function roadPreview(homeCity: City): Placement {
     const path = roadPath();
-    const preview = roadPathPlacement(world, primaryCity(world), path);
+    const preview = roadPathPlacement(world, homeCity, path);
     const tiles = path.filter(insideMap).map((tile) => tileIndexOn(map(), tile.x, tile.z));
     const reason = preview.ok ? `Road · ${preview.cost} drachmas` : preview.reason;
     return { ...preview, reason, tiles };
   }
 
   function updatePreview(pointer: { x: number; y: number } | null = null): void {
-    const homeCity = primaryCity(world);
+    if (!canWrite(context)) {
+      city.hidePreview();
+      city.clearHover();
+      overlay.setFertileGround(null);
+      overlay.setBlockedTiles([]);
+      overlay.setDemolitionTarget([]);
+      overlay.setHarbourRoute(null);
+      stage.canvas.style.cursor = '';
+      hud.setHint(context.activeId === null ? 'You have no city of your own here.' : 'Visiting another city · read-only. H returns home.');
+      if (pointer && !drag && city.hover(pointer.x, pointer.y, world)) stage.canvas.style.cursor = 'pointer';
+      return;
+    }
+    const homeCity = activeCity(world, context)!;
     if (!homeCity.founded) {
       const site = hover ?? homeCity.harbour;
       const preview = foundingPlacement(world, homeCity, site.x, site.z);
@@ -386,7 +466,7 @@ function boot(): void {
       return;
     }
     if (tool === 'road') {
-      const preview = roadPreview();
+      const preview = roadPreview(homeCity);
       city.showPreview(tool, hover.x, hover.z, rotation, preview);
       overlay.setBlockedTiles([]);
       overlay.setDemolitionTarget([]);
@@ -430,28 +510,30 @@ function boot(): void {
     hover = atPointer(event);
     const moved = Math.hypot(event.clientX - drag.x, event.clientY - drag.y);
     if (hover && (tool === 'road' || moved < 9)) {
-      if (!primaryCity(world).founded) {
-        const result = applyCommand(world, primaryCity(world).id, { type: 'foundHarbour', x: hover.x, z: hover.z });
+      const home = canWrite(context) ? activeCity(world, context) : null;
+      if (home && !home.founded) {
+        const result = submitCityCommand(world, context, { type: 'foundHarbour', x: hover.x, z: hover.z });
         apply(result);
         if (result.ok) {
-          selectedId = primaryCity(world).harbour.id;
+          selectedId = home.harbour.id;
           selectTool('inspect');
           refresh();
           save(false);
         }
-      } else if (tool === 'inspect' || tool === 'demolish') {
+      } else if (!home || tool === 'inspect') {
         const picked = city.pick(event.clientX, event.clientY);
-        const hit = primaryCity(world).buildings.find((building) => building.id === picked.building);
-        if (tool === 'inspect') {
-          selectedId = picked.walker ?? picked.animal ?? picked.building;
-          refresh();
-        } else construct({ type: 'demolish', x: hit?.x ?? hover.x, z: hit?.z ?? hover.z });
+        selectedId = picked.walker ?? picked.animal ?? picked.building;
+        refresh();
+      } else if (tool === 'demolish') {
+        const picked = city.pick(event.clientX, event.clientY);
+        const hit = home.buildings.find((building) => building.id === picked.building);
+        construct({ type: 'demolish', x: hit?.x ?? hover.x, z: hit?.z ?? hover.z });
       } else if (tool === 'road') construct({ type: 'roadPath', tiles: roadPath() });
       else {
         const buildingTool = tool;
         const result = construct({ type: 'build', tool: buildingTool, x: hover.x, z: hover.z, rotation });
         if (result.ok) {
-          selectedId = primaryCity(world).buildings.find((building) => building.x === hover!.x && building.z === hover!.z)?.id ?? null;
+          selectedId = home.buildings.find((building) => building.x === hover!.x && building.z === hover!.z)?.id ?? null;
           refresh();
         }
       }
@@ -560,7 +642,10 @@ function boot(): void {
   }
   document.addEventListener('visibilitychange', () => { previous = 0; if (!document.hidden) stage.invalidate(); });
   function saveView(): void {
-    try { localStorage.setItem(VIEW_KEY, JSON.stringify({ seed: world.seed, home: primaryCity(world).home, view: stage.getView() })); } catch {}
+    try {
+      const home = activeCity(world, context)?.home;
+      localStorage.setItem(VIEW_KEY, JSON.stringify({ seed: world.seed, home, view: stage.getView() }));
+    } catch {}
   }
   window.addEventListener('pagehide', () => { if (dirtySave) save(false); saveView(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) saveView(); });
@@ -577,7 +662,7 @@ function boot(): void {
     Reflect.set(window, 'oikos', {
       get state() { return structuredClone(world); },
       freshWorld: (seed: number, home: number, founded = true) => createWorld(seed, home, founded),
-      get summary() { return getSummary(primaryCity(world)); },
+      get summary() { const home = activeCity(world, context); return home ? getSummary(home) : { population: 0, workers: 0, jobs: 0, food: 0, income: 0, upkeep: 0, balance: 0, prosperous: 0, goal: false }; },
       get frames() { return stage.frames; },
       get drawCalls() { return stage.renderer.info.render.calls; },
       get sceneBudget() {
@@ -605,21 +690,33 @@ function boot(): void {
       get triangles() { return stage.renderer.info.render.triangles; },
       get foamVersion() { return (city.scenery.foam.mesh.geometry.attributes.position as T.BufferAttribute).version; },
       get camera() { return [...stage.camera.position.toArray(), ...stage.controls.target.toArray(), stage.camera.zoom]; },
-      projectTile: (x: number, z: number) => { const p = worldPositionOn(map(), x + .5, z + .5); return stage.project(p.x, roadHeight(map(), stairLayout(map(), new Set(primaryCity(world).roads)), x + .5, z + .5), p.z); },
+      projectTile: (x: number, z: number) => { const p = worldPositionOn(map(), x + .5, z + .5); const roads = activeCity(world, context)?.roads ?? []; return stage.project(p.x, roadHeight(map(), stairLayout(map(), new Set(roads)), x + .5, z + .5), p.z); },
       projectPoint: (x: number, z: number, y = 0) => { const p = worldPositionOn(map(), x, z); return stage.project(p.x, groundHeight(map(), Math.floor(x), Math.floor(z)) + y, p.z); },
       projectBuilding: (id: number) => {
-        const building = primaryCity(world).buildings.find((candidate) => candidate.id === id);
+        const building = findBuildingOwner(id)?.building;
         if (!building) return null;
         const size = footprint(building.kind, building.rotation);
         const p = worldPositionOn(map(), building.x + size.width / 2, building.z + size.depth / 2);
         return stage.project(p.x, groundHeight(map(), building.x, building.z) + 1.5, p.z);
       },
       advance: (seconds: number) => { setSpeed(0); advance(world, seconds); refresh(); dirtySave = true; stage.shadows(); },
-      get plan() { return planStarterNeighbourhood(world, primaryCity(world)); },
-      foundingPlacement: (x: number, z: number) => foundingPlacement(world, primaryCity(world), x, z),
-      buildPlan: () => { const result = buildStarterNeighbourhood(world, primaryCity(world)); refresh(); save(true); stage.shadows(); return result; },
-      build: (tool: BuildTool, x: number, z: number) => { const result = applyCommand(world, primaryCity(world).id, { type: 'build', tool, x, z, rotation: 0 }); refresh(); save(true); return result; },
-      road: (tiles: Tile[]) => { const result = applyCommand(world, primaryCity(world).id, { type: 'roadPath', tiles }); refresh(); save(true); return result; },
+      get plan() { const home = activeCity(world, context); return home ? planStarterNeighbourhood(world, home) : null; },
+      foundingPlacement: (x: number, z: number) => {
+        const home = activeCity(world, context);
+        return home ? foundingPlacement(world, home, x, z) : { ok: false, reason: 'You have no city of your own here.', cost: 0, tiles: [] };
+      },
+      buildPlan: () => {
+        if (!canWrite(context)) return { ok: false, reason: 'Viewing another city grants no writes.' };
+        const home = activeCity(world, context);
+        if (!home) return { ok: false, reason: 'You have no city of your own here.' };
+        const result = buildStarterNeighbourhood(world, home);
+        refresh();
+        save(true);
+        stage.shadows();
+        return result;
+      },
+      build: (tool: BuildTool, x: number, z: number) => { const result = submitCityCommand(world, context, { type: 'build', tool, x, z, rotation: 0 }); refresh(); save(true); return result; },
+      road: (tiles: Tile[]) => { const result = submitCityCommand(world, context, { type: 'roadPath', tiles }); refresh(); save(true); return result; },
       projectWalker: (id: number) => {
         const point = city.moverPoint(id);
         return point ? stage.project(point.x, point.y + .5, point.z) : null;
@@ -631,6 +728,8 @@ function boot(): void {
       roadCost: ROAD_COST,
       saveKey: SAVE_KEY,
       get overlayCounts() { return overlay.counts; },
+      get cityContext() { return { ...context }; },
+      visit: (id: number) => viewCity(id),
     });
   }
 }

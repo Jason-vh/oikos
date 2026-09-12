@@ -1,6 +1,5 @@
 import { getSummary } from '../sim/world';
-import { primaryCity } from '../sim/city';
-import type { World } from '../sim/types';
+import type { City } from '../sim/types';
 import type { SoundCue } from './sound';
 
 export interface CityMilestones {
@@ -10,8 +9,9 @@ export interface CityMilestones {
   thriving: boolean;
 }
 
-export function cityMilestones(world: World): CityMilestones {
-  const city = primaryCity(world);
+export const NO_MILESTONES: CityMilestones = { settled: false, delivered: false, courtyard: false, thriving: false };
+
+export function cityMilestones(city: City): CityMilestones {
   const summary = getSummary(city);
   return {
     settled: summary.population > 0,

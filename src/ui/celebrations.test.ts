@@ -1,11 +1,12 @@
 import { expect, test } from 'bun:test';
 import { createWorld } from '../sim/world';
+import { primaryCity } from '../sim/city';
 import { celebration, cityMilestones, rememberMilestones, type CityMilestones } from './celebrations';
 
 const empty: CityMilestones = { settled: false, delivered: false, courtyard: false, thriving: false };
 
 test('an empty island has no achievements', () => {
-  expect(cityMilestones(createWorld())).toEqual(empty);
+  expect(cityMilestones(primaryCity(createWorld()))).toEqual(empty);
   expect(celebration(empty, empty)).toBeNull();
 });
 

@@ -70,6 +70,18 @@ Viewing a city grants no writes. Keep viewed/active city IDs in client UI state,
 not by reordering or replacing World.cities. Founding another city must not reset
 the archipelago; retain a separate, clearly labelled local-world reset action.
 
+This client-side plumbing exists today: `src/ui/city-context.ts` holds nullable
+`viewedId`/`activeId`, resolves them against the canonical `World.cities` on
+every read, and gates every construction, demolition, vendor and founding
+command (including the debug wrappers `smoke.mjs` and friends drive) on
+`viewed === active` and an actual active city. `CityScene` and `LogisticsOverlay`
+render and route every founded city's roads, buildings and walkers by their
+global ids, not only the active one. Bootstrap still makes the sole city both
+viewed and active, so ordinary single-city play is unchanged; the read-only
+visit control in the HUD only appears once `World.cities.length > 1`, which
+no shipped save produces yet. Player identity, ownership checks and the
+authoritative server remain future work.
+
 Whole-world checkpoint undo is only safe in local single-city play; `canUndoConstruction`
 already refuses whenever either World holds more than one city. Disable it further
 before independent owners can issue commands. Clearing history on a city switch

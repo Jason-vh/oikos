@@ -1,5 +1,4 @@
-import type { Building, Rotation, Summary, Tool, World } from '../sim/types';
-import { primaryCity } from '../sim/city';
+import type { Building, City, Rotation, Summary, Tool, World } from '../sim/types';
 import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, VENDOR_COST } from '../sim/catalog';
 import { FOOD_CONSUMPTION_PER_RESIDENT, WATER_DECAY_PER_SECOND } from '../sim/balance';
 import { toolIcon } from './icons';
@@ -22,6 +21,12 @@ export interface HudActions {
   import(file: File): void;
   sound(enabled: boolean): void;
   undo(): void;
+  visit(id: number): void;
+}
+
+export interface CityScope {
+  city: City;
+  summary: Summary;
 }
 
 export type Selection =
@@ -29,7 +34,7 @@ export type Selection =
   | { kind: 'person'; name: string; role: string; status: string[] };
 
 export interface Hud {
-  update(world: World, summary: Summary, selected: Selection | null): void;
+  update(world: World, viewed: CityScope | null, active: CityScope | null, selected: Selection | null): void;
   setTool(tool: Tool, rotation: Rotation): void;
   setSpeed(speed: 0 | 1 | 3): void;
   notify(message: string, error?: boolean): void;
@@ -38,6 +43,7 @@ export interface Hud {
   setSound(enabled: boolean): void;
   setSaved(): void;
   setUndo(available: boolean): void;
+  setCities(cities: { id: number; label: string }[], viewedId: number | null): void;
   toggleMenu(): boolean;
   dispose(): void;
 }
@@ -94,15 +100,14 @@ interface Milestones {
   harbourTrade: boolean;
 }
 
-function computeMilestones(world: World, summary: Summary): Milestones {
-  const connected = primaryCity(world).buildings.filter((building) => building.connected);
+function computeMilestones(city: City, summary: Summary): Milestones {
+  const connected = city.buildings.filter((building) => building.connected);
   const houses = connected.filter((building) => building.kind === 'house');
   const farms = connected.some((building) => building.kind === 'farm');
   const granaries = connected.some((building) => building.kind === 'granary');
   const agoraVendor = connected.some((building) => building.kind === 'agora' && building.vendorEnabled);
   const fountains = connected.some((building) => building.kind === 'fountain');
   const maintenance = connected.some((building) => building.kind === 'maintenance');
-  const city = primaryCity(world);
   return {
     houses: houses.length >= 4,
     farmGranary: farms && granaries,
@@ -137,6 +142,7 @@ const SKELETON = `
       </div>
     </header>
   </div>
+  <div class="hud-panel hud-cities" role="group" aria-label="Visit a city" data-testid="cities" hidden></div>
   <details class="hud-panel hud-guide" data-testid="guide" open>
     <summary>Guide</summary>
     <ol class="hud-milestones" data-testid="milestones">
@@ -325,6 +331,21 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
   });
 
 
+  const citiesPanel = root.querySelector<HTMLElement>('.hud-cities')!;
+  function setCities(cities: { id: number; label: string }[], viewedId: number | null): void {
+    citiesPanel.hidden = cities.length <= 1;
+    citiesPanel.replaceChildren();
+    if (cities.length <= 1) return;
+    for (const entry of cities) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = entry.label;
+      button.setAttribute('aria-pressed', String(entry.id === viewedId));
+      button.addEventListener('click', () => actions.visit(entry.id));
+      citiesPanel.appendChild(button);
+    }
+  }
+
   const guidePanel = root.querySelector<HTMLDetailsElement>('.hud-guide')!;
   const inspectorPanel = root.querySelector<HTMLDetailsElement>('.hud-inspector')!;
   let lastSelectedId: number | string | null = null;
@@ -442,15 +463,18 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     updateVendor(selected);
   }
 
-  function updateMilestones(world: World, summary: Summary): void {
-    const founded = primaryCity(world).founded;
+  function updateMilestones(active: CityScope | null): void {
+    const founded = active?.city.founded ?? false;
     guidePanel.querySelector<HTMLElement>('.hud-milestones')!.hidden = !founded;
-    if (!founded) {
-      guidePanel.querySelector('summary')!.textContent = 'Found your city';
-      guidePanel.querySelector('.hud-guide-note')!.textContent = 'Place your harbour beside the landing road. The green footprint shows a valid site. H returns here; Escape opens the menu.';
+    if (!active || !founded) {
+      guidePanel.querySelector('summary')!.textContent = active ? 'Found your city' : 'No city yet';
+      guidePanel.querySelector('.hud-guide-note')!.textContent = active
+        ? 'Place your harbour beside the landing road. The green footprint shows a valid site. H returns here; Escape opens the menu.'
+        : '';
       return;
     }
-    const milestones = computeMilestones(world, summary);
+    const summary = active.summary;
+    const milestones = computeMilestones(active.city, summary);
     for (const [key, input] of milestoneInputs) {
       input.checked = milestones[key];
     }
@@ -472,23 +496,24 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
   const toastRegion = root.querySelector<HTMLElement>('.hud-toast-region')!;
   const toastTimers = new Set<number>();
 
-  function update(world: World, summary: Summary, selected: Selection | null): void {
-    const city = primaryCity(world);
+  function update(world: World, viewed: CityScope | null, active: CityScope | null, selected: Selection | null): void {
+    const canWrite = viewed !== null && active !== null && viewed.city.id === active.city.id;
     nextSeed = nextArchipelagoSeed(world.seed);
-    populationField.textContent = summary.population.toLocaleString('en-US');
-    treasuryField.textContent = formatDrachma(city.money);
-    treasuryField.classList.toggle('hud-debt', city.money < 0);
-    foodField.textContent = Math.round(summary.food).toLocaleString('en-US');
+    const money = viewed?.city.money ?? 0;
+    populationField.textContent = (viewed?.summary.population ?? 0).toLocaleString('en-US');
+    treasuryField.textContent = formatDrachma(money);
+    treasuryField.classList.toggle('hud-debt', money < 0);
+    foodField.textContent = Math.round(viewed?.summary.food ?? 0).toLocaleString('en-US');
     for (const def of TOOL_DEFS) {
       const button = toolButtons.get(def.tool)!;
-      button.disabled = !city.founded;
-      button.classList.toggle('hud-tool-unaffordable', def.price > city.money);
+      button.disabled = !canWrite || !(active?.city.founded ?? false);
+      button.classList.toggle('hud-tool-unaffordable', !!active && def.price > active.city.money);
     }
-    balanceField.textContent = formatSigned(summary.balance);
-    employedField.textContent = `${summary.workers} / ${summary.jobs}`;
+    balanceField.textContent = formatSigned(viewed?.summary.balance ?? 0);
+    employedField.textContent = `${viewed?.summary.workers ?? 0} / ${viewed?.summary.jobs ?? 0}`;
     timeField.textContent = formatDate(world);
 
-    updateMilestones(world, summary);
+    updateMilestones(active);
     updateInspector(selected);
   }
 
@@ -559,5 +584,5 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     action(root, 'undo').hidden = !available;
   }
 
-  return { update, setTool, setSpeed, notify, setHint, setGrid, setSound, setSaved, setUndo, toggleMenu, dispose };
+  return { update, setTool, setSpeed, notify, setHint, setGrid, setSound, setSaved, setUndo, setCities, toggleMenu, dispose };
 }
