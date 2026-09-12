@@ -17,6 +17,7 @@ import {
   neighbours,
 } from './grid';
 import { mixedEdgeAllowed, stairLayout, stairPlacementConflict, type Stair, type StairIssue } from './stairs';
+import { foreignOccupancy } from './occupancy';
 import {
   AGORA_CAP,
   ARRIVAL_INTERVAL,
@@ -166,14 +167,17 @@ function stairPlacementIssue(map: IslandMap, roads: ReadonlySet<number>, newTile
 function evaluatePlacement(world: World, city: City, tool: BuildTool, x: number, z: number, rotation: Rotation): Placement {
   if (!city.founded) return { ok: false, reason: REASON.foundingRequired, cost: 0, tiles: [] };
   const map = mapOf(world, city);
+  const foreign = foreignOccupancy(world, city);
   if (tool === 'road') {
     if (!insideMapOn(map, x, z)) return { ok: false, reason: REASON.outOfBounds, cost: 0, tiles: [] };
     const tile = tileIndexOn(map, x, z);
     if (!terrainAllows(map, tool, x, z)) return { ok: false, reason: REASON.unsuitableTerrain, cost: 0, tiles: [tile] };
     if (!onHomeIsland(map, x, z)) return { ok: false, reason: REASON.unsettledIsland, cost: 0, tiles: [tile] };
     if (buildingAt(world, city, tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: [tile] };
-    if (neighbourGradeIssue(map, new Set(city.roads), tile)) return { ok: false, reason: REASON.roadTooSteep, cost: 0, tiles: [tile] };
+    if (foreign.buildings.has(tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: [tile] };
     const already = city.roads.includes(tile);
+    if (!already && foreign.roads.has(tile)) return { ok: false, reason: REASON.tileOccupiedByRoad, cost: 0, tiles: [tile] };
+    if (neighbourGradeIssue(map, new Set(city.roads), tile)) return { ok: false, reason: REASON.roadTooSteep, cost: 0, tiles: [tile] };
     if (!already) {
       const tentative = new Set(city.roads);
       tentative.add(tile);
@@ -206,7 +210,9 @@ function evaluatePlacement(world: World, city: City, tool: BuildTool, x: number,
     }
     if (!onHomeIsland(map, tx, tz)) return { ok: false, reason: REASON.unsettledIsland, cost: definition.cost, tiles };
     if (city.roads.includes(tile)) return { ok: false, reason: REASON.tileOccupiedByRoad, cost: definition.cost, tiles };
+    if (foreign.roads.has(tile)) return { ok: false, reason: REASON.tileOccupiedByRoad, cost: definition.cost, tiles };
     if (buildingAt(world, city, tile)) return { ok: false, reason: REASON.tileOccupied, cost: definition.cost, tiles };
+    if (foreign.buildings.has(tile)) return { ok: false, reason: REASON.tileOccupied, cost: definition.cost, tiles };
   }
   if (definition.cost > city.money) return { ok: false, reason: REASON.notEnoughMoney, cost: definition.cost, tiles };
   return { ok: true, reason: '', cost: definition.cost, tiles };
@@ -259,6 +265,8 @@ export function build(world: World, city: City, tool: BuildTool, x: number, z: n
 function evaluateRoadPath(world: World, city: City, tiles: Tile[]): Placement {
   if (!city.founded) return { ok: false, reason: REASON.foundingRequired, cost: 0, tiles: [] };
   const map = mapOf(world, city);
+  const foreign = foreignOccupancy(world, city);
+  const existing = new Set(city.roads);
   const seen = new Set<number>();
   const indices: number[] = [];
   for (const { x, z } of tiles) {
@@ -269,10 +277,11 @@ function evaluateRoadPath(world: World, city: City, tiles: Tile[]): Placement {
     if (!terrainAllows(map, 'road', x, z)) return { ok: false, reason: REASON.unsuitableTerrain, cost: 0, tiles: indices };
     if (!onHomeIsland(map, x, z)) return { ok: false, reason: REASON.unsettledIsland, cost: 0, tiles: [...indices, tile] };
     if (buildingAt(world, city, tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: indices };
+    if (foreign.buildings.has(tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: indices };
+    if (!existing.has(tile) && foreign.roads.has(tile)) return { ok: false, reason: REASON.tileOccupiedByRoad, cost: 0, tiles: indices };
     indices.push(tile);
   }
 
-  const existing = new Set(city.roads);
   const fresh = indices.filter((tile) => !existing.has(tile));
   const cost = fresh.length * ROAD_COST;
 

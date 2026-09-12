@@ -1,34 +1,13 @@
 import { describe, expect, test } from 'bun:test';
-import { advance, build, createWorld, getSummary, placement, recomputeConnectivity, totalStock } from './world';
+import { advance, build, createWorld, getSummary, placement, totalStock } from './world';
 import { primaryCity } from './city';
 import { buildStarterNeighbourhood } from './scenario';
-import { connectInCity, homeTilesInCity, spotForInCity } from './testing';
+import { connectInCity, foundSecondCity, homeTilesInCity, spotForInCity } from './testing';
 import { serializeWorld, deserializeWorld } from './save';
-import { ISLAND_COUNT, islandFor, landingRoads, terrainOn, tileIndexOn } from './island';
-import { STARTING_MONEY } from './catalog';
-import { freshHarbour } from './harbour';
+import { ISLAND_COUNT, islandFor, terrainOn, tileIndexOn } from './island';
 import { STEP } from './balance';
 import { GATHER_RANGE, REGROW_SECONDS } from './gathering';
-import type { City, Tile, World } from './types';
-
-function foundSecondCity(world: World, home: number, founded = true): City {
-  const map = islandFor(world.seed, home);
-  const city: City = {
-    id: world.nextId++,
-    home: map.home,
-    founded,
-    money: STARTING_MONEY,
-    harbour: { ...freshHarbour(world.seed, landingRoads(map), map.home), id: world.nextId++ },
-    produced: 0,
-    delivered: 0,
-    roads: landingRoads(map),
-    buildings: [],
-    walkers: [],
-  };
-  world.cities.push(city);
-  recomputeConnectivity(world, city);
-  return city;
-}
+import type { Tile } from './types';
 
 function foundedTwoCityWorld(seed = 1) {
   const world = createWorld(seed, 0);
