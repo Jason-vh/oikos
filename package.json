@@ -14,6 +14,7 @@
     "smoke:territory": "node scripts/territory-smoke.mjs",
     "smoke:harbour-site": "node scripts/harbour-site-smoke.mjs",
     "smoke:founding": "node scripts/founding-smoke.mjs",
+    "smoke:island-choice": "node scripts/island-choice-smoke.mjs",
     "smoke:polish": "node scripts/polish-smoke.mjs",
     "smoke:construction": "node scripts/construction-smoke.mjs",
     "smoke:foam": "node scripts/foam-smoke.mjs",

@@ -3,6 +3,7 @@ import { advance, build, createWorld, demolish } from './world';
 import { buildStarterNeighbourhood } from './scenario';
 import { spotFor } from './testing';
 import { canUndoConstruction, undoConstruction } from './history';
+import { primaryCity } from './city';
 
 test('undoing construction restores its cost without rewinding simulated time', () => {
   const world = createWorld();
@@ -40,4 +41,12 @@ test('undo expires after fifteen simulated seconds and cannot cross islands', ()
   expect(undoConstruction(createWorld(2), before)).toBeNull();
   expect(undoConstruction(before, world)).toBeNull();
   expect(undoConstruction(world, null)).toBeNull();
+});
+
+test('undo cannot cross into a checkpoint from a different city', () => {
+  const world = createWorld();
+  const before = structuredClone(world);
+  primaryCity(before).id = primaryCity(world).id + 1;
+  expect(canUndoConstruction(world, before)).toBe(false);
+  expect(undoConstruction(world, before)).toBeNull();
 });

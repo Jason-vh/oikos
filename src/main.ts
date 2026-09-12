@@ -4,9 +4,9 @@ import { CityScene } from './render/city';
 import { ConstructionOverlay } from './render/construction';
 import { BUILDINGS, footprint, ROAD_COST } from './sim/catalog';
 import { demolitionPreview, footprintTileIssues, harbourRoute, suitableFarmGround } from './sim/construction';
-import { CELL_SIZE, groundHeight, islandFor, terrainOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
+import { CELL_SIZE, groundHeight, islandFor, nextArchipelagoSeed, terrainOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
 import { roadHeight, stairLayout } from './sim/stairs';
-import { advance, buildingStatus, createWorld, DEFAULT_SEED, getSummary, placement, roadPathPlacement, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
+import { advance, buildingStatus, createWorld, getSummary, placement, roadPathPlacement, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
 import { primaryCity } from './sim/city';
 import { deserializeWorld, savedBeforeArchipelago, serializeWorld } from './sim/save';
 import { animalName, animalStatus } from './sim/wildlife';
@@ -209,7 +209,7 @@ function boot(): void {
       } catch { hud.notify('Browser storage is unavailable.', true); }
     },
     newIsland: (home) => {
-      const seed = world.seed === DEFAULT_SEED ? 2 : (world.seed * 1103515245 + 12345) % 0x7fffffff;
+      const seed = nextArchipelagoSeed(world.seed);
       world = createWorld(seed, home, false);
       undoCheckpoint = null;
       milestones = cityMilestones(world);

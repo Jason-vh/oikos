@@ -15,5 +15,6 @@ node scripts/settlement-smoke.mjs "http://127.0.0.1:$PORT/?debug${LEAN:+&lean}" 
 node scripts/territory-smoke.mjs "http://127.0.0.1:$PORT/?debug${LEAN:+&lean}" artifacts/territory
 node scripts/harbour-site-smoke.mjs "http://127.0.0.1:$PORT/?debug${LEAN:+&lean}"
 node scripts/founding-smoke.mjs "http://127.0.0.1:$PORT/?debug${LEAN:+&lean}" artifacts/founding
+node scripts/island-choice-smoke.mjs "http://127.0.0.1:$PORT/?debug${LEAN:+&lean}" artifacts/island-choice
 node scripts/art-capture.mjs "http://127.0.0.1:$PORT" artifacts/art
 node scripts/construction-smoke.mjs "http://127.0.0.1:$PORT" artifacts/construction

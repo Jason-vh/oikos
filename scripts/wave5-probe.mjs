@@ -37,7 +37,7 @@ try {
       for (let z = building.z; z < building.z + depth; z++) for (let x = building.x; x < building.x + width; x++) occupied.add(z * map.width + x);
     };
     for (const building of state.buildings) mark(building, building.kind === 'farm' ? 4 : 3, building.kind === 'farm' ? 4 : 3);
-    mark(state.harbour, 3, 2);
+    mark(state.cities[0].harbour, 3, 2);
     const buildable = new Set(['grass', 'sand', 'scrub', 'fertile']);
     const fits = (x, z) => {
       for (let dz = 0; dz < 3; dz++) for (let dx = 0; dx < 3; dx++) {
@@ -78,7 +78,7 @@ try {
       for (let z = building.z; z < building.z + depth; z++) for (let x = building.x; x < building.x + width; x++) occupied.add(z * map.width + x);
     };
     for (const building of state.buildings) mark(building, building.kind === 'farm' ? 4 : 3, building.kind === 'farm' ? 4 : 3);
-    mark(state.harbour, 3, 2);
+    mark(state.cities[0].harbour, 3, 2);
     const buildable = new Set(['grass', 'sand', 'scrub', 'fertile']);
     const free = (x, z) => {
       const index = z * map.width + x;
@@ -126,7 +126,7 @@ try {
       for (let z = building.z; z < building.z + depth; z++) for (let x = building.x; x < building.x + width; x++) occupied.add(z * map.width + x);
     };
     for (const building of state.buildings) mark(building, building.kind === 'farm' ? 4 : 3, building.kind === 'farm' ? 4 : 3);
-    mark(state.harbour, 3, 2);
+    mark(state.cities[0].harbour, 3, 2);
     const forests = [];
     for (let z = 0; z < map.depth; z++) for (let x = 0; x < map.width; x++) if (map.terrain[z * map.width + x] === 'forest') forests.push([x, z]);
     const distanceToForest = (x, z) => Math.min(...forests.map(([fx, fz]) => Math.abs(fx - x) + Math.abs(fz - z)));
@@ -164,7 +164,7 @@ try {
       window.oikos.build('stockpile', pile.x, pile.z);
     }, gathering);
     await page.evaluate(() => window.oikos.advance(600));
-    const harbour = await page.evaluate(() => window.oikos.state.harbour);
+    const harbour = await page.evaluate(() => window.oikos.state.cities[0].harbour);
     console.log('harbour with lumber supply:', JSON.stringify({ tier: harbour.tier, stores: harbour.stores }));
     await page.evaluate(([x, z]) => window.oikos.focusTile(x, z), [harbour.x, harbour.z]);
     await paint(page);

@@ -3,7 +3,8 @@ import { primaryCity } from '../sim/city';
 import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, VENDOR_COST } from '../sim/catalog';
 import { FOOD_CONSUMPTION_PER_RESIDENT, WATER_DECAY_PER_SECOND } from '../sim/balance';
 import { toolIcon } from './icons';
-import { ISLAND_COUNT } from '../sim/island';
+import { ISLAND_COUNT, nextArchipelagoSeed } from '../sim/island';
+import { createIslandChoice } from './island-choice';
 
 export interface HudActions {
   tool(tool: Tool): void;
@@ -197,10 +198,12 @@ const SKELETON = `
       <p class="hud-menu-footer"><a href="/art.html" target="_blank" rel="noopener">Model atelier</a><button type="submit" value="close">Close</button></p>
     </form>
   </dialog>
-  <dialog class="hud-dialog" data-testid="new-island-dialog">
+  <dialog class="hud-dialog hud-island-dialog" data-testid="new-island-dialog" aria-labelledby="new-island-title">
     <form method="dialog">
-      <h2>Start a new island?</h2>
+      <h2 id="new-island-title">Start a new island?</h2>
       <p>This opens a fresh archipelago and replaces your autosave. Save a checkpoint or export first to keep this city.</p>
+      <canvas class="hud-island-map" data-testid="island-preview" role="img" aria-label="Archipelago preview"></canvas>
+      <p data-testid="island-facts" aria-live="polite"></p>
       <label class="hud-island-choice">Starting island
         <select name="home" data-testid="starting-island">
           <option value="">Central island (recommended)</option>
@@ -275,6 +278,12 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
   });
 
   const dialog = root.querySelector<HTMLDialogElement>('[data-testid="new-island-dialog"]')!;
+  const showIslandChoice = createIslandChoice(
+    dialog.querySelector<HTMLCanvasElement>('[data-testid="island-preview"]')!,
+    dialog.querySelector<HTMLSelectElement>('[name="home"]')!,
+    dialog.querySelector<HTMLElement>('[data-testid="island-facts"]')!,
+  );
+  let nextSeed = nextArchipelagoSeed(1);
   dialog.addEventListener('close', () => {
     actions.menu(false);
     if (dialog.returnValue === 'confirm') {
@@ -306,7 +315,10 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     if (choice !== 'new') actions.menu(false);
     if (choice === 'save') actions.save();
     else if (choice === 'load') actions.load();
-    else if (choice === 'new') dialog.showModal();
+    else if (choice === 'new') {
+      showIslandChoice(nextSeed);
+      dialog.showModal();
+    }
     else if (choice === 'export') actions.export();
     else if (choice === 'import') importFile.click();
     else if (choice === 'grid') actions.grid(gridButton.getAttribute('aria-pressed') !== 'true');
@@ -462,6 +474,7 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
 
   function update(world: World, summary: Summary, selected: Selection | null): void {
     const city = primaryCity(world);
+    nextSeed = nextArchipelagoSeed(world.seed);
     populationField.textContent = summary.population.toLocaleString('en-US');
     treasuryField.textContent = formatDrachma(city.money);
     treasuryField.classList.toggle('hud-debt', city.money < 0);

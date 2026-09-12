@@ -8,7 +8,7 @@ export function canUndoConstruction(world: World, checkpoint: World | null): che
   if (!checkpoint) return false;
   const city = primaryCity(world);
   const checkpointCity = primaryCity(checkpoint);
-  if (checkpoint.seed !== world.seed || checkpointCity.home !== city.home || checkpointCity.founded !== city.founded || checkpoint.version !== world.version) return false;
+  if (checkpoint.seed !== world.seed || checkpointCity.id !== city.id || checkpointCity.home !== city.home || checkpointCity.founded !== city.founded || checkpoint.version !== world.version) return false;
   const elapsed = world.time - checkpoint.time;
   return elapsed >= 0 && elapsed <= UNDO_SECONDS;
 }
