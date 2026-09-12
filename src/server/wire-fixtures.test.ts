@@ -58,6 +58,11 @@ export class WirePeer {
       for (const notify of this.listeners) notify();
     }
   }
+  get binding(): string {
+    const snapshot = this.packets.find((packet) => packet.type === 'snapshot');
+    if (!snapshot) throw new Error('No authenticated snapshot.');
+    return snapshot.session.binding;
+  }
   send(text: string, compress = false) {
     let payload = Buffer.from(text);
     if (compress) payload = deflateRawSync(payload, { flush: constants.Z_SYNC_FLUSH, finishFlush: constants.Z_SYNC_FLUSH }).subarray(0, -4);

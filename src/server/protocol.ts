@@ -1,19 +1,20 @@
 import type { AuthorityRequest, RequestOutcome, RequestStatus, Session } from './authority';
 import type { World } from '../sim/types';
 
-export const PROTOCOL = 1;
+export const PROTOCOL = 2;
 export const MAX_REQUEST_BYTES = 64 * 1024;
 export const COOKIE = '__Host-oikos';
-export type PublicSession = Omit<Session, 'actorId'>;
+export interface PublicSession extends Omit<Session, 'actorId'> { binding: string }
 export interface ClientRequest {
   type: 'request';
+  binding: string;
   requestId: string;
   seq: number;
   operation: AuthorityRequest;
 }
-export type RejectCode = Exclude<RequestStatus, 'processed' | 'replayed'> | 'rate-limited';
+export type RejectCode = Exclude<RequestStatus, 'processed' | 'replayed'> | 'rate-limited' | 'session-mismatch';
 export type ServerPacket =
-  | { type: 'snapshot'; protocol: 1; realmId: string; streamId: string; serial: number; session: PublicSession; world: World }
+  | { type: 'snapshot'; protocol: 2; realmId: string; streamId: string; serial: number; session: PublicSession; world: World }
   | { type: 'receipt'; requestId: string; seq: number; result: RequestOutcome }
   | { type: 'reject'; code: RejectCode; session: PublicSession };
 
@@ -28,7 +29,8 @@ function exactKeys(value: Record<string, unknown>, keys: string[]): boolean {
 export function parseRequest(raw: string): ClientRequest | null {
   try {
     const value: unknown = JSON.parse(raw);
-    if (!record(value) || !exactKeys(value, ['type', 'requestId', 'seq', 'operation'])) return null;
+    if (!record(value) || !exactKeys(value, ['type', 'binding', 'requestId', 'seq', 'operation'])) return null;
+    if (typeof value.binding !== 'string' || !/^[a-f0-9]{64}$/.test(value.binding)) return null;
     if (value.type !== 'request' || typeof value.requestId !== 'string' || !/^(?:[a-f0-9]{32}|[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$/i.test(value.requestId)) return null;
     if (!Number.isSafeInteger(value.seq) || (value.seq as number) <= 0 || !record(value.operation)) return null;
     const operation = value.operation;
@@ -43,8 +45,8 @@ export function parseRequest(raw: string): ClientRequest | null {
   }
 }
 
-export function publicSession(session: Session): PublicSession {
-  return { ownedCityIds: session.ownedCityIds, nextSeq: session.nextSeq, receiptWatermark: session.receiptWatermark };
+export function publicSession(session: Session, binding: string): PublicSession {
+  return { binding, ownedCityIds: session.ownedCityIds, nextSeq: session.nextSeq, receiptWatermark: session.receiptWatermark };
 }
 
 export function credentialFrom(request: Request): string {

@@ -42,13 +42,13 @@ test('foreign mutable targets fail without retargeting; actor-global races, gaps
   expect((await owner.peer.next('receipt')).result.ok).toBe(true);
   const rebuilt = await connect(cleanups, f, `__Host-oikos=${b.credential}`);
   expect(rebuilt.snapshot.world.cities[1].roads).toContain(tile.index);
-  const cursor = { ownedCityIds: [b.cityId], nextSeq: 5, receiptWatermark: 0 };
+  const cursor = { binding: owner.snapshot.session.binding, ownedCityIds: [b.cityId], nextSeq: 5, receiptWatermark: 0 };
   owner.peer.send(6, remove);
   expect(await owner.peer.next('reject')).toEqual({ type: 'reject', code: 'gap', session: cursor });
   owner.peer.send(3, remove, rid(3333));
   expect(await owner.peer.next('reject')).toEqual({ type: 'reject', code: 'conflict', session: cursor });
   for (const injection of [{ actorId: a.cityId }, { world: { cities: [] } }]) {
-    owner.peer.ws.send(JSON.stringify({ type: 'request', seq: 5, requestId: rid(5), operation: remove, ...injection }));
+    owner.peer.ws.send(JSON.stringify({ type: 'request', binding: owner.snapshot.session.binding, seq: 5, requestId: rid(5), operation: remove, ...injection }));
     expect(await owner.peer.next('reject')).toEqual({ type: 'reject', code: 'invalid-request', session: cursor });
   }
   const unchanged = await connect(cleanups, f, `__Host-oikos=${b.credential}`);
@@ -85,7 +85,7 @@ test('exact acknowledgement-loss replay survives reconnect; rebuilt road survive
   const observer = await connect(cleanups, f, cookie);
   const remove: AuthorityRequest = { kind: 'command', cityId: actor.cityId, command: { type: 'demolish', x: tile.x, z: tile.z } };
   f.clock.time += 250;
-  first.send(JSON.stringify({ type: 'request', requestId: rid(3), seq: 3, operation: remove }));
+  first.send(JSON.stringify({ type: 'request', binding: first.binding, requestId: rid(3), seq: 3, operation: remove }));
   expect((await observer.peer.next('snapshot')).session.nextSeq).toBe(4);
   await first.close();
   expect(first.packets.filter((packet) => packet.type === 'receipt')).toEqual([]);
@@ -105,7 +105,7 @@ test('exact acknowledgement-loss replay survives reconnect; rebuilt road survive
     expect((await second.peer.next('receipt')).result).toMatchObject({ status: 'processed', ok: false });
   }
   second.peer.send(3, remove);
-  expect(await second.peer.next('reject')).toEqual({ type: 'reject', code: 'pruned', session: { ownedCityIds: [actor.cityId], nextSeq: 261, receiptWatermark: 4 } });
+  expect(await second.peer.next('reject')).toEqual({ type: 'reject', code: 'pruned', session: { binding: second.snapshot.session.binding, ownedCityIds: [actor.cityId], nextSeq: 261, receiptWatermark: 4 } });
   await f.runtime.stop();
   const reopened = Authority.open(f.path);
   try {

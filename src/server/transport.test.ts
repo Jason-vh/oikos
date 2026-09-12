@@ -23,7 +23,9 @@ test('redeems only same-origin invites, keeps credentials solely in the secure c
   expect((await fetch(`${f.base}/api/world`, { headers: { Origin: 'https://foreign.example', Cookie: admitted, Upgrade: 'websocket' } })).status).toBe(403);
   const { snapshot } = await connect(cleanups, f, admitted);
   expect(Object.keys(snapshot).sort()).toEqual(['protocol', 'realmId', 'serial', 'session', 'streamId', 'type', 'world']);
-  expect(snapshot.session).toEqual({ ownedCityIds: [], nextSeq: 1, receiptWatermark: 0 });
+  expect(snapshot.protocol).toBe(2);
+  expect(snapshot.session.binding).toMatch(/^[a-f0-9]{64}$/);
+  expect(snapshot.session).toEqual({ binding: snapshot.session.binding, ownedCityIds: [], nextSeq: 1, receiptWatermark: 0 });
   expect(deserializeSharedWorld(JSON.stringify(snapshot.world))).toEqual(snapshot.world);
   expect(JSON.stringify(snapshot)).not.toContain('actorId');
   expect(JSON.stringify(snapshot)).not.toContain(admitted.slice('__Host-oikos='.length));

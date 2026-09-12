@@ -47,12 +47,15 @@ export class Peer {
   readonly ws: WebSocket;
   readonly packets: ServerPacket[] = [];
   private listeners = new Set<() => void>();
+  private binding = '';
   readonly closed: Promise<CloseEvent>;
   constructor(base: string, origin: string, cookie: string) {
     const BunWebSocket = WebSocket as unknown as { new(url: string, options: Bun.WebSocketOptions): WebSocket };
     this.ws = new BunWebSocket(`${base.replace('http:', 'ws:')}/api/world`, { headers: { Origin: origin, Cookie: cookie } });
     this.ws.addEventListener('message', (event) => {
-      this.packets.push(JSON.parse(String(event.data)) as ServerPacket);
+      const packet = JSON.parse(String(event.data)) as ServerPacket;
+      if (packet.type === 'snapshot') this.binding = packet.session.binding;
+      this.packets.push(packet);
       for (const notify of this.listeners) notify();
     });
     this.closed = new Promise((resolve) => { this.ws.addEventListener('close', resolve, { once: true }); });
@@ -73,7 +76,7 @@ export class Peer {
     return this.packets.splice(find(), 1)[0] as Extract<ServerPacket, { type: T }>;
   }
   send(seq: number, operation: AuthorityRequest, id = rid(seq)) {
-    this.ws.send(JSON.stringify({ type: 'request', requestId: id, seq, operation }));
+    this.ws.send(JSON.stringify({ type: 'request', binding: this.binding, requestId: id, seq, operation }));
   }
   async close() {
     this.ws.close();

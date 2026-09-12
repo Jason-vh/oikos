@@ -17,7 +17,7 @@ test('negotiates real compression and limits decompressed incoming payloads', as
   expect(wire.packets[0].type).toBe('snapshot');
   expect(wire.frames[0].compressed).toBe(true);
   expect(wire.frames[0].bytes).toBeLessThan(JSON.stringify(wire.packets[0]).length);
-  wire.send(JSON.stringify({ type: 'request', requestId: rid(1), seq: 1, operation: { kind: 'claim', home: 0 } }), true);
+  wire.send(JSON.stringify({ type: 'request', binding: wire.binding, requestId: rid(1), seq: 1, operation: { kind: 'claim', home: 0 } }), true);
   await wire.waitFor(() => wire.packets.some((packet) => packet.type === 'receipt'));
   const receipt = wire.packets.find((packet) => packet.type === 'receipt');
   expect(receipt).toMatchObject({ result: { ok: true, status: 'processed' } });
@@ -50,7 +50,7 @@ test('slow readers do not queue every snapshot or stall peers; control backpress
     const seq = ++attempts;
     const home = seq === 1 ? 0 : 1;
     f.clock.time += 250;
-    wire.send(JSON.stringify({ type: 'request', requestId: rid(seq), seq, operation: { kind: 'claim', home } }));
+    wire.send(JSON.stringify({ type: 'request', binding: wire.binding, requestId: rid(seq), seq, operation: { kind: 'claim', home } }));
     const observed = await fast.peer.next('snapshot');
     expect(observed.session.nextSeq).toBe(seq + 1);
     latest = observed.serial;

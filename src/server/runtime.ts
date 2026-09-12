@@ -1,5 +1,5 @@
 import type { ServerWebSocket } from 'bun';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { Authority } from './authority';
 import { COOKIE, MAX_REQUEST_BYTES, PROTOCOL, credentialFrom, parseInvite, parseRequest, publicSession, type RejectCode } from './protocol';
 
@@ -16,6 +16,7 @@ export interface RuntimeOptions {
 }
 interface SocketData {
   credential: string;
+  binding: string;
   actorId: number;
   snapshotDue: boolean;
   lastSnapshot: number;
@@ -99,7 +100,7 @@ export function startServer(options: RuntimeOptions) {
   function session(ws: ServerWebSocket<SocketData>) {
     const value = authority.authenticate(ws.data.credential);
     if (!value) throw new Error('Authenticated session disappeared.');
-    return publicSession(value);
+    return publicSession(value, ws.data.binding);
   }
 
   function control(ws: ServerWebSocket<SocketData>, packet: unknown): void {
@@ -191,7 +192,8 @@ export function startServer(options: RuntimeOptions) {
           if (request.method !== 'GET') return response(405, 'method-not-allowed');
           if (!authenticated) return response(401, 'unauthenticated');
           if (slots.size >= 64 || [...slots].filter((slot) => slot.actorId === authenticated.actorId).length >= 8) return response(429, 'socket-limit');
-          const data: SocketData = { credential, actorId: authenticated.actorId, snapshotDue: true, lastSnapshot: -Infinity };
+          const binding = createHash('sha256').update(`oikos:session-binding:v1\0${authority.realmId}\0${credential}`).digest('hex');
+          const data: SocketData = { credential, binding, actorId: authenticated.actorId, snapshotDue: true, lastSnapshot: -Infinity };
           slots.add(data);
           if (listener.upgrade(request, { data })) return;
           slots.delete(data);
@@ -222,6 +224,7 @@ export function startServer(options: RuntimeOptions) {
             if (!take(requests, ws.data.actorId, clock.now(), 16, 8)) { reject(ws, 'rate-limited'); return; }
             const request = typeof message === 'string' && Buffer.byteLength(message) <= MAX_REQUEST_BYTES ? parseRequest(message) : null;
             if (!request) { reject(ws, 'invalid-request'); return; }
+            if (request.binding !== ws.data.binding) { reject(ws, 'session-mismatch'); return; }
             const result = authority.submit(ws.data.credential, request.seq, request.requestId, request.operation);
             if (result.status === 'processed' || result.status === 'replayed') {
               control(ws, { type: 'receipt', requestId: request.requestId, seq: request.seq, result });

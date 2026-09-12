@@ -23,7 +23,7 @@ development. Cookies remain Secure even there. Never expose this private service
 without the configured HTTPS origin. `/healthz` reports liveness without state.
 SIGINT/SIGTERM checkpoint and stop; storage faults stop the listener and exit 1.
 
-## Protocol 1
+## Protocol 2
 
 POST `/api/session/redeem`, exact configured `Origin`, `application/json`, and
 `{"invite":"<64 hex>"}` (maximum 1 KiB) admits a single-use invite. Success returns
@@ -36,7 +36,7 @@ GET `/api/world` upgrades only with that exact Origin and an authenticated cooki
 A client sends:
 
 ```json
-{"type":"request","requestId":"00000000000000000000000000000001","seq":1,"operation":{"kind":"claim","home":0}}
+{"type":"request","binding":"<session binding from snapshot>","requestId":"00000000000000000000000000000001","seq":1,"operation":{"kind":"claim","home":0}}
 ```
 
 Commands use `{"kind":"command","cityId":1,"command":<CityCommand>}`. Outer
@@ -49,15 +49,22 @@ A durable processed/replayed result produces
 `{type:"receipt",requestId,seq,result:{ok,reason,status,cityId?}}`, then a current
 snapshot at the next permitted send. Non-consuming refusals produce
 `{type:"reject",code,session}`. Codes: `invalid-request`, `unauthenticated`, `gap`,
-`conflict`, `pruned`, `exhausted`, `rate-limited`. Never parse human reasons.
+`conflict`, `pruned`, `exhausted`, `rate-limited`, `session-mismatch`. Never parse human reasons.
 Logical failures consume a sequence and receipt without changing World.
 
-Snapshots are `{type:"snapshot",protocol:1,realmId,streamId,serial,session,world}`.
-Session contains only `ownedCityIds`, `nextSeq` (null at exhaustion), and
+Snapshots are `{type:"snapshot",protocol:2,realmId,streamId,serial,session,world}`.
+Session contains only `binding`, `ownedCityIds`, `nextSeq` (null at exhaustion), and
 `receiptWatermark` (highest pruned sequence). `realmId` persists across restarts;
 `streamId` is fresh each lifetime; serial increases within that stream. Public
 packets contain no actor identities, credentials or ownership table. Validate World
 with `deserializeSharedWorld`, not the local-game loader.
+
+`binding` is a domain-separated SHA-256 of realm and credential, not a credential,
+credential verifier, or actor ID. It remains stable across reconnects/restarts,
+but changes with realm or credential. Every request must match its authenticated
+socket's binding before dispatch; mismatch consumes nothing. Binding never grants
+authentication. Persist pending requests with realm and binding, and never rewrite
+them for a replacement login, including a different actor in the same realm.
 
 Reconnect may replay the exact pending envelope after acknowledgement loss.
 Conflicting/expired envelopes must never be automatically rewritten or reapplied.
