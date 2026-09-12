@@ -1,10 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import { createWorld, recomputeConnectivity } from '../sim/world';
+import { createWorld } from '../sim/world';
 import { primaryCity } from '../sim/city';
-import { freshHarbour } from '../sim/harbour';
-import { islandFor, landingRoads, tileAtOn } from '../sim/island';
-import { STARTING_MONEY } from '../sim/catalog';
-import type { City, World } from '../sim/types';
+import { islandFor, tileAtOn } from '../sim/island';
+import { foundSecondCity } from '../sim/testing';
 import {
   activeCity,
   bootstrapCityContext,
@@ -16,25 +14,6 @@ import {
   withPersistence,
   withViewed,
 } from './city-context';
-
-function foundSecondCity(world: World, home: number): City {
-  const map = islandFor(world.seed, home);
-  const city: City = {
-    id: world.nextId++,
-    home: map.home,
-    founded: true,
-    money: STARTING_MONEY,
-    harbour: { ...freshHarbour(world.seed, landingRoads(map), map.home), id: world.nextId++ },
-    produced: 0,
-    delivered: 0,
-    roads: landingRoads(map),
-    buildings: [],
-    walkers: [],
-  };
-  world.cities.push(city);
-  recomputeConnectivity(world, city);
-  return city;
-}
 
 function twoCityWorld() {
   const world = createWorld(1, 0);

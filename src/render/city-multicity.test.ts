@@ -2,31 +2,11 @@ import { expect, test } from 'bun:test';
 import * as T from 'three';
 import { CityScene } from './city';
 import type { Stage } from './stage';
-import { islandFor, landingRoads } from '../sim/island';
-import { build, createWorld, placement, recomputeConnectivity } from '../sim/world';
+import { islandFor, tileAtOn, worldPositionOn } from '../sim/island';
+import { build, createWorld, placement } from '../sim/world';
 import { primaryCity } from '../sim/city';
-import { freshHarbour } from '../sim/harbour';
-import { STARTING_MONEY } from '../sim/catalog';
+import { foundSecondCity } from '../sim/testing';
 import type { City, World } from '../sim/types';
-
-function foundSecondCity(world: World, home: number): City {
-  const map = islandFor(world.seed, home);
-  const city: City = {
-    id: world.nextId++,
-    home: map.home,
-    founded: true,
-    money: STARTING_MONEY,
-    harbour: { ...freshHarbour(world.seed, landingRoads(map), map.home), id: world.nextId++ },
-    produced: 0,
-    delivered: 0,
-    roads: landingRoads(map),
-    buildings: [],
-    walkers: [],
-  };
-  world.cities.push(city);
-  recomputeConnectivity(world, city);
-  return city;
-}
 
 function spotFor(world: World, city: City, kind: 'house'): { x: number; z: number } {
   const map = islandFor(world.seed, city.home);
@@ -53,19 +33,34 @@ function fixture() {
   function model(id: number): T.Object3D | undefined {
     return scene.children.find((child) => child.userData.buildingId === id);
   }
-  return { city, world, model };
+  return { city, world, scene, model };
 }
 
-test('a second founded city renders its own harbour and roads without hiding the first city', () => {
-  const { city, world, model } = fixture();
+function roadTilePoint(world: World, city: City, tile: number): T.Vector3 {
+  const map = islandFor(world.seed, city.home);
+  const { x, z } = tileAtOn(map, tile);
+  const point = worldPositionOn(map, x + .5, z + .5);
+  return new T.Vector3(point.x, 0, point.z);
+}
+
+function roadsCover(scene: T.Scene, point: T.Vector3, tolerance = 2): boolean {
+  const group = scene.getObjectByName('roads');
+  if (!group) return false;
+  const bounds = new T.Box3().setFromObject(group);
+  return point.x >= bounds.min.x - tolerance && point.x <= bounds.max.x + tolerance
+    && point.z >= bounds.min.z - tolerance && point.z <= bounds.max.z + tolerance;
+}
+
+test('a second founded city\'s road geometry is actually drawn, not just recorded on the World', () => {
+  const { city, world, scene, model } = fixture();
   try {
     const city1 = primaryCity(world);
     const city2 = foundSecondCity(world, (city1.home + 1) % 8);
     city.sync(world);
     expect(model(city1.harbour.id)).toBeDefined();
     expect(model(city2.harbour.id)).toBeDefined();
-    const roadTilesRendered = new Set(world.cities.flatMap((candidate) => candidate.roads));
-    expect(roadTilesRendered.size).toBeGreaterThan(city1.roads.length);
+    expect(roadsCover(scene, roadTilePoint(world, city1, city1.roads[city1.roads.length - 1]))).toBe(true);
+    expect(roadsCover(scene, roadTilePoint(world, city2, city2.roads[city2.roads.length - 1]))).toBe(true);
   } finally {
     city.dispose();
   }
@@ -89,29 +84,14 @@ test('buildings from a second city appear and persist while the primary city is 
   }
 });
 
-test('an unfounded (pending) second city keeps its prepared landing road visible but has no harbour model', () => {
-  const { city, world, model } = fixture();
+test('an unfounded (pending) second city has no harbour model but its prepared landing road is still drawn', () => {
+  const { city, world, scene, model } = fixture();
   try {
     const city1 = primaryCity(world);
-    const otherHome = (city1.home + 1) % 8;
-    const map = islandFor(world.seed, otherHome);
-    const pending: City = {
-      id: world.nextId++,
-      home: map.home,
-      founded: false,
-      money: STARTING_MONEY,
-      harbour: { ...freshHarbour(world.seed, landingRoads(map), map.home), id: world.nextId++ },
-      produced: 0,
-      delivered: 0,
-      roads: landingRoads(map),
-      buildings: [],
-      walkers: [],
-    };
-    world.cities.push(pending);
+    const pending = foundSecondCity(world, (city1.home + 1) % 8, false);
     city.sync(world);
     expect(model(pending.harbour.id)).toBeUndefined();
-    const roadTilesRendered = new Set(world.cities.flatMap((candidate) => candidate.roads));
-    for (const tile of pending.roads) expect(roadTilesRendered.has(tile)).toBe(true);
+    for (const tile of pending.roads) expect(roadsCover(scene, roadTilePoint(world, pending, tile))).toBe(true);
   } finally {
     city.dispose();
   }

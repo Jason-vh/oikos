@@ -111,6 +111,7 @@ export class CityScene {
   private readonly tileGeometry = new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
 
   constructor(private readonly stage: Stage, readonly map: IslandMap, private readonly motion = true) {
+    this.roads.name = 'roads';
     this.validStairMaterial.depthTest = false;
     this.invalidStairMaterial.depthTest = false;
     this.scenery = new IslandScenery(stage.scene, map);
