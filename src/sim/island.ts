@@ -311,11 +311,25 @@ export function groundHeight(map: IslandMap, x: number, z: number): number {
 }
 
 const maps = new Map<number, IslandMap>();
-export function islandFor(seed: number): IslandMap {
+const homeMaps = new Map<IslandMap, Map<number, IslandMap>>();
+
+export function islandFor(seed: number, home?: number): IslandMap {
   let map = maps.get(seed);
   if (!map) {
     map = generateArchipelago(seed);
     maps.set(seed, map);
   }
-  return map;
+  if (home === undefined || home === map.home) return map;
+  if (!Number.isInteger(home) || !map.islands[home]) throw new RangeError('Unknown starting island.');
+  let choices = homeMaps.get(map);
+  if (!choices) {
+    choices = new Map();
+    homeMaps.set(map, choices);
+  }
+  let chosen = choices.get(home);
+  if (!chosen) {
+    chosen = { ...map, home, entry: map.islands[home].entry };
+    choices.set(home, chosen);
+  }
+  return chosen;
 }

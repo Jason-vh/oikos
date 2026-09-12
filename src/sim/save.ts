@@ -7,7 +7,7 @@ import { islandFor, insideMapOn, type IslandMap } from './island';
 import { neighbours } from './grid';
 import { dropInvalidWalkers, recomputeConnectivity } from './world';
 import { siteHarbour, validateHarbourProgress } from './harbour';
-import { CURRENT_VERSION, migrateSave } from './save-migrations';
+import { ARCHIPELAGO_VERSION, CURRENT_VERSION, migrateSave } from './save-migrations';
 
 export function serializeWorld(world: World): string {
   return JSON.stringify(world);
@@ -174,7 +174,7 @@ export function savedBeforeArchipelago(raw: string): boolean {
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!isPlainObject(parsed)) return false;
-    return isInteger(parsed.version) && (parsed.version as number) < CURRENT_VERSION;
+    return isInteger(parsed.version) && (parsed.version as number) < ARCHIPELAGO_VERSION;
   } catch {
     return false;
   }
@@ -190,12 +190,13 @@ export function deserializeWorld(raw: string): World | null {
   if (!isPlainObject(parsed)) return null;
   const migrated = migrateSave(parsed);
   if (!migrated) return null;
-  const { version, island, seed, time, remainder, money, nextId, roads: rawRoads, buildings: rawBuildings, walkers: rawWalkers, wildlife: rawWildlife, felled: rawFelled, regrowth, produced, delivered, harbour: rawHarbour } = migrated;
+  const { version, island, seed, home, time, remainder, money, nextId, roads: rawRoads, buildings: rawBuildings, walkers: rawWalkers, wildlife: rawWildlife, felled: rawFelled, regrowth, produced, delivered, harbour: rawHarbour } = migrated;
 
   if (version !== CURRENT_VERSION) return null;
   if (island !== 'kalliste') return null;
   if (!isInteger(seed) || seed < 0 || seed > 0xffffffff) return null;
-  const map = islandFor(seed as number);
+  if (!isInteger(home) || home < 0 || home >= islandFor(seed).islands.length) return null;
+  const map = islandFor(seed, home);
   if (!isNonNegativeFinite(time)) return null;
   if (!isNonNegativeFinite(remainder)) return null;
   if (!isFiniteNumber(money)) return null;
@@ -250,6 +251,7 @@ export function deserializeWorld(raw: string): World | null {
     version: CURRENT_VERSION,
     island: 'kalliste',
     seed: seed as number,
+    home,
     time: time as number,
     remainder: remainder as number,
     money: money as number,
@@ -262,7 +264,7 @@ export function deserializeWorld(raw: string): World | null {
     regrowth: regrowth as number,
     produced: produced as number,
     delivered: delivered as number,
-    harbour: siteHarbour(seed as number, roads, harbourProgress),
+    harbour: siteHarbour(seed as number, roads, harbourProgress, home),
   };
   recomputeConnectivity(world);
   dropInvalidWalkers(world);

@@ -4,7 +4,7 @@ import type { World } from './types';
 export const UNDO_SECONDS = 15;
 
 export function canUndoConstruction(world: World, checkpoint: World | null): checkpoint is World {
-  if (!checkpoint || checkpoint.seed !== world.seed || checkpoint.version !== world.version) return false;
+  if (!checkpoint || checkpoint.seed !== world.seed || checkpoint.home !== world.home || checkpoint.version !== world.version) return false;
   const elapsed = world.time - checkpoint.time;
   return elapsed >= 0 && elapsed <= UNDO_SECONDS;
 }

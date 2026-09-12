@@ -11,5 +11,6 @@ trap 'kill $SERVER' EXIT
 npx wait-on "http://127.0.0.1:$PORT"
 node scripts/smoke.mjs "http://127.0.0.1:$PORT/?debug${LEAN:+&lean}" artifacts/smoke
 node scripts/polish-smoke.mjs "http://127.0.0.1:$PORT/?debug${LEAN:+&lean}" artifacts/polish
+node scripts/settlement-smoke.mjs "http://127.0.0.1:$PORT/?debug${LEAN:+&lean}" artifacts/settlement
 node scripts/art-capture.mjs "http://127.0.0.1:$PORT" artifacts/art
 node scripts/construction-smoke.mjs "http://127.0.0.1:$PORT" artifacts/construction

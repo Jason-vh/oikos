@@ -69,7 +69,7 @@ function frontDoor(kind: BuildingKind, x: number, z: number): Tile {
 }
 
 export function planStarterNeighbourhood(world: World): StarterPlan | null {
-  const map = islandFor(world.seed);
+  const map = islandFor(world.seed, world.home);
   const trial = structuredClone(world);
   const roads = new Set(trial.roads);
   const plan: StarterPlan = { buildings: [], roads: [] };

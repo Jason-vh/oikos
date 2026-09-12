@@ -44,11 +44,11 @@ function boot(): void {
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const stage = new Stage(document.querySelector<HTMLElement>('#app')!, false);
   stage.reducedMotion = reducedMotion;
-  let city = new CityScene(stage, islandFor(world.seed), !reducedMotion);
-  let overlay = new ConstructionOverlay(stage, islandFor(world.seed));
+  let city = new CityScene(stage, islandFor(world.seed, world.home), !reducedMotion);
+  let overlay = new ConstructionOverlay(stage, islandFor(world.seed, world.home));
   const map = () => city.map;
   function viewFor(seed: number): { target: number[]; offset: number[]; size: number } {
-    const island = islandFor(seed);
+    const island = islandFor(seed, world.home);
     const harbour = worldPositionOn(island, island.entry.x + .5, island.entry.z - 7);
     return { target: [harbour.x, GROUND_Y, harbour.z], offset: [35, 38, 48], size: 36 };
   }
@@ -59,16 +59,16 @@ function boot(): void {
   stage.bounds(seaBounds(world.seed));
   stage.setView(viewFor(world.seed));
   try {
-    const saved = parseView(localStorage.getItem(VIEW_KEY), world.seed);
+    const saved = parseView(localStorage.getItem(VIEW_KEY), world.seed, world.home);
     if (saved) stage.setView(saved);
   } catch {}
   function rebuildScene(): void {
     city.dispose();
     stage.bounds(seaBounds(world.seed));
-    city = new CityScene(stage, islandFor(world.seed), !reducedMotion);
+    city = new CityScene(stage, islandFor(world.seed, world.home), !reducedMotion);
     city.watch(stage.controls.target, stage.viewSpan());
     overlay.dispose();
-    overlay = new ConstructionOverlay(stage, islandFor(world.seed));
+    overlay = new ConstructionOverlay(stage, islandFor(world.seed, world.home));
     stage.setView(viewFor(world.seed));
     stage.shadows();
   }
@@ -157,6 +157,7 @@ function boot(): void {
 
   function restore(saved: typeof world): void {
     const previousSeed = world.seed;
+    const previousHome = world.home;
     world = saved;
     undoCheckpoint = null;
     milestones = cityMilestones(world);
@@ -164,7 +165,7 @@ function boot(): void {
     accumulator = 0;
     dirtySave = true;
     autoSaveEnabled = true;
-    if (world.seed !== previousSeed) rebuildScene();
+    if (world.seed !== previousSeed || world.home !== previousHome) rebuildScene();
     else city.reload(world);
     selectTool('inspect');
     setSpeed(0);
@@ -198,9 +199,9 @@ function boot(): void {
         hud.notify('Checkpoint restored. Paused for you to look around.');
       } catch { hud.notify('Browser storage is unavailable.', true); }
     },
-    newIsland: () => {
+    newIsland: (home) => {
       const seed = world.seed === DEFAULT_SEED ? 2 : (world.seed * 1103515245 + 12345) % 0x7fffffff;
-      world = createWorld(seed);
+      world = createWorld(seed, home);
       undoCheckpoint = null;
       milestones = cityMilestones(world);
       autoSaveEnabled = true;
@@ -211,7 +212,7 @@ function boot(): void {
       setSpeed(1);
       refresh();
       save(false);
-      hud.notify('A new beginning. Build four dwellings beside the road.');
+      hud.notify(`Island ${world.home + 1} settled. Build four dwellings beside the harbour road.`);
     },
     vendor: (id, enabled) => apply(setVendor(world, id, enabled)),
     focus: (x, z) => { const point = worldPositionOn(map(), x + .5, z + .5); stage.focus(point.x, point.z); },
@@ -526,7 +527,7 @@ function boot(): void {
   }
   document.addEventListener('visibilitychange', () => { previous = 0; if (!document.hidden) stage.invalidate(); });
   function saveView(): void {
-    try { localStorage.setItem(VIEW_KEY, JSON.stringify({ seed: world.seed, view: stage.getView() })); } catch {}
+    try { localStorage.setItem(VIEW_KEY, JSON.stringify({ seed: world.seed, home: world.home, view: stage.getView() })); } catch {}
   }
   window.addEventListener('pagehide', () => { if (dirtySave) save(false); saveView(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) saveView(); });
@@ -542,6 +543,7 @@ function boot(): void {
   if (import.meta.env.DEV || new URLSearchParams(location.search).has('debug')) {
     Reflect.set(window, 'oikos', {
       get state() { return structuredClone(world); },
+      freshWorld: (seed: number, home: number) => createWorld(seed, home),
       get summary() { return getSummary(world); },
       get frames() { return stage.frames; },
       get drawCalls() { return stage.renderer.info.render.calls; },
@@ -591,7 +593,7 @@ function boot(): void {
       probe: (clientX: number, clientY: number) => city.probe(clientX, clientY),
       focusTile: (x: number, z: number) => { const point = worldPositionOn(map(), x + .5, z + .5); stage.focus(point.x, point.z, true); },
       terrainAt: (x: number, z: number) => terrainOn(map(), x, z),
-      get map() { const island = map(); return { width: island.width, depth: island.depth, entry: island.entry, terrain: island.terrain, level: Array.from(island.level) }; },
+      get map() { const island = map(); return { width: island.width, depth: island.depth, home: island.home, islands: island.islands, entry: island.entry, terrain: island.terrain, level: Array.from(island.level) }; },
       roadCost: ROAD_COST,
       saveKey: SAVE_KEY,
       get overlayCounts() { return overlay.counts; },

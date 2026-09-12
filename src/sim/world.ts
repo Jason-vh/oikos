@@ -46,15 +46,16 @@ import {
 
 export const DEFAULT_SEED = 1;
 
-export function createWorld(seed = DEFAULT_SEED): World {
-  const map = islandFor(seed);
+export function createWorld(seed = DEFAULT_SEED, home?: number): World {
+  const map = islandFor(seed, home);
   const roads = new Set<number>();
   for (let z = map.entry.z; z >= map.entry.z - 8 && terrainOn(map, map.entry.x, z) !== 'water'; z--) roads.add(tileIndexOn(map, map.entry.x, z));
   const roadList = [...roads];
   const world: World = {
-    version: 4,
+    version: 5,
     island: 'kalliste',
     seed,
+    home: map.home,
     time: 0,
     remainder: 0,
     money: STARTING_MONEY,
@@ -67,7 +68,7 @@ export function createWorld(seed = DEFAULT_SEED): World {
     regrowth: 0,
     produced: 0,
     delivered: 0,
-    harbour: freshHarbour(seed, roadList),
+    harbour: freshHarbour(seed, roadList, map.home),
   };
   world.wildlife = spawnWildlife(world);
   recomputeConnectivity(world);
@@ -75,7 +76,7 @@ export function createWorld(seed = DEFAULT_SEED): World {
 }
 
 function mapOf(world: World): IslandMap {
-  return islandFor(world.seed);
+  return islandFor(world.seed, world.home);
 }
 
 const REASON = {

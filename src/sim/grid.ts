@@ -4,7 +4,7 @@ import { islandFor, insideMapOn, tileAtOn, tileIndexOn, type IslandMap } from '.
 import { doorTiles, roadStepAllowed, stairLayout } from './stairs';
 
 export function mapOf(world: World): IslandMap {
-  return islandFor(world.seed);
+  return islandFor(world.seed, world.home);
 }
 
 export function neighbours(map: IslandMap, tile: number): number[] {

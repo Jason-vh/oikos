@@ -5,7 +5,8 @@ Live at <https://oikos.vhtm.eu>.
 *Οἶκος* (oikos): the household, root of *economy*. A city builder on the Aegean:
 settle an island, feed and water its households along real roads, hunt, fell,
 farm and trade your way to a thriving city. Kalliste is an archipelago of eight
-islands; you start on the most central one, and the rest are still unsettled.
+islands; you start on the most central one, or choose another through Menu → New
+island. Each has a prepared harbour landing; the rest are still unsettled.
 
 ```bash
 npm install
@@ -37,9 +38,11 @@ Autosaves never replace your manual checkpoint. Camera and sound preferences sta
 ```bash
 npm run check                                   # build, tests, browser walkthrough, art captures (run before merging; CI runs tests and build only)
 npm run smoke -- http://localhost:5180/?debug   # gameplay walkthrough against a running dev server (append &lean for a fast, unshaded run)
+npm run smoke:settlement -- http://localhost:5180/?debug
 npm run art:capture -- http://localhost:5180    # model captures into artifacts/art
 ```
 
+- [Vision and roadmap](roadmap.md)
 - [Gameplay and first-island scope](docs/gameplay.md)
 - [Art direction](docs/art-direction.md)
 - [Model authoring and visual checks](docs/art-tooling.md)

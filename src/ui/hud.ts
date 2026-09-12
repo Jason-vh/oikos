@@ -2,6 +2,7 @@ import type { Building, Rotation, Summary, Tool, World } from '../sim/types';
 import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, VENDOR_COST } from '../sim/catalog';
 import { FOOD_CONSUMPTION_PER_RESIDENT, WATER_DECAY_PER_SECOND } from '../sim/balance';
 import { toolIcon } from './icons';
+import { ISLAND_COUNT } from '../sim/island';
 
 export interface HudActions {
   tool(tool: Tool): void;
@@ -9,7 +10,7 @@ export interface HudActions {
   speed(speed: 0 | 1 | 3): void;
   save(): void;
   load(): void;
-  newIsland(): void;
+  newIsland(home?: number): void;
   vendor(id: number, enabled: boolean): void;
   focus(x: number, z: number): void;
   grid(enabled: boolean): void;
@@ -197,7 +198,14 @@ const SKELETON = `
   <dialog class="hud-dialog" data-testid="new-island-dialog">
     <form method="dialog">
       <h2>Start a new island?</h2>
-      <p>This replaces your autosave. Save a checkpoint or export first to keep this island.</p>
+      <p>This opens a fresh archipelago and replaces your autosave. Save a checkpoint or export first to keep this city.</p>
+      <label class="hud-island-choice">Starting island
+        <select name="home" data-testid="starting-island">
+          <option value="">Central island (recommended)</option>
+          ${Array.from({ length: ISLAND_COUNT }, (_, index) => `<option value="${index}">Island ${index + 1}</option>`).join('')}
+        </select>
+      </label>
+      <p>Each island has a prepared harbour landing. You can settle one; the others remain unexplored.</p>
       <div class="hud-dialog-actions">
         <button type="submit" value="cancel" autofocus>Cancel</button>
         <button type="submit" value="confirm" class="hud-primary">New island</button>
@@ -267,7 +275,10 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
   const dialog = root.querySelector<HTMLDialogElement>('[data-testid="new-island-dialog"]')!;
   dialog.addEventListener('close', () => {
     actions.menu(false);
-    if (dialog.returnValue === 'confirm') actions.newIsland();
+    if (dialog.returnValue === 'confirm') {
+      const choice = dialog.querySelector<HTMLSelectElement>('[name="home"]')!.value;
+      actions.newIsland(choice === '' ? undefined : Number(choice));
+    }
     dialog.returnValue = '';
   });
 

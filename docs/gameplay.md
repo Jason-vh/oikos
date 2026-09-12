@@ -12,8 +12,10 @@ Each one is a full `generateIsland` run on its own grid, stamped into the shared
 at a slot in a four-by-two layout with eighteen-tile channels; slot sizes and offsets
 are jittered from the seed, so the islands scatter rather than line up. Every island
 keeps its own harbour entry, and `islandAt(map, x, z)` says which island a tile
-belongs to. `map.home` is the most central island, the one a new city starts on, and
-`map.entry` is its harbour.
+belongs to. The default `map.home` is the most central island. `world.home` records the chosen
+starting island; `islandFor(seed, home)` shares the generated terrain while providing
+that island's `map.home` and harbour `map.entry`. Choosing one home never changes
+another city's map.
 
 Islands never share a bounding box and each is a single landmass, so a road network
 can never leave the island it started on. The other seven are, for now, unclaimed
@@ -33,9 +35,13 @@ caches whole archipelagos; the world stores only the seed.
 
 ## Starting a city
 
-`createWorld(seed = 1)` returns a treasury of 1600 drachma, no buildings, and a starter
-road running north from the harbour entry. Nobody lives on the island yet — population
-only arrives once a dwelling is built and connected, by road, back to that entry.
+`createWorld(seed = 1, home?)` returns a treasury of 1600 drachma, no buildings, and
+a starter road running north from the chosen island's harbour entry. Omitting
+`home` selects the most central island. Menu → New island offers all eight starting
+islands in a fresh archipelago; cancelling leaves the current city unchanged.
+Nobody lives on the island yet — population only arrives once a dwelling is built
+and connected, by road, back to that entry. All eight islands on seeds 1 and 2 are tested
+through the complete neighbourhood loop and save/load continuation.
 
 ## Placing and removing things
 
@@ -293,6 +299,12 @@ exactly, including walkers already mid-journey, which keep walking correctly aft
 a reload. Only the harbour's progress (tier, stock, trade order, voyage) is stored;
 its site is re-derived from the seed on load, so a save from before the harbour
 existed gets one sited fresh rather than needing its position migrated.
+Version 5 stores the chosen home island explicitly. Version-4 archipelago saves
+migrate to their original central island without moving their cities; versions
+before the archipelago remain unsupported. Camera preferences identify the chosen
+home as well as the seed. Restoring a different home rebuilds the scene even when
+the archipelago seed is unchanged.
+
 Older road layouts are retained, but trips using incompatible stair connections
 are retired on load; those edges no longer provide access.
 

@@ -187,6 +187,15 @@ additional islands, and relationships between independent cities.
 The world should support both “I want to improve this waterfront” and “we need a
 new shipping network to supply these sanctuaries.”
 
+## Implementation progress
+
+- Starting-island selection is playable through Menu → New island. All eight
+  islands have prepared harbour landings and support the existing village loop.
+- The selected home survives saves, imports, checkpoints, and camera restoration.
+  Existing version-4 archipelago saves migrate without moving their cities.
+- This remains a local, single-player game. Free harbour placement, player
+  identity, shared ownership data, and the persistent server are still ahead.
+
 ## Roadmap
 
 These phases express priority and dependency, not fixed delivery dates. Prove each

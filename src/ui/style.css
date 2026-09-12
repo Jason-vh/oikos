@@ -184,6 +184,8 @@ button[aria-pressed='true'] { background: var(--sage); color: #fffdf0; }
 .hud-dialog::backdrop { background: rgba(31, 59, 58, .35); backdrop-filter: blur(2px); }
 .hud-dialog h2 { font-family: Georgia, serif; font-weight: 400; font-size: 19px; margin: 0 0 8px; }
 .hud-dialog p { font-size: 13px; line-height: 1.6; opacity: .85; margin: 0; }
+.hud-island-choice { display: grid; gap: 6px; margin: 16px 0; font-size: 13px; }
+.hud-island-choice select { width: 100%; padding: 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--cream-glass); color: var(--ink); font: inherit; }
 .hud-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 .hud-dialog-actions button { padding: 8px 16px; font-size: 12.5px; background: rgba(41, 75, 74, .08); }
 .hud-dialog-actions .hud-primary { background: var(--terracotta); color: #fffaf0; }

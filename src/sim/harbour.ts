@@ -70,8 +70,8 @@ function findHarbourSite(map: IslandMap, roads: Set<number>, width: number, dept
   return { x: entry.x, z: entry.z - depth };
 }
 
-export function siteHarbour(seed: number, roads: number[], progress: HarbourProgress): Building {
-  const map = islandFor(seed);
+export function siteHarbour(seed: number, roads: number[], progress: HarbourProgress, home?: number): Building {
+  const map = islandFor(seed, home);
   const { width, depth } = footprint('harbour', 0);
   const site = findHarbourSite(map, new Set(roads), width, depth);
   return {
@@ -96,8 +96,8 @@ export function siteHarbour(seed: number, roads: number[], progress: HarbourProg
   };
 }
 
-export function freshHarbour(seed: number, roads: number[]): Building {
-  return siteHarbour(seed, roads, freshProgress());
+export function freshHarbour(seed: number, roads: number[], home?: number): Building {
+  return siteHarbour(seed, roads, freshProgress(), home);
 }
 
 export function harbourTiles(world: World): number[] {
