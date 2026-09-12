@@ -5,16 +5,23 @@ import { foundHarbour, foundingPlacement, FOUNDING_RANGE } from './founding';
 import { demolitionPreview, footprintTileIssues, suitableFarmGround } from './construction';
 import { foundSecondCity, freshRoadSpot } from './testing';
 import { buildStarterNeighbourhood } from './scenario';
-import { footprintTiles } from './grid';
+import { footprintTiles, mapOf } from './grid';
 import { foreignOccupancy } from './occupancy';
-import { mapOf } from './grid';
-import { terrainOn, tileAtOn, tileIndexOn } from './island';
+import { ISLAND_COUNT, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import type { Building, City, World } from './types';
 
 function sharedIslandWorld(seed = 1): { world: World; city1: City; city2: City } {
   const world = createWorld(seed, 0);
   const city1 = primaryCity(world);
   const city2 = foundSecondCity(world, city1.home, false);
+  return { world, city1, city2 };
+}
+
+function differentIslandWorld(seed = 1): { world: World; city1: City; city2: City } {
+  const world = createWorld(seed, 0);
+  const city1 = primaryCity(world);
+  const otherHome = (city1.home + 1) % ISLAND_COUNT;
+  const city2 = foundSecondCity(world, otherHome);
   return { world, city1, city2 };
 }
 
@@ -27,6 +34,35 @@ function clearFoundingSite(world: World, city: City): { x: number; z: number } {
     }
   }
   throw new Error('No clear founding site.');
+}
+
+function clearHouseSpot(world: World, city: City): { x: number; z: number } {
+  const map = mapOf(world, city);
+  const home = map.islands[city.home];
+  for (let z = home.z; z < home.z + home.depth; z++) {
+    for (let x = home.x; x < home.x + home.width; x++) {
+      if (placement(world, city, 'house', x, z).ok) return { x, z };
+    }
+  }
+  throw new Error('No clear house spot.');
+}
+
+function introduceForeignObstacle(world: World, foreign: City, map: IslandMap, tile: number, kind: 'road' | 'building' | 'harbour'): void {
+  if (kind === 'road') {
+    foreign.roads.push(tile);
+    return;
+  }
+  const { x, z } = tileAtOn(map, tile);
+  if (kind === 'harbour') {
+    foreign.harbour.x = x;
+    foreign.harbour.z = z;
+    return;
+  }
+  foreign.buildings.push({
+    id: world.nextId++, x, z, kind: 'house', rotation: 0, tier: 1, residents: 0, food: 0, water: 0,
+    condition: 100, stores: {}, progress: 0, workers: 0, vendorEnabled: false, vendorInstalled: false,
+    connected: false, serviceTimer: 0, upgradeTimer: 0,
+  });
 }
 
 describe('foreignOccupancy', () => {
@@ -62,107 +98,104 @@ describe('foreignOccupancy', () => {
   });
 });
 
-describe('construction blocks on foreign occupancy', () => {
-  test('a foreign road blocks a building placement, without mutating the World', () => {
+describe('a foreign road, building or founded harbour blocks placement on a clear tile', () => {
+  for (const kind of ['road', 'building', 'harbour'] as const) {
+    test(`${kind}: a tile that placement accepted turns rejected once city1 puts a foreign ${kind} on it, without mutating the World`, () => {
+      const { world, city1, city2 } = sharedIslandWorld();
+      const site = clearFoundingSite(world, city2);
+      expect(foundHarbour(world, city2, site.x, site.z).ok).toBe(true);
+
+      const spot = clearHouseSpot(world, city2);
+      expect(placement(world, city2, 'house', spot.x, spot.z).ok).toBe(true);
+
+      const map = mapOf(world, city2);
+      const tile = tileIndexOn(map, spot.x, spot.z);
+      introduceForeignObstacle(world, city1, map, tile, kind);
+
+      expect(placement(world, city2, 'house', spot.x, spot.z).ok).toBe(false);
+      const before = structuredClone(world);
+      expect(build(world, city2, 'house', spot.x, spot.z).ok).toBe(false);
+      expect(world).toEqual(before);
+    });
+  }
+});
+
+describe('a foreign building or founded harbour still blocks a tile that is already the city\'s own road', () => {
+  for (const kind of ['building', 'harbour'] as const) {
+    test(`${kind}: re-laying an own road tile is rejected once a foreign ${kind} covers it`, () => {
+      const { world, city1, city2 } = sharedIslandWorld();
+      const site = clearFoundingSite(world, city2);
+      expect(foundHarbour(world, city2, site.x, site.z).ok).toBe(true);
+
+      const ownRoadTile = city2.roads[0];
+      const map = mapOf(world, city2);
+      const { x, z } = tileAtOn(map, ownRoadTile);
+      expect(placement(world, city2, 'road', x, z).ok).toBe(true);
+
+      introduceForeignObstacle(world, city1, map, ownRoadTile, kind);
+
+      expect(placement(world, city2, 'road', x, z).ok).toBe(false);
+      const before = structuredClone(world);
+      expect(build(world, city2, 'road', x, z).ok).toBe(false);
+      expect(world).toEqual(before);
+
+      const pathResult = placeRoadPath(world, city2, [{ x, z }]);
+      expect(pathResult.ok).toBe(false);
+      expect(world).toEqual(before);
+    });
+  }
+});
+
+describe('a duplicate foreign road record leaves a city\'s own road free to re-lay', () => {
+  test('re-laying an own road tile that another city also happens to record is still free', () => {
     const { world, city1, city2 } = sharedIslandWorld();
     const site = clearFoundingSite(world, city2);
     expect(foundHarbour(world, city2, site.x, site.z).ok).toBe(true);
-    const before = structuredClone(world);
-
-    const foreignRoadTile = city1.roads[0];
-    const { x, z } = tileAtOn(mapOf(world, city2), foreignRoadTile);
-    expect(placement(world, city2, 'house', x, z).ok).toBe(false);
-    expect(build(world, city2, 'house', x, z).ok).toBe(false);
-
-    expect(world).toEqual(before);
-  });
-
-  test('a foreign building blocks a building placement, without mutating the World', () => {
-    const { world, city1, city2 } = sharedIslandWorld();
-    const site = clearFoundingSite(world, city2);
-    expect(foundHarbour(world, city2, site.x, site.z).ok).toBe(true);
-
-    const map = mapOf(world, city1);
-    let spot: { x: number; z: number } | null = null;
-    const home = map.islands[city1.home];
-    for (let z = home.z; z < home.z + home.depth && !spot; z++) {
-      for (let x = home.x; x < home.x + home.width; x++) {
-        if (placement(world, city1, 'house', x, z).ok) { spot = { x, z }; break; }
-      }
-    }
-    expect(spot).not.toBeNull();
-    expect(build(world, city1, 'house', spot!.x, spot!.z).ok).toBe(true);
-    const before = structuredClone(world);
-
-    expect(placement(world, city2, 'fountain', spot!.x, spot!.z).ok).toBe(false);
-    expect(build(world, city2, 'fountain', spot!.x, spot!.z).ok).toBe(false);
-    expect(world).toEqual(before);
-  });
-
-  test('a foreign founded harbour blocks a building placement, without mutating the World', () => {
-    const { world, city1, city2 } = sharedIslandWorld();
-    const site = clearFoundingSite(world, city2);
-    expect(foundHarbour(world, city2, site.x, site.z).ok).toBe(true);
-    const before = structuredClone(world);
-
-    const map = mapOf(world, city1);
-    const { x, z } = tileAtOn(map, tileIndexOn(map, city1.harbour.x, city1.harbour.z));
-    expect(placement(world, city2, 'house', x, z).ok).toBe(false);
-    expect(build(world, city2, 'house', x, z).ok).toBe(false);
-    expect(world).toEqual(before);
-  });
-
-  test('a foreign road blocks laying a new road on that tile, but a city\'s own road stays free to re-lay', () => {
-    const { world, city1, city2 } = sharedIslandWorld();
-    const site = clearFoundingSite(world, city2);
-    expect(foundHarbour(world, city2, site.x, site.z).ok).toBe(true);
-    const extension = freshRoadSpot(world)!;
-    expect(extension).not.toBeNull();
-    expect(build(world, city1, 'road', extension.x, extension.z).ok).toBe(true);
 
     const ownTile = city2.roads[0];
-    const { x: ownX, z: ownZ } = tileAtOn(mapOf(world, city2), ownTile);
+    expect(city1.roads.includes(ownTile)).toBe(true);
+    const { x, z } = tileAtOn(mapOf(world, city2), ownTile);
     const before = structuredClone(world);
-    expect(build(world, city2, 'road', ownX, ownZ)).toEqual({ ok: true, reason: 'Road laid.' });
-    expect(world).toEqual(before);
-
-    const foreignTile = tileIndexOn(mapOf(world, city2), extension.x, extension.z);
-    expect(city2.roads.includes(foreignTile)).toBe(false);
-    expect(placement(world, city2, 'road', extension.x, extension.z).ok).toBe(false);
-    expect(build(world, city2, 'road', extension.x, extension.z).ok).toBe(false);
+    expect(build(world, city2, 'road', x, z)).toEqual({ ok: true, reason: 'Road laid.' });
     expect(world).toEqual(before);
   });
 
-  test('placeRoadPath rejects a batch that steps onto foreign ground atomically, charging nothing', () => {
+  test('a genuinely foreign-only road, not shared with the acting city, still blocks a new road there', () => {
     const { world, city1, city2 } = sharedIslandWorld();
     const site = clearFoundingSite(world, city2);
     expect(foundHarbour(world, city2, site.x, site.z).ok).toBe(true);
+
     const extension = freshRoadSpot(world)!;
     expect(extension).not.toBeNull();
     expect(build(world, city1, 'road', extension.x, extension.z).ok).toBe(true);
+    const foreignTile = tileIndexOn(mapOf(world, city2), extension.x, extension.z);
+    expect(city2.roads.includes(foreignTile)).toBe(false);
+
+    expect(placement(world, city2, 'road', extension.x, extension.z).ok).toBe(false);
     const before = structuredClone(world);
-
-    const map = mapOf(world, city2);
-    const own = tileAtOn(map, city2.roads[0]);
-
-    const result = placeRoadPath(world, city2, [own, extension]);
-    expect(result.ok).toBe(false);
+    expect(build(world, city2, 'road', extension.x, extension.z).ok).toBe(false);
     expect(world).toEqual(before);
   });
 });
 
 describe('founding respects foreign occupancy', () => {
-  test('foundingPlacement and foundHarbour reject a site over another city\'s road, building or harbour', () => {
-    const { world, city1, city2 } = sharedIslandWorld();
+  for (const kind of ['road', 'building', 'harbour'] as const) {
+    test(`${kind}: a clear founding site turns rejected once city1 puts a foreign ${kind} on it, atomically`, () => {
+      const { world, city1, city2 } = sharedIslandWorld();
+      const site = clearFoundingSite(world, city2);
+      expect(foundingPlacement(world, city2, site.x, site.z).ok).toBe(true);
 
-    const map = mapOf(world, city1);
-    const { x: roadX, z: roadZ } = tileAtOn(map, city1.roads[0]);
-    expect(foundingPlacement(world, city2, roadX, roadZ).ok).toBe(false);
-    const before = structuredClone(world);
-    expect(foundHarbour(world, city2, roadX, roadZ).ok).toBe(false);
-    expect(world).toEqual(before);
-    expect(city2.founded).toBe(false);
-  });
+      const map = mapOf(world, city2);
+      const tile = tileIndexOn(map, site.x, site.z);
+      introduceForeignObstacle(world, city1, map, tile, kind);
+
+      expect(foundingPlacement(world, city2, site.x, site.z).ok).toBe(false);
+      const before = structuredClone(world);
+      expect(foundHarbour(world, city2, site.x, site.z).ok).toBe(false);
+      expect(world).toEqual(before);
+      expect(city2.founded).toBe(false);
+    });
+  }
 
   test('foundingPlacement still succeeds at a genuinely clear site on a shared island', () => {
     const { world, city2 } = sharedIslandWorld();
@@ -187,25 +220,35 @@ describe('construction previews reflect foreign occupancy', () => {
       }
     }
     expect(fertile).not.toBeNull();
-    expect(build(world, city1, 'farm', fertile!.x, fertile!.z).ok).toBe(true);
-
     const farmTile = tileIndexOn(mapOf(world, city2), fertile!.x, fertile!.z);
-    const ground = suitableFarmGround(world, city2);
-    expect(ground.some((tile) => tileIndexOn(mapOf(world, city2), tile.x, tile.z) === farmTile)).toBe(false);
+    expect(suitableFarmGround(world, city2).some((tile) => tileIndexOn(mapOf(world, city2), tile.x, tile.z) === farmTile)).toBe(true);
+
+    expect(build(world, city1, 'farm', fertile!.x, fertile!.z).ok).toBe(true);
+    expect(suitableFarmGround(world, city2).some((tile) => tileIndexOn(mapOf(world, city2), tile.x, tile.z) === farmTile)).toBe(false);
   });
 
-  test('footprintTileIssues marks a foreign building\'s footprint as blocked', () => {
+  test('footprintTileIssues shows a clear house footprint, then blocks exactly the tile a foreign road lands on', () => {
     const { world, city1, city2 } = sharedIslandWorld();
     const site = clearFoundingSite(world, city2);
     expect(foundHarbour(world, city2, site.x, site.z).ok).toBe(true);
 
-    const issues = footprintTileIssues(world, city2, 'house', city1.harbour.x, city1.harbour.z, 0);
-    expect(issues.some((tile) => tile.blocked)).toBe(true);
+    const spot = clearHouseSpot(world, city2);
+    const baseline = footprintTileIssues(world, city2, 'house', spot.x, spot.z, 0);
+    expect(baseline.every((tile) => !tile.blocked)).toBe(true);
+
+    const map = mapOf(world, city2);
+    const touchedTile = tileIndexOn(map, spot.x, spot.z);
+    introduceForeignObstacle(world, city1, map, touchedTile, 'road');
+
+    const after = footprintTileIssues(world, city2, 'house', spot.x, spot.z, 0);
+    expect(after.find((tile) => tile.x === spot.x && tile.z === spot.z)?.blocked).toBe(true);
+    const untouched = after.filter((tile) => !(tile.x === spot.x && tile.z === spot.z));
+    expect(untouched.every((tile) => !tile.blocked)).toBe(true);
   });
 });
 
-describe('two full economies on one shared island', () => {
-  test('a second city\'s buildings route around the first\'s starter neighbourhood and every entity id stays globally unique', () => {
+describe('two cities sharing one island', () => {
+  test('a second city\'s building placements route around the first\'s starter neighbourhood, with every entity id staying globally unique', () => {
     const { world, city1, city2 } = sharedIslandWorld();
     const site = clearFoundingSite(world, city2);
     expect(foundHarbour(world, city2, site.x, site.z).ok).toBe(true);
@@ -240,32 +283,24 @@ describe('two full economies on one shared island', () => {
 });
 
 describe('demolition and legacy off-home infrastructure remain city-local', () => {
-  test('a city\'s legacy building sitting on another city\'s home island is still found and demolished locally', () => {
-    const { world, city1, city2 } = sharedIslandWorld();
-    const site = clearFoundingSite(world, city2);
-    expect(foundHarbour(world, city2, site.x, site.z).ok).toBe(true);
+  test('a legacy building city1 left on city2\'s home island is still found and demolished locally, leaving city2 untouched', () => {
+    const { world, city1, city2 } = differentIslandWorld();
 
-    const map = mapOf(world, city2);
-    let spot: { x: number; z: number } | null = null;
-    const home = map.islands[city2.home];
-    for (let z = home.z; z < home.z + home.depth && !spot; z++) {
-      for (let x = home.x; x < home.x + home.width; x++) {
-        if (placement(world, city2, 'house', x, z).ok) { spot = { x, z }; break; }
-      }
-    }
-    expect(spot).not.toBeNull();
+    const spot = clearHouseSpot(world, city2);
     const legacy: Building = {
-      id: world.nextId++, x: spot!.x, z: spot!.z, kind: 'house', rotation: 0, tier: 1, residents: 0, food: 0, water: 0,
+      id: world.nextId++, x: spot.x, z: spot.z, kind: 'house', rotation: 0, tier: 1, residents: 0, food: 0, water: 0,
       condition: 100, stores: {}, progress: 0, workers: 0, vendorEnabled: false, vendorInstalled: false,
       connected: false, serviceTimer: 0, upgradeTimer: 0,
     };
     city1.buildings.push(legacy);
+    const city2Before = structuredClone(city2);
 
-    const preview = demolitionPreview(world, city1, spot!.x, spot!.z);
+    const preview = demolitionPreview(world, city1, spot.x, spot.z);
     expect(preview?.buildingId).toBe(legacy.id);
-    expect(demolish(world, city1, spot!.x, spot!.z).ok).toBe(true);
+    expect(demolish(world, city1, spot.x, spot.z).ok).toBe(true);
     expect(city1.buildings.some((building) => building.id === legacy.id)).toBe(false);
+    expect(city2).toEqual(city2Before);
 
-    expect(placement(world, city2, 'house', spot!.x, spot!.z).ok).toBe(true);
+    expect(placement(world, city2, 'house', spot.x, spot.z).ok).toBe(true);
   });
 });

@@ -173,12 +173,10 @@ function evaluatePlacement(world: World, city: City, tool: BuildTool, x: number,
     const tile = tileIndexOn(map, x, z);
     if (!terrainAllows(map, tool, x, z)) return { ok: false, reason: REASON.unsuitableTerrain, cost: 0, tiles: [tile] };
     if (!onHomeIsland(map, x, z)) return { ok: false, reason: REASON.unsettledIsland, cost: 0, tiles: [tile] };
+    if (buildingAt(world, city, tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: [tile] };
+    if (foreign.buildings.has(tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: [tile] };
     const already = city.roads.includes(tile);
-    if (!already) {
-      if (buildingAt(world, city, tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: [tile] };
-      if (foreign.roads.has(tile)) return { ok: false, reason: REASON.tileOccupiedByRoad, cost: 0, tiles: [tile] };
-      if (foreign.buildings.has(tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: [tile] };
-    }
+    if (!already && foreign.roads.has(tile)) return { ok: false, reason: REASON.tileOccupiedByRoad, cost: 0, tiles: [tile] };
     if (neighbourGradeIssue(map, new Set(city.roads), tile)) return { ok: false, reason: REASON.roadTooSteep, cost: 0, tiles: [tile] };
     if (!already) {
       const tentative = new Set(city.roads);
@@ -278,11 +276,9 @@ function evaluateRoadPath(world: World, city: City, tiles: Tile[]): Placement {
     seen.add(tile);
     if (!terrainAllows(map, 'road', x, z)) return { ok: false, reason: REASON.unsuitableTerrain, cost: 0, tiles: indices };
     if (!onHomeIsland(map, x, z)) return { ok: false, reason: REASON.unsettledIsland, cost: 0, tiles: [...indices, tile] };
-    if (!existing.has(tile)) {
-      if (buildingAt(world, city, tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: indices };
-      if (foreign.roads.has(tile)) return { ok: false, reason: REASON.tileOccupiedByRoad, cost: 0, tiles: indices };
-      if (foreign.buildings.has(tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: indices };
-    }
+    if (buildingAt(world, city, tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: indices };
+    if (foreign.buildings.has(tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: indices };
+    if (!existing.has(tile) && foreign.roads.has(tile)) return { ok: false, reason: REASON.tileOccupiedByRoad, cost: 0, tiles: indices };
     indices.push(tile);
   }
 

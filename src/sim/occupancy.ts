@@ -20,7 +20,3 @@ export function foreignOccupancy(world: World, city: City): ForeignOccupancy {
   }
   return { roads, buildings };
 }
-
-export function isForeignOccupied(occupancy: ForeignOccupancy, tile: number): boolean {
-  return occupancy.roads.has(tile) || occupancy.buildings.has(tile);
-}
