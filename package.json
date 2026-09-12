@@ -26,7 +26,8 @@
     "terrace:capture": "node scripts/terrace-capture.mjs",
     "road:capture": "node scripts/road-capture.mjs",
     "check": "bash scripts/check.sh",
-    "authority": "bun scripts/authority-admin.ts"
+    "authority": "bun scripts/authority-admin.ts",
+    "server": "bun scripts/server.ts"
   },
   "dependencies": {
     "three": "^0.186.0"
@@ -34,6 +35,7 @@
   "devDependencies": {
     "@types/bun": "^1.4.2",
     "@types/three": "^0.185.4",
+    "bun": "1.4.2",
     "playwright": "^1.62.0",
     "typescript": "^5.7.2",
     "vite": "^6.0.7",

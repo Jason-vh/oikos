@@ -148,7 +148,8 @@ Every request carries an actor-scoped sequence and a request id, resolved
 against a normalized fingerprint with replay, conflict, gap and pruning rules;
 only World mutation is conditional on commit, swapped into memory after. A
 genuine storage failure poisons the `Authority` instance until reopened; World
-stays private behind `snapshot()`. No transport or tick yet.
+stays private behind `snapshot()`. Trusted `advance`/`checkpoint` hooks support
+[the private Bun transport](server-transport.md); the playable game remains local.
 
 ## Acceptance checks
 
