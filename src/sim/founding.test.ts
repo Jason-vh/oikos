@@ -111,6 +111,13 @@ test('saves cannot hide a populated or progressed city behind an unfinished foun
   primaryCity(world).founded = false;
   expect(deserializeWorld(serializeWorld(world))).toBeNull();
   const pending = createWorld(2, 0, false);
-  pending.time = 1;
+  primaryCity(pending).money -= 1;
   expect(deserializeWorld(serializeWorld(pending))).toBeNull();
+});
+
+test('a pending city can still be aged: the shared clock and ecology are not a per-city invariant', () => {
+  const pending = createWorld(2, 0, false);
+  pending.time = 1;
+  pending.felled = [primaryCity(pending).roads[0]];
+  expect(deserializeWorld(serializeWorld(pending))).toEqual(pending);
 });

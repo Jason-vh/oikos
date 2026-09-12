@@ -13,7 +13,7 @@ export function mapOf(world: World): IslandMap {
 export function foundSecondCity(world: World, home: number, founded = true): City {
   const map = islandFor(world.seed, home);
   const city: City = {
-    id: world.nextId++,
+    id: world.nextCityId++,
     home: map.home,
     founded,
     money: STARTING_MONEY,

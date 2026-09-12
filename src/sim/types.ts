@@ -68,12 +68,13 @@ export interface City {
   walkers: Walker[];
 }
 export interface World {
-  version: 9;
+  version: 10;
   island: 'kalliste';
   seed: number;
   time: number;
   remainder: number;
   nextId: number;
+  nextCityId: number;
   wildlife: Animal[];
   felled: number[];
   regrowth: number;

@@ -209,12 +209,12 @@ new shipping network to supply these sanctuaries.”
   harbour, housing, finances) all take an explicit City, resolved from
   `world.cities` by id at the command boundary. In-memory tests already run two
   independent city economies under one shared clock and wildlife population;
-  saving still accepts only a single city, ready for the ownership and
-  multi-city work ahead. Construction now checks occupancy globally: placement,
+  local saves still accept only a single city. Construction now checks occupancy globally: placement,
   road paths, farm and footprint previews, and harbour founding all reject a
   tile already held by another city's road, building, or founded harbour,
   while a city's own roads and legacy off-home infrastructure remain exactly
-  as before.
+  as before. Version 10 adds shared-save validation, separate City ids, an empty
+  archipelago factory, and atomic internal claims; local saves remain single-city.
 - The client now keeps explicit, nullable viewed/active city ids of its own
   (`src/ui/city-context.ts`), resolved against `World.cities` rather than
   assumed; every construction, demolition, vendor and founding command,
@@ -226,6 +226,8 @@ new shipping network to supply these sanctuaries.”
   exists.
 - This remains a local, single-player game. Unrestricted coastal harbour siting,
   player identity, shared ownership data, and the persistent server are still ahead.
+  Claims are a backend primitive only; no command, UI, or ownership check calls
+  them yet.
 
 ## Roadmap
 

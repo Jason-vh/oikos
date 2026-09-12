@@ -366,9 +366,15 @@ a reload. The harbour's site and progress (tier, stock, trade order, voyage) are
 exactly. Version 9 moves each city's `roads`, `buildings`, and `walkers` into
 `world.cities` alongside the metadata version 8 already nested there, leaving
 terrain seed, clock, remainder, entity allocator, wildlife, felled trees, and
-regrowth timer as the only fields left on `World`. Older saves migrate onto a
-single `cities[0]` without changing that economic, harbour, or entity state,
-and are rejected if they ever contain more than one city.
+regrowth timer as the only fields left on `World`. Version 10 adds
+`World.nextCityId`, a City-id allocator kept separate from the entity `nextId`;
+older saves derive it from their one legacy city's id. `deserializeWorld` keeps
+rejecting anything but exactly one city — this remains a local, single-city
+game. `deserializeSharedWorld` in `src/sim/save.ts` is a separate loader ahead
+of a future server: the same field-by-field validation, but 0 to `ISLAND_COUNT`
+cities, unique ids and homes, no two cities' roads/buildings/founded harbours
+overlapping, and at most one harbour keeping the legacy id `0`. Nothing in the
+playable game calls it yet.
 Version 6 validates the saved footprint rather than choosing another site
 from the current road layout: demolishing roads cannot move the harbour on reload.
 Invalid sites and overlaps are rejected instead of silently relocated.

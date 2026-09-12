@@ -72,6 +72,26 @@ claimed harbours through the shared `nextId`; never assign `0` to every harbour.
 Validate harbour, building, walker and wildlife IDs globally. City IDs remain
 stable identities, not array positions.
 
+## Save schema and claims
+
+Version 10 adds `World.nextCityId`, separate from entity `nextId`. Older saves
+must have one city; migration derives its next City id without renumbering entities.
+`deserializeWorld` still accepts exactly one city; `deserializeSharedWorld` accepts
+0–`ISLAND_COUNT`. Both validate unique City ids/homes, globally unique physical ids,
+nonoverlapping infrastructure, and city-local walker references. IDs and allocators
+are safe integers; IDs remain below their allocators. One harbour may retain id `0`.
+Pending harbours reserve IDs, not footprints. Legacy off-home infrastructure survives.
+
+Pending invariants are city-local: even empty/all-pending saves may hold aged clocks
+and ecology. `advance` still freezes when every city is pending; loading does not
+infer zero shared state from that runtime rule.
+
+`createSharedWorld(seed)` seeds wildlife once with no cities and `nextCityId: 1`.
+Trusted `claimIsland(world, home)` rejects invalid, claimed, legacy-occupied islands
+and exhausted allocators atomically. Success appends one pending city, increments
+both allocators, and preserves everything else. Claims have no public command,
+authentication, or UI yet. Local creation and founding remain unchanged.
+
 ## Ownership and presentation
 
 An authenticated actor and a requested city are separate inputs. The server

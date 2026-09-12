@@ -63,12 +63,13 @@ export function createWorld(seed = DEFAULT_SEED, home?: number, founded = true):
     walkers: [],
   };
   const world: World = {
-    version: 9,
+    version: 10,
     island: 'kalliste',
     seed,
     time: 0,
     remainder: 0,
     nextId: 1,
+    nextCityId: 2,
     wildlife: [],
     felled: [],
     regrowth: 0,
@@ -76,6 +77,24 @@ export function createWorld(seed = DEFAULT_SEED, home?: number, founded = true):
   };
   world.wildlife = spawnWildlife(world);
   recomputeConnectivity(world, city);
+  return world;
+}
+
+export function createSharedWorld(seed = DEFAULT_SEED): World {
+  const world: World = {
+    version: 10,
+    island: 'kalliste',
+    seed,
+    time: 0,
+    remainder: 0,
+    nextId: 1,
+    nextCityId: 1,
+    wildlife: [],
+    felled: [],
+    regrowth: 0,
+    cities: [],
+  };
+  world.wildlife = spawnWildlife(world);
   return world;
 }
 
