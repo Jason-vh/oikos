@@ -57,6 +57,28 @@ test('demolition leaves prey cornered until its last working hunter retires', ()
   expect(prey.cornered).toBe(false);
 });
 
+test('retirement preserves prey held by a hunter in another canonical city', () => {
+  const hunt = activeHunt();
+  const other = anotherHunter(hunt);
+  const { world, city, lodge, prey } = hunt;
+  const otherCity = {
+    ...structuredClone(city),
+    id: city.id + 1,
+    harbour: { ...structuredClone(city.harbour), id: world.nextId++ },
+    buildings: [other.home],
+    walkers: [other.hunter],
+  };
+  city.buildings = city.buildings.filter((building) => building.id !== other.home.id);
+  city.walkers = city.walkers.filter((walker) => walker.id !== other.hunter.id);
+  world.cities.push(otherCity);
+  const before = structuredClone(otherCity);
+  expect(demolish(world, city, lodge.x, lodge.z).ok).toBe(true);
+  expect(prey.cornered).toBe(true);
+  expect(otherCity).toEqual(before);
+  expect(demolish(world, otherCity, other.home.x, other.home.z).ok).toBe(true);
+  expect(prey.cornered).toBe(false);
+});
+
 test.each([{ working: 0, returning: false }, { working: 5, returning: true }])('a hunter not actively holding prey cannot keep it trapped: %j', (state) => {
   const hunt = activeHunt();
   const other = anotherHunter(hunt);
