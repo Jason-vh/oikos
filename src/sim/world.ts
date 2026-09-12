@@ -317,7 +317,7 @@ export function demolish(world: World, city: City, x: number, z: number): Action
     if (building.kind === 'harbour') return { ok: false, reason: REASON.harbourPermanent };
     const refund = Math.floor((BUILDINGS[building.kind].cost + (building.vendorInstalled ? VENDOR_COST : 0)) / 2);
     city.money += refund;
-    removeBuilding(city, building.id);
+    removeBuilding(world, city, building.id);
     recomputeConnectivity(world, city);
     return { ok: true, reason: `Demolished, ${refund} drachmas refunded.` };
   }
@@ -331,9 +331,27 @@ export function demolish(world: World, city: City, x: number, z: number): Action
   return { ok: true, reason: 'Demolished. Roads are not refunded.' };
 }
 
-function removeBuilding(city: City, id: number): void {
+function releaseRetiredQuarries(world: World, retired: Walker[]): void {
+  const quarries = new Set<number>();
+  for (const walker of retired) {
+    if (walker.kind === 'hunter' && walker.quarry !== null) quarries.add(walker.quarry);
+  }
+  if (quarries.size === 0) return;
+  for (const city of world.cities) {
+    for (const walker of city.walkers) {
+      if (walker.kind === 'hunter' && walker.quarry !== null && walker.working > 0 && !walker.returning) quarries.delete(walker.quarry);
+    }
+  }
+  for (const animal of world.wildlife) {
+    if (quarries.has(animal.id)) animal.cornered = false;
+  }
+}
+
+function removeBuilding(world: World, city: City, id: number): void {
   city.buildings = city.buildings.filter((building) => building.id !== id);
+  const retired = city.walkers.filter((walker) => walker.homeId === id);
   city.walkers = city.walkers.filter((walker) => walker.homeId !== id);
+  releaseRetiredQuarries(world, retired);
   for (const walker of city.walkers) {
     if (walker.targetId !== id) continue;
     const travelled = walker.path.slice(0, walker.step + 1).reverse();
@@ -373,16 +391,15 @@ export function dropInvalidWalkers(world: World, city: City, beforeStairs?: Read
   const map = mapOf(world, city);
   const roads = new Set(city.roads);
   const stairs = stairLayout(map, roads);
+  const retired: Walker[] = [];
   city.walkers = city.walkers.filter((walker) => {
     const valid = walkerPathValid(map, roads, stairs, walker);
     const changed = beforeStairs ? currentSegmentChanged(beforeStairs, stairs, walker) : false;
     if (valid && !changed) return true;
-    if (walker.kind === 'hunter' && walker.quarry !== null) {
-      const prey = world.wildlife.find((animal) => animal.id === walker.quarry);
-      if (prey) prey.cornered = false;
-    }
+    retired.push(walker);
     return false;
   });
+  releaseRetiredQuarries(world, retired);
 }
 
 export function setVendor(city: City, id: number, enabled: boolean): ActionResult {

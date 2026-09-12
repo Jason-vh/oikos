@@ -331,7 +331,8 @@ Roads can be cut and buildings demolished at any time, including while a walker 
 mid-journey:
 
 - Demolishing a walker's **home** building removes the walker outright — its cargo
-  is lost, not duplicated or teleported.
+  is lost, not duplicated or teleported. Retiring a hunter releases its prey unless
+  another hunter is still working on that animal.
 - Demolishing a walker's **target** (its cart or buyer's destination) turns it back
   along the road it already walked, so it heads home instead of vanishing or
   arriving somewhere it never travelled to.
