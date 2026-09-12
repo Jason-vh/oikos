@@ -87,7 +87,7 @@ try {
     await paint(page, 12);
     assert.equal(await page.evaluate(() => window.oikos.frames), frames, 'Paused terraces keep rendering');
     assert.deepEqual(await page.evaluate(() => window.oikos.state), state, 'Viewing terraces changed the city');
-    if (phase === 'bare') bare = await page.locator('canvas').screenshot({ style: '#ui { visibility: hidden; }' });
+    if (phase === 'bare') bare = await page.locator('#app > canvas').screenshot({ style: '#ui { visibility: hidden; }' });
   }
   const beforeRejected = await page.evaluate(() => window.oikos.state);
   const dx = foot.x - stair.x;
@@ -110,7 +110,7 @@ try {
   await paint(page, 8);
   assert.deepEqual(await page.evaluate(() => window.oikos.state.cities[0].roads), originalRoads, 'Demolition picked the wrong tile');
   assert.deepEqual(await page.evaluate(() => window.oikos.map), originalMap, 'Stairs mutated the island');
-  const restored = await page.locator('canvas').screenshot({ path: `${output}/restored.png`, style: '#ui { visibility: hidden; }' });
+  const restored = await page.locator('#app > canvas').screenshot({ path: `${output}/restored.png`, style: '#ui { visibility: hidden; }' });
   assert(bare.equals(restored), 'Demolition did not restore the exact cliffs and outcrops');
   assert((await page.evaluate((tiles) => window.oikos.road(tiles), crossing)).ok);
   const roundTrip = await page.evaluate(async () => {
