@@ -1,14 +1,16 @@
 import { Stage } from './render/stage';
 import { CityScene } from './render/city';
-import { createWorld, getSummary } from './sim/world';
+import { advance, createWorld, getSummary } from './sim/world';
 import { primaryCity } from './sim/city';
 import { foundSecondCity } from './sim/testing';
 import { buildStarterNeighbourhood } from './sim/scenario';
 import { CELL_SIZE, GROUND_Y, islandFor, worldPositionOn } from './sim/island';
 import { createHud, type CityScope } from './ui/hud';
-import { activeCity, bootstrapCityContext, canWrite, resolveCity, viewedCity, withViewed, type CityContext } from './ui/city-context';
+import { activeCity, bootstrapCityContext, canWrite, resolveCity, submitCityCommand, viewedCity, withViewed, type CityContext } from './ui/city-context';
 import type { City, World } from './sim/types';
 import './ui/style.css';
+
+const DEVELOP_SECONDS = 600;
 
 function viewOf(world: World, city: City) {
   const island = islandFor(world.seed, city.home);
@@ -27,6 +29,7 @@ function boot(): void {
   buildStarterNeighbourhood(world, city1);
   const city2 = foundSecondCity(world, (city1.home + 1) % 8);
   buildStarterNeighbourhood(world, city2);
+  advance(world, DEVELOP_SECONDS);
 
   let context: CityContext = bootstrapCityContext(world);
   let selectedId: number | null = null;
@@ -59,12 +62,17 @@ function boot(): void {
     );
   }
 
+  function watchCurrent(): void {
+    city.watch(stage.controls.target, stage.viewSpan());
+  }
+
   function viewCity(id: number): void {
     const target = resolveCity(world, id);
     if (!target) return;
     context = withViewed(context, id);
     selectedId = null;
     stage.setView(viewOf(world, target));
+    watchCurrent();
     refresh();
   }
 
@@ -75,7 +83,7 @@ function boot(): void {
     save: () => {},
     load: () => {},
     newIsland: () => {},
-    vendor: () => {},
+    vendor: (id, enabled) => { submitCityCommand(world, context, { type: 'vendor', id, enabled }); refresh(); },
     focus: () => {},
     grid: () => {},
     menu: () => {},
@@ -88,7 +96,7 @@ function boot(): void {
   });
 
   refresh();
-  city.watch(stage.controls.target, stage.viewSpan());
+  watchCurrent();
   document.body.dataset.ready = 'true';
 
   Reflect.set(window, 'cityContextFixture', {
