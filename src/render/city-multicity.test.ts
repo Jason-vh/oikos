@@ -1,12 +1,12 @@
-import { expect, test } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import * as T from 'three';
 import { CityScene } from './city';
 import type { Stage } from './stage';
-import { islandFor, tileAtOn, worldPositionOn } from '../sim/island';
+import { groundHeight, islandFor, tileAtOn, worldPositionOn } from '../sim/island';
 import { build, createWorld, placement } from '../sim/world';
 import { primaryCity } from '../sim/city';
 import { foundSecondCity } from '../sim/testing';
-import type { City, World } from '../sim/types';
+import type { City, Walker, World } from '../sim/types';
 
 function spotFor(world: World, city: City, kind: 'house'): { x: number; z: number } {
   const map = islandFor(world.seed, city.home);
@@ -122,4 +122,67 @@ test('a walker belonging to a second city is rendered, not just the first city\'
   } finally {
     city.dispose();
   }
+});
+
+function stationaryWalkerHeight(city: CityScene, world: World, owner: City, tile: number): number {
+  const walker: Walker = {
+    id: world.nextId++,
+    kind: 'porter',
+    homeId: owner.harbour.id,
+    targetId: null,
+    path: [tile, tile],
+    step: 0,
+    progress: 0,
+    food: null,
+    cargo: 0,
+    returning: false,
+    overland: [],
+    quarry: null,
+    working: 0,
+  };
+  owner.walkers.push(walker);
+  city.sync(world);
+  return city.moverPoint(walker.id)!.y;
+}
+
+// Real seed-1 coordinates: (204,28) is a cliff tile at level 1, with (203,28) one
+// level down to its west and (204,27) one level down to its north — a genuine
+// stair candidate only for whichever city's own road network actually reaches it.
+describe('a city\'s road and stair geometry never depends on a neighbouring city\'s roads', () => {
+  const OWNER_UPPER = 15268; // (204, 28) level 1, cliff
+  const OWNER_FLAT = 15269; // (205, 28) level 1, no real level change from OWNER_UPPER
+  const WEST_LOWER = 15267; // (203, 28) level 0, west of OWNER_UPPER
+  const NORTH_LOWER = 14730; // (204, 27) level 0, north of OWNER_UPPER
+
+  test('a foreign road one level down does not turn the owner\'s flat cliff-top road into a stair', () => {
+    const { city, world } = fixture();
+    try {
+      const city1 = primaryCity(world);
+      city1.roads = [OWNER_UPPER, OWNER_FLAT];
+      const city2 = foundSecondCity(world, (city1.home + 1) % 8);
+      city2.roads = [WEST_LOWER];
+
+      const map = islandFor(world.seed);
+      const flatHeight = groundHeight(map, 204, 28) + .08;
+      expect(stationaryWalkerHeight(city, world, city1, OWNER_UPPER)).toBeCloseTo(flatHeight, 5);
+    } finally {
+      city.dispose();
+    }
+  });
+
+  test('an unrelated foreign road to the north does not erase the owner\'s own real stair', () => {
+    const { city, world } = fixture();
+    try {
+      const city1 = primaryCity(world);
+      city1.roads = [WEST_LOWER, OWNER_UPPER];
+      const city2 = foundSecondCity(world, (city1.home + 1) % 8);
+      city2.roads = [NORTH_LOWER];
+
+      const map = islandFor(world.seed);
+      const flatHeight = groundHeight(map, 204, 28) + .08;
+      expect(stationaryWalkerHeight(city, world, city1, OWNER_UPPER)).not.toBeCloseTo(flatHeight, 5);
+    } finally {
+      city.dispose();
+    }
+  });
 });

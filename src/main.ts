@@ -437,7 +437,7 @@ function boot(): void {
     if (!homeCity.founded) {
       const site = hover ?? homeCity.harbour;
       const preview = foundingPlacement(world, homeCity, site.x, site.z);
-      city.showPreview('harbour', site.x, site.z, 0, preview);
+      city.showPreview('harbour', site.x, site.z, 0, preview, homeCity.roads);
       city.clearHover();
       overlay.setFertileGround(null);
       overlay.setBlockedTiles([]);
@@ -464,7 +464,7 @@ function boot(): void {
       overlay.setBlockedTiles([]);
       overlay.setHarbourRoute(null);
       overlay.setDemolitionTarget(found?.footprint ?? []);
-      city.showPreview(tool, hover.x, hover.z, rotation, { ok: false, reason: '', tiles: [], cost: 0 });
+      city.showPreview(tool, hover.x, hover.z, rotation, { ok: false, reason: '', tiles: [], cost: 0 }, homeCity.roads);
       if (!found) hud.setHint('Nothing to demolish here · Escape cancels');
       else if (found.kind === 'road') hud.setHint('Demolish this road · no refund · Escape cancels');
       else hud.setHint(`Demolish the ${BUILDINGS[found.kind].name.toLowerCase()} · refunds ${found.refund} drachmas · Escape cancels`);
@@ -472,7 +472,7 @@ function boot(): void {
     }
     if (tool === 'road') {
       const preview = roadPreview(homeCity);
-      city.showPreview(tool, hover.x, hover.z, rotation, preview);
+      city.showPreview(tool, hover.x, hover.z, rotation, preview, homeCity.roads);
       overlay.setBlockedTiles([]);
       overlay.setDemolitionTarget([]);
       overlay.setHarbourRoute(preview.ok ? harbourRoute(world, homeCity, preview.tiles) : null);
@@ -484,7 +484,7 @@ function boot(): void {
     const issues = footprintTileIssues(world, homeCity, tool, hover.x, hover.z, rotation);
     const validTiles = issues.filter((tile) => !tile.blocked);
     const invalidTiles = issues.filter((tile) => tile.blocked && insideMap(tile));
-    city.showPreview(tool, hover.x, hover.z, rotation, { ...preview, ok: true, tiles: validTiles.map((tile) => tileIndexOn(map(), tile.x, tile.z)) });
+    city.showPreview(tool, hover.x, hover.z, rotation, { ...preview, ok: true, tiles: validTiles.map((tile) => tileIndexOn(map(), tile.x, tile.z)) }, homeCity.roads);
     overlay.setBlockedTiles(invalidTiles);
     overlay.setDemolitionTarget([]);
     overlay.setHarbourRoute(harbourRoute(world, homeCity, validTiles.map((tile) => tileIndexOn(map(), tile.x, tile.z))));

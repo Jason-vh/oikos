@@ -17,7 +17,7 @@ import { WildlifeField } from './wildlife';
 
 interface BuildingEntry { key: string; tier: number; model: T.Group; intro: number; from: number; construction: BuildingConstruction | null; }
 interface Departure { model: T.Group; elapsed: number; }
-interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; from: T.Vector3; target: T.Vector3; elapsed: number; moving: boolean; working: boolean; heading: number; stepped: boolean; }
+interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; from: T.Vector3; target: T.Vector3; elapsed: number; moving: boolean; working: boolean; heading: number; stepped: boolean; stairs: ReadonlyMap<number, Stair>; }
 interface AnimalEntry { kind: AnimalKind; position: T.Vector3; from: T.Vector3; target: T.Vector3; heading: number; facing: number; roll: number; phase: number; elapsed: number; moving: boolean; dying: number; visible: boolean; drawn: boolean; }
 
 const SIGHT_MARGIN = 1.3;
@@ -59,10 +59,6 @@ function storesKey(building: Building): string {
   return '';
 }
 
-function allRoads(world: World): number[] {
-  return [...new Set(world.cities.flatMap((city) => city.roads))];
-}
-
 function visibleBuildings(world: World): Building[] {
   return world.cities.flatMap((city: City) => (city.founded ? [...city.buildings, city.harbour] : city.buildings));
 }
@@ -96,6 +92,7 @@ export class CityScene {
   private readonly preview = new T.Group();
   private roadKey = '';
   private stairs = new Map<number, Stair>();
+  private stairsByCity = new Map<number, ReadonlyMap<number, Stair>>();
   private stairMeshes: T.Object3D[] = [];
   private previewKey = '';
   private ghost: T.Group | null = null;
@@ -124,17 +121,26 @@ export class CityScene {
   }
 
   private roadModels(world: World): void {
-    const roads = allRoads(world);
-    const key = roads.join(',');
+    const key = world.cities.map((city) => `${city.id}:${city.roads.join(',')}`).join('|');
     if (key === this.roadKey) return;
     this.roadKey = key;
-    this.stairs = stairLayout(this.map, new Set(roads));
-    this.scenery.setStairs(this.stairs);
+    const stairsByCity = new Map<number, ReadonlyMap<number, Stair>>();
+    const combinedStairs = new Map<number, Stair>();
+    const stairMeshes: T.Object3D[] = [];
     disposeModel(this.roads);
     this.roads.clear();
-    const roadModels = buildRoads(this.map, roads);
-    this.stairMeshes = roadModels.children.filter((model) => model.userData.stairs === true);
-    this.roads.add(roadModels);
+    for (const city of world.cities) {
+      const cityStairs = stairLayout(this.map, new Set(city.roads));
+      stairsByCity.set(city.id, cityStairs);
+      for (const [tile, stair] of cityStairs) combinedStairs.set(tile, stair);
+      const cityRoadModels = buildRoads(this.map, city.roads);
+      stairMeshes.push(...cityRoadModels.children.filter((model) => model.userData.stairs === true));
+      this.roads.add(cityRoadModels);
+    }
+    this.stairsByCity = stairsByCity;
+    this.stairs = combinedStairs;
+    this.stairMeshes = stairMeshes;
+    this.scenery.setStairs(this.stairs);
     this.stage.shadows();
   }
 
@@ -167,7 +173,7 @@ export class CityScene {
     this.roadModels(world);
     const buildings = visibleBuildings(world);
     const ids = new Set(buildings.map((building) => building.id));
-    const occupied = new Set(allRoads(world));
+    const occupied = new Set(world.cities.flatMap((city) => city.roads));
     for (const [id, entry] of this.buildings) {
       if (ids.has(id)) continue;
       this.buildings.delete(id);
@@ -219,14 +225,16 @@ export class CityScene {
     }
     this.primed = true;
     this.scenery.clearDecor(occupied, new Set(world.felled));
-    const walkers = allWalkers(world);
-    const walkerIds = new Set(walkers.map((walker) => walker.id));
+    const walkerIds = new Set(allWalkers(world).map((walker) => walker.id));
     for (const [id, entry] of this.walkers) {
       if (walkerIds.has(id)) continue;
       entry.model.removeFromParent();
       this.walkers.delete(id);
     }
-    for (const walker of walkers) this.syncWalker(walker);
+    for (const city of world.cities) {
+      const stairs = this.stairsByCity.get(city.id) ?? new Map<number, Stair>();
+      for (const walker of city.walkers) this.syncWalker(walker, stairs);
+    }
     const animalIds = new Set(world.wildlife.map((animal) => animal.id));
     for (const id of [...this.animals.keys()]) {
       if (animalIds.has(id)) continue;
@@ -378,14 +386,14 @@ export class CityScene {
     return model.clone();
   }
 
-  private syncWalker(walker: Walker): void {
+  private syncWalker(walker: Walker, stairs: ReadonlyMap<number, Stair>): void {
     const current = tileAtOn(this.map, walker.path[Math.min(walker.step, walker.path.length - 1)]);
     const next = tileAtOn(this.map, walker.path[Math.min(walker.step + 1, walker.path.length - 1)]);
     const a = worldPositionOn(this.map, current.x + .5, current.z + .5);
     const b = worldPositionOn(this.map, next.x + .5, next.z + .5);
-    const stepped = this.stairs.has(tileIndexOn(this.map, current.x, current.z)) || this.stairs.has(tileIndexOn(this.map, next.x, next.z));
+    const stepped = stairs.has(tileIndexOn(this.map, current.x, current.z)) || stairs.has(tileIndexOn(this.map, next.x, next.z));
     let y = rampHeight(groundHeight(this.map, current.x, current.z), groundHeight(this.map, next.x, next.z), walker.progress);
-    if (stepped) y = roadHeight(this.map, this.stairs, T.MathUtils.lerp(current.x, next.x, walker.progress) + .5, T.MathUtils.lerp(current.z, next.z, walker.progress) + .5);
+    if (stepped) y = roadHeight(this.map, stairs, T.MathUtils.lerp(current.x, next.x, walker.progress) + .5, T.MathUtils.lerp(current.z, next.z, walker.progress) + .5);
     const target = new T.Vector3(T.MathUtils.lerp(a.x, b.x, walker.progress), y + .08, T.MathUtils.lerp(a.z, b.z, walker.progress));
     const load: Resource | null = walker.cargo > 0 ? walker.food : null;
     const key = `${walker.kind}:${load ?? ''}`;
@@ -404,7 +412,7 @@ export class CityScene {
       const model = this.walkerModel(walker.kind, load);
       model.position.copy(target);
       this.stage.scene.add(model);
-      entry = { key, kind: walker.kind, model, from: target.clone(), target, elapsed: .25, moving: false, working: false, heading: 0, stepped };
+      entry = { key, kind: walker.kind, model, from: target.clone(), target, elapsed: .25, moving: false, working: false, heading: 0, stepped, stairs };
       this.walkers.set(walker.id, entry);
     } else {
       const jumped = entry.model.position.distanceToSquared(target) > TELEPORT * TELEPORT;
@@ -415,6 +423,7 @@ export class CityScene {
       entry.moving = !jumped && entry.from.distanceToSquared(target) > 1e-6;
     }
     entry.stepped = stepped;
+    entry.stairs = stairs;
     entry.working = walker.working > 0;
     let facing: number | null = null;
     if (entry.working && walker.quarry !== null) {
@@ -439,7 +448,7 @@ export class CityScene {
         continue;
       }
       const point = companion.getWorldPosition(new T.Vector3());
-      const height = roadHeight(this.map, this.stairs, point.x / CELL_SIZE + this.map.width / 2, point.z / CELL_SIZE + this.map.depth / 2);
+      const height = roadHeight(this.map, walker.stairs, point.x / CELL_SIZE + this.map.width / 2, point.z / CELL_SIZE + this.map.depth / 2);
       companion.position.y = (height + .08 - walker.model.position.y) / walker.model.scale.y;
     }
   }
@@ -451,7 +460,7 @@ export class CityScene {
       walker.model.position.lerpVectors(walker.from, walker.target, Math.min(1, walker.elapsed / .25));
       if (walker.stepped) {
         const position = walker.model.position;
-        position.y = roadHeight(this.map, this.stairs, position.x / CELL_SIZE + this.map.width / 2, position.z / CELL_SIZE + this.map.depth / 2) + .08;
+        position.y = roadHeight(this.map, walker.stairs, position.x / CELL_SIZE + this.map.width / 2, position.z / CELL_SIZE + this.map.depth / 2) + .08;
       }
       walker.model.rotation.y = turnToward(walker.model.rotation.y, walker.heading, delta * speed);
       const stride = walker.moving ? .55 : 0;
@@ -584,12 +593,12 @@ export class CityScene {
     this.selection.position.set(p.x, groundHeight(this.map, building.x, building.z) + .065, p.z);
   }
 
-  showPreview(tool: BuildTool | 'harbour' | 'demolish', x: number, z: number, rotation: Rotation, placement: Placement): void {
+  showPreview(tool: BuildTool | 'harbour' | 'demolish', x: number, z: number, rotation: Rotation, placement: Placement, homeRoads: readonly number[] = []): void {
     this.preview.clear();
     const tiles = new Set(placement.tiles.filter((index) => index >= 0 && index < this.map.width * this.map.depth));
     let stairs = this.stairs;
     if (tool === 'road') {
-      stairs = stairLayout(this.map, new Set([...(this.lastWorld ? allRoads(this.lastWorld) : []), ...tiles]));
+      stairs = stairLayout(this.map, new Set([...homeRoads, ...tiles]));
       for (const stair of stairs.values()) if (this.stairs.get(stair.tile)?.down !== stair.down) tiles.add(stair.tile);
     }
     for (const index of tiles) {
