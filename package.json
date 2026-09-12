@@ -25,7 +25,8 @@
     "coast:capture": "node scripts/coast-capture.mjs",
     "terrace:capture": "node scripts/terrace-capture.mjs",
     "road:capture": "node scripts/road-capture.mjs",
-    "check": "bash scripts/check.sh"
+    "check": "bash scripts/check.sh",
+    "authority": "bun scripts/authority-admin.ts"
   },
   "dependencies": {
     "three": "^0.186.0"
