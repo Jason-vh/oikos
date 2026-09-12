@@ -1,13 +1,32 @@
 import type { ActionResult, Building, BuildingKind, BuildTool, City, Rotation, Tile, World } from './types';
-import { footprint } from './catalog';
-import { buildable, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn, type IslandMap, type IslandPlacement } from './island';
+import { STARTING_MONEY, footprint } from './catalog';
+import { buildable, islandFor, landingRoads, levelOn, terrainOn, tileAtOn, tileIndexOn, type IslandMap, type IslandPlacement } from './island';
 import { mapOf as gridMapOf, neighbours, perimeterTiles, footprintTiles } from './grid';
-import { harbourTiles } from './harbour';
-import { placement, placeRoadPath } from './world';
+import { freshHarbour, harbourTiles } from './harbour';
+import { placement, placeRoadPath, recomputeConnectivity } from './world';
 import { primaryCity } from './city';
 
 export function mapOf(world: World): IslandMap {
   return gridMapOf(world, primaryCity(world));
+}
+
+export function foundSecondCity(world: World, home: number, founded = true): City {
+  const map = islandFor(world.seed, home);
+  const city: City = {
+    id: world.nextId++,
+    home: map.home,
+    founded,
+    money: STARTING_MONEY,
+    harbour: { ...freshHarbour(world.seed, landingRoads(map), map.home), id: world.nextId++ },
+    produced: 0,
+    delivered: 0,
+    roads: landingRoads(map),
+    buildings: [],
+    walkers: [],
+  };
+  world.cities.push(city);
+  recomputeConnectivity(world, city);
+  return city;
 }
 
 export function homeIsland(world: World): IslandPlacement {

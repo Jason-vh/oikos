@@ -55,6 +55,18 @@ New construction still respects territory. Do not add a blanket off-home rejecti
 to the loader. Reject a new claim if another city's legacy infrastructure already
 occupies that island; do not silently transfer or discard it.
 
+`src/sim/occupancy.ts` computes one city's foreign-occupied tiles — every other
+city's roads, buildings, and founded harbours, read straight from the canonical
+World — once per construction call, not per tile. `placement`/`build`/`placeRoadPath`
+in world.ts, the farm and footprint previews in construction.ts, and
+`foundingPlacement`/`foundHarbour` in founding.ts all reject a foreign tile
+without mutating the World; a city's own existing road tiles stay free to re-lay
+regardless of what another city holds elsewhere. A pending city's placeholder
+harbour site is not occupancy, matching `harbourTiles`; its prepared roads still
+count, since pending cities are already claimed. `buildingAt`, demolition, and
+local logistics remain city-local by design, so legacy off-home infrastructure
+stays exactly as removable as before.
+
 Keep existing entity IDs, including the original harbour's `0`. Allocate newly
 claimed harbours through the shared `nextId`; never assign `0` to every harbour.
 Validate harbour, building, walker and wildlife IDs globally. City IDs remain

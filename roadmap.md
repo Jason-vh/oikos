@@ -210,7 +210,11 @@ new shipping network to supply these sanctuaries.”
   `world.cities` by id at the command boundary. In-memory tests already run two
   independent city economies under one shared clock and wildlife population;
   saving still accepts only a single city, ready for the ownership and
-  multi-city work ahead.
+  multi-city work ahead. Construction now checks occupancy globally: placement,
+  road paths, farm and footprint previews, and harbour founding all reject a
+  tile already held by another city's road, building, or founded harbour,
+  while a city's own roads and legacy off-home infrastructure remain exactly
+  as before.
 - This remains a local, single-player game. Unrestricted coastal harbour siting,
   player identity, shared ownership data, and the persistent server are still ahead.
 

@@ -130,7 +130,13 @@ stays `''`.
 
 Every building needs flat, unoccupied land: grass or fertile ground, never a hill
 tile or water. A farm additionally needs *every* tile of its footprint to be
-fertile. A tile can't hold both a road and a building at once.
+fertile. A tile can't hold both a road and a building at once. "Occupied" reads
+globally: `placement`, `build`, `placeRoadPath`, and `foundingPlacement`/`foundHarbour`
+all reject a tile already held by another city's road, building, or founded
+harbour, with no charge and no mutation, using `src/sim/occupancy.ts`. A city's
+own existing road tiles remain free to re-lay regardless of anyone else's
+territory, and an unfounded city's placeholder harbour site never counts as
+occupied.
 
 Placement does **not** require a road connection — you can drop a farm in the
 middle of nowhere — but a disconnected building is flagged as such
