@@ -214,9 +214,16 @@ new shipping network to supply these sanctuaries.”
   road paths, farm and footprint previews, and harbour founding all reject a
   tile already held by another city's road, building, or founded harbour,
   while a city's own roads and legacy off-home infrastructure remain exactly
-  as before.
+  as before. Version 10 adds a City-id allocator (`World.nextCityId`) alongside
+  the shared entity `nextId`, a trusted `claimIsland` backend API that validates
+  and appends a new pending city atomically, an empty canonical archipelago
+  factory for a future server, and a separate `deserializeSharedWorld` loader
+  (0 to `ISLAND_COUNT` cities, global id and physical-overlap validation) beside
+  the unchanged single-city `deserializeWorld`.
 - This remains a local, single-player game. Unrestricted coastal harbour siting,
   player identity, shared ownership data, and the persistent server are still ahead.
+  Claims are a backend primitive only; no command, UI, or ownership check calls
+  them yet.
 
 ## Roadmap
 

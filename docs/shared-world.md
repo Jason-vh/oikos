@@ -72,6 +72,45 @@ claimed harbours through the shared `nextId`; never assign `0` to every harbour.
 Validate harbour, building, walker and wildlife IDs globally. City IDs remain
 stable identities, not array positions.
 
+## Save schema and claims
+
+Version 10 adds `World.nextCityId`, a stable allocator for City ids kept
+separate from the shared entity `nextId`. Migrating any earlier version derives
+it from the single legacy city's existing id (`id + 1`); a v9 save must still
+contain exactly one City to migrate, matching what the engine could ever
+actually have produced, and a malformed N-city v9 is refused rather than split.
+There is one v10 shape; nothing observes an intermediate "v10 without
+nextCityId".
+
+`deserializeWorld` keeps its existing local policy: exactly one City, so the
+current single-player UI can never load an empty or multi-city save.
+`deserializeSharedWorld` is the separate entry point for a future server: the
+same validation, but 0 to `ISLAND_COUNT` Cities. Both share one core that
+validates, per save: every building/walker/wildlife id and every harbour id are
+globally unique across all Cities (at most one harbour may keep the legacy `0`);
+every City id is unique and below `nextCityId`; every City's home island is
+unique; no two Cities' roads, buildings, or founded harbours physically share a
+tile; and a walker's home/target only ever resolves against its own City's
+buildings. A pending City's placeholder harbour site is excluded from the
+overlap check, matching construction-time occupancy, but its id is still
+reserved and validated. Legacy off-home infrastructure is still accepted for a
+City's own records; the overlap check only rejects two different Cities
+physically colliding. Time, remainder, felled trees and regrowth are shared
+fields with no per-City invariant, except that they must all still be zero
+while every City in the save remains pending — nothing could have advanced
+them otherwise.
+
+`src/sim/claims.ts` is a trusted internal API, not yet a `CityCommand`: no
+networking, identity, or ownership check is wired up. `claimIsland(world, home)`
+validates the home island, rejects it if any City (founded or pending) already
+claims it or if another City's legacy infrastructure already physically
+occupies it, and only then allocates a City id from `nextCityId` and a harbour
+id from `nextId` and appends the new pending City — nothing else in the World
+changes, and a rejected claim mutates nothing. `createSharedWorld(seed)` is the
+empty canonical archipelago a future server starts from: shared wildlife and
+`nextId` spawned once, `cities: []`, `nextCityId: 1`. `createWorld` and local
+founding are unchanged; a locally created city keeps harbour id `0`.
+
 ## Ownership and presentation
 
 An authenticated actor and a requested city are separate inputs. The server

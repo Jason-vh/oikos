@@ -13,12 +13,18 @@ function currentRaw(): Record<string, any> {
 }
 
 function legacyRaw(raw: Record<string, any>, version: number): Record<string, any> {
+  if (version === 9) {
+    const { nextCityId, ...v9 } = raw;
+    return { ...v9, version };
+  }
   if (version === 8) {
     const { roads, buildings, walkers, ...cityMeta } = raw.cities[0];
-    return { ...raw, version, cities: [cityMeta], roads, buildings, walkers };
+    const { nextCityId, ...rest } = raw;
+    return { ...rest, version, cities: [cityMeta], roads, buildings, walkers };
   }
   const { id: _id, ...flatCity } = raw.cities[0];
-  const legacy = { ...raw, ...flatCity, version };
+  const { nextCityId, ...rest } = raw;
+  const legacy = { ...rest, ...flatCity, version };
   delete legacy.cities;
   if (version === 4) delete legacy.home;
   if (version === 5 || version === 6) delete legacy.founded;
@@ -62,10 +68,10 @@ describe('cities from before the archipelago', () => {
   });
 });
 
-describe('v4-v8 saves migrate their one city into world.cities', () => {
+describe('v4-v9 saves migrate their one city into world.cities, gaining a nextCityId allocator', () => {
   test('every City field lands in cities[0] unchanged; shared clock, allocator, entities and wildlife are untouched', () => {
     const raw = currentRaw();
-    for (const version of [4, 5, 6, 7, 8]) {
+    for (const version of [4, 5, 6, 7, 8, 9]) {
       const migrated = migrateSave(legacyRaw(raw, version))!;
       expect(migrated).not.toBeNull();
       expect(migrated.cities).toEqual([raw.cities[0]]);
@@ -80,7 +86,7 @@ describe('v4-v8 saves migrate their one city into world.cities', () => {
     expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
     advance(world, 60);
     const raw = JSON.parse(serializeWorld(world));
-    for (const version of [4, 5, 6, 7, 8]) {
+    for (const version of [4, 5, 6, 7, 8, 9]) {
       const loaded = deserializeWorld(JSON.stringify(legacyRaw(raw, version)));
       expect(loaded).toEqual(world);
       const city = primaryCity(loaded!);
@@ -121,6 +127,48 @@ describe('malformed version 8 cities are refused, not silently accepted', () => 
     const raw = currentRaw();
     for (const cities of badCities) {
       const legacy = legacyRaw(raw, 8);
+      legacy.cities = cities;
+      const serialized = JSON.stringify(legacy);
+      expect(() => deserializeWorld(serialized)).not.toThrow();
+      expect(deserializeWorld(serialized)).toBeNull();
+    }
+  });
+});
+
+describe('malformed version 9 cities are refused, not silently split or defaulted', () => {
+  const badCities = [undefined, null, [], {}, 'city', [{ id: 1 }, { id: 2 }], [[]], [null], [42]];
+
+  test('migrateSave rejects every malformed shape without throwing, even a fabricated N-city v9', () => {
+    const raw = currentRaw();
+    for (const cities of badCities) {
+      const legacy = legacyRaw(raw, 9);
+      legacy.cities = cities;
+      expect(() => migrateSave(legacy)).not.toThrow();
+      expect(migrateSave(legacy)).toBeNull();
+    }
+  });
+
+  test('a fabricated v9 save with two cities is refused, not silently picked apart', () => {
+    const raw = currentRaw();
+    const legacy = legacyRaw(raw, 9);
+    legacy.cities = [legacy.cities[0], { ...legacy.cities[0], id: legacy.cities[0].id + 1 }];
+    expect(migrateSave(legacy)).toBeNull();
+    expect(deserializeWorld(JSON.stringify(legacy))).toBeNull();
+  });
+
+  test('a v9 city with a non-positive or non-integer id cannot seed nextCityId', () => {
+    const raw = currentRaw();
+    for (const id of [0, -1, 1.5, 'one']) {
+      const legacy = legacyRaw(raw, 9);
+      legacy.cities[0].id = id;
+      expect(migrateSave(legacy)).toBeNull();
+    }
+  });
+
+  test('deserializeWorld rejects every malformed shape without throwing', () => {
+    const raw = currentRaw();
+    for (const cities of badCities) {
+      const legacy = legacyRaw(raw, 9);
       legacy.cities = cities;
       const serialized = JSON.stringify(legacy);
       expect(() => deserializeWorld(serialized)).not.toThrow();
