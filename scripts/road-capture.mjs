@@ -69,10 +69,10 @@ try {
   await page.mouse.move(1, 1);
   await paint(page, 5);
   const originalRoads = await page.evaluate(() => window.oikos.state.cities[0].roads);
-  const before = await page.locator('canvas').screenshot({ path: `${output}/rebuild-before.png`, style: '#ui { visibility: hidden; }' });
+  const before = await page.locator('#app > canvas').screenshot({ path: `${output}/rebuild-before.png`, style: '#ui { visibility: hidden; }' });
   assert((await page.evaluate((tile) => window.oikos.road([tile]), candidate)).ok);
   await paint(page, 5);
-  const placed = await page.locator('canvas').screenshot({ path: `${output}/rebuild-placed.png`, style: '#ui { visibility: hidden; }' });
+  const placed = await page.locator('#app > canvas').screenshot({ path: `${output}/rebuild-placed.png`, style: '#ui { visibility: hidden; }' });
   assert(!before.equals(placed), 'Road placement did not change the rendered surface');
   await page.getByRole('button', { name: /^Demolish,/ }).click();
   const point = await page.evaluate(({ x, z }) => window.oikos.projectTile(x, z), candidate);
@@ -81,7 +81,7 @@ try {
   await page.mouse.move(1, 1);
   await paint(page, 8);
   assert.deepEqual(await page.evaluate(() => window.oikos.state.cities[0].roads), originalRoads);
-  const removed = await page.locator('canvas').screenshot({ path: `${output}/rebuild-removed.png`, style: '#ui { visibility: hidden; }' });
+  const removed = await page.locator('#app > canvas').screenshot({ path: `${output}/rebuild-removed.png`, style: '#ui { visibility: hidden; }' });
   assert(before.equals(removed), 'Demolition did not restore the original road surface and scenery');
   await page.screenshot({ path: `${output}/after-demolition.png`, style: '.hud-toast-region { visibility: hidden; }' });
   const save = await page.evaluate(async () => {
