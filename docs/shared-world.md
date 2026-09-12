@@ -136,6 +136,20 @@ Production deployment deletes and replaces the checkout. Keep server state in a
 persistent Docker volume outside that checkout, not beside the source or build.
 Redeployment must preserve that volume and the stored identities.
 
+### Private persistence core
+
+`src/server/store.ts` and `src/server/authority.ts` hold the private,
+transport-free authoritative core: one exclusively-locked SQLite file per world,
+validated well beyond schema/FK checks on open (ownership, actor/credential/
+sequence bijection, receipt shape) before it's trusted. Single-use invites admit
+an actor and a 256-bit credential without claiming an island; a separate
+authenticated claim adds a City, ownership and a receipt together, one per actor.
+Every request carries an actor-scoped sequence and a request id, resolved
+against a normalized fingerprint with replay, conflict, gap and pruning rules;
+only World mutation is conditional on commit, swapped into memory after. A
+genuine storage failure poisons the `Authority` instance until reopened; World
+stays private behind `snapshot()`. No transport or tick yet.
+
 ## Acceptance checks
 
 - Two cities sustain separate village loops, treasuries, workforces and deliveries.
