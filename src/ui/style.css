@@ -45,6 +45,8 @@ html, body { margin: 0; overflow: hidden; }
 }
 
 .hud-top { grid-area: top; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+.hud-cities { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 10px; align-self: flex-start; }
+.hud-cities button { padding: 6px 12px; font-size: 12px; border: 1px solid var(--line); }
 .hud-guide { grid-area: guide; justify-self: start; max-width: 300px; }
 .hud-inspector { grid-area: inspector; justify-self: end; max-width: 320px; }
 .hud-bottom { grid-area: bottom; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }

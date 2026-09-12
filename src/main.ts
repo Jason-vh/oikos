@@ -20,7 +20,7 @@ import { parseView, VIEW_KEY } from './ui/view';
 import { canUndoConstruction, undoConstruction } from './sim/history';
 import { foundingPlacement } from './sim/founding';
 import type { CityCommand } from './sim/commands';
-import { activeCity, bootstrapCityContext, canWrite, resolveCity, returnToActive, submitCityCommand, viewedCity, withViewed } from './ui/city-context';
+import { activeCity, bootstrapCityContext, canWrite, resolveCity, submitCityCommand, viewedCity, withPersistence, withViewed } from './ui/city-context';
 import './ui/style.css';
 
 const SAVE_KEY = AUTOSAVE_KEY;
@@ -140,7 +140,7 @@ function boot(): void {
     const activeScope = scopeOf(active);
     if (foundWalker) hud.update(world, viewedScope, activeScope, { kind: 'person', name: walkerName(foundWalker.walker), role: WALKER_ROLES[foundWalker.walker.kind], status: walkerStatus(foundWalker.city, foundWalker.walker) });
     else if (animal) hud.update(world, viewedScope, activeScope, { kind: 'person', name: animalName(animal), role: 'Wildlife', status: animalStatus(animal) });
-    else if (found) hud.update(world, viewedScope, activeScope, { kind: 'building', building: found.building, status: buildingStatus(found.city, found.building) });
+    else if (found) hud.update(world, viewedScope, activeScope, { kind: 'building', building: found.building, status: buildingStatus(found.city, found.building), editable: canWrite(world, context) && found.city.id === active?.id });
     else hud.update(world, viewedScope, activeScope, null);
     hud.setCities(world.cities.map((candidate) => ({ id: candidate.id, label: candidate.id === active?.id ? 'Your city' : `City ${candidate.id}` })), context.viewedId);
     const debt = (active?.money ?? 0) < 0;
@@ -160,7 +160,7 @@ function boot(): void {
 
   function selectTool(next: Tool): void {
     if (next !== 'inspect') {
-      if (!canWrite(context)) { hud.notify('Viewing another city grants no writes.', true); return; }
+      if (!canWrite(world, context)) { hud.notify('Viewing another city grants no writes.', true); return; }
       const home = activeCity(world, context);
       if (!home || !home.founded) { hud.notify('Place your founding harbour first.', true); return; }
     }
@@ -208,6 +208,7 @@ function boot(): void {
     const previousHome = activeCity(world, context)?.home;
     world = saved;
     context = bootstrapCityContext(world);
+    cameraMemory.clear();
     undoCheckpoint = null;
     const active = activeCity(world, context);
     milestones = active ? cityMilestones(active) : NO_MILESTONES;
@@ -224,12 +225,30 @@ function boot(): void {
     save(false);
   }
 
+  function switchView(id: number): boolean {
+    if (id === context.viewedId) return false;
+    const target = resolveCity(world, id);
+    if (!target) return false;
+    if (context.viewedId !== null) cameraMemory.set(context.viewedId, stage.getView());
+    context = withViewed(context, id);
+    selectedId = null;
+    hover = null;
+    drag = null;
+    selectTool('inspect');
+    stage.setView(cameraMemory.get(id) ?? viewFor(target));
+    return true;
+  }
+
+  function viewCity(id: number): void {
+    if (!switchView(id)) return;
+    refresh();
+    updatePreview();
+  }
+
   function focusVillage(): void {
-    if (context.viewedId !== context.activeId) {
-      context = returnToActive(context);
-      selectedId = null;
-      selectTool('inspect');
+    if (context.activeId !== null && switchView(context.activeId)) {
       refresh();
+      updatePreview();
     }
     const home = activeCity(world, context);
     if (!home) return;
@@ -243,21 +262,6 @@ function boot(): void {
     const z = dwellings.reduce((sum, dwelling) => sum + dwelling.z + 1.5, 0) / dwellings.length;
     const point = worldPositionOn(map(), x, z);
     stage.focus(point.x, point.z);
-  }
-
-  function viewCity(id: number): void {
-    if (id === context.viewedId) return;
-    const target = resolveCity(world, id);
-    if (!target) return;
-    if (context.viewedId !== null) cameraMemory.set(context.viewedId, stage.getView());
-    context = withViewed(context, id);
-    selectedId = null;
-    hover = null;
-    drag = null;
-    selectTool('inspect');
-    stage.setView(cameraMemory.get(id) ?? viewFor(target));
-    refresh();
-    updatePreview();
   }
 
   const hud = createHud(document.querySelector<HTMLElement>('#ui')!, {
@@ -277,6 +281,7 @@ function boot(): void {
       const seed = nextArchipelagoSeed(world.seed);
       world = createWorld(seed, home, false);
       context = bootstrapCityContext(world);
+      cameraMemory.clear();
       undoCheckpoint = null;
       const active = activeCity(world, context);
       milestones = active ? cityMilestones(active) : NO_MILESTONES;
@@ -416,7 +421,7 @@ function boot(): void {
   }
 
   function updatePreview(pointer: { x: number; y: number } | null = null): void {
-    if (!canWrite(context)) {
+    if (!canWrite(world, context)) {
       city.hidePreview();
       city.clearHover();
       overlay.setFertileGround(null);
@@ -510,7 +515,7 @@ function boot(): void {
     hover = atPointer(event);
     const moved = Math.hypot(event.clientX - drag.x, event.clientY - drag.y);
     if (hover && (tool === 'road' || moved < 9)) {
-      const home = canWrite(context) ? activeCity(world, context) : null;
+      const home = canWrite(world, context) ? activeCity(world, context) : null;
       if (home && !home.founded) {
         const result = submitCityCommand(world, context, { type: 'foundHarbour', x: hover.x, z: hover.z });
         apply(result);
@@ -643,8 +648,11 @@ function boot(): void {
   document.addEventListener('visibilitychange', () => { previous = 0; if (!document.hidden) stage.invalidate(); });
   function saveView(): void {
     try {
-      const home = activeCity(world, context)?.home;
-      localStorage.setItem(VIEW_KEY, JSON.stringify({ seed: world.seed, home, view: stage.getView() }));
+      const active = activeCity(world, context);
+      if (!active) return;
+      const view = context.viewedId === context.activeId ? stage.getView() : cameraMemory.get(active.id);
+      if (!view) return;
+      localStorage.setItem(VIEW_KEY, JSON.stringify({ seed: world.seed, home: active.home, view }));
     } catch {}
   }
   window.addEventListener('pagehide', () => { if (dirtySave) save(false); saveView(); });
@@ -657,6 +665,10 @@ function boot(): void {
   stage.shadows();
   if (storageWarning) hud.notify(storageWarning, true);
   requestAnimationFrame(frame);
+
+  function debugCommand(raw: unknown): ActionResult {
+    return withPersistence(submitCityCommand(world, context, raw), () => { refresh(); save(true); });
+  }
 
   if (import.meta.env.DEV || new URLSearchParams(location.search).has('debug')) {
     Reflect.set(window, 'oikos', {
@@ -706,7 +718,7 @@ function boot(): void {
         return home ? foundingPlacement(world, home, x, z) : { ok: false, reason: 'You have no city of your own here.', cost: 0, tiles: [] };
       },
       buildPlan: () => {
-        if (!canWrite(context)) return { ok: false, reason: 'Viewing another city grants no writes.' };
+        if (!canWrite(world, context)) return { ok: false, reason: 'Viewing another city grants no writes.' };
         const home = activeCity(world, context);
         if (!home) return { ok: false, reason: 'You have no city of your own here.' };
         const result = buildStarterNeighbourhood(world, home);
@@ -715,8 +727,8 @@ function boot(): void {
         stage.shadows();
         return result;
       },
-      build: (tool: BuildTool, x: number, z: number) => { const result = submitCityCommand(world, context, { type: 'build', tool, x, z, rotation: 0 }); refresh(); save(true); return result; },
-      road: (tiles: Tile[]) => { const result = submitCityCommand(world, context, { type: 'roadPath', tiles }); refresh(); save(true); return result; },
+      build: (tool: BuildTool, x: number, z: number) => debugCommand({ type: 'build', tool, x, z, rotation: 0 }),
+      road: (tiles: Tile[]) => debugCommand({ type: 'roadPath', tiles }),
       projectWalker: (id: number) => {
         const point = city.moverPoint(id);
         return point ? stage.project(point.x, point.y + .5, point.z) : null;

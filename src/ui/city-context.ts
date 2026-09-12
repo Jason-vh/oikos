@@ -24,8 +24,8 @@ export function activeCity(world: World, context: CityContext): City | null {
   return resolveCity(world, context.activeId);
 }
 
-export function canWrite(context: CityContext): boolean {
-  return context.activeId !== null && context.viewedId === context.activeId;
+export function canWrite(world: World, context: CityContext): boolean {
+  return context.activeId !== null && context.viewedId === context.activeId && resolveCity(world, context.activeId) !== null;
 }
 
 export function withViewed(context: CityContext, id: number | null): CityContext {
@@ -43,4 +43,9 @@ export function submitCityCommand(world: World, context: CityContext, raw: unkno
   if (context.activeId === null) return NO_ACTIVE_CITY;
   if (context.viewedId !== context.activeId) return VISITING;
   return applyCommand(world, context.activeId, raw);
+}
+
+export function withPersistence<T extends ActionResult>(result: T, persist: () => void): T {
+  if (result.ok) persist();
+  return result;
 }

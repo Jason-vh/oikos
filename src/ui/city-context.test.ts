@@ -13,6 +13,7 @@ import {
   returnToActive,
   submitCityCommand,
   viewedCity,
+  withPersistence,
   withViewed,
 } from './city-context';
 
@@ -48,7 +49,7 @@ describe('bootstrapCityContext', () => {
     const context = bootstrapCityContext(world);
     expect(context.viewedId).toBe(world.cities[0].id);
     expect(context.activeId).toBe(world.cities[0].id);
-    expect(canWrite(context)).toBe(true);
+    expect(canWrite(world, context)).toBe(true);
   });
 
   test('an empty world resolves to no city, safely', () => {
@@ -57,7 +58,7 @@ describe('bootstrapCityContext', () => {
     const context = bootstrapCityContext(world);
     expect(context.viewedId).toBeNull();
     expect(context.activeId).toBeNull();
-    expect(canWrite(context)).toBe(false);
+    expect(canWrite(world, context)).toBe(false);
     expect(viewedCity(world, context)).toBeNull();
     expect(activeCity(world, context)).toBeNull();
   });
@@ -85,18 +86,27 @@ describe('resolving ids against the canonical world', () => {
 
 describe('write guard', () => {
   test('viewing your own active city allows writes', () => {
-    const context = { viewedId: 1, activeId: 1 };
-    expect(canWrite(context)).toBe(true);
+    const { world, city1 } = twoCityWorld();
+    const context = { viewedId: city1.id, activeId: city1.id };
+    expect(canWrite(world, context)).toBe(true);
   });
 
   test('viewing a foreign city forbids writes even though an active city exists', () => {
-    const context = { viewedId: 2, activeId: 1 };
-    expect(canWrite(context)).toBe(false);
+    const { world, city1, city2 } = twoCityWorld();
+    const context = { viewedId: city2.id, activeId: city1.id };
+    expect(canWrite(world, context)).toBe(false);
   });
 
   test('no active city forbids writes regardless of what is viewed', () => {
-    expect(canWrite({ viewedId: null, activeId: null })).toBe(false);
-    expect(canWrite({ viewedId: 1, activeId: null })).toBe(false);
+    const { world, city1 } = twoCityWorld();
+    expect(canWrite(world, { viewedId: null, activeId: null })).toBe(false);
+    expect(canWrite(world, { viewedId: city1.id, activeId: null })).toBe(false);
+  });
+
+  test('an active id that no longer resolves in the given world forbids writes, even though viewed equals active', () => {
+    const { world, city1 } = twoCityWorld();
+    const staleId = city1.id + 999;
+    expect(canWrite(world, { viewedId: staleId, activeId: staleId })).toBe(false);
   });
 
   test('returnToActive brings the view back home without touching the active city', () => {
@@ -146,5 +156,28 @@ describe('submitCityCommand', () => {
     const before = structuredClone(city2);
     submitCityCommand(world, context, { type: 'vendor', id: city2.harbour.id, enabled: true });
     expect(city2).toEqual(before);
+  });
+});
+
+describe('withPersistence', () => {
+  test('runs the callback only when the command succeeded', () => {
+    let persisted = 0;
+    withPersistence({ ok: true, reason: '' }, () => { persisted += 1; });
+    expect(persisted).toBe(1);
+    withPersistence({ ok: false, reason: 'no' }, () => { persisted += 1; });
+    expect(persisted).toBe(1);
+  });
+
+  test('a debug wrapper built from submitCityCommand + withPersistence never saves while visiting', () => {
+    const { world, city1, city2 } = twoCityWorld();
+    let context = bootstrapCityContext(world);
+    context = withViewed(context, city2.id);
+    let saved = 0;
+    const result = withPersistence(
+      submitCityCommand(world, context, { type: 'vendor', id: city1.harbour.id, enabled: true }),
+      () => { saved += 1; },
+    );
+    expect(result.ok).toBe(false);
+    expect(saved).toBe(0);
   });
 });

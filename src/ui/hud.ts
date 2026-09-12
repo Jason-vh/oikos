@@ -30,7 +30,7 @@ export interface CityScope {
 }
 
 export type Selection =
-  | { kind: 'building'; building: Building; status: string[] }
+  | { kind: 'building'; building: Building; status: string[]; editable: boolean }
   | { kind: 'person'; name: string; role: string; status: string[] };
 
 export interface Hud {
@@ -141,8 +141,8 @@ const SKELETON = `
         <button type="button" class="hud-menu-button" data-action="menu" aria-label="Menu, shortcut Escape" data-testid="menu">Menu</button>
       </div>
     </header>
+    <div class="hud-panel hud-cities" role="group" aria-label="Visit a city" data-testid="cities" hidden></div>
   </div>
-  <div class="hud-panel hud-cities" role="group" aria-label="Visit a city" data-testid="cities" hidden></div>
   <details class="hud-panel hud-guide" data-testid="guide" open>
     <summary>Guide</summary>
     <ol class="hud-milestones" data-testid="milestones">
@@ -332,17 +332,34 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
 
 
   const citiesPanel = root.querySelector<HTMLElement>('.hud-cities')!;
+  const cityButtons = new Map<number, HTMLButtonElement>();
+  let cityButtonIds = '';
   function setCities(cities: { id: number; label: string }[], viewedId: number | null): void {
     citiesPanel.hidden = cities.length <= 1;
-    citiesPanel.replaceChildren();
-    if (cities.length <= 1) return;
+    if (cities.length <= 1) {
+      citiesPanel.replaceChildren();
+      cityButtons.clear();
+      cityButtonIds = '';
+      return;
+    }
+    const ids = cities.map((entry) => entry.id).join(',');
+    if (ids !== cityButtonIds) {
+      cityButtonIds = ids;
+      citiesPanel.replaceChildren();
+      cityButtons.clear();
+      for (const entry of cities) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.addEventListener('click', () => actions.visit(entry.id));
+        citiesPanel.appendChild(button);
+        cityButtons.set(entry.id, button);
+      }
+    }
     for (const entry of cities) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.textContent = entry.label;
+      const button = cityButtons.get(entry.id);
+      if (!button) continue;
+      if (button.textContent !== entry.label) button.textContent = entry.label;
       button.setAttribute('aria-pressed', String(entry.id === viewedId));
-      button.addEventListener('click', () => actions.visit(entry.id));
-      citiesPanel.appendChild(button);
     }
   }
 
@@ -372,10 +389,11 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
   const rowWater = row(root, 'water');
   const vendorButton = action(root, 'vendor');
 
-  function updateVendor(building: Building): void {
+  function updateVendor(building: Building, editable: boolean): void {
     if (building.kind === 'harbour') {
       vendorButton.hidden = building.tier < 2;
       if (vendorButton.hidden) return;
+      vendorButton.disabled = !editable;
       vendorButton.textContent = building.vendorEnabled ? 'Pause lumber trade' : 'Start lumber trade';
       vendorButton.setAttribute('aria-pressed', String(building.vendorEnabled));
       vendorButton.onclick = () => actions.vendor(building.id, !building.vendorEnabled);
@@ -386,6 +404,7 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
       return;
     }
     vendorButton.hidden = false;
+    vendorButton.disabled = !editable;
     if (!building.vendorInstalled) {
       vendorButton.textContent = `Add food vendor \u00b7 ${VENDOR_COST}`;
       vendorButton.setAttribute('aria-pressed', 'false');
@@ -460,7 +479,7 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
       field(rowWater, 'inspector-water').textContent = selected.water > 0 ? `${Math.ceil(selected.water / WATER_DECAY_PER_SECOND)}s reserve` : 'Needed';
     }
 
-    updateVendor(selected);
+    updateVendor(selected, selection.editable);
   }
 
   function updateMilestones(active: CityScope | null): void {
