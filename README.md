@@ -6,7 +6,8 @@ Live at <https://oikos.vhtm.eu>.
 settle an island, feed and water its households along real roads, hunt, fell,
 farm and trade your way to a thriving city. Kalliste is an archipelago of eight
 islands; you start on the most central one, or choose another through Menu → New
-island. Each has a prepared harbour landing; the rest are still unsettled.
+island. Each has a prepared landing road. On a new island, place your founding
+dockyard beside that road before building homes; the rest remain unsettled.
 
 ```bash
 npm install

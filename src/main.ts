@@ -17,6 +17,7 @@ import { createSound } from './ui/sound';
 import { celebration, cityMilestones, rememberMilestones } from './ui/celebrations';
 import { parseView, VIEW_KEY } from './ui/view';
 import { canUndoConstruction, undoConstruction } from './sim/history';
+import { foundHarbour, foundingPlacement } from './sim/founding';
 import './ui/style.css';
 
 const SAVE_KEY = AUTOSAVE_KEY;
@@ -118,18 +119,22 @@ function boot(): void {
   }
 
   function selectTool(next: Tool): void {
+    if (!world.founded && next !== 'inspect') {
+      hud.notify('Place your founding harbour first.', true);
+      return;
+    }
     tool = next;
     drag = null;
     hud.setTool(tool, rotation);
     stage.controls.touches.ONE = tool === 'inspect' ? T.TOUCH.ROTATE : null;
-    city.scenery.grid.visible = showGrid || tool !== 'inspect';
+    city.scenery.grid.visible = !world.founded || showGrid || tool !== 'inspect';
     updatePreview();
     stage.invalidate();
   }
 
   function setGrid(enabled: boolean): void {
     showGrid = enabled;
-    city.scenery.grid.visible = enabled || tool !== 'inspect';
+    city.scenery.grid.visible = !world.founded || enabled || tool !== 'inspect';
     hud.setGrid(enabled);
     stage.invalidate();
   }
@@ -162,6 +167,7 @@ function boot(): void {
     undoCheckpoint = null;
     milestones = cityMilestones(world);
     selectedId = null;
+    hover = null;
     accumulator = 0;
     dirtySave = true;
     autoSaveEnabled = true;
@@ -201,18 +207,19 @@ function boot(): void {
     },
     newIsland: (home) => {
       const seed = world.seed === DEFAULT_SEED ? 2 : (world.seed * 1103515245 + 12345) % 0x7fffffff;
-      world = createWorld(seed, home);
+      world = createWorld(seed, home, false);
       undoCheckpoint = null;
       milestones = cityMilestones(world);
       autoSaveEnabled = true;
       selectedId = null;
+      hover = null;
       accumulator = 0;
       rebuildScene();
       selectTool('inspect');
       setSpeed(1);
       refresh();
       save(false);
-      hud.notify(`Island ${world.home + 1} settled. Build four dwellings beside the harbour road.`);
+      hud.notify(`Island ${world.home + 1} awaits. Place your harbour beside the landing road.`);
     },
     vendor: (id, enabled) => apply(setVendor(world, id, enabled)),
     focus: (x, z) => { const point = worldPositionOn(map(), x + .5, z + .5); stage.focus(point.x, point.z); },
@@ -338,6 +345,19 @@ function boot(): void {
   }
 
   function updatePreview(pointer: { x: number; y: number } | null = null): void {
+    if (!world.founded) {
+      const site = hover ?? world.harbour;
+      const preview = foundingPlacement(world, site.x, site.z);
+      city.showPreview('harbour', site.x, site.z, 0, preview);
+      city.clearHover();
+      overlay.setFertileGround(null);
+      overlay.setBlockedTiles([]);
+      overlay.setDemolitionTarget([]);
+      overlay.setHarbourRoute(preview.ok ? harbourRoute(world, preview.tiles) : null);
+      stage.canvas.style.cursor = preview.ok ? 'crosshair' : 'not-allowed';
+      hud.setHint(preview.ok ? 'Found your city here · Harbour is free · H returns to the landing · Escape opens the menu' : preview.reason);
+      return;
+    }
     overlay.setFertileGround(tool === 'farm' ? suitableFarmGround(world) : null);
     stage.canvas.style.cursor = tool === 'inspect' ? '' : 'crosshair';
     if (tool !== 'inspect') city.clearHover();
@@ -406,7 +426,16 @@ function boot(): void {
     hover = atPointer(event);
     const moved = Math.hypot(event.clientX - drag.x, event.clientY - drag.y);
     if (hover && (tool === 'road' || moved < 9)) {
-      if (tool === 'inspect' || tool === 'demolish') {
+      if (!world.founded) {
+        const result = foundHarbour(world, hover.x, hover.z);
+        apply(result);
+        if (result.ok) {
+          selectedId = world.harbour.id;
+          selectTool('inspect');
+          refresh();
+          save(false);
+        }
+      } else if (tool === 'inspect' || tool === 'demolish') {
         const picked = city.pick(event.clientX, event.clientY);
         const hit = world.buildings.find((building) => building.id === picked.building);
         if (tool === 'inspect') {
@@ -543,7 +572,7 @@ function boot(): void {
   if (import.meta.env.DEV || new URLSearchParams(location.search).has('debug')) {
     Reflect.set(window, 'oikos', {
       get state() { return structuredClone(world); },
-      freshWorld: (seed: number, home: number) => createWorld(seed, home),
+      freshWorld: (seed: number, home: number, founded = true) => createWorld(seed, home, founded),
       get summary() { return getSummary(world); },
       get frames() { return stage.frames; },
       get drawCalls() { return stage.renderer.info.render.calls; },
@@ -583,6 +612,7 @@ function boot(): void {
       },
       advance: (seconds: number) => { setSpeed(0); advance(world, seconds); refresh(); dirtySave = true; stage.shadows(); },
       get plan() { return planStarterNeighbourhood(world); },
+      foundingPlacement: (x: number, z: number) => foundingPlacement(world, x, z),
       buildPlan: () => { const result = buildStarterNeighbourhood(world); refresh(); save(true); stage.shadows(); return result; },
       build: (tool: BuildTool, x: number, z: number) => { const result = build(world, tool, x, z, 0); refresh(); save(true); return result; },
       road: (tiles: Tile[]) => { const result = placeRoadPath(world, tiles); refresh(); save(true); return result; },

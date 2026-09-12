@@ -35,7 +35,12 @@ try {
   await page.getByRole('button', { name: 'New island', exact: true }).click();
   await page.waitForFunction(() => window.oikos.state.seed === 2 && window.oikos.state.home === 0);
   await page.getByRole('button', { name: /pause/i }).first().click();
+  const landing = (await state(page)).harbour;
+  const landingPoint = await page.evaluate(({ x, z }) => window.oikos.projectTile(x, z), landing);
+  await page.mouse.click(landingPoint.x, landingPoint.y);
+  await paint(page);
   const chosen = await state(page);
+  assert.equal(chosen.founded, true, 'Founding harbour was not placed');
   const map = await page.evaluate(() => window.oikos.map);
   assert.equal(map.home, 0);
   assert.deepEqual(map.entry, map.islands[0].entry);

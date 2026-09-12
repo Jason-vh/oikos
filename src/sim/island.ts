@@ -291,6 +291,14 @@ function clearAround(width: number, depth: number, terrain: Terrain[], level: Ui
   }
 }
 
+export function landingRoads(map: IslandMap): number[] {
+  const roads: number[] = [];
+  for (let z = map.entry.z; z >= map.entry.z - 8 && terrainOn(map, map.entry.x, z) !== 'water'; z--) {
+    roads.push(tileIndexOn(map, map.entry.x, z));
+  }
+  return roads;
+}
+
 export function tileIndexOn(map: IslandMap, x: number, z: number): number { return z * map.width + x; }
 export function tileAtOn(map: IslandMap, index: number): Tile { return { x: index % map.width, z: Math.floor(index / map.width) }; }
 export function insideMapOn(map: IslandMap, x: number, z: number): boolean {

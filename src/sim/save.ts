@@ -2,8 +2,8 @@ import type { Animal, AnimalKind, Building, BuildingKind, Resource, Stores, Walk
 
 const ANIMAL_KINDS: AnimalKind[] = ['boar', 'rabbit', 'fish', 'gull'];
 
-import { BUILDINGS, HOUSE_CAPACITY, RESOURCES } from './catalog';
-import { buildable, islandFor, insideMapOn, levelOn, onHomeIsland, terrainOn, tileAtOn, type IslandMap } from './island';
+import { BUILDINGS, HOUSE_CAPACITY, RESOURCES, STARTING_MONEY } from './catalog';
+import { buildable, islandFor, insideMapOn, landingRoads, levelOn, onHomeIsland, terrainOn, tileAtOn, type IslandMap } from './island';
 import { neighbours } from './grid';
 import { dropInvalidWalkers, recomputeConnectivity } from './world';
 import { harbourAt, validateHarbourProgress } from './harbour';
@@ -210,13 +210,14 @@ export function deserializeWorld(raw: string): World | null {
   if (!isPlainObject(parsed)) return null;
   const migrated = migrateSave(parsed);
   if (!migrated) return null;
-  const { version, island, seed, home, time, remainder, money, nextId, roads: rawRoads, buildings: rawBuildings, walkers: rawWalkers, wildlife: rawWildlife, felled: rawFelled, regrowth, produced, delivered, harbour: rawHarbour } = migrated;
+  const { version, island, seed, home, founded, time, remainder, money, nextId, roads: rawRoads, buildings: rawBuildings, walkers: rawWalkers, wildlife: rawWildlife, felled: rawFelled, regrowth, produced, delivered, harbour: rawHarbour } = migrated;
 
   if (version !== CURRENT_VERSION) return null;
   if (island !== 'kalliste') return null;
   if (!isInteger(seed) || seed < 0 || seed > 0xffffffff) return null;
   if (!isInteger(home) || home < 0 || home >= islandFor(seed).islands.length) return null;
   const map = islandFor(seed, home);
+  if (typeof founded !== 'boolean') return null;
   if (!isNonNegativeFinite(time)) return null;
   if (!isNonNegativeFinite(remainder)) return null;
   if (!isFiniteNumber(money)) return null;
@@ -266,12 +267,20 @@ export function deserializeWorld(raw: string): World | null {
   if (!Array.isArray(rawFelled) || !rawFelled.every((tile) => tileInBounds(map, tile))) return null;
   const felled = rawFelled as number[];
   if (!isNonNegativeFinite(regrowth)) return null;
+  if (!founded) {
+    const preparedRoads = landingRoads(map);
+    if (money !== STARTING_MONEY || roads.length !== preparedRoads.length || preparedRoads.some((tile) => !roadSet.has(tile))) return null;
+    if (time !== 0 || remainder !== 0 || produced !== 0 || delivered !== 0 || regrowth !== 0) return null;
+    if (buildings.length > 0 || walkers.length > 0 || felled.length > 0) return null;
+    if (harbour.tier !== 1 || harbour.progress !== 0 || harbour.vendorInstalled || Object.keys(harbour.stores).length > 0) return null;
+  }
 
   const world: World = {
     version: CURRENT_VERSION,
     island: 'kalliste',
     seed: seed as number,
     home,
+    founded,
     time: time as number,
     remainder: remainder as number,
     money: money as number,

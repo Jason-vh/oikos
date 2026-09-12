@@ -124,7 +124,8 @@ export class CityScene {
     }
     this.departures.length = 0;
     this.dust.clear();
-    const ids = new Set([...world.buildings, world.harbour].map((building) => building.id));
+    const visibleBuildings = world.founded ? [...world.buildings, world.harbour] : world.buildings;
+    const ids = new Set(visibleBuildings.map((building) => building.id));
     for (const [id, entry] of this.buildings) {
       entry.construction?.settle();
       entry.construction = null;
@@ -141,7 +142,7 @@ export class CityScene {
   sync(world: World): void {
     this.lastWorld = world;
     this.roadModels(world);
-    const allBuildings = [...world.buildings, world.harbour];
+    const allBuildings = world.founded ? [...world.buildings, world.harbour] : world.buildings;
     const ids = new Set(allBuildings.map((building) => building.id));
     const occupied = new Set(world.roads);
     for (const [id, entry] of this.buildings) {
@@ -559,7 +560,7 @@ export class CityScene {
     this.selection.position.set(p.x, groundHeight(this.map, building.x, building.z) + .065, p.z);
   }
 
-  showPreview(tool: BuildTool | 'demolish', x: number, z: number, rotation: Rotation, placement: Placement): void {
+  showPreview(tool: BuildTool | 'harbour' | 'demolish', x: number, z: number, rotation: Rotation, placement: Placement): void {
     this.preview.clear();
     const tiles = new Set(placement.tiles.filter((index) => index >= 0 && index < this.map.width * this.map.depth));
     let stairs = this.stairs;

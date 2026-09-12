@@ -3,7 +3,7 @@ import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, STARTING_MONEY, VE
 import { spawnWildlife, stepWildlife } from './wildlife';
 import { gatherArrival, gatherFinished, regrowForest, updateGatherer } from './gathering';
 import { freshHarbour, HARBOUR_DOCK_CAP, harbourStatus, harbourTiles, setHarbourTrade, updateHarbour } from './harbour';
-import { buildable, insideMapOn, islandFor, levelOn, onHomeIsland, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
+import { buildable, insideMapOn, islandFor, landingRoads, levelOn, onHomeIsland, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import {
   accessDoors,
   accessTiles,
@@ -46,16 +46,15 @@ import {
 
 export const DEFAULT_SEED = 1;
 
-export function createWorld(seed = DEFAULT_SEED, home?: number): World {
+export function createWorld(seed = DEFAULT_SEED, home?: number, founded = true): World {
   const map = islandFor(seed, home);
-  const roads = new Set<number>();
-  for (let z = map.entry.z; z >= map.entry.z - 8 && terrainOn(map, map.entry.x, z) !== 'water'; z--) roads.add(tileIndexOn(map, map.entry.x, z));
-  const roadList = [...roads];
+  const roadList = landingRoads(map);
   const world: World = {
-    version: 6,
+    version: 7,
     island: 'kalliste',
     seed,
     home: map.home,
+    founded,
     time: 0,
     remainder: 0,
     money: STARTING_MONEY,
@@ -96,6 +95,7 @@ const REASON = {
   onlyAgoraHostsVendor: 'Only an agora can host a vendor.',
   harbourPermanent: 'The harbour is a permanent fixture.',
   unsettledIsland: 'Build on your settled island. Return to your village with H.',
+  foundingRequired: 'Place your founding harbour first.',
 } as const;
 
 function buildingAt(world: World, tile: number): Building | undefined {
@@ -160,6 +160,7 @@ function stairPlacementIssue(map: IslandMap, roads: ReadonlySet<number>, newTile
 }
 
 function evaluatePlacement(world: World, tool: BuildTool, x: number, z: number, rotation: Rotation): Placement {
+  if (!world.founded) return { ok: false, reason: REASON.foundingRequired, cost: 0, tiles: [] };
   const map = mapOf(world);
   if (tool === 'road') {
     if (!insideMapOn(map, x, z)) return { ok: false, reason: REASON.outOfBounds, cost: 0, tiles: [] };
@@ -252,6 +253,7 @@ export function build(world: World, tool: BuildTool, x: number, z: number, rotat
 }
 
 function evaluateRoadPath(world: World, tiles: Tile[]): Placement {
+  if (!world.founded) return { ok: false, reason: REASON.foundingRequired, cost: 0, tiles: [] };
   const map = mapOf(world);
   const seen = new Set<number>();
   const indices: number[] = [];
@@ -300,6 +302,7 @@ export function placeRoadPath(world: World, tiles: Tile[]): ActionResult {
 }
 
 export function demolish(world: World, x: number, z: number): ActionResult {
+  if (!world.founded) return { ok: false, reason: REASON.foundingRequired };
   const map = mapOf(world);
   if (!insideMapOn(map, x, z)) return { ok: false, reason: REASON.outOfBounds };
   const tile = tileIndexOn(map, x, z);
@@ -378,6 +381,7 @@ export function dropInvalidWalkers(world: World, beforeStairs?: ReadonlyMap<numb
 }
 
 export function setVendor(world: World, id: number, enabled: boolean): ActionResult {
+  if (!world.founded) return { ok: false, reason: REASON.foundingRequired };
   if (id === world.harbour.id) return setHarbourTrade(world.harbour, enabled);
   const building = world.buildings.find((candidate) => candidate.id === id);
   if (!building) return { ok: false, reason: REASON.noSuchBuilding };
@@ -407,7 +411,7 @@ export function recomputeConnectivity(world: World): void {
   for (const building of world.buildings) {
     building.connected = accessDoors(map, roads, building).some((tile) => reachable.has(tile));
   }
-  world.harbour.connected = accessDoors(map, roads, world.harbour).some((tile) => reachable.has(tile));
+  world.harbour.connected = world.founded && accessDoors(map, roads, world.harbour).some((tile) => reachable.has(tile));
 }
 
 export function totalStock(building: Building): number {
@@ -822,6 +826,7 @@ function simulationStep(world: World, dt: number): void {
 }
 
 export function advance(world: World, seconds: number): void {
+  if (!world.founded) return;
   world.remainder += seconds;
   while (world.remainder >= STEP) {
     world.remainder -= STEP;

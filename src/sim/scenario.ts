@@ -69,6 +69,7 @@ function frontDoor(kind: BuildingKind, x: number, z: number): Tile {
 }
 
 export function planStarterNeighbourhood(world: World): StarterPlan | null {
+  if (!world.founded) return null;
   const map = islandFor(world.seed, world.home);
   const trial = structuredClone(world);
   const roads = new Set(trial.roads);

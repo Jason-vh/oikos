@@ -205,7 +205,7 @@ const SKELETON = `
           ${Array.from({ length: ISLAND_COUNT }, (_, index) => `<option value="${index}">Island ${index + 1}</option>`).join('')}
         </select>
       </label>
-      <p>Each island has a prepared harbour landing. You can settle one; the others remain unexplored.</p>
+      <p>Next, place your dockyard beside the prepared landing road. The other islands remain unexplored.</p>
       <div class="hud-dialog-actions">
         <button type="submit" value="cancel" autofocus>Cancel</button>
         <button type="submit" value="confirm" class="hud-primary">New island</button>
@@ -429,6 +429,12 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
   }
 
   function updateMilestones(world: World, summary: Summary): void {
+    guidePanel.querySelector<HTMLElement>('.hud-milestones')!.hidden = !world.founded;
+    if (!world.founded) {
+      guidePanel.querySelector('summary')!.textContent = 'Found your city';
+      guidePanel.querySelector('.hud-guide-note')!.textContent = 'Place your harbour beside the landing road. The green footprint shows a valid site. H returns here; Escape opens the menu.';
+      return;
+    }
     const milestones = computeMilestones(world, summary);
     for (const [key, input] of milestoneInputs) {
       input.checked = milestones[key];
@@ -456,7 +462,11 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     treasuryField.textContent = formatDrachma(world.money);
     treasuryField.classList.toggle('hud-debt', world.money < 0);
     foodField.textContent = Math.round(summary.food).toLocaleString('en-US');
-    for (const def of TOOL_DEFS) toolButtons.get(def.tool)!.classList.toggle('hud-tool-unaffordable', def.price > world.money);
+    for (const def of TOOL_DEFS) {
+      const button = toolButtons.get(def.tool)!;
+      button.disabled = !world.founded;
+      button.classList.toggle('hud-tool-unaffordable', def.price > world.money);
+    }
     balanceField.textContent = formatSigned(summary.balance);
     employedField.textContent = `${summary.workers} / ${summary.jobs}`;
     timeField.textContent = formatDate(world);

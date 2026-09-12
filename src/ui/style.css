@@ -84,6 +84,7 @@ button[aria-pressed='true'] { background: var(--sage); color: #fffdf0; }
 .hud-guide:not([open]) summary::after, .hud-inspector:not([open]) summary::after { content: '+'; }
 
 .hud-milestones { list-style: none; margin: 0; padding: 0 16px; display: flex; flex-direction: column; gap: 9px; }
+.hud-milestones[hidden] { display: none; }
 .hud-milestones label { display: flex; align-items: center; gap: 9px; font-size: 12.5px; line-height: 1.4; }
 .hud-milestones input { width: 15px; height: 15px; accent-color: var(--terracotta); flex-shrink: 0; }
 .hud-milestones input:checked + label, .hud-milestones label:has(input:checked) { color: var(--ink-soft); text-decoration: line-through; text-decoration-color: rgba(41, 75, 74, .35); }
@@ -138,6 +139,7 @@ button[aria-pressed='true'] { background: var(--sage); color: #fffdf0; }
 .hud-tool-label { font-weight: 600; max-width: 72px; overflow: hidden; text-overflow: ellipsis; }
 .hud-tool-cost { font-size: 11px; opacity: .85; font-variant-numeric: tabular-nums; }
 .hud-tool[aria-pressed='true'] .hud-tool-cost { opacity: .85; }
+.hud-tool:disabled { opacity: .4; cursor: not-allowed; }
 .hud-tool-unaffordable:not([aria-pressed='true']) { color: var(--ink-soft); opacity: .55; }
 .hud-tool-unaffordable .hud-tool-cost { color: var(--terracotta-deep); opacity: 1; }
 .hud-tool[data-tool='demolish'] { color: var(--terracotta-deep); }

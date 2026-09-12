@@ -39,10 +39,25 @@ caches whole archipelagos; the world stores only the seed.
 
 ## Starting a city
 
-`createWorld(seed = 1, home?)` returns a treasury of 1600 drachma, no buildings, and
-a starter road running north from the chosen island's harbour entry. Omitting
+`createWorld(seed = 1, home?, founded = true)` returns a treasury of 1600 drachma,
+no buildings, and a starter road running north from the chosen island's entry. Omitting
 `home` selects the most central island. Menu → New island offers all eight starting
 islands in a fresh archipelago; cancelling leaves the current city unchanged.
+
+New islands from the menu start with `founded = false`. `foundingPlacement()`
+previews a free 3×2 dockyard on flat lowland beside the prepared landing road;
+`foundHarbour()` commits its site and unlocks ordinary construction. The site must
+be on the chosen island, within sixteen tiles of the landing, north of the quay,
+and have a door onto a road connected to the entry. Founding is one-time: the
+harbour cannot subsequently move or be demolished. This slice chooses the dockyard
+site, not a new coastal landing or quay orientation.
+
+Simulation time does not advance before founding. Ordinary construction,
+demolition, and vendor commands are refused. Version 7 saves the founding phase;
+older cities migrate as already founded. Pending saves cannot contain buildings,
+walkers, or advanced economic progress. The initial quick-start city remains
+pre-founded; Menu → New island uses the on-map founding flow.
+
 Nobody lives on the island yet — population only arrives once a dwelling is built
 and connected, by road, back to that entry. All eight islands on seeds 1 and 2 are tested
 through the complete neighbourhood loop and save/load continuation.

@@ -105,6 +105,7 @@ export function freshHarbour(seed: number, roads: number[], home?: number): Buil
 }
 
 export function harbourTiles(world: World): number[] {
+  if (!world.founded) return [];
   return footprintTiles(islandFor(world.seed), world.harbour);
 }
 
