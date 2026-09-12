@@ -47,6 +47,20 @@ function clearHouseSpot(world: World, city: City): { x: number; z: number } {
   throw new Error('No clear house spot.');
 }
 
+function freshRoadSpotsFor(world: World, city: City, count: number): { x: number; z: number }[] {
+  const map = mapOf(world, city);
+  const home = map.islands[city.home];
+  const spots: { x: number; z: number }[] = [];
+  for (let z = home.z; z < home.z + home.depth && spots.length < count; z++) {
+    for (let x = home.x; x < home.x + home.width && spots.length < count; x++) {
+      if (city.roads.includes(tileIndexOn(map, x, z))) continue;
+      if (placement(world, city, 'road', x, z).ok) spots.push({ x, z });
+    }
+  }
+  if (spots.length < count) throw new Error('Not enough fresh road spots.');
+  return spots;
+}
+
 function introduceForeignObstacle(world: World, foreign: City, map: IslandMap, tile: number, kind: 'road' | 'building' | 'harbour'): void {
   if (kind === 'road') {
     foreign.roads.push(tile);
@@ -175,6 +189,26 @@ describe('a duplicate foreign road record leaves a city\'s own road free to re-l
     const before = structuredClone(world);
     expect(build(world, city2, 'road', extension.x, extension.z).ok).toBe(false);
     expect(world).toEqual(before);
+  });
+});
+
+describe('placeRoadPath is atomic', () => {
+  test('a fresh, otherwise-valid tile ahead of a foreign-blocked one is not partially built or charged', () => {
+    const { world, city1, city2 } = sharedIslandWorld();
+    const site = clearFoundingSite(world, city2);
+    expect(foundHarbour(world, city2, site.x, site.z).ok).toBe(true);
+
+    const [fresh, toBlock] = freshRoadSpotsFor(world, city2, 2);
+    const map = mapOf(world, city2);
+    introduceForeignObstacle(world, city1, map, tileIndexOn(map, toBlock.x, toBlock.z), 'building');
+    expect(placement(world, city2, 'road', fresh.x, fresh.z).ok).toBe(true);
+    expect(placement(world, city2, 'road', toBlock.x, toBlock.z).ok).toBe(false);
+
+    const before = structuredClone(world);
+    const result = placeRoadPath(world, city2, [fresh, toBlock]);
+    expect(result.ok).toBe(false);
+    expect(world).toEqual(before);
+    expect(city2.roads.includes(tileIndexOn(map, fresh.x, fresh.z))).toBe(false);
   });
 });
 
