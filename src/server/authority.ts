@@ -48,34 +48,45 @@ function canonicalize(value: unknown): unknown {
   return value;
 }
 
-function isFiniteJsonValue(value: unknown, seen: WeakSet<object> = new WeakSet()): boolean {
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') return true;
-  if (typeof value === 'number') return Number.isFinite(value);
+function copyFiniteJson(value: unknown, seen: WeakSet<object> = new WeakSet()): unknown {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) throw new Error('Unrepresentable command payload.');
+    return value;
+  }
   if (Array.isArray(value)) {
-    if (seen.has(value)) return false;
+    if (seen.has(value) || Object.getOwnPropertySymbols(value).length > 0 || Object.keys(value).length !== value.length) throw new Error('Unrepresentable command payload.');
     seen.add(value);
-    return value.every((item) => isFiniteJsonValue(item, seen));
+    return value.map((item) => copyFiniteJson(item, seen));
   }
   if (value && typeof value === 'object') {
     const prototype = Object.getPrototypeOf(value);
-    if (prototype !== Object.prototype && prototype !== null) return false;
-    if (seen.has(value)) return false;
+    const keys = Object.keys(value);
+    if (
+      (prototype !== Object.prototype && prototype !== null) ||
+      seen.has(value) ||
+      Object.getOwnPropertySymbols(value).length > 0 ||
+      keys.length !== Object.getOwnPropertyNames(value).length
+    ) {
+      throw new Error('Unrepresentable command payload.');
+    }
     seen.add(value);
-    return Object.values(value).every((item) => isFiniteJsonValue(item, seen));
+    const sorted: Record<string, unknown> = Object.create(null);
+    for (const key of keys.sort()) sorted[key] = copyFiniteJson((value as Record<string, unknown>)[key], seen);
+    return sorted;
   }
-  return false;
+  throw new Error('Unrepresentable command payload.');
 }
 
-function normalizedRequest(request: AuthorityRequest): unknown {
-  if (request.kind === 'claim') return { kind: request.kind, home: request.home };
+function normalizeRequestOnce(request: AuthorityRequest): AuthorityRequest {
+  if (request.kind === 'claim') return { kind: 'claim', home: request.home };
   const parsed = parseCommand(request.command);
-  if (parsed) return { kind: request.kind, cityId: request.cityId, command: parsed };
-  if (!isFiniteJsonValue(request.command)) throw new Error('Unrepresentable command payload.');
-  return { kind: request.kind, cityId: request.cityId, command: canonicalize(request.command) };
+  if (parsed) return { kind: 'command', cityId: request.cityId, command: parsed };
+  return { kind: 'command', cityId: request.cityId, command: copyFiniteJson(request.command) };
 }
 
-function fingerprintOf(request: AuthorityRequest): string {
-  return createHash('sha256').update(JSON.stringify(canonicalize(normalizedRequest(request)))).digest('hex');
+function fingerprintOf(normalized: AuthorityRequest): string {
+  return createHash('sha256').update(JSON.stringify(canonicalize(normalized))).digest('hex');
 }
 
 function validRequestShape(request: unknown): request is AuthorityRequest {
@@ -318,12 +329,13 @@ export class Authority {
     if (typeof requestId !== 'string' || !REQUEST_ID_PATTERN.test(requestId)) return { ok: false, reason: 'Invalid request id.', status: 'invalid-request' };
     if (!validRequestShape(request)) return { ok: false, reason: 'Unrecognized request shape.', status: 'invalid-request' };
 
-    let fingerprint: string;
+    let normalized: AuthorityRequest;
     try {
-      fingerprint = fingerprintOf(request);
+      normalized = normalizeRequestOnce(request);
     } catch {
       return { ok: false, reason: 'Malformed request payload.', status: 'invalid-request' };
     }
+    const fingerprint = fingerprintOf(normalized);
 
     return this.poison(() => {
       const db = this.store.db;
@@ -351,7 +363,7 @@ export class Authority {
       const priorById = selectOne<{ seq: number }>(db, 'SELECT seq FROM receipts WHERE actor_id = ? AND request_id = ?;', actorId, requestId);
       if (priorById) return { ok: false, reason: 'Request id already used for a different sequence or payload.', status: 'conflict' };
 
-      const outcome = resolveOutcome(this.world, db, actorId, request);
+      const outcome = resolveOutcome(this.world, db, actorId, normalized);
       const publicOutcome: RequestOutcome = { ok: outcome.ok, reason: outcome.reason, cityId: outcome.cityId, status: 'processed' };
       const persisting = outcome.ok && outcome.world;
       if (persisting && this.revision >= Number.MAX_SAFE_INTEGER) throw new Error('Authority store world revision is exhausted.');
