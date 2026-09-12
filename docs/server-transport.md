@@ -59,15 +59,18 @@ Session contains only `binding`, `ownedCityIds`, `nextSeq` (null at exhaustion),
 packets contain no actor identities, credentials or ownership table. Validate World
 with `deserializeSharedWorld`, not the local-game loader.
 
-`binding` is a domain-separated SHA-256 of realm and credential, not a credential,
-credential verifier, or actor ID. It remains stable across reconnects/restarts,
+`binding` is a domain-separated SHA-256 of realm and credential, not the credential,
+its stored hash, or an actor ID. It is not accepted for authentication; its safety
+relies on the generated credential's 256-bit entropy. It remains stable across reconnects/restarts,
 but changes with realm or credential. Every request must match its authenticated
 socket's binding before dispatch; mismatch consumes nothing. Binding never grants
 authentication. Persist pending requests with realm and binding, and never rewrite
 them for a replacement login, including a different actor in the same realm.
 
-Reconnect may replay the exact pending envelope after acknowledgement loss.
-Conflicting/expired envelopes must never be automatically rewritten or reapplied.
+Automatic recovery replays the exact envelope only when a matching snapshot proves
+its sequence was consumed. Unconsumed/future journals require explicit resolution:
+a failed journal clear may hide a prior rejection. Never automatically rewrite or
+reapply conflicting, expired, or indeterminate requests.
 A fresh user retry requires a new ID and current cursor. Receipts retain 256
 sequences per actor. Multiple sockets share that actor's sequence and rate bucket.
 
