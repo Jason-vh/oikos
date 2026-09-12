@@ -199,8 +199,8 @@ new shipping network to supply these sanctuaries.”
   Existing version-4 archipelago saves migrate without moving their cities.
 - Construction and field overlays respect the settled island. Other islands remain
   available to explore but cannot yet be built on; colony claims will unlock them.
-- Player actions use a validated, serializable command API, ready for server-side
-  ownership checks and execution. Local play and undo still work as before.
+- Player actions use a validated, serializable command API. The private authority
+  checks ownership before execution; local play and undo remain unchanged.
 - Settlement metadata now lives in `World.cities`. Version-4–8 saves migrate without
   changing their city or shared world state. Roads, buildings, and walkers have
   followed: a city is now a complete, self-contained settlement. Engine queries,
@@ -224,10 +224,11 @@ new shipping network to supply these sanctuaries.”
   makes today's sole city both viewed and active, so single-city play is
   unchanged; the read-only visit control stays hidden until a second city
   exists.
-- This remains a local, single-player game. Unrestricted coastal harbour siting,
-  player identity, shared ownership data, and the persistent server are still ahead.
-  Claims are a backend primitive only; no command, UI, or ownership check calls
-  them yet.
+- A private SQLite authority now persists the shared World, invite admission,
+  ownership, and bounded command receipts. Authenticated claims and commands are
+  atomic, replay-safe, and fail closed on storage errors.
+- The playable client remains local and single-player. Network transport, joining,
+  reconnecting, and unrestricted coastal harbour siting are not available yet.
 
 ## Roadmap
 
