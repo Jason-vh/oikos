@@ -3,6 +3,7 @@ import { advance, build, createWorld } from './world';
 import { islandFor, terrainOn, tileAtOn, tileIndexOn } from './island';
 import { connect, homeTiles, onHomeIsland, spotFor } from './testing';
 import { GATHER_RANGE, overlandPath } from './gathering';
+import { primaryCity } from './city';
 import type { Tile, World } from './types';
 
 function nearForest(world: World, kind: 'lodge' | 'woodcutter'): Tile | null {
@@ -42,7 +43,7 @@ describe('hunting', () => {
       stored = (world.buildings[1].stores.meat ?? 0) > 0;
     }
     expect(stored).toBe(true);
-    expect(world.produced).toBeGreaterThan(0);
+    expect(primaryCity(world).produced).toBeGreaterThan(0);
   });
 
   test('killed game respawns at home later', () => {

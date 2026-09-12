@@ -1,5 +1,6 @@
 import type { Animal, Building, Walker, World } from './types';
 import { footprint } from './catalog';
+import { primaryCity } from './city';
 import { buildable, islandFor, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import { accessTiles, footprintTiles, mapOf } from './grid';
 import { addStore, hasActiveWalker, sendCart, spawnWalker, totalStock } from './world';
@@ -155,14 +156,14 @@ export function gatherFinished(world: World, walker: Walker): boolean {
     if (prey && huntable(prey) && withinReach(map, walker, prey)) {
       walker.cargo = killAnimal(prey);
       walker.food = 'meat';
-      world.produced += walker.cargo;
+      primaryCity(world).produced += walker.cargo;
     }
     if (prey) prey.cornered = false;
   } else if (walker.quarry !== null && standingForest(world, map, walker.quarry)) {
     world.felled.push(walker.quarry);
     walker.cargo = LUMBER_PER_TREE;
     walker.food = 'lumber';
-    world.produced += walker.cargo;
+    primaryCity(world).produced += walker.cargo;
   }
   turnHome(walker);
   return false;

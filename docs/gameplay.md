@@ -12,7 +12,7 @@ Each one is a full `generateIsland` run on its own grid, stamped into the shared
 at a slot in a four-by-two layout with eighteen-tile channels; slot sizes and offsets
 are jittered from the seed, so the islands scatter rather than line up. Every island
 keeps its own harbour entry, and `islandAt(map, x, z)` says which island a tile
-belongs to. The default `map.home` is the most central island. `world.home` records the chosen
+belongs to. The default `map.home` is the most central island. `world.cities[0].home` records the chosen
 starting island; `islandFor(seed, home)` shares the generated terrain while providing
 that island's `map.home` and harbour `map.entry`. Choosing one home never changes
 another city's map.
@@ -20,7 +20,7 @@ another city's map.
 Islands never share a bounding box and each is a single landmass, so a road network
 can never leave the island it started on. The other seven are, for now, unclaimed
 ground: wildlife lives there, the player cannot yet build there. Building previews, single placements, and road
-strokes all refuse construction outside `world.home`, without spending money.
+strokes all refuse construction outside the city's home island, without spending money.
 Fertility overlays only highlight fields on the settled island. Older saves with
 outlying disconnected construction remain loadable, and those structures can still
 be demolished.
@@ -57,6 +57,15 @@ demolition, and vendor commands are refused. Version 7 saves the founding phase;
 older cities migrate as already founded. Pending saves cannot contain buildings,
 walkers, or advanced economic progress. The initial quick-start city remains
 pre-founded; Menu → New island uses the on-map founding flow.
+
+## One city, for now
+
+A `World` holds one shared map, roads, buildings and walkers, plus `cities: City[]` —
+each city's own `home`, `founded`, `money`, `harbour`, `produced` and `delivered`.
+Only a single city is supported today; `primaryCity(world)` in `src/sim/city.ts`
+names that transitional assumption at every call site that reads or writes city
+metadata. Saves are rejected if they contain anything other than exactly one city.
+Multiple, separately owned cities sharing one archipelago are future work.
 
 Nobody lives on the island yet — population only arrives once a dwelling is built
 and connected, by road, back to that entry. All eight islands on seeds 1 and 2 are tested
@@ -227,7 +236,7 @@ off-road paths.
 
 `src/sim/harbour.ts`. Every island starts with a harbour: a dockyard sited once, at
 `createWorld`, on buildable ground touching the starter road nearest the entry —
-`world.harbour`, not a placeable tool, and never demolishable. It begins unrebuilt
+the city's `harbour`, not a placeable tool, and never demolishable. It begins unrebuilt
 (`tier` 1): whenever a connected stockpile holds lumber, a porter carries up to a
 cartload to the harbour, the same way a farm cart reaches a granary. Once
 `HARBOUR_UPGRADE_LUMBER` (200) has arrived, the harbour rebuilds itself in stone
@@ -316,7 +325,11 @@ another building, and that every walker's path is a real, road-adjacent route
 rejected as unsupported rather than partially loaded. A valid save round-trips
 exactly, including walkers already mid-journey, which keep walking correctly after
 a reload. The harbour's site and progress (tier, stock, trade order, voyage) are preserved
-exactly. Version 6 validates the saved footprint rather than choosing another site
+exactly. Version 8 moves each city's `home`, `founded`, `money`, `harbour`,
+`produced` and `delivered` into `world.cities`, stripping the flat root copies;
+older saves migrate onto a single `cities[0]` without changing that economic or
+harbour state, and are rejected if they ever contain more than one city.
+Version 6 validates the saved footprint rather than choosing another site
 from the current road layout: demolishing roads cannot move the harbour on reload.
 Invalid sites and overlaps are rejected instead of silently relocated.
 Version 5 stores the chosen home island explicitly. Version-4 archipelago saves

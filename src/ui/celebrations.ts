@@ -1,4 +1,5 @@
 import { getSummary } from '../sim/world';
+import { primaryCity } from '../sim/city';
 import type { World } from '../sim/types';
 import type { SoundCue } from './sound';
 
@@ -13,7 +14,7 @@ export function cityMilestones(world: World): CityMilestones {
   const summary = getSummary(world);
   return {
     settled: summary.population > 0,
-    delivered: world.delivered > 0,
+    delivered: primaryCity(world).delivered > 0,
     courtyard: summary.prosperous > 0,
     thriving: summary.goal,
   };

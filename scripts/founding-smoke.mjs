@@ -27,7 +27,7 @@ try {
   await page.getByRole('button', { name: 'New island', exact: true }).click();
   await page.waitForFunction(() => window.oikos.state.seed === 2);
   await page.getByRole('button', { name: /pause/i }).first().click();
-  assert.equal((await state(page)).founded, false);
+  assert.equal((await state(page)).cities[0].founded, false);
   assert(await page.getByRole('button', { name: /^Dwelling,/ }).isDisabled());
   assert.match(await page.getByTestId('guide').textContent(), /Found your city/);
   await menuChoice(page, 'save');
@@ -36,7 +36,7 @@ try {
   await page.waitForFunction(() => document.body.dataset.ready === 'true');
   await page.getByRole('button', { name: /pause/i }).first().click();
   assert.deepEqual(await state(page), pending, 'Reload lost or advanced the unfinished founding');
-  for (const corruption of [{ roads: [] }, { money: pending.money + 1 }]) {
+  for (const corruption of [{ roads: [] }, { cities: [{ ...pending.cities[0], money: pending.cities[0].money + 1 }] }]) {
     await menuChoice(page, 'import');
     await page.getByTestId('import-file').setInputFiles({ name: 'invalid-founding.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ ...pending, ...corruption })) });
     await paint(page);
@@ -56,7 +56,7 @@ try {
     const entry = window.oikos.map.entry;
     for (let z = entry.z - 16; z < entry.z; z++) {
       for (let x = entry.x - 16; x <= entry.x + 16; x++) {
-        if (x === world.harbour.x && z === world.harbour.z) continue;
+        if (x === world.cities[0].harbour.x && z === world.cities[0].harbour.z) continue;
         if (window.oikos.foundingPlacement(x, z).ok) return { x, z };
       }
     }
@@ -71,11 +71,11 @@ try {
   await page.mouse.click(point.x, point.y);
   await paint(page);
   let founded = await state(page);
-  assert.equal(founded.founded, true);
-  assert.equal(founded.harbour.x, site.x);
-  assert.equal(founded.harbour.z, site.z);
-  assert.equal(founded.harbour.connected, true);
-  assert.equal(founded.money, pending.money);
+  assert.equal(founded.cities[0].founded, true);
+  assert.equal(founded.cities[0].harbour.x, site.x);
+  assert.equal(founded.cities[0].harbour.z, site.z);
+  assert.equal(founded.cities[0].harbour.connected, true);
+  assert.equal(founded.cities[0].money, pending.cities[0].money);
   assert.equal(await page.getByRole('button', { name: /^Dwelling,/ }).isDisabled(), false);
   await page.screenshot({ path: path.join(output, '02-founded.png') });
 
@@ -86,7 +86,7 @@ try {
   const restoredPoint = await pointAt(page, site);
   await page.mouse.click(restoredPoint.x, restoredPoint.y);
   await paint(page);
-  assert.equal((await state(page)).founded, true);
+  assert.equal((await state(page)).cities[0].founded, true);
   const built = await page.evaluate(() => window.oikos.buildPlan());
   assert(built.ok, built.reason);
   await page.evaluate(() => window.oikos.advance(180));
@@ -97,9 +97,9 @@ try {
   await page.waitForFunction(() => document.body.dataset.ready === 'true');
   await page.getByRole('button', { name: /pause/i }).first().click();
   const reloaded = await state(page);
-  assert.equal(reloaded.harbour.x, site.x);
-  assert.equal(reloaded.harbour.z, site.z);
-  assert(reloaded.delivered >= founded.delivered);
+  assert.equal(reloaded.cities[0].harbour.x, site.x);
+  assert.equal(reloaded.cities[0].harbour.z, site.z);
+  assert(reloaded.cities[0].delivered >= founded.cities[0].delivered);
   await page.screenshot({ path: path.join(output, '03-founded-city.png') });
   assert.deepEqual(errors, []);
   console.log('Founding smoke passed: preview, invalid sites, placement, pending saves, checkpoint restoration, and city growth.');

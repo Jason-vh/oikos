@@ -1,5 +1,6 @@
 import type { ActionResult, BuildingKind, Tile, World } from './types';
 import { footprint } from './catalog';
+import { primaryCity } from './city';
 import { buildable, islandFor, levelOn, terrainOn, tileIndexOn, type IslandMap } from './island';
 import { neighbours } from './grid';
 import { harbourTiles } from './harbour';
@@ -69,8 +70,8 @@ function frontDoor(kind: BuildingKind, x: number, z: number): Tile {
 }
 
 export function planStarterNeighbourhood(world: World): StarterPlan | null {
-  if (!world.founded) return null;
-  const map = islandFor(world.seed, world.home);
+  if (!primaryCity(world).founded) return null;
+  const map = islandFor(world.seed, primaryCity(world).home);
   const trial = structuredClone(world);
   const roads = new Set(trial.roads);
   const plan: StarterPlan = { buildings: [], roads: [] };

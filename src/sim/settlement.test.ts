@@ -5,6 +5,7 @@ import { canUndoConstruction } from './history';
 import { deserializeWorld, savedBeforeArchipelago, serializeWorld } from './save';
 import { buildStarterNeighbourhood } from './scenario';
 import { advance, createWorld, getSummary } from './world';
+import { primaryCity } from './city';
 
 for (let choice = 0; choice < ISLAND_COUNT * 2; choice++) {
   const seed = Math.floor(choice / ISLAND_COUNT) + 1;
@@ -13,15 +14,16 @@ for (let choice = 0; choice < ISLAND_COUNT * 2; choice++) {
     const world = createWorld(seed, home);
     const map = mapOf(world);
     const island = map.islands[home];
-    expect(world.home).toBe(home);
+    const city = primaryCity(world);
+    expect(city.home).toBe(home);
     expect(map.entry).toEqual(island.entry);
     expect(world.roads).toContain(entryTileIndex(world));
-    for (const tile of [...world.roads, ...footprintTiles(map, world.harbour)]) {
+    for (const tile of [...world.roads, ...footprintTiles(map, city.harbour)]) {
       const { x, z } = tileAtOn(map, tile);
       expect(islandAt(map, x, z)).toEqual(island);
       expect(terrainOn(map, x, z)).not.toBe('water');
     }
-    expect(world.harbour.connected).toBe(true);
+    expect(city.harbour.connected).toBe(true);
     expect(buildStarterNeighbourhood(world).ok).toBe(true);
     advance(world, 180);
     expect(getSummary(world).goal).toBe(true);
@@ -44,7 +46,7 @@ test('selecting a home shares terrain without changing another city or the defau
   expect(selected.level).toBe(original.level);
   expect(selected.entry).toEqual(original.islands[home].entry);
   expect(islandFor(1).entry).toEqual(originalEntry);
-  expect(createWorld(1).home).toBe(original.home);
+  expect(primaryCity(createWorld(1)).home).toBe(original.home);
   expect(canUndoConstruction(createWorld(1, home), createWorld(1))).toBe(false);
 });
 
@@ -57,7 +59,8 @@ test('invalid starting islands fail before founding a city', () => {
 test('current saves require a valid explicit starting island', () => {
   const raw = JSON.parse(serializeWorld(createWorld(1, 0)));
   for (const home of [undefined, null, -1, ISLAND_COUNT, 1.5, '0']) {
-    expect(deserializeWorld(JSON.stringify({ ...raw, home }))).toBeNull();
+    const cities = [{ ...raw.cities[0], home }];
+    expect(deserializeWorld(JSON.stringify({ ...raw, cities }))).toBeNull();
   }
 });
 
@@ -66,12 +69,13 @@ test('version 4 cities migrate to their original central island without changing
   expect(buildStarterNeighbourhood(world).ok).toBe(true);
   advance(world, 60);
   const raw = JSON.parse(serializeWorld(world));
-  raw.version = 4;
-  delete raw.home;
-  const saved = JSON.stringify(raw);
+  const { id: _id, ...flatCity } = raw.cities[0];
+  delete raw.cities;
+  const legacy = { ...raw, ...flatCity, version: 4 };
+  const saved = JSON.stringify(legacy);
   expect(savedBeforeArchipelago(saved)).toBe(false);
   expect(deserializeWorld(saved)).toEqual(world);
-  raw.version = 3;
-  expect(savedBeforeArchipelago(JSON.stringify(raw))).toBe(true);
-  expect(deserializeWorld(JSON.stringify(raw))).toBeNull();
+  legacy.version = 3;
+  expect(savedBeforeArchipelago(JSON.stringify(legacy))).toBe(true);
+  expect(deserializeWorld(JSON.stringify(legacy))).toBeNull();
 });

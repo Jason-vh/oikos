@@ -7,12 +7,14 @@ import { deserializeWorld, serializeWorld } from './save';
 import { buildStarterNeighbourhood } from './scenario';
 import type { World } from './types';
 import { advance, build, createWorld, demolish, getSummary, placement, placeRoadPath, setVendor } from './world';
+import { primaryCity } from './city';
 
 function alternateSite(world: World) {
   const { entry } = mapOf(world);
+  const harbour = primaryCity(world).harbour;
   for (let z = entry.z - FOUNDING_RANGE; z < entry.z; z++) {
     for (let x = entry.x - FOUNDING_RANGE; x <= entry.x + FOUNDING_RANGE; x++) {
-      if (x === world.harbour.x && z === world.harbour.z) continue;
+      if (x === harbour.x && z === harbour.z) continue;
       if (foundingPlacement(world, x, z).ok) return { x, z };
     }
   }
@@ -23,10 +25,11 @@ for (const seed of [1, 2]) {
   for (let home = 0; home < ISLAND_COUNT; home++) {
     test(`seed ${seed}, island ${home + 1} can be founded at its prepared site`, () => {
       const world = createWorld(seed, home, false);
-      expect(world.harbour.connected).toBe(false);
-      expect(foundHarbour(world, world.harbour.x, world.harbour.z).ok).toBe(true);
-      expect(world.founded).toBe(true);
-      expect(world.harbour.connected).toBe(true);
+      const city = primaryCity(world);
+      expect(city.harbour.connected).toBe(false);
+      expect(foundHarbour(world, city.harbour.x, city.harbour.z).ok).toBe(true);
+      expect(city.founded).toBe(true);
+      expect(city.harbour.connected).toBe(true);
       expect(buildStarterNeighbourhood(world).ok).toBe(true);
       advance(world, 180);
       expect(getSummary(world).goal).toBe(true);
@@ -37,12 +40,13 @@ for (const seed of [1, 2]) {
 test('founding can choose a different dockyard site, which survives saves and cannot move again', () => {
   const world = createWorld(2, 0, false);
   const site = alternateSite(world);
-  const money = world.money;
+  const money = primaryCity(world).money;
   expect(foundHarbour(world, site.x, site.z).ok).toBe(true);
-  expect(world.harbour.x).toBe(site.x);
-  expect(world.harbour.z).toBe(site.z);
-  expect(world.money).toBe(money);
-  expect(world.harbour.connected).toBe(true);
+  const city = primaryCity(world);
+  expect(city.harbour.x).toBe(site.x);
+  expect(city.harbour.z).toBe(site.z);
+  expect(city.money).toBe(money);
+  expect(city.harbour.connected).toBe(true);
   expect(deserializeWorld(serializeWorld(world))).toEqual(world);
   const before = serializeWorld(world);
   expect(foundHarbour(world, site.x + 1, site.z).ok).toBe(false);
@@ -84,21 +88,24 @@ test('an unfinished founding round-trips and rejects normal commands without adv
 
 test('unfinished saves must retain the prepared roads and starting treasury', () => {
   const world = createWorld(2, 7, false);
-  for (const money of [-1, 0, world.money + 1]) {
-    expect(deserializeWorld(serializeWorld({ ...world, money }))).toBeNull();
+  const startingMoney = primaryCity(world).money;
+  for (const money of [-1, 0, startingMoney + 1]) {
+    const cities = [{ ...primaryCity(world), money }];
+    expect(deserializeWorld(serializeWorld({ ...world, cities }))).toBeNull();
   }
   for (const roads of [[], world.roads.slice(1), [...world.roads, 0], [0, ...world.roads.slice(1)]]) {
     expect(deserializeWorld(serializeWorld({ ...world, roads }))).toBeNull();
   }
   const loaded = deserializeWorld(serializeWorld({ ...world, roads: [...world.roads].reverse() }));
   expect(loaded).not.toBeNull();
-  expect(foundHarbour(loaded!, loaded!.harbour.x, loaded!.harbour.z).ok).toBe(true);
+  const harbour = primaryCity(loaded!).harbour;
+  expect(foundHarbour(loaded!, harbour.x, harbour.z).ok).toBe(true);
 });
 
 test('saves cannot hide a populated or progressed city behind an unfinished founding', () => {
   const world = createWorld(2, 0);
   expect(buildStarterNeighbourhood(world).ok).toBe(true);
-  world.founded = false;
+  primaryCity(world).founded = false;
   expect(deserializeWorld(serializeWorld(world))).toBeNull();
   const pending = createWorld(2, 0, false);
   pending.time = 1;

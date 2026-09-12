@@ -1,10 +1,11 @@
 import type { Building, World } from './types';
 import { footprint } from './catalog';
+import { primaryCity } from './city';
 import { islandFor, insideMapOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import { doorTiles, roadStepAllowed, stairLayout } from './stairs';
 
 export function mapOf(world: World): IslandMap {
-  return islandFor(world.seed, world.home);
+  return islandFor(world.seed, primaryCity(world).home);
 }
 
 export function neighbours(map: IslandMap, tile: number): number[] {

@@ -1,5 +1,6 @@
 import type { BuildingKind, Rotation, Tile, World } from './types';
 import { BUILDINGS, footprint, VENDOR_COST } from './catalog';
+import { primaryCity } from './city';
 import { buildable, insideMapOn, levelOn, onHomeIsland, terrainOn, tileIndexOn, type IslandMap } from './island';
 import { bfsShortest, entryTileIndex, footprintTiles as buildingFootprintTiles, mapOf } from './grid';
 import { doorTiles, stairLayout } from './stairs';
@@ -16,7 +17,8 @@ export interface DemolitionPreview {
 
 function buildingOccupancy(map: IslandMap, world: World): Set<number> {
   const occupied = new Set<number>();
-  const buildings = world.founded ? [...world.buildings, world.harbour] : world.buildings;
+  const city = primaryCity(world);
+  const buildings = city.founded ? [...world.buildings, city.harbour] : world.buildings;
   for (const building of buildings) for (const tile of buildingFootprintTiles(map, building)) occupied.add(tile);
   return occupied;
 }

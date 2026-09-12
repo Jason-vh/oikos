@@ -8,6 +8,7 @@ import { STAIR_WIDTH } from '../art/stairs';
 import { roadHeight, stairLayout, STAIR_STEPS, type Stair } from '../sim/stairs';
 import { addRoadMark } from './road-marks';
 import type { Animal, AnimalKind, Building, BuildTool, Placement, Resource, Rotation, Tile, Walker, WalkerKind, World } from '../sim/types';
+import { primaryCity } from '../sim/city';
 import type { Stage } from './stage';
 import { IslandScenery } from './island';
 import { LogisticsOverlay, syncDisconnectedMark, syncHouseSupplies } from './logistics';
@@ -124,7 +125,8 @@ export class CityScene {
     }
     this.departures.length = 0;
     this.dust.clear();
-    const visibleBuildings = world.founded ? [...world.buildings, world.harbour] : world.buildings;
+    const city = primaryCity(world);
+    const visibleBuildings = city.founded ? [...world.buildings, city.harbour] : world.buildings;
     const ids = new Set(visibleBuildings.map((building) => building.id));
     for (const [id, entry] of this.buildings) {
       entry.construction?.settle();
@@ -142,7 +144,8 @@ export class CityScene {
   sync(world: World): void {
     this.lastWorld = world;
     this.roadModels(world);
-    const allBuildings = world.founded ? [...world.buildings, world.harbour] : world.buildings;
+    const city = primaryCity(world);
+    const allBuildings = city.founded ? [...world.buildings, city.harbour] : world.buildings;
     const ids = new Set(allBuildings.map((building) => building.id));
     const occupied = new Set(world.roads);
     for (const [id, entry] of this.buildings) {

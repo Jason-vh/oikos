@@ -106,13 +106,13 @@ try {
   await paint(page);
   const vendorButton = page.getByTestId('vendor-toggle');
   await expectVisible(vendorButton);
-  const before = (await state(page)).money;
+  const before = (await state(page)).cities[0].money;
   await vendorButton.click();
   await paint(page);
   world = await state(page);
   const agoraAfter = world.buildings.find((building) => building.id === agora.id);
   assert.equal(agoraAfter.vendorEnabled, true, 'Vendor not enabled');
-  assert.equal(before - world.money, 50, 'Vendor did not cost 50');
+  assert.equal(before - world.cities[0].money, 50, 'Vendor did not cost 50');
   assert(world.buildings.every((building) => building.connected), 'A building is disconnected');
   await page.screenshot({ path: path.join(output, '02-neighbourhood.png') });
 
@@ -123,7 +123,7 @@ try {
   for (let i = 0; i < 10 && !delivered; i++) {
     await advance(page, 60);
     world = await state(page);
-    delivered = world.delivered > 0;
+    delivered = world.cities[0].delivered > 0;
   }
   assert(delivered, 'No food was delivered within 12 simulated minutes');
   const roamer = world.walkers.find((walker) => walker.kind === 'vendor' || walker.kind === 'water' || walker.kind === 'maintenance');
@@ -136,7 +136,7 @@ try {
   await page.mouse.click(roamerPoint.x, roamerPoint.y);
   await paint(page);
   assert.match(await page.locator('[data-field="inspector-tier"]').textContent(), /vendor|carrier|caretaker/i, 'Clicking a walker did not inspect them');
-  assert(world.walkers.length > 0 || world.produced > 0, 'Nothing moved');
+  assert(world.walkers.length > 0 || world.cities[0].produced > 0, 'Nothing moved');
   await page.screenshot({ path: path.join(output, '03-first-deliveries.png') });
   let goal = false;
   for (let i = 0; i < 20 && !goal; i++) {
@@ -145,7 +145,7 @@ try {
   }
   world = await state(page);
   const courtyards = world.buildings.filter((building) => building.kind === 'house' && building.tier === 3 && building.residents > 0).length;
-  assert(goal, `Goal not met after 32 simulated minutes: courtyards=${courtyards}, balance=${(await summary(page)).balance}, money=${world.money}`);
+  assert(goal, `Goal not met after 32 simulated minutes: courtyards=${courtyards}, balance=${(await summary(page)).balance}, money=${world.cities[0].money}`);
   await expectChecked(page.locator('[data-milestone="courtyards"]'));
   await page.screenshot({ path: path.join(output, '04-thriving.png') });
 

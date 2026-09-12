@@ -1,5 +1,6 @@
 import type { ActionResult, Building, Stores, Tile, World } from './types';
 import { footprint } from './catalog';
+import { primaryCity } from './city';
 import { buildable, insideMapOn, islandFor, levelOn, terrainOn, tileIndexOn, type IslandMap } from './island';
 import { exitTile, findNearestConnected, footprintTiles } from './grid';
 import { addStore, spawnWalker, totalStock } from './world';
@@ -105,8 +106,9 @@ export function freshHarbour(seed: number, roads: number[], home?: number): Buil
 }
 
 export function harbourTiles(world: World): number[] {
-  if (!world.founded) return [];
-  return footprintTiles(islandFor(world.seed), world.harbour);
+  const city = primaryCity(world);
+  if (!city.founded) return [];
+  return footprintTiles(islandFor(world.seed), city.harbour);
 }
 
 export function validateHarbourProgress(raw: unknown): HarbourProgress | null {
@@ -122,7 +124,7 @@ export function validateHarbourProgress(raw: unknown): HarbourProgress | null {
 }
 
 function dispatchPorter(world: World): void {
-  const harbour = world.harbour;
+  const harbour = primaryCity(world).harbour;
   if (world.walkers.some((walker) => walker.kind === 'porter')) return;
   const room = HARBOUR_DOCK_CAP - totalStock(harbour);
   if (room <= 0) return;
@@ -148,7 +150,7 @@ function dispatchPorter(world: World): void {
 }
 
 export function updateHarbour(world: World, dt: number): void {
-  const harbour = world.harbour;
+  const harbour = primaryCity(world).harbour;
   if (!harbour.connected) return;
   if (harbour.progress > 0) {
     const next = harbour.progress + dt / HARBOUR_VOYAGE_SECONDS;
@@ -167,7 +169,7 @@ export function updateHarbour(world: World, dt: number): void {
   }
   if (!harbour.vendorEnabled) return;
   if (stock >= HARBOUR_MIN_CARGO) {
-    world.money += stock * HARBOUR_LUMBER_PRICE;
+    primaryCity(world).money += stock * HARBOUR_LUMBER_PRICE;
     addStore(harbour, 'lumber', -stock);
     harbour.progress = Math.min(.999, dt / HARBOUR_VOYAGE_SECONDS);
   } else {

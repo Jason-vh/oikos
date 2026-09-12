@@ -55,15 +55,21 @@ export interface Walker {
   quarry: number | null;
   working: number;
 }
-export interface World {
-  version: 7;
-  island: 'kalliste';
-  seed: number;
+export interface City {
+  id: number;
   home: number;
   founded: boolean;
+  money: number;
+  harbour: Building;
+  produced: number;
+  delivered: number;
+}
+export interface World {
+  version: 8;
+  island: 'kalliste';
+  seed: number;
   time: number;
   remainder: number;
-  money: number;
   nextId: number;
   roads: number[];
   buildings: Building[];
@@ -71,9 +77,7 @@ export interface World {
   wildlife: Animal[];
   felled: number[];
   regrowth: number;
-  produced: number;
-  delivered: number;
-  harbour: Building;
+  cities: City[];
 }
 export interface ActionResult { ok: boolean; reason: string; }
 export interface Placement extends ActionResult { cost: number; tiles: number[]; }

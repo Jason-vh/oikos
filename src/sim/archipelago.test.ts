@@ -3,6 +3,7 @@ import { generateArchipelago, ISLAND_COUNT, islandAt, islandFor, terrainOn } fro
 import { createWorld } from './world';
 import { bfsReachable } from './grid';
 import { homeIsland } from './testing';
+import { primaryCity } from './city';
 
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8];
 
@@ -85,8 +86,8 @@ test('a new city starts on the home island, reaching its own shore and no other'
       const z = (tile - x) / map.width;
       expect(islandAt(map, x, z)).toEqual(island);
     }
-    expect(world.harbour.x).toBeGreaterThanOrEqual(island.x);
-    expect(world.harbour.x).toBeLessThan(island.x + island.width);
+    expect(primaryCity(world).harbour.x).toBeGreaterThanOrEqual(island.x);
+    expect(primaryCity(world).harbour.x).toBeLessThan(island.x + island.width);
   }
 });
 

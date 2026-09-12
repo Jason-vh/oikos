@@ -1,4 +1,5 @@
-import type { ActionResult, Building, BuildTool, Food, Placement, Resource, Rotation, Stores, Summary, Tile, Walker, WalkerKind, World } from './types';
+import type { ActionResult, Building, BuildTool, City, Food, Placement, Resource, Rotation, Stores, Summary, Tile, Walker, WalkerKind, World } from './types';
+import { primaryCity } from './city';
 import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, STARTING_MONEY, VENDOR_COST, footprint, isFood } from './catalog';
 import { spawnWildlife, stepWildlife } from './wildlife';
 import { gatherArrival, gatherFinished, regrowForest, updateGatherer } from './gathering';
@@ -49,15 +50,21 @@ export const DEFAULT_SEED = 1;
 export function createWorld(seed = DEFAULT_SEED, home?: number, founded = true): World {
   const map = islandFor(seed, home);
   const roadList = landingRoads(map);
-  const world: World = {
-    version: 7,
-    island: 'kalliste',
-    seed,
+  const city: City = {
+    id: 1,
     home: map.home,
     founded,
+    money: STARTING_MONEY,
+    harbour: freshHarbour(seed, roadList, map.home),
+    produced: 0,
+    delivered: 0,
+  };
+  const world: World = {
+    version: 8,
+    island: 'kalliste',
+    seed,
     time: 0,
     remainder: 0,
-    money: STARTING_MONEY,
     nextId: 1,
     roads: roadList,
     buildings: [],
@@ -65,9 +72,7 @@ export function createWorld(seed = DEFAULT_SEED, home?: number, founded = true):
     wildlife: [],
     felled: [],
     regrowth: 0,
-    produced: 0,
-    delivered: 0,
-    harbour: freshHarbour(seed, roadList, map.home),
+    cities: [city],
   };
   world.wildlife = spawnWildlife(world);
   recomputeConnectivity(world);
@@ -75,7 +80,7 @@ export function createWorld(seed = DEFAULT_SEED, home?: number, founded = true):
 }
 
 function mapOf(world: World): IslandMap {
-  return islandFor(world.seed, world.home);
+  return islandFor(world.seed, primaryCity(world).home);
 }
 
 const REASON = {
@@ -99,7 +104,7 @@ const REASON = {
 } as const;
 
 function buildingAt(world: World, tile: number): Building | undefined {
-  if (harbourTiles(world).includes(tile)) return world.harbour;
+  if (harbourTiles(world).includes(tile)) return primaryCity(world).harbour;
   const map = mapOf(world);
   return world.buildings.find((building) => footprintTiles(map, building).includes(tile));
 }
@@ -160,7 +165,8 @@ function stairPlacementIssue(map: IslandMap, roads: ReadonlySet<number>, newTile
 }
 
 function evaluatePlacement(world: World, tool: BuildTool, x: number, z: number, rotation: Rotation): Placement {
-  if (!world.founded) return { ok: false, reason: REASON.foundingRequired, cost: 0, tiles: [] };
+  const city = primaryCity(world);
+  if (!city.founded) return { ok: false, reason: REASON.foundingRequired, cost: 0, tiles: [] };
   const map = mapOf(world);
   if (tool === 'road') {
     if (!insideMapOn(map, x, z)) return { ok: false, reason: REASON.outOfBounds, cost: 0, tiles: [] };
@@ -177,7 +183,7 @@ function evaluatePlacement(world: World, tool: BuildTool, x: number, z: number, 
       if (issue) return { ok: false, reason: stairReason(issue), cost: 0, tiles: [tile] };
     }
     const cost = already ? 0 : ROAD_COST;
-    if (cost > world.money) return { ok: false, reason: REASON.notEnoughMoney, cost, tiles: [tile] };
+    if (cost > city.money) return { ok: false, reason: REASON.notEnoughMoney, cost, tiles: [tile] };
     return { ok: true, reason: '', cost, tiles: [tile] };
   }
 
@@ -204,7 +210,7 @@ function evaluatePlacement(world: World, tool: BuildTool, x: number, z: number, 
     if (world.roads.includes(tile)) return { ok: false, reason: REASON.tileOccupiedByRoad, cost: definition.cost, tiles };
     if (buildingAt(world, tile)) return { ok: false, reason: REASON.tileOccupied, cost: definition.cost, tiles };
   }
-  if (definition.cost > world.money) return { ok: false, reason: REASON.notEnoughMoney, cost: definition.cost, tiles };
+  if (definition.cost > city.money) return { ok: false, reason: REASON.notEnoughMoney, cost: definition.cost, tiles };
   return { ok: true, reason: '', cost: definition.cost, tiles };
 }
 
@@ -217,7 +223,7 @@ export function build(world: World, tool: BuildTool, x: number, z: number, rotat
   if (!result.ok) return result;
   const beforeStairs = stairLayout(mapOf(world), new Set(world.roads));
 
-  world.money -= result.cost;
+  primaryCity(world).money -= result.cost;
   let reason: string;
   if (tool === 'road') {
     const tile = result.tiles[0];
@@ -253,7 +259,8 @@ export function build(world: World, tool: BuildTool, x: number, z: number, rotat
 }
 
 function evaluateRoadPath(world: World, tiles: Tile[]): Placement {
-  if (!world.founded) return { ok: false, reason: REASON.foundingRequired, cost: 0, tiles: [] };
+  const city = primaryCity(world);
+  if (!city.founded) return { ok: false, reason: REASON.foundingRequired, cost: 0, tiles: [] };
   const map = mapOf(world);
   const seen = new Set<number>();
   const indices: number[] = [];
@@ -280,7 +287,7 @@ function evaluateRoadPath(world: World, tiles: Tile[]): Placement {
     if (issue) return { ok: false, reason: stairReason(issue), cost, tiles: indices };
   }
 
-  if (cost > world.money) return { ok: false, reason: REASON.notEnoughMoney, cost, tiles: indices };
+  if (cost > city.money) return { ok: false, reason: REASON.notEnoughMoney, cost, tiles: indices };
   return { ok: true, reason: '', cost, tiles: indices };
 }
 
@@ -294,7 +301,7 @@ export function placeRoadPath(world: World, tiles: Tile[]): ActionResult {
   const beforeStairs = stairLayout(mapOf(world), new Set(world.roads));
 
   const existing = new Set(world.roads);
-  world.money -= result.cost;
+  primaryCity(world).money -= result.cost;
   for (const tile of result.tiles) if (!existing.has(tile)) world.roads.push(tile);
   recomputeConnectivity(world);
   dropInvalidWalkers(world, beforeStairs);
@@ -302,7 +309,7 @@ export function placeRoadPath(world: World, tiles: Tile[]): ActionResult {
 }
 
 export function demolish(world: World, x: number, z: number): ActionResult {
-  if (!world.founded) return { ok: false, reason: REASON.foundingRequired };
+  if (!primaryCity(world).founded) return { ok: false, reason: REASON.foundingRequired };
   const map = mapOf(world);
   if (!insideMapOn(map, x, z)) return { ok: false, reason: REASON.outOfBounds };
   const tile = tileIndexOn(map, x, z);
@@ -311,7 +318,7 @@ export function demolish(world: World, x: number, z: number): ActionResult {
   if (building) {
     if (building.kind === 'harbour') return { ok: false, reason: REASON.harbourPermanent };
     const refund = Math.floor((BUILDINGS[building.kind].cost + (building.vendorInstalled ? VENDOR_COST : 0)) / 2);
-    world.money += refund;
+    primaryCity(world).money += refund;
     removeBuilding(world, building.id);
     recomputeConnectivity(world);
     return { ok: true, reason: `Demolished, ${refund} drachmas refunded.` };
@@ -381,8 +388,9 @@ export function dropInvalidWalkers(world: World, beforeStairs?: ReadonlyMap<numb
 }
 
 export function setVendor(world: World, id: number, enabled: boolean): ActionResult {
-  if (!world.founded) return { ok: false, reason: REASON.foundingRequired };
-  if (id === world.harbour.id) return setHarbourTrade(world.harbour, enabled);
+  const city = primaryCity(world);
+  if (!city.founded) return { ok: false, reason: REASON.foundingRequired };
+  if (id === city.harbour.id) return setHarbourTrade(city.harbour, enabled);
   const building = world.buildings.find((candidate) => candidate.id === id);
   if (!building) return { ok: false, reason: REASON.noSuchBuilding };
   if (building.kind !== 'agora') return { ok: false, reason: REASON.onlyAgoraHostsVendor };
@@ -393,8 +401,8 @@ export function setVendor(world: World, id: number, enabled: boolean): ActionRes
   }
   if (building.vendorEnabled) return { ok: true, reason: 'Vendor already active.' };
   if (!building.vendorInstalled) {
-    if (world.money < VENDOR_COST) return { ok: false, reason: REASON.notEnoughMoney };
-    world.money -= VENDOR_COST;
+    if (city.money < VENDOR_COST) return { ok: false, reason: REASON.notEnoughMoney };
+    city.money -= VENDOR_COST;
     building.vendorInstalled = true;
     building.vendorEnabled = true;
     return { ok: true, reason: 'Food vendor added.' };
@@ -411,7 +419,8 @@ export function recomputeConnectivity(world: World): void {
   for (const building of world.buildings) {
     building.connected = accessDoors(map, roads, building).some((tile) => reachable.has(tile));
   }
-  world.harbour.connected = world.founded && accessDoors(map, roads, world.harbour).some((tile) => reachable.has(tile));
+  const city = primaryCity(world);
+  city.harbour.connected = city.founded && accessDoors(map, roads, city.harbour).some((tile) => reachable.has(tile));
 }
 
 export function totalStock(building: Building): number {
@@ -471,7 +480,7 @@ function updateFarm(world: World, farm: Building, dt: number): void {
     if (farm.progress >= 1) {
       farm.progress -= 1;
       addStore(farm, 'wheat', Math.min(HARVEST_UNITS, FARM_STOCK_CAP - totalStock(farm)));
-      world.produced += HARVEST_UNITS;
+      primaryCity(world).produced += HARVEST_UNITS;
     }
   }
 
@@ -612,7 +621,7 @@ function serviceTileVisit(world: World, walker: Walker): void {
       if (deliver <= 0) continue;
       building.food += deliver;
       walker.cargo -= deliver;
-      world.delivered += deliver;
+      primaryCity(world).delivered += deliver;
     } else if (walker.kind === 'water') {
       if (building.kind !== 'house') continue;
       building.water = HOUSE_WATER_CAP;
@@ -653,7 +662,7 @@ function onFinalArrival(world: World, walker: Walker): boolean {
   }
   if (walker.kind === 'porter') {
     if (walker.returning) return true;
-    const harbour = world.harbour;
+    const harbour = primaryCity(world).harbour;
     if (walker.food) {
       const deliver = Math.min(walker.cargo, storeCapacity(harbour) - totalStock(harbour));
       addStore(harbour, walker.food, deliver);
@@ -802,7 +811,7 @@ function tickHouse(world: World, house: Building, dt: number): void {
 
 function updateFinances(world: World, dt: number): void {
   const summary = getSummary(world);
-  world.money += summary.balance * (dt / MONTH_SECONDS);
+  primaryCity(world).money += summary.balance * (dt / MONTH_SECONDS);
 }
 
 function simulationStep(world: World, dt: number): void {
@@ -826,7 +835,7 @@ function simulationStep(world: World, dt: number): void {
 }
 
 export function advance(world: World, seconds: number): void {
-  if (!world.founded) return;
+  if (!primaryCity(world).founded) return;
   world.remainder += seconds;
   while (world.remainder >= STEP) {
     world.remainder -= STEP;
@@ -847,7 +856,8 @@ export function getSummary(world: World): Summary {
   const upkeep = workplaces.reduce((sum, building) => sum + BUILDINGS[building.kind].upkeep, 0);
   const balance = income - upkeep;
   const prosperous = houses.filter((house) => house.tier === 3 && house.residents > 0).length;
-  const goal = prosperous >= 4 && balance >= 0 && world.produced > 0 && world.delivered > 0;
+  const city = primaryCity(world);
+  const goal = prosperous >= 4 && balance >= 0 && city.produced > 0 && city.delivered > 0;
   return { population, workers, jobs, food, income, upkeep, balance, prosperous, goal };
 }
 

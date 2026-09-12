@@ -32,11 +32,11 @@ try {
   await page.waitForFunction(() => document.body.dataset.ready === 'true');
   await page.getByRole('button', { name: /pause/i }).first().click();
   const loaded = await page.evaluate(() => window.oikos.state);
-  assert.equal(loaded.harbour.x, original.harbour.x, 'Harbour moved horizontally on reload');
-  assert.equal(loaded.harbour.z, original.harbour.z, 'Harbour moved vertically on reload');
-  assert.equal(loaded.harbour.connected, false);
+  assert.equal(loaded.cities[0].harbour.x, original.cities[0].harbour.x, 'Harbour moved horizontally on reload');
+  assert.equal(loaded.cities[0].harbour.z, original.cities[0].harbour.z, 'Harbour moved vertically on reload');
+  assert.equal(loaded.cities[0].harbour.connected, false);
   assert.deepEqual(loaded.roads, saved.roads);
-  assert.equal(loaded.money, saved.money);
+  assert.equal(loaded.cities[0].money, saved.cities[0].money);
   assert.deepEqual(errors, []);
   console.log('Harbour site smoke passed: removing the entry road cannot move the saved harbour.');
 } finally {

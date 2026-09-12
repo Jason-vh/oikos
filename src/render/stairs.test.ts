@@ -4,6 +4,7 @@ import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, soleIsland, tileAtOn, worldPositionO
 import { STAIR_WIDTH } from '../art/stairs';
 import { roadHeight, stairLayout } from '../sim/stairs';
 import { createWorld } from '../sim/world';
+import { primaryCity } from '../sim/city';
 import type { Walker } from '../sim/types';
 import { CityScene } from './city';
 import type { Stage } from './stage';
@@ -91,7 +92,7 @@ test('actual treads, risers and cut walls are pickable from every side', () => {
 test('walkers follow the full-cell profile in both directions, including interpolated frames', () => {
   const { city, map, world, scene, stairs, renders } = fixture();
   const before = new Set(scene.children);
-  const walker: Walker = { id: 9876, kind: 'immigrant', homeId: world.harbour.id, targetId: null, path: [11, 12, 13], step: 0, progress: 0, food: null, cargo: 0, returning: false, overland: [], quarry: null, working: 0 };
+  const walker: Walker = { id: 9876, kind: 'immigrant', homeId: primaryCity(world).harbour.id, targetId: null, path: [11, 12, 13], step: 0, progress: 0, food: null, cargo: 0, returning: false, overland: [], quarry: null, working: 0 };
   world.walkers.push(walker);
   city.sync(world);
   const model = scene.children.find((child) => !before.has(child))!;

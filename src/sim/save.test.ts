@@ -5,6 +5,7 @@ import { advance, build, createWorld } from './world';
 import { buildStarterNeighbourhood } from './scenario';
 import { islandFor, tileIndexOn } from './island';
 import { connect, homeTiles, onHomeIsland, spotFor, slopeFixture, SLOPE_SEED } from './testing';
+import { primaryCity } from './city';
 import { roadStepAllowed, stairLayout } from './stairs';
 import type { Walker } from './types';
 
@@ -55,7 +56,7 @@ describe('round trip', () => {
     advance(reloaded, 200);
 
     expect(reloaded.time).toBe(world.time);
-    expect(reloaded.money).toBeCloseTo(world.money, 6);
+    expect(primaryCity(reloaded).money).toBeCloseTo(primaryCity(world).money, 6);
     expect(reloaded.buildings).toEqual(world.buildings);
     expect(reloaded.walkers).toEqual(world.walkers);
   });
@@ -68,9 +69,9 @@ describe('round trip', () => {
 
   test('preserves a negative treasury', () => {
     const world = createWorld();
-    world.money = -75;
+    primaryCity(world).money = -75;
     const restored = deserializeWorld(serializeWorld(world));
-    expect(restored?.money).toBe(-75);
+    expect(restored && primaryCity(restored).money).toBe(-75);
   });
 });
 
@@ -163,7 +164,7 @@ describe('corruption rejection', () => {
   test('rejects a non-finite number', () => {
     const world = advancedWorld();
     const raw = JSON.parse(serializeWorld(world));
-    raw.money = 'a lot';
+    raw.cities[0].money = 'a lot';
     expect(deserializeWorld(JSON.stringify(raw))).toBeNull();
   });
 

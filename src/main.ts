@@ -7,6 +7,7 @@ import { demolitionPreview, footprintTileIssues, harbourRoute, suitableFarmGroun
 import { CELL_SIZE, groundHeight, islandFor, terrainOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
 import { roadHeight, stairLayout } from './sim/stairs';
 import { advance, build, buildingStatus, createWorld, DEFAULT_SEED, demolish, getSummary, placement, placeRoadPath, roadPathPlacement, setVendor, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
+import { primaryCity } from './sim/city';
 import { deserializeWorld, savedBeforeArchipelago, serializeWorld } from './sim/save';
 import { animalName, animalStatus } from './sim/wildlife';
 import { buildStarterNeighbourhood, planStarterNeighbourhood } from './sim/scenario';
@@ -45,11 +46,11 @@ function boot(): void {
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const stage = new Stage(document.querySelector<HTMLElement>('#app')!, false);
   stage.reducedMotion = reducedMotion;
-  let city = new CityScene(stage, islandFor(world.seed, world.home), !reducedMotion);
-  let overlay = new ConstructionOverlay(stage, islandFor(world.seed, world.home));
+  let city = new CityScene(stage, islandFor(world.seed, primaryCity(world).home), !reducedMotion);
+  let overlay = new ConstructionOverlay(stage, islandFor(world.seed, primaryCity(world).home));
   const map = () => city.map;
   function viewFor(seed: number): { target: number[]; offset: number[]; size: number } {
-    const island = islandFor(seed, world.home);
+    const island = islandFor(seed, primaryCity(world).home);
     const harbour = worldPositionOn(island, island.entry.x + .5, island.entry.z - 7);
     return { target: [harbour.x, GROUND_Y, harbour.z], offset: [35, 38, 48], size: 36 };
   }
@@ -60,16 +61,16 @@ function boot(): void {
   stage.bounds(seaBounds(world.seed));
   stage.setView(viewFor(world.seed));
   try {
-    const saved = parseView(localStorage.getItem(VIEW_KEY), world.seed, world.home);
+    const saved = parseView(localStorage.getItem(VIEW_KEY), world.seed, primaryCity(world).home);
     if (saved) stage.setView(saved);
   } catch {}
   function rebuildScene(): void {
     city.dispose();
     stage.bounds(seaBounds(world.seed));
-    city = new CityScene(stage, islandFor(world.seed, world.home), !reducedMotion);
+    city = new CityScene(stage, islandFor(world.seed, primaryCity(world).home), !reducedMotion);
     city.watch(stage.controls.target, stage.viewSpan());
     overlay.dispose();
-    overlay = new ConstructionOverlay(stage, islandFor(world.seed, world.home));
+    overlay = new ConstructionOverlay(stage, islandFor(world.seed, primaryCity(world).home));
     stage.setView(viewFor(world.seed));
     stage.shadows();
   }
@@ -95,7 +96,8 @@ function boot(): void {
   const panVelocity = { right: 0, forward: 0 };
 
   function refresh(): void {
-    const selected = world.buildings.find((building) => building.id === selectedId) ?? (world.harbour.id === selectedId ? world.harbour : null);
+    const homeCity = primaryCity(world);
+    const selected = world.buildings.find((building) => building.id === selectedId) ?? (homeCity.harbour.id === selectedId ? homeCity.harbour : null);
     const walker = selected ? null : world.walkers.find((candidate) => candidate.id === selectedId) ?? null;
     const animal = selected || walker ? null : world.wildlife.find((candidate) => candidate.id === selectedId) ?? null;
     city.sync(world);
@@ -105,7 +107,7 @@ function boot(): void {
     else if (animal) hud.update(world, getSummary(world), { kind: 'person', name: animalName(animal), role: 'Wildlife', status: animalStatus(animal) });
     else if (selected) hud.update(world, getSummary(world), { kind: 'building', building: selected, status: buildingStatus(world, selected) });
     else hud.update(world, getSummary(world), null);
-    const debt = world.money < 0;
+    const debt = primaryCity(world).money < 0;
     if (debt && !inDebt) hud.notify('The treasury is in debt: upkeep outweighs income.', true);
     inDebt = debt;
     const nextMilestones = cityMilestones(world);
@@ -119,7 +121,7 @@ function boot(): void {
   }
 
   function selectTool(next: Tool): void {
-    if (!world.founded && next !== 'inspect') {
+    if (!primaryCity(world).founded && next !== 'inspect') {
       hud.notify('Place your founding harbour first.', true);
       return;
     }
@@ -127,14 +129,14 @@ function boot(): void {
     drag = null;
     hud.setTool(tool, rotation);
     stage.controls.touches.ONE = tool === 'inspect' ? T.TOUCH.ROTATE : null;
-    city.scenery.grid.visible = !world.founded || showGrid || tool !== 'inspect';
+    city.scenery.grid.visible = !primaryCity(world).founded || showGrid || tool !== 'inspect';
     updatePreview();
     stage.invalidate();
   }
 
   function setGrid(enabled: boolean): void {
     showGrid = enabled;
-    city.scenery.grid.visible = !world.founded || enabled || tool !== 'inspect';
+    city.scenery.grid.visible = !primaryCity(world).founded || enabled || tool !== 'inspect';
     hud.setGrid(enabled);
     stage.invalidate();
   }
@@ -162,7 +164,7 @@ function boot(): void {
 
   function restore(saved: typeof world): void {
     const previousSeed = world.seed;
-    const previousHome = world.home;
+    const previousHome = primaryCity(world).home;
     world = saved;
     undoCheckpoint = null;
     milestones = cityMilestones(world);
@@ -171,7 +173,7 @@ function boot(): void {
     accumulator = 0;
     dirtySave = true;
     autoSaveEnabled = true;
-    if (world.seed !== previousSeed || world.home !== previousHome) rebuildScene();
+    if (world.seed !== previousSeed || primaryCity(world).home !== previousHome) rebuildScene();
     else city.reload(world);
     selectTool('inspect');
     setSpeed(0);
@@ -219,7 +221,7 @@ function boot(): void {
       setSpeed(1);
       refresh();
       save(false);
-      hud.notify(`Island ${world.home + 1} awaits. Place your harbour beside the landing road.`);
+      hud.notify(`Island ${primaryCity(world).home + 1} awaits. Place your harbour beside the landing road.`);
     },
     vendor: (id, enabled) => apply(setVendor(world, id, enabled)),
     focus: (x, z) => { const point = worldPositionOn(map(), x + .5, z + .5); stage.focus(point.x, point.z); },
@@ -345,8 +347,8 @@ function boot(): void {
   }
 
   function updatePreview(pointer: { x: number; y: number } | null = null): void {
-    if (!world.founded) {
-      const site = hover ?? world.harbour;
+    if (!primaryCity(world).founded) {
+      const site = hover ?? primaryCity(world).harbour;
       const preview = foundingPlacement(world, site.x, site.z);
       city.showPreview('harbour', site.x, site.z, 0, preview);
       city.clearHover();
@@ -426,11 +428,11 @@ function boot(): void {
     hover = atPointer(event);
     const moved = Math.hypot(event.clientX - drag.x, event.clientY - drag.y);
     if (hover && (tool === 'road' || moved < 9)) {
-      if (!world.founded) {
+      if (!primaryCity(world).founded) {
         const result = foundHarbour(world, hover.x, hover.z);
         apply(result);
         if (result.ok) {
-          selectedId = world.harbour.id;
+          selectedId = primaryCity(world).harbour.id;
           selectTool('inspect');
           refresh();
           save(false);
@@ -556,7 +558,7 @@ function boot(): void {
   }
   document.addEventListener('visibilitychange', () => { previous = 0; if (!document.hidden) stage.invalidate(); });
   function saveView(): void {
-    try { localStorage.setItem(VIEW_KEY, JSON.stringify({ seed: world.seed, home: world.home, view: stage.getView() })); } catch {}
+    try { localStorage.setItem(VIEW_KEY, JSON.stringify({ seed: world.seed, home: primaryCity(world).home, view: stage.getView() })); } catch {}
   }
   window.addEventListener('pagehide', () => { if (dirtySave) save(false); saveView(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) saveView(); });

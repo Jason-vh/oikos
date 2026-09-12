@@ -1,10 +1,14 @@
 import { advance } from './world';
+import { primaryCity } from './city';
 import type { World } from './types';
 
 export const UNDO_SECONDS = 15;
 
 export function canUndoConstruction(world: World, checkpoint: World | null): checkpoint is World {
-  if (!checkpoint || checkpoint.seed !== world.seed || checkpoint.home !== world.home || checkpoint.founded !== world.founded || checkpoint.version !== world.version) return false;
+  if (!checkpoint) return false;
+  const city = primaryCity(world);
+  const checkpointCity = primaryCity(checkpoint);
+  if (checkpoint.seed !== world.seed || checkpointCity.home !== city.home || checkpointCity.founded !== city.founded || checkpoint.version !== world.version) return false;
   const elapsed = world.time - checkpoint.time;
   return elapsed >= 0 && elapsed <= UNDO_SECONDS;
 }
