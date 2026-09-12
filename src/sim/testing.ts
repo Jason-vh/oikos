@@ -1,4 +1,4 @@
-import type { ActionResult, Building, BuildingKind, BuildTool, Rotation, Tile, World } from './types';
+import type { ActionResult, Building, BuildingKind, BuildTool, City, Rotation, Tile, World } from './types';
 import { footprint } from './catalog';
 import { buildable, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn, type IslandMap, type IslandPlacement } from './island';
 import { mapOf as gridMapOf, neighbours, perimeterTiles, footprintTiles } from './grid';
@@ -15,9 +15,9 @@ export function homeIsland(world: World): IslandPlacement {
   return map.islands[map.home];
 }
 
-export function homeTiles(world: World, predicate: (map: IslandMap, x: number, z: number) => boolean): Tile[] {
-  const map = mapOf(world);
-  const island = homeIsland(world);
+export function homeTilesInCity(world: World, city: City, predicate: (map: IslandMap, x: number, z: number) => boolean): Tile[] {
+  const map = gridMapOf(world, city);
+  const island = map.islands[city.home];
   const tiles: Tile[] = [];
   for (let z = island.z; z < island.z + island.depth; z++) {
     for (let x = island.x; x < island.x + island.width; x++) {
@@ -27,13 +27,17 @@ export function homeTiles(world: World, predicate: (map: IslandMap, x: number, z
   return tiles;
 }
 
+export function homeTiles(world: World, predicate: (map: IslandMap, x: number, z: number) => boolean): Tile[] {
+  return homeTilesInCity(world, primaryCity(world), predicate);
+}
+
 export function onHomeIsland(world: World, x: number, z: number): boolean {
   const island = homeIsland(world);
   return x >= island.x && z >= island.z && x < island.x + island.width && z < island.z + island.depth;
 }
 
-export function findTile(world: World, predicate: (map: IslandMap, x: number, z: number) => boolean, near?: Tile): Tile | null {
-  const map = mapOf(world);
+function findTileInCity(world: World, city: City, predicate: (map: IslandMap, x: number, z: number) => boolean, near?: Tile): Tile | null {
+  const map = gridMapOf(world, city);
   const centre = near ?? map.entry;
   const reach = Math.max(map.width, map.depth);
   for (let radius = 0; radius <= reach; radius++) {
@@ -50,9 +54,16 @@ export function findTile(world: World, predicate: (map: IslandMap, x: number, z:
   return null;
 }
 
+export function findTile(world: World, predicate: (map: IslandMap, x: number, z: number) => boolean, near?: Tile): Tile | null {
+  return findTileInCity(world, primaryCity(world), predicate, near);
+}
+
+export function spotForInCity(world: World, city: City, kind: BuildTool, near?: Tile, rotation: Rotation = 0): Tile | null {
+  return findTileInCity(world, city, (_map, x, z) => placement(world, city, kind, x, z, rotation).ok, near);
+}
+
 export function spotFor(world: World, kind: BuildTool, near?: Tile, rotation: Rotation = 0): Tile | null {
-  const city = primaryCity(world);
-  return findTile(world, (_map, x, z) => placement(world, city, kind, x, z, rotation).ok, near);
+  return spotForInCity(world, primaryCity(world), kind, near, rotation);
 }
 
 export function freshRoadSpot(world: World, near?: Tile): Tile | null {
@@ -115,13 +126,13 @@ export function unevenFootprint(world: World, kind: BuildingKind, rotation: Rota
   return null;
 }
 
-function passableForRoad(world: World, map: IslandMap, roads: Set<number>, tile: number): boolean {
+function passableForRoad(world: World, city: City, map: IslandMap, roads: Set<number>, tile: number): boolean {
   if (roads.has(tile)) return true;
-  if (harbourTiles(world, primaryCity(world)).includes(tile)) return false;
+  if (harbourTiles(world, city).includes(tile)) return false;
   const { x, z } = tileAtOn(map, tile);
   const terrain = terrainOn(map, x, z);
   if (!(buildable(terrain) || terrain === 'forest')) return false;
-  return !primaryCity(world).buildings.some((candidate) => footprintTiles(map, candidate).includes(tile));
+  return !city.buildings.some((candidate) => footprintTiles(map, candidate).includes(tile));
 }
 
 function reconstruct(cameFrom: Map<number, number>, goal: number): number[] {
@@ -134,9 +145,9 @@ function reconstruct(cameFrom: Map<number, number>, goal: number): number[] {
   return path.reverse();
 }
 
-function routeToRoad(world: World, map: IslandMap, roads: Set<number>, start: number): number[] | null {
+function routeToRoad(world: World, city: City, map: IslandMap, roads: Set<number>, start: number): number[] | null {
   if (roads.has(start)) return [start];
-  if (!passableForRoad(world, map, roads, start)) return null;
+  if (!passableForRoad(world, city, map, roads, start)) return null;
   const cameFrom = new Map<number, number>([[start, -1]]);
   const queue = [start];
   let head = 0;
@@ -144,7 +155,7 @@ function routeToRoad(world: World, map: IslandMap, roads: Set<number>, start: nu
     const current = queue[head++];
     const { x, z } = tileAtOn(map, current);
     for (const next of neighbours(map, current)) {
-      if (cameFrom.has(next) || !passableForRoad(world, map, roads, next)) continue;
+      if (cameFrom.has(next) || !passableForRoad(world, city, map, roads, next)) continue;
       const { x: nx, z: nz } = tileAtOn(map, next);
       if (levelOn(map, nx, nz) !== levelOn(map, x, z)) continue;
       cameFrom.set(next, current);
@@ -155,17 +166,20 @@ function routeToRoad(world: World, map: IslandMap, roads: Set<number>, start: nu
   return null;
 }
 
-export function connect(world: World, building: Building): ActionResult {
-  const city = primaryCity(world);
-  const map = mapOf(world);
+export function connectInCity(world: World, city: City, building: Building): ActionResult {
+  const map = gridMapOf(world, city);
   const roads = new Set(city.roads);
   let best: number[] | null = null;
   for (const start of perimeterTiles(map, building)) {
-    const path = routeToRoad(world, map, roads, start);
+    const path = routeToRoad(world, city, map, roads, start);
     if (path && (!best || path.length < best.length)) best = path;
   }
   if (!best) return { ok: false, reason: 'No route to the road network.' };
   return placeRoadPath(world, city, best.map((tile) => tileAtOn(map, tile)));
+}
+
+export function connect(world: World, building: Building): ActionResult {
+  return connectInCity(world, primaryCity(world), building);
 }
 
 export function isolatedRoadPair(world: World, near: Tile): [Tile, Tile] | null {

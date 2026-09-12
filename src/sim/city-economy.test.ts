@@ -1,22 +1,40 @@
 import { describe, expect, test } from 'bun:test';
-import { advance, build, createWorld, getSummary } from './world';
+import { advance, build, createWorld, getSummary, placement, recomputeConnectivity, totalStock } from './world';
 import { primaryCity } from './city';
 import { buildStarterNeighbourhood } from './scenario';
-import { connect, homeTiles, spotFor } from './testing';
+import { connectInCity, homeTilesInCity, spotForInCity } from './testing';
 import { serializeWorld, deserializeWorld } from './save';
-import { ISLAND_COUNT, islandFor, terrainOn, tileIndexOn } from './island';
+import { ISLAND_COUNT, islandFor, landingRoads, terrainOn, tileIndexOn } from './island';
+import { STARTING_MONEY } from './catalog';
+import { freshHarbour } from './harbour';
 import { STEP } from './balance';
 import { GATHER_RANGE, REGROW_SECONDS } from './gathering';
-import type { City, Tile } from './types';
+import type { City, Tile, World } from './types';
+
+function foundSecondCity(world: World, home: number, founded = true): City {
+  const map = islandFor(world.seed, home);
+  const city: City = {
+    id: world.nextId++,
+    home: map.home,
+    founded,
+    money: STARTING_MONEY,
+    harbour: { ...freshHarbour(world.seed, landingRoads(map), map.home), id: world.nextId++ },
+    produced: 0,
+    delivered: 0,
+    roads: landingRoads(map),
+    buildings: [],
+    walkers: [],
+  };
+  world.cities.push(city);
+  recomputeConnectivity(world, city);
+  return city;
+}
 
 function foundedTwoCityWorld(seed = 1) {
   const world = createWorld(seed, 0);
   const city1 = primaryCity(world);
   const otherHome = (city1.home + 1) % ISLAND_COUNT;
-  const other = createWorld(seed, otherHome);
-  const city2: City = { ...primaryCity(other), id: city1.id + 1 };
-  city2.harbour = { ...city2.harbour, id: world.nextId++ };
-  world.cities.push(city2);
+  const city2 = foundSecondCity(world, otherHome);
   return { world, city1, city2 };
 }
 
@@ -82,11 +100,24 @@ describe('two founded cities in one World', () => {
   test('forest regrowth protects a felled tile occupied by any city\'s road, not only the primary city\'s', () => {
     const { world, city1, city2 } = foundedTwoCityWorld();
     const map = islandFor(world.seed);
+
+    const city2Forest = homeTilesInCity(world, city2, (candidateMap, x, z) => terrainOn(candidateMap, x, z) === 'forest');
+    const protectedSpot = city2Forest.find((tile) => placement(world, city2, 'road', tile.x, tile.z).ok);
+    expect(protectedSpot).not.toBeUndefined();
+    expect(build(world, city2, 'road', protectedSpot!.x, protectedSpot!.z).ok).toBe(true);
+    const protectedTile = tileIndexOn(map, protectedSpot!.x, protectedSpot!.z);
+
     const thirdHome = (city1.home + 2) % ISLAND_COUNT;
     const thirdIsland = map.islands[thirdHome];
-    const freeTile = tileIndexOn(map, thirdIsland.entry.x, thirdIsland.entry.z);
-    const protectedTile = city2.roads[0];
-    world.felled = [protectedTile, freeTile];
+    let freeTile: number | null = null;
+    for (let z = thirdIsland.z; z < thirdIsland.z + thirdIsland.depth && freeTile === null; z++) {
+      for (let x = thirdIsland.x; x < thirdIsland.x + thirdIsland.width; x++) {
+        if (terrainOn(map, x, z) === 'forest') { freeTile = tileIndexOn(map, x, z); break; }
+      }
+    }
+    expect(freeTile).not.toBeNull();
+
+    world.felled = [protectedTile, freeTile!];
     world.regrowth = REGROW_SECONDS - STEP;
 
     advance(world, STEP);
@@ -100,9 +131,8 @@ describe('two founded cities in one World', () => {
     const founded = primaryCity(world);
     expect(buildStarterNeighbourhood(world, founded).ok).toBe(true);
     const otherHome = (founded.home + 1) % ISLAND_COUNT;
-    const pendingWorld = createWorld(1, otherHome, false);
-    const pending: City = { ...primaryCity(pendingWorld), id: founded.id + 1 };
-    world.cities.unshift(pending);
+    const pending = foundSecondCity(world, otherHome, false);
+    world.cities = [pending, ...world.cities.filter((city) => city !== pending)];
     expect(world.cities[0]).toBe(pending);
     const snapshotPending = structuredClone(pending);
 
@@ -118,30 +148,31 @@ describe('two founded cities in one World', () => {
     expect(buildStarterNeighbourhood(world, city1).ok).toBe(true);
 
     const otherHome = (city1.home + 1) % ISLAND_COUNT;
-    const other = createWorld(1, otherHome);
-    const otherCity = primaryCity(other);
-    expect(buildStarterNeighbourhood(other, otherCity).ok).toBe(true);
+    const city2 = foundSecondCity(world, otherHome);
+    expect(buildStarterNeighbourhood(world, city2).ok).toBe(true);
 
-    const forest = homeTiles(other, (map, x, z) => terrainOn(map, x, z) === 'forest');
+    const forest = homeTilesInCity(world, city2, (map, x, z) => terrainOn(map, x, z) === 'forest');
     let woodcutterSpot: Tile | null = null;
     for (const tree of forest) {
-      const spot = spotFor(other, 'woodcutter', tree);
+      const spot = spotForInCity(world, city2, 'woodcutter', tree);
       if (spot && Math.abs(spot.x - tree.x) + Math.abs(spot.z - tree.z) < GATHER_RANGE / 2) { woodcutterSpot = spot; break; }
     }
     expect(woodcutterSpot).not.toBeNull();
-    expect(build(other, otherCity, 'woodcutter', woodcutterSpot!.x, woodcutterSpot!.z).ok).toBe(true);
-    expect(connect(other, otherCity.buildings[otherCity.buildings.length - 1]).ok).toBe(true);
-    const stockpileSpot = spotFor(other, 'stockpile', woodcutterSpot!)!;
-    expect(build(other, otherCity, 'stockpile', stockpileSpot.x, stockpileSpot.z).ok).toBe(true);
-    expect(connect(other, otherCity.buildings[otherCity.buildings.length - 1]).ok).toBe(true);
+    expect(build(world, city2, 'woodcutter', woodcutterSpot!.x, woodcutterSpot!.z).ok).toBe(true);
+    expect(connectInCity(world, city2, city2.buildings[city2.buildings.length - 1]).ok).toBe(true);
+    const stockpileSpot = spotForInCity(world, city2, 'stockpile', woodcutterSpot!)!;
+    expect(build(world, city2, 'stockpile', stockpileSpot.x, stockpileSpot.z).ok).toBe(true);
+    expect(connectInCity(world, city2, city2.buildings[city2.buildings.length - 1]).ok).toBe(true);
 
-    const city2: City = { ...otherCity, id: city1.id + 1 };
-    city2.harbour = { ...city2.harbour, id: world.nextId++ };
-    world.cities.push(city2);
+    const beforeIds = new Set([
+      ...city1.buildings.map((building) => building.id), ...city1.walkers.map((walker) => walker.id),
+      city1.harbour.id, city2.harbour.id,
+    ]);
+    expect(city2.buildings.every((building) => !beforeIds.has(building.id))).toBe(true);
 
     let sawWoodcutterWalker = false;
     let sawPorterWalker = false;
-    for (let t = 0; t < 400; t++) {
+    for (let t = 0; t < 1600 && totalStock(city2.harbour) === 0; t++) {
       advance(world, 1);
       sawWoodcutterWalker ||= city2.walkers.some((walker) => walker.kind === 'woodcutter');
       sawPorterWalker ||= city2.walkers.some((walker) => walker.kind === 'porter');
@@ -150,6 +181,9 @@ describe('two founded cities in one World', () => {
     expect(sawWoodcutterWalker).toBe(true);
     expect(world.felled.length).toBeGreaterThan(0);
     expect(sawPorterWalker).toBe(true);
+    expect(totalStock(city2.harbour)).toBeGreaterThan(0);
+    expect(totalStock(city1.harbour)).toBe(0);
+    expect(city1.harbour.tier).toBe(1);
     expect(city1.produced).toBeGreaterThan(0);
   });
 
