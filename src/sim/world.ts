@@ -3,7 +3,7 @@ import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, STARTING_MONEY, VE
 import { spawnWildlife, stepWildlife } from './wildlife';
 import { gatherArrival, gatherFinished, regrowForest, updateGatherer } from './gathering';
 import { freshHarbour, HARBOUR_DOCK_CAP, harbourStatus, harbourTiles, setHarbourTrade, updateHarbour } from './harbour';
-import { buildable, insideMapOn, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
+import { buildable, insideMapOn, islandFor, levelOn, onHomeIsland, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import {
   accessDoors,
   accessTiles,
@@ -95,6 +95,7 @@ const REASON = {
   noSuchBuilding: 'No such building.',
   onlyAgoraHostsVendor: 'Only an agora can host a vendor.',
   harbourPermanent: 'The harbour is a permanent fixture.',
+  unsettledIsland: 'Build on your settled island. Return to your village with H.',
 } as const;
 
 function buildingAt(world: World, tile: number): Building | undefined {
@@ -164,6 +165,7 @@ function evaluatePlacement(world: World, tool: BuildTool, x: number, z: number, 
     if (!insideMapOn(map, x, z)) return { ok: false, reason: REASON.outOfBounds, cost: 0, tiles: [] };
     const tile = tileIndexOn(map, x, z);
     if (!terrainAllows(map, tool, x, z)) return { ok: false, reason: REASON.unsuitableTerrain, cost: 0, tiles: [tile] };
+    if (!onHomeIsland(map, x, z)) return { ok: false, reason: REASON.unsettledIsland, cost: 0, tiles: [tile] };
     if (buildingAt(world, tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: [tile] };
     if (neighbourGradeIssue(map, new Set(world.roads), tile)) return { ok: false, reason: REASON.roadTooSteep, cost: 0, tiles: [tile] };
     const already = world.roads.includes(tile);
@@ -197,6 +199,7 @@ function evaluatePlacement(world: World, tool: BuildTool, x: number, z: number, 
       const reason = tool === 'farm' ? REASON.needsFertileGround : REASON.unsuitableTerrain;
       return { ok: false, reason, cost: definition.cost, tiles };
     }
+    if (!onHomeIsland(map, tx, tz)) return { ok: false, reason: REASON.unsettledIsland, cost: definition.cost, tiles };
     if (world.roads.includes(tile)) return { ok: false, reason: REASON.tileOccupiedByRoad, cost: definition.cost, tiles };
     if (buildingAt(world, tile)) return { ok: false, reason: REASON.tileOccupied, cost: definition.cost, tiles };
   }
@@ -258,6 +261,7 @@ function evaluateRoadPath(world: World, tiles: Tile[]): Placement {
     if (seen.has(tile)) continue;
     seen.add(tile);
     if (!terrainAllows(map, 'road', x, z)) return { ok: false, reason: REASON.unsuitableTerrain, cost: 0, tiles: indices };
+    if (!onHomeIsland(map, x, z)) return { ok: false, reason: REASON.unsettledIsland, cost: 0, tiles: [...indices, tile] };
     if (buildingAt(world, tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: indices };
     indices.push(tile);
   }

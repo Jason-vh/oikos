@@ -1,6 +1,6 @@
 import type { BuildingKind, Rotation, Tile, World } from './types';
 import { BUILDINGS, footprint, VENDOR_COST } from './catalog';
-import { buildable, insideMapOn, levelOn, terrainOn, tileIndexOn, type IslandMap } from './island';
+import { buildable, insideMapOn, levelOn, onHomeIsland, terrainOn, tileIndexOn, type IslandMap } from './island';
 import { bfsShortest, entryTileIndex, footprintTiles as buildingFootprintTiles, mapOf } from './grid';
 import { doorTiles, stairLayout } from './stairs';
 
@@ -25,8 +25,9 @@ export function suitableFarmGround(world: World): Tile[] {
   const occupied = buildingOccupancy(map, world);
   for (const road of world.roads) occupied.add(road);
   const tiles: Tile[] = [];
-  for (let z = 0; z < map.depth; z++) {
-    for (let x = 0; x < map.width; x++) {
+  const home = map.islands[map.home];
+  for (let z = home.z; z < home.z + home.depth; z++) {
+    for (let x = home.x; x < home.x + home.width; x++) {
       if (terrainOn(map, x, z) !== 'fertile') continue;
       if (occupied.has(tileIndexOn(map, x, z))) continue;
       tiles.push({ x, z });
@@ -54,7 +55,7 @@ export function footprintTileIssues(world: World, tool: BuildingKind, x: number,
       const wrongTerrain = tool === 'farm' ? terrain !== 'fertile' : !buildable(terrain);
       const unevenGround = levelOn(map, tx, tz) !== baseLevel;
       const index = tileIndexOn(map, tx, tz);
-      const blocked = wrongTerrain || unevenGround || roads.has(index) || occupiedByBuilding.has(index);
+      const blocked = !onHomeIsland(map, tx, tz) || wrongTerrain || unevenGround || roads.has(index) || occupiedByBuilding.has(index);
       tiles.push({ x: tx, z: tz, blocked });
     }
   }

@@ -193,6 +193,8 @@ new shipping network to supply these sanctuaries.”
   islands have prepared harbour landings and support the existing village loop.
 - The selected home survives saves, imports, checkpoints, and camera restoration.
   Existing version-4 archipelago saves migrate without moving their cities.
+- Construction and field overlays respect the settled island. Other islands remain
+  available to explore but cannot yet be built on; colony claims will unlock them.
 - This remains a local, single-player game. Free harbour placement, player
   identity, shared ownership data, and the persistent server are still ahead.
 

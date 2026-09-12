@@ -844,8 +844,9 @@ function clearStairArea(map: IslandMap, cx: number, cz: number): void {
 
 function orientedStairFixture(direction: StairDirection) {
   const map = islandFor(STAIR_SEED);
-  const cx = 12;
-  const cz = 12;
+  const home = map.islands[map.home];
+  const cx = home.x + 12;
+  const cz = home.z + 12;
   clearStairArea(map, cx, cz);
   const [ddx, ddz] = DOWN_OFFSET[direction];
   const tile: Tile = { x: cx, z: cz };

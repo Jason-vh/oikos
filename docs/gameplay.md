@@ -19,7 +19,11 @@ another city's map.
 
 Islands never share a bounding box and each is a single landmass, so a road network
 can never leave the island it started on. The other seven are, for now, unclaimed
-ground: wildlife lives there, the player cannot yet build there.
+ground: wildlife lives there, the player cannot yet build there. Building previews, single placements, and road
+strokes all refuse construction outside `world.home`, without spending money.
+Fertility overlays only highlight fields on the settled island. Older saves with
+outlying disconnected construction remain loadable, and those structures can still
+be demolished.
 
 ## An island
 

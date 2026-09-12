@@ -11,6 +11,7 @@
     "test": "bun test --timeout 20000 src",
     "smoke": "node scripts/smoke.mjs",
     "smoke:settlement": "node scripts/settlement-smoke.mjs",
+    "smoke:territory": "node scripts/territory-smoke.mjs",
     "smoke:polish": "node scripts/polish-smoke.mjs",
     "smoke:construction": "node scripts/construction-smoke.mjs",
     "smoke:foam": "node scripts/foam-smoke.mjs",

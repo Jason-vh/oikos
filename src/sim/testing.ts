@@ -60,10 +60,10 @@ export function freshRoadSpot(world: World, near?: Tile): Tile | null {
 }
 
 export function farCorner(world: World): Tile {
-  const map = mapOf(world);
+  const island = homeIsland(world);
   return {
-    x: map.entry.x > map.width / 2 ? 2 : map.width - 3,
-    z: map.entry.z > map.depth / 2 ? 2 : map.depth - 3,
+    x: island.entry.x > island.x + island.width / 2 ? island.x + 2 : island.x + island.width - 3,
+    z: island.entry.z > island.z + island.depth / 2 ? island.z + 2 : island.z + island.depth - 3,
   };
 }
 
@@ -93,8 +93,9 @@ export function spotAdjacentTo(world: World, kind: Exclude<BuildingKind, 'harbou
 export function unevenFootprint(world: World, kind: BuildingKind, rotation: Rotation = 0): Tile | null {
   const map = mapOf(world);
   const { width, depth } = footprint(kind, rotation);
-  for (let z = 0; z <= map.depth - depth; z++) {
-    for (let x = 0; x <= map.width - width; x++) {
+  const home = homeIsland(world);
+  for (let z = home.z; z <= home.z + home.depth - depth; z++) {
+    for (let x = home.x; x <= home.x + home.width - width; x++) {
       const base = levelOn(map, x, z);
       let uneven = false;
       for (let dz = 0; dz < depth && !uneven; dz++) {
@@ -189,9 +190,10 @@ export const SLOPE_SEED = 913_047;
 
 export function slopeFixture(): { low: Tile; high: Tile; landing: Tile } {
   const map = islandFor(SLOPE_SEED);
-  const low: Tile = { x: 2, z: 2 };
-  const high: Tile = { x: 3, z: 2 };
-  const landing: Tile = { x: 4, z: 2 };
+  const home = map.islands[map.home];
+  const low: Tile = { x: home.x + 2, z: home.z + 2 };
+  const high: Tile = { x: home.x + 3, z: home.z + 2 };
+  const landing: Tile = { x: home.x + 4, z: home.z + 2 };
   const lowIndex = tileIndexOn(map, low.x, low.z);
   const highIndex = tileIndexOn(map, high.x, high.z);
   const landingIndex = tileIndexOn(map, landing.x, landing.z);

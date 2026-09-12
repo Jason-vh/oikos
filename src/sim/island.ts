@@ -251,6 +251,10 @@ export function islandAt(map: IslandMap, x: number, z: number): IslandPlacement 
   return map.islands.find((island) => x >= island.x && z >= island.z && x < island.x + island.width && z < island.z + island.depth) ?? null;
 }
 
+export function onHomeIsland(map: IslandMap, x: number, z: number): boolean {
+  return islandAt(map, x, z) === map.islands[map.home];
+}
+
 function chooseEntry(width: number, depth: number, terrain: Terrain[], level: Uint8Array): Tile {
   let best: Tile = { x: Math.floor(width / 2), z: Math.floor(depth / 2) };
   let bestScore = -Infinity;
