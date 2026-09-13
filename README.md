@@ -16,6 +16,8 @@ npm run dev
 
 - `/` — playable archipelago; autosaves locally, never to a server.
 - `/art.html` — isolated model viewer.
+- `/shared.html` — the same game on a private shared archipelago; needs an invite
+  and a running authority, and saves nothing locally.
 
 ## Play
 
@@ -48,7 +50,8 @@ npm run art:capture -- http://localhost:5180    # model captures into artifacts/
 - [Art direction](docs/art-direction.md)
 - [Model authoring and visual checks](docs/art-tooling.md)
 - [Deployment](deploy/README.md)
-- [Private server transport](docs/server-transport.md) (no game client yet)
+- [Private server transport](docs/server-transport.md)
+- [Shared client adapter](docs/shared-session.md) and [shared game](docs/shared-game.md)
 
 `src/sim/` owns serializable, deterministic game state; `src/render/` reads it.
 `src/art/` owns procedural models; `src/ui/` provides the interface. No original

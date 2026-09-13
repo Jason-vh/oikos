@@ -234,9 +234,13 @@ new shipping network to supply these sanctuaries.”
 - Protocol 2 binds requests to their realm/login. The client adapter journals exact
   requests, fences reconnects, and recovers consumed receipts without reapplying
   ambiguous intent. Storage uncertainty blocks writes until explicit resolution.
-- Local startup is separate from the reusable game bootstrap. The playable client
-  remains local; shared joining/reconnecting UI and unrestricted coastal harbour
-  siting are still ahead.
+- `/shared.html` runs the same game against the authority: an invite admits a
+  player, the island atlas claims an unclaimed island, and construction, vendors
+  and founding go through the ordinary controls. Writes need a ready session and
+  an owned city; disconnects disable them and cancel unfinished gestures, while
+  visiting, camera and recovery stay available. It saves nothing locally.
+- Deploying that server, adopting or recovering an account, and unrestricted
+  coastal harbour siting are still ahead.
 
 ## Roadmap
 
