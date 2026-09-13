@@ -57,7 +57,7 @@ sim concepts.
 
 Two ports behind one tool surface:
 
-- **Local** — own the `World` in process, `advance(world, seconds)` on request.
+- **Local** — own the `World` in process, advanced by elapsed wall-clock time.
   Deterministic, free, no server, no wall clock. This is the eval substrate.
 - **Shared** — wrap `SharedSession` (`src/ui/shared-session.ts`) against a
   running authority. Same tools; time passes in wall-clock and `advance` becomes
@@ -81,7 +81,8 @@ Observation:
 Action: `build`, `lay_road`, `demolish`, `set_vendor`, `found_harbour`,
 `claim_island`.
 
-Clock: `advance` (local) / `wait` (shared).
+No clock tool. Time is the world's in both ports; an eval drives `advance` in
+`src/sim/` directly.
 
 `check_placement` is the tool that makes agents playable at all: it turns
 building into propose-then-commit instead of guessing against a treasury.

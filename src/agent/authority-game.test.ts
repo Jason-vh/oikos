@@ -132,13 +132,13 @@ describe('an agent on the shared archipelago', () => {
     expect(trespass).toStartWith('Refused.');
   });
 
-  test('is not allowed to turn the shared clock', async () => {
-    const { call } = await agent(admit('Thales'));
+  test('has no tool for turning the clock: time is the world\'s, not the agent\'s', async () => {
+    const { client, call } = await agent(admit('Thales'));
     await call('claim_island', { home: 2 });
 
-    const passed = await call('pass_time', { seconds: 60 });
+    const names = (await client.listTools()).tools.map((tool) => tool.name);
 
-    expect(passed).toContain('runs in real time');
+    expect(names).not.toContain('pass_time');
     expect(authority.snapshot().time).toBe(0);
   });
 

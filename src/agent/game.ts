@@ -9,7 +9,6 @@ export interface AgentView { world: World; city: City | null }
 export interface AgentGame {
   view(): AgentView;
   submit(command: CityCommand): Promise<ActionResult>;
-  pass(seconds: number): Promise<ActionResult>;
   claim(home: number): Promise<ActionResult>;
 }
 
@@ -23,31 +22,39 @@ export interface LocalGameOptions {
   home?: number;
   founded?: boolean;
   slot?: SaveSlot;
+  now?: () => number;
 }
 
-export const MAX_PASS_SECONDS = 600;
+export const MAX_CATCH_UP_SECONDS = 5;
 
 export class LocalGame implements AgentGame {
-  private constructor(private world_: World, private readonly slot: SaveSlot | null) {}
+  private lastSettled: number;
+
+  private constructor(private world_: World, private readonly slot: SaveSlot | null, private readonly now: () => number) {
+    this.lastSettled = now();
+  }
 
   static start(options: LocalGameOptions = {}): LocalGame {
+    const now = options.now ?? Date.now;
     const saved = options.slot?.read() ?? null;
     if (saved !== null) {
       const world = deserializeWorld(saved);
       if (!world) throw new Error('The saved city could not be read.');
-      return new LocalGame(world, options.slot ?? null);
+      return new LocalGame(world, options.slot ?? null, now);
     }
     const world = createWorld(options.seed, options.home, options.founded ?? true);
-    const game = new LocalGame(world, options.slot ?? null);
+    const game = new LocalGame(world, options.slot ?? null, now);
     game.persist();
     return game;
   }
 
   view(): AgentView {
+    this.settle();
     return { world: this.world_, city: primaryCity(this.world_) };
   }
 
   async submit(command: CityCommand): Promise<ActionResult> {
+    this.settle();
     const result = applyCommand(this.world_, primaryCity(this.world_).id, command);
     if (result.ok) this.persist();
     return result;
@@ -57,14 +64,13 @@ export class LocalGame implements AgentGame {
     return { ok: false, reason: 'This city is already yours. Claiming islands belongs to the shared archipelago.' };
   }
 
-  async pass(seconds: number): Promise<ActionResult> {
-    if (!Number.isFinite(seconds) || seconds <= 0) return { ok: false, reason: 'Ask for a positive number of seconds.' };
-    if (!primaryCity(this.world_).founded) return { ok: false, reason: 'Time does not pass until the city is founded.' };
-    const passing = Math.min(seconds, MAX_PASS_SECONDS);
-    advance(this.world_, passing);
+  private settle(): void {
+    const now = this.now();
+    const elapsed = (now - this.lastSettled) / 1000;
+    this.lastSettled = now;
+    if (elapsed <= 0) return;
+    advance(this.world_, Math.min(elapsed, MAX_CATCH_UP_SECONDS));
     this.persist();
-    const capped = passing < seconds ? ` Only ${MAX_PASS_SECONDS} seconds pass at a time.` : '';
-    return { ok: true, reason: `${Math.round(passing)} seconds pass.${capped}` };
   }
 
   private persist(): void {

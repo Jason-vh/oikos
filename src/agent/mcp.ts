@@ -5,7 +5,7 @@ import { TOOLS, type AgentTool } from './tools';
 
 export const SERVER_NAME = 'oikos';
 export const SERVER_VERSION = '0.1.0';
-export const INSTRUCTIONS = 'Found and run a city on a Greek island. Survey the ground, check a placement before you buy it, connect everything with roads, then ask for time to pass and read the report.';
+export const INSTRUCTIONS = 'Found and run a city on a Greek island. Survey the ground, check a placement before you buy it, connect everything with roads, then read the report as the city runs. Time passes on its own.';
 
 export function createServer(game: AgentGame, tools: AgentTool[] = TOOLS): McpServer {
   const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION }, { instructions: INSTRUCTIONS });

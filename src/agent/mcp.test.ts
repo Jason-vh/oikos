@@ -114,14 +114,16 @@ describe('the MCP server', () => {
     expect(textOf(result)).toContain('summon_zeus not found');
   });
 
-  test('lets time pass and returns the city that resulted', async () => {
-    const { client, game } = await connected();
+  test('runs the city between calls, with no tool for the clock', async () => {
+    let time = 1000;
+    const { client, game } = await connected(LocalGame.start({ now: () => time }));
 
-    const passed = textOf(await client.callTool({ name: 'pass_time', arguments: { seconds: 120 } }));
+    expect((await client.listTools()).tools.map((tool) => tool.name)).not.toContain('pass_time');
+    time += 3000;
+    const report = textOf(await client.callTool({ name: 'report', arguments: {} }));
 
-    expect(passed).toContain('120 seconds pass.');
-    expect(passed).toContain('Treasury');
-    expect(game.view().world.time).toBeGreaterThan(119);
+    expect(report).toContain('of simulated time');
+    expect(game.view().world.time).toBeGreaterThan(2.5);
   });
 });
 

@@ -3,10 +3,12 @@
 An MCP server: an agent surveys the island, checks what it can afford, builds, and
 watches the city run. It sees what a player sees and no more.
 
-Two ways to play. A **local** city over stdio, private to the agent and driven by
-its own clock — the one to use for experiments and balance runs. Or the **shared
-archipelago** over HTTP, where an agent claims an island beside the humans and
-lives on their clock.
+Two ways to play. A **local** city over stdio, private to the agent. Or the
+**shared archipelago** over HTTP, where an agent claims an island beside the
+humans. Neither hands the agent the clock.
+
+For a deterministic run — an eval, a balance experiment — drive `advance(world,
+seconds)` in `src/sim/` directly rather than through an agent.
 
 ## A local city
 
@@ -66,7 +68,6 @@ What differs from a local city:
 - `claim_island` comes first. A new agent owns nothing, so `survey` answers with
   the atlas of eight islands and `report` says to claim one. After claiming, place
   the dockyard with `found_city` as a player does.
-- `pass_time` is refused. The shared clock belongs to everyone.
 - Ownership is the authority's, not the agent's word: every command carries the
   agent's credential, and a command naming another player's city is refused before
   it reaches the simulation.
@@ -102,11 +103,12 @@ private authority:
 - `lay_road` turns a single corner, like dragging a road in the game; `bend`
   chooses which way round, as `Shift` does.
 
-Time is explicit:
-
-- `pass_time` runs the simulation for up to 600 simulated seconds and answers with
-  the report that resulted. Nothing moves between calls, so a slow agent and a
-  fast one play the same game.
+There is no tool for time. The city runs on its own clock while the agent is
+there: a local world advances by the time elapsed since the agent last looked,
+and the shared world runs for everyone at once. An agent that goes away and comes
+back finds a city that has moved on, not one waiting to be wound forward. Time
+while nobody was playing is dropped rather than fast-forwarded — at most five
+seconds are caught up in one go — so an idle night does not arrive as a famine.
 
 A refused command is an ordinary answer beginning `Refused.`, not a protocol
 error; malformed arguments are errors, so the agent can tell the two apart.

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { LocalGame, MAX_PASS_SECONDS, type SaveSlot } from './game';
+import { LocalGame, MAX_CATCH_UP_SECONDS, type SaveSlot } from './game';
 import { primaryCity } from '../sim/city';
 import { spotFor } from '../sim/testing';
 
@@ -29,20 +29,32 @@ describe('the local game', () => {
     expect(() => LocalGame.start({ slot: memorySlot('{"version":"broken"}') })).toThrow('The saved city could not be read.');
   });
 
-  test('caps how much time one call may pass', async () => {
-    const game = LocalGame.start();
+  test('runs the city by the clock, without the agent asking', async () => {
+    let time = 1000;
+    const game = LocalGame.start({ now: () => time });
 
-    const result = await game.pass(MAX_PASS_SECONDS * 4);
-
-    expect(result.ok).toBe(true);
-    expect(result.reason).toContain(`Only ${MAX_PASS_SECONDS} seconds`);
-    expect(game.view().world.time).toBeLessThanOrEqual(MAX_PASS_SECONDS);
+    expect(game.view().world.time).toBe(0);
+    time += 2000;
+    expect(game.view().world.time).toBeGreaterThan(1.5);
+    expect(game.view().world.time).toBeLessThan(2.5);
   });
 
-  test('says why time does not pass before the city is founded', async () => {
-    const game = LocalGame.start({ home: 3, founded: false });
+  test('drops the time an idle agent was away, rather than fast-forwarding through it', async () => {
+    let time = 1000;
+    const game = LocalGame.start({ now: () => time });
 
-    expect((await game.pass(60)).reason).toContain('until the city is founded');
-    expect((await game.pass(-5)).reason).toContain('positive number');
+    time += 60 * 60 * 1000;
+
+    expect(game.view().world.time).toBeLessThanOrEqual(MAX_CATCH_UP_SECONDS);
+  });
+
+  test('does not start the clock before the city is founded', async () => {
+    let time = 1000;
+    const game = LocalGame.start({ home: 3, founded: false, now: () => time });
+
+    time += 3000;
+
+    expect(game.view().world.time).toBe(0);
+    expect(game.view().city!.founded).toBe(false);
   });
 });

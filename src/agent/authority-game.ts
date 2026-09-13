@@ -23,10 +23,6 @@ export class AuthorityGame implements AgentGame {
     return this.request({ kind: 'claim', home });
   }
 
-  async pass(): Promise<ActionResult> {
-    return { ok: false, reason: 'The shared archipelago runs in real time for everyone. Come back to see what has changed.' };
-  }
-
   private ownedCity(world: World): City | null {
     const session = this.authority.authenticate(this.credential);
     if (!session) return null;

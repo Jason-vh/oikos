@@ -185,15 +185,4 @@ export const TOOLS: AgentTool[] = [
       return outcome(result, game.view().city);
     },
   }),
-  tool({
-    name: 'pass_time',
-    description: 'Let the city run for a number of simulated seconds. A month is 60 seconds; wheat takes 40 to grow. Nothing happens while you are not asking for time.',
-    schema: { seconds: z.int().positive().max(600).describe('Simulated seconds, at most 600 a call') },
-    async run(game, args) {
-      const result = await game.pass(args.seconds);
-      const { world, city } = game.view();
-      if (!result.ok || !city) return `Refused. ${result.reason}`;
-      return `${result.reason}\n${cityReport(world, city)}`;
-    },
-  }),
 ];
