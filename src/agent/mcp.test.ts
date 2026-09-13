@@ -46,7 +46,7 @@ describe('the MCP server', () => {
     const survey = textOf(await client.callTool({ name: 'survey', arguments: {} }));
 
     expect(survey).toContain('Legend:');
-    expect(survey).toContain('Landing road entry at');
+    expect(survey).toContain('A harbour needs two rows');
   });
 
   test('builds through a tool call and charges the treasury', async () => {

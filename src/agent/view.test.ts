@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { cityReport, cityWindow, describeHarbourSite, describePlacement, describeRoadPath, inspectBuilding, inspectTile, islandBounds, renderMap, surveyIsland } from './view';
+import { cityReport, cityWindow, describeHarbourSite, describePlacement, describeRoadPath, inspectBuilding, inspectTile, islandBounds, renderMap, surveyIsland, viewpointOf } from './view';
 import { primaryCity } from '../sim/city';
 import { mapOf } from '../sim/grid';
 import { ISLAND_COUNT, tileIndexOn } from '../sim/island';
@@ -24,7 +24,7 @@ function rowAt(map: string, z: number): string {
 describe('the island map', () => {
   test('labels its columns and rows with tile coordinates', () => {
     const { world, city } = starterCity();
-    const map = renderMap(world, city, { x: 210, z: 180, width: 25, depth: 10 });
+    const map = renderMap(world, viewpointOf(world, city), { x: 210, z: 180, width: 25, depth: 10 });
     const [ruler] = map.split('\n');
 
     expect(ruler.trimStart()).toBe('210       220       230');
@@ -38,7 +38,7 @@ describe('the island map', () => {
     const road = city.roads[0];
     const grid = mapOf(world, city);
 
-    const map = renderMap(world, city, { x: grid.entry.x - 20, z: grid.entry.z - 20, width: 40, depth: 24 });
+    const map = renderMap(world, viewpointOf(world, city), { x: grid.entry.x - 20, z: grid.entry.z - 20, width: 40, depth: 24 });
 
     expect(rowAt(map, granary.z)[granary.x - (grid.entry.x - 20)]).toBe('G');
     expect(rowAt(map, Math.floor(road / grid.width))[(road % grid.width) - (grid.entry.x - 20)]).toBe('+');
@@ -46,9 +46,9 @@ describe('the island map', () => {
 
   test('never leaves the settled island, however far the window reaches', () => {
     const { world, city } = starterCity();
-    const bounds = islandBounds(world, city);
+    const bounds = islandBounds(viewpointOf(world, city));
 
-    const map = renderMap(world, city, { x: bounds.x - 50, z: bounds.z - 50, width: 400, depth: 400 });
+    const map = renderMap(world, viewpointOf(world, city), { x: bounds.x - 50, z: bounds.z - 50, width: 400, depth: 400 });
     const rows = map.split('\n').slice(1);
 
     expect(rows).toHaveLength(bounds.depth);
@@ -59,7 +59,7 @@ describe('the island map', () => {
   test('centres itself on the city and keeps a workable minimum', () => {
     const { world, city } = starterCity();
     const window = cityWindow(world, city);
-    const bounds = islandBounds(world, city);
+    const bounds = islandBounds(viewpointOf(world, city));
 
     expect(window.width).toBeGreaterThanOrEqual(24);
     expect(window.depth).toBeGreaterThanOrEqual(16);
@@ -72,8 +72,8 @@ describe('the island map', () => {
     const city = primaryCity(world);
     const other = foundSecondCity(world, (city.home + 1) % ISLAND_COUNT);
     const grid = mapOf(world, other);
-    const survey = surveyIsland(world, other, { x: other.harbour.x - 6, z: other.harbour.z - 6, width: 24, depth: 16 });
-    const visiting = surveyIsland(world, city, { x: other.harbour.x - 6, z: other.harbour.z - 6, width: 24, depth: 16 });
+    const survey = surveyIsland(world, viewpointOf(world, other), { x: other.harbour.x - 6, z: other.harbour.z - 6, width: 24, depth: 16 });
+    const visiting = surveyIsland(world, viewpointOf(world, city), { x: other.harbour.x - 6, z: other.harbour.z - 6, width: 24, depth: 16 });
 
     expect(tileIndexOn(grid, other.harbour.x, other.harbour.z)).toBeGreaterThan(0);
     expect(survey).toContain('H harbour');
@@ -84,10 +84,10 @@ describe('the island map', () => {
 describe('the survey', () => {
   test('says where the island is, what it is made of, and how to read the map', () => {
     const { world, city } = starterCity();
-    const survey = surveyIsland(world, city);
+    const survey = surveyIsland(world, viewpointOf(world, city));
 
     expect(survey).toContain(`Island ${city.home}`);
-    expect(survey).toContain('Landing road entry at');
+    expect(survey).toContain('A harbour needs two rows');
     expect(survey).toContain('fertile');
     expect(survey).toContain('Legend:');
     expect(survey.length).toBeLessThan(4000);

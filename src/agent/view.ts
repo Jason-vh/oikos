@@ -4,6 +4,7 @@ import { footprintTiles, mapOf } from '../sim/grid';
 import { harbourStatus } from '../sim/harbour';
 import { ISLAND_COUNT, buildable, islandAt, islandFacts, islandFor, levelOn, terrainOn, tileIndexOn } from '../sim/island';
 import { foreignOccupancy } from '../sim/occupancy';
+import type { IslandMap } from '../sim/island';
 import type { Building, BuildingKind, BuildTool, City, Rotation, Terrain, Tile, World } from '../sim/types';
 import { WALKER_ROLES, buildingStatus, getSummary, placement, roadPathPlacement, storeCapacity, walkerStatus } from '../sim/world';
 
@@ -47,9 +48,18 @@ function clampWindow(bounds: MapWindow, requested: MapWindow): MapWindow {
   return { x, z, width, depth };
 }
 
-export function islandBounds(world: World, city: City): MapWindow {
-  const map = mapOf(world, city);
-  const island = map.islands[city.home];
+export interface Viewpoint { map: IslandMap; home: number; city: City | null }
+
+export function viewpointOf(world: World, city: City): Viewpoint {
+  return { map: mapOf(world, city), home: city.home, city };
+}
+
+export function viewpointOn(world: World, home: number): Viewpoint {
+  return { map: islandFor(world.seed, home), home, city: null };
+}
+
+export function islandBounds(view: Viewpoint): MapWindow {
+  const island = view.map.islands[view.home];
   return { x: island.x, z: island.z, width: island.width, depth: island.depth };
 }
 
@@ -63,14 +73,14 @@ export function cityWindow(world: World, city: City, margin = 6): MapWindow {
   const top = Math.min(...zs) - margin;
   const width = Math.max(MIN_WINDOW_WIDTH, Math.max(...xs) - Math.min(...xs) + 1 + margin * 2);
   const depth = Math.max(MIN_WINDOW_DEPTH, Math.max(...zs) - Math.min(...zs) + 1 + margin * 2);
-  return clampWindow(islandBounds(world, city), { x: left, z: top, width, depth });
+  return clampWindow(islandBounds(viewpointOf(world, city)), { x: left, z: top, width, depth });
 }
 
-function glyphs(world: World, city: City, window: MapWindow): Map<number, string> {
-  const map = mapOf(world, city);
+function glyphs(world: World, view: Viewpoint, window: MapWindow): Map<number, string> {
+  const map = view.map;
   const marks = new Map<number, string>();
   for (const other of world.cities) {
-    const own = other.id === city.id;
+    const own = other.id === view.city?.id;
     const road = own ? OWN_ROAD_GLYPH : FOREIGN_ROAD_GLYPH;
     for (const tile of other.roads) marks.set(tile, road);
     for (const building of other.buildings) {
@@ -99,10 +109,10 @@ function ruler(window: MapWindow, indent: number): string {
   return ' '.repeat(indent) + columns.join('').trimEnd();
 }
 
-export function renderMap(world: World, city: City, requested: MapWindow): string {
-  const window = clampWindow(islandBounds(world, city), requested);
-  const map = mapOf(world, city);
-  const marks = glyphs(world, city, window);
+export function renderMap(world: World, view: Viewpoint, requested: MapWindow): string {
+  const window = clampWindow(islandBounds(view), requested);
+  const map = view.map;
+  const marks = glyphs(world, view, window);
   const labelWidth = String(window.z + window.depth - 1).length;
   const lines = [ruler(window, labelWidth + 1)];
   for (let z = window.z; z < window.z + window.depth; z++) {
@@ -116,26 +126,26 @@ export function renderMap(world: World, city: City, requested: MapWindow): strin
   return lines.join('\n');
 }
 
-function legend(world: World, city: City, window: MapWindow): string {
+function legend(world: World, view: Viewpoint, window: MapWindow): string {
   const terrain = (Object.keys(TERRAIN_GLYPHS) as Terrain[]).map((kind) => `${TERRAIN_GLYPHS[kind]} ${kind}`);
-  const present = new Set([...glyphs(world, city, window).values()].map((glyph) => glyph.toUpperCase()));
+  const present = new Set([...glyphs(world, view, window).values()].map((glyph) => glyph.toUpperCase()));
   const built = (Object.keys(BUILDING_GLYPHS) as BuildingKind[])
     .filter((kind) => present.has(BUILDING_GLYPHS[kind]))
     .map((kind) => `${BUILDING_GLYPHS[kind]} ${BUILDINGS[kind].name.toLowerCase()}`);
-  const roads = [`${OWN_ROAD_GLYPH} your road`];
+  const roads = view.city ? [`${OWN_ROAD_GLYPH} your road`] : [];
   if (present.has(FOREIGN_ROAD_GLYPH)) roads.push(`${FOREIGN_ROAD_GLYPH} another city's road`);
   const lines = [`Legend: ${[...terrain, ...roads, ...built].join(', ')}.`];
-  if ([...glyphs(world, city, window).values()].some((glyph) => glyph !== glyph.toUpperCase())) lines.push("Lowercase letters are another city's buildings.");
+  if ([...glyphs(world, view, window).values()].some((glyph) => glyph !== glyph.toUpperCase())) lines.push("Lowercase letters are another city's buildings.");
   return lines.join('\n');
 }
 
-function terrainCounts(world: World, city: City): string {
-  const map = mapOf(world, city);
-  const bounds = islandBounds(world, city);
+function terrainCounts(view: Viewpoint): string {
+  const map = view.map;
+  const bounds = islandBounds(view);
   const counts = new Map<Terrain, number>();
   for (let z = bounds.z; z < bounds.z + bounds.depth; z++) {
     for (let x = bounds.x; x < bounds.x + bounds.width; x++) {
-      if (islandAt(map, x, z) !== map.islands[city.home]) continue;
+      if (islandAt(map, x, z) !== map.islands[view.home]) continue;
       const kind = terrainOn(map, x, z);
       counts.set(kind, (counts.get(kind) ?? 0) + 1);
     }
@@ -143,17 +153,16 @@ function terrainCounts(world: World, city: City): string {
   return [...counts].sort((a, b) => b[1] - a[1]).map(([kind, count]) => `${kind} ${count}`).join(', ');
 }
 
-export function surveyIsland(world: World, city: City, requested?: MapWindow): string {
-  const map = mapOf(world, city);
-  const bounds = islandBounds(world, city);
-  const window = clampWindow(bounds, requested ?? cityWindow(world, city));
+export function surveyIsland(world: World, view: Viewpoint, requested?: MapWindow): string {
+  const bounds = islandBounds(view);
+  const window = clampWindow(bounds, requested ?? (view.city ? cityWindow(world, view.city) : bounds));
   const lines = [
-    `Island ${city.home} of the Kalliste archipelago: x ${bounds.x}-${bounds.x + bounds.width - 1}, z ${bounds.z}-${bounds.z + bounds.depth - 1}.`,
-    `Landing road entry at (${map.entry.x},${map.entry.z}). Farms need fertile ground; buildings need flat grass, fertile, sand or scrub.`,
-    `Island terrain: ${terrainCounts(world, city)}.`,
+    `Island ${view.home} of the Kalliste archipelago: x ${bounds.x}-${bounds.x + bounds.width - 1}, z ${bounds.z}-${bounds.z + bounds.depth - 1}.`,
+    'Farms need fertile ground; buildings need flat, clear grass, fertile, sand or scrub. A harbour needs two rows of that shore with three rows of open water in front of it.',
+    `Island terrain: ${terrainCounts(view)}.`,
     `Window x ${window.x}-${window.x + window.width - 1}, z ${window.z}-${window.z + window.depth - 1} of ${bounds.width}x${bounds.depth} tiles.`,
-    renderMap(world, city, window),
-    legend(world, city, window),
+    renderMap(world, view, window),
+    legend(world, view, window),
   ];
   return lines.join('\n');
 }
@@ -233,7 +242,10 @@ export function inspectTile(world: World, city: City, x: number, z: number): str
 
 export function atlas(world: World): string {
   const map = islandFor(world.seed);
-  const lines = ['The Kalliste archipelago has eight islands. Found your city on the shore of a free one; its harbour claims the island.'];
+  const lines = [
+    'The Kalliste archipelago has eight islands. Found your city on the shore of a free one; its harbour claims the island.',
+    'survey with an island number reads its coastline before you commit to it.',
+  ];
   for (let home = 0; home < ISLAND_COUNT; home++) {
     const facts = islandFacts(map, home);
     const island = map.islands[home];

@@ -1,9 +1,10 @@
 import { z } from 'zod';
 import { BUILDINGS, ROAD_COST, VENDOR_COST } from '../sim/catalog';
 import { BUILD_TOOLS } from '../sim/commands';
+import { ISLAND_COUNT } from '../sim/island';
 import type { ActionResult, City, Rotation, Tile } from '../sim/types';
 import type { AgentGame } from './game';
-import { atlas, cityReport, cityWindow, describeHarbourSite, describePlacement, describeRoadPath, inspectBuilding, inspectTile, islandBounds, surveyIsland } from './view';
+import { atlas, cityReport, cityWindow, describeHarbourSite, describePlacement, describeRoadPath, inspectBuilding, inspectTile, islandBounds, surveyIsland, viewpointOf, viewpointOn } from './view';
 
 export interface AgentTool<Shape extends z.ZodRawShape = z.ZodRawShape> {
   name: string;
@@ -55,8 +56,9 @@ function tool<Shape extends z.ZodRawShape>(definition: AgentTool<Shape>): AgentT
 export const TOOLS: AgentTool[] = [
   tool({
     name: 'survey',
-    description: 'Read the island as a character map with tile coordinates. Without arguments it shows the ground around your city; pass full for the whole island, or x and z for a window elsewhere. Start here.',
+    description: 'Read the ground as a character map with tile coordinates. Without arguments it shows your city, or the archipelago if you have none; pass island to read a shore you might settle, full for a whole island, or x and z for a window elsewhere. Start here.',
     schema: {
+      island: z.int().min(0).max(ISLAND_COUNT - 1).optional().describe('Island number, 0 to 7'),
       x: tile.optional(),
       z: tile.optional(),
       width: z.int().min(1).max(200).default(DEFAULT_WINDOW.width),
@@ -65,10 +67,13 @@ export const TOOLS: AgentTool[] = [
     },
     async run(game, args) {
       const { world, city } = game.view();
-      if (!city) return atlas(world);
-      if (args.full) return surveyIsland(world, city, islandBounds(world, city));
-      if (args.x === undefined || args.z === undefined) return surveyIsland(world, city, cityWindow(world, city));
-      return surveyIsland(world, city, { x: args.x, z: args.z, width: args.width, depth: args.depth });
+      if (args.island === undefined && !city) return atlas(world);
+      const view = args.island === undefined ? viewpointOf(world, city!) : viewpointOn(world, args.island);
+      if (args.full) return surveyIsland(world, view, islandBounds(view));
+      if (args.x === undefined || args.z === undefined) {
+        return surveyIsland(world, view, view.city ? cityWindow(world, view.city) : islandBounds(view));
+      }
+      return surveyIsland(world, view, { x: args.x, z: args.z, width: args.width, depth: args.depth });
     },
   }),
   tool({

@@ -65,9 +65,9 @@ credential row; the city it built stays.
 
 What differs from a local city:
 
-- `claim_island` comes first. A new agent owns nothing, so `survey` answers with
-  the atlas of eight islands and `report` says to claim one. After claiming, place
-  the dockyard with `found_city` as a player does.
+- `found_city` comes first, and claims as it founds: a new agent owns nothing, so
+  `survey` answers with the atlas, `survey {island}` reads a coastline, and
+  `check_harbour_site` tries a site until one is allowed.
 - Ownership is the authority's, not the agent's word: every command carries the
   agent's credential, and a command naming another player's city is refused before
   it reaches the simulation.
@@ -88,8 +88,10 @@ everyone's world overnight. Give an agent a schedule, not a `while true`.
 
 Looking costs nothing and changes nothing:
 
-- `survey` — the island as one character a tile, with coordinate rulers. Around
-  the city by default, `full` for the whole island, `x`/`z` for anywhere else.
+- `survey` — the ground as one character a tile, with coordinate rulers. Around
+  the city by default, `island` for a shore you do not own yet, `full` for a whole
+  island, `x`/`z` for anywhere else. With no city and no island, it answers with
+  the atlas of all eight.
 - `report` — treasury, population, employment, the goal, every building with the
   diagnosis its inspector panel would show, and the walkers on the roads.
 - `inspect_tile`, `inspect_building` — one tile or one building.

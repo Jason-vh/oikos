@@ -63,6 +63,38 @@ describe('an agent on the shared archipelago', () => {
     expect(report).toContain('found_city');
   });
 
+  test('reads the shore of an island it does not own, before choosing one', async () => {
+    const { call } = await agent(admit('Thales'));
+
+    const survey = await call('survey', { island: 3 });
+
+    expect(survey).toContain('Island 3 of the Kalliste archipelago');
+    expect(survey).toContain('Legend:');
+    expect(survey).not.toContain('your road');
+    expect(await call('survey')).toContain('Island 3: free');
+  });
+
+  test('chooses a harbour site from the map it read, without owning anything', async () => {
+    const { call } = await agent(admit('Thales'));
+    const around = /Island 6: free, around \((\d+),(\d+)\)/.exec(await call('survey'))!;
+    const hint = { x: Number(around[1]), z: Number(around[2]) };
+
+    let allowed = '';
+    for (let radius = 0; radius <= 6 && !allowed; radius++) {
+      for (let dx = -radius; dx <= radius && !allowed; dx++) {
+        for (let dz = -radius; dz <= radius && !allowed; dz++) {
+          for (const rotation of [0, 1, 2, 3]) {
+            const answer = await call('check_harbour_site', { x: hint.x + dx, z: hint.z + dz, rotation });
+            if (answer.includes('allowed')) { allowed = answer; break; }
+          }
+        }
+      }
+    }
+
+    expect(allowed).toContain('allowed');
+    expect(authority.snapshot().cities).toHaveLength(0);
+  });
+
   test('refuses to build before it has claimed an island', async () => {
     const { call } = await agent(admit('Thales'));
 
