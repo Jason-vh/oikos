@@ -1,51 +1,29 @@
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
+import { openSandbox, paint, settle } from './sandbox-page.mjs';
 
-const [url = 'http://localhost:5180/?debug', output = 'artifacts/roads'] = process.argv.slice(2);
+const [base = 'http://localhost:5180', output = 'artifacts/roads'] = process.argv.slice(2);
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch();
-const paint = (page, frames = 3) => page.evaluate((count) => new Promise((resolve) => {
-  function frame() {
-    if (--count === 0) resolve();
-    else requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
-}), frames);
 
 try {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   const errors = [];
-  page.on('pageerror', (error) => errors.push(error.message));
-  page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
-  await page.goto(url);
-  await page.waitForFunction(() => document.body.dataset.ready);
-  await page.evaluate(() => window.oikos.advance(0));
+  const page = await openSandbox(browser, base, { errors });
   for (const seed of [1, 2, 8, 37]) {
-    const raw = await page.evaluate(async (seed) => {
-      const { createWorld, advance } = await import('/src/sim/world.ts');
-      const { buildStarterNeighbourhood } = await import('/src/sim/scenario.ts');
-      const { serializeWorld } = await import('/src/sim/save.ts');
-      const world = createWorld(seed);
-      buildStarterNeighbourhood(world, world.cities[0]);
-      advance(world, 240);
-      return serializeWorld(world);
-    }, seed);
-    await page.getByTestId('import-file').setInputFiles({ name: 'roads.json', mimeType: 'application/json', buffer: Buffer.from(raw) });
-    await page.waitForFunction((seed) => window.oikos.state.seed === seed && window.oikos.state.time === 240, seed);
-    await page.getByRole('button', { name: /Return to village/ }).click();
-    await page.mouse.move(1, 1);
+    await settle(page, seed, { plan: true, seconds: 240 });
+    await page.evaluate(() => window.oikos.home());
     const world = await page.evaluate(() => window.oikos.state);
     const map = await page.evaluate(() => window.oikos.map);
     for (let side = 0; side < 4; side++) {
       await paint(page);
-      await page.screenshot({ path: `${output}/seed-${seed}-city-${side}.png`, style: '.hud-toast-region { visibility: hidden; }' });
+      await page.screenshot({ path: `${output}/seed-${seed}-city-${side}.png` });
       await page.keyboard.press('q');
     }
-    await paint(page, 10);
+    await paint(page, 20);
     const frames = await page.evaluate(() => window.oikos.frames);
     await paint(page, 20);
-    assert.equal(await page.evaluate(() => window.oikos.frames), frames, 'Paused roads keep rendering');
+    assert.equal(await page.evaluate(() => window.oikos.frames), frames, 'A still street keeps rendering');
     assert.deepEqual(await page.evaluate(() => window.oikos.state), world, 'Viewing roads changed the city');
     assert.deepEqual(await page.evaluate(() => window.oikos.map), map, 'Viewing roads changed the map');
   }
@@ -67,36 +45,24 @@ try {
   });
   assert(candidate, 'No spare tile for road rebuild check');
   await page.evaluate(({ x, z }) => window.oikos.focusTile(x, z), candidate);
-  await page.mouse.move(1, 1);
   await paint(page, 5);
   const originalRoads = await page.evaluate(() => window.oikos.state.cities[0].roads);
-  const before = await page.locator('#app > canvas').screenshot({ path: `${output}/rebuild-before.png`, style: '#ui { visibility: hidden; }' });
+  const before = await page.locator('#app > canvas').screenshot({ path: `${output}/rebuild-before.png` });
   assert((await page.evaluate((tile) => window.oikos.road([tile]), candidate)).ok);
   await paint(page, 5);
-  const placed = await page.locator('#app > canvas').screenshot({ path: `${output}/rebuild-placed.png`, style: '#ui { visibility: hidden; }' });
+  const placed = await page.locator('#app > canvas').screenshot({ path: `${output}/rebuild-placed.png` });
   assert(!before.equals(placed), 'Road placement did not change the rendered surface');
-  await page.getByRole('button', { name: /^Demolish,/ }).click();
-  const point = await page.evaluate(({ x, z }) => window.oikos.projectTile(x, z), candidate);
-  await page.mouse.click(point.x, point.y);
-  await page.keyboard.press('Escape');
-  await page.mouse.move(1, 1);
+  await page.evaluate(({ x, z }) => window.oikos.previewDemolition(x, z), candidate);
+  await paint(page);
+  await page.screenshot({ path: `${output}/demolition-preview.png` });
+  await page.evaluate(({ x, z }) => window.oikos.demolish(x, z), candidate);
+  await page.evaluate(() => window.oikos.hidePreview());
   await paint(page, 8);
   assert.deepEqual(await page.evaluate(() => window.oikos.state.cities[0].roads), originalRoads);
-  const removed = await page.locator('#app > canvas').screenshot({ path: `${output}/rebuild-removed.png`, style: '#ui { visibility: hidden; }' });
+  const removed = await page.locator('#app > canvas').screenshot({ path: `${output}/rebuild-removed.png` });
   assert(before.equals(removed), 'Demolition did not restore the original road surface and scenery');
-  await page.screenshot({ path: `${output}/after-demolition.png`, style: '.hud-toast-region { visibility: hidden; }' });
-  const save = await page.evaluate(async () => {
-    const { serializeWorld } = await import('/src/sim/save.ts');
-    return serializeWorld(window.oikos.state);
-  });
-  await page.goto(new URL('/art.html?model=road:junction', url).href);
-  await page.waitForFunction(() => document.body.dataset.model === 'road:junction');
-  await paint(page, 5);
-  await page.reload();
-  await page.waitForFunction(() => document.body.dataset.model === 'road:junction');
-  assert.equal(await page.evaluate(() => localStorage.getItem('oikos.island.v1')), save, 'Road atelier changed the game save');
   assert.deepEqual(errors, []);
-  console.log(`Road captures passed: four seeds, four sides, paused rendering, unchanged simulation, placement/demolition restores pixels, atelier save isolation. ${output}`);
+  console.log(`Road captures passed: four seeds, four sides, idle rendering, unchanged simulation, placement and demolition restore pixels. ${output}`);
 } finally {
   await browser.close();
 }

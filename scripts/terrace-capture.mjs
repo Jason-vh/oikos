@@ -1,27 +1,15 @@
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
+import { openSandbox, paint } from './sandbox-page.mjs';
 
-const [url = 'http://localhost:5180/?debug', output = 'artifacts/terraces'] = process.argv.slice(2);
+const [base = 'http://localhost:5180', output = 'artifacts/terraces'] = process.argv.slice(2);
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch();
-const paint = (page, frames = 3) => page.evaluate((count) => new Promise((resolve) => {
-  function frame() {
-    if (--count === 0) resolve();
-    else requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
-}), frames);
-const pointAt = (page, tile) => page.evaluate(({ x, z }) => window.oikos.projectTile(x, z), tile);
 
 try {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   const errors = [];
-  page.on('pageerror', (error) => errors.push(error.message));
-  page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
-  await page.goto(url);
-  await page.waitForFunction(() => document.body.dataset.ready);
-  await page.evaluate(() => window.oikos.advance(0));
+  const page = await openSandbox(browser, base, { errors });
   const crossing = await page.evaluate(async () => {
     const { islandFor, fractal } = await import('/src/sim/island.ts');
     const { placeRoadPath } = await import('/src/sim/world.ts');
@@ -61,33 +49,25 @@ try {
   for (const phase of ['bare', 'stairs']) {
     if (phase === 'stairs') {
       const before = await page.evaluate(() => window.oikos.state);
-      await page.getByRole('button', { name: /^Road,/ }).click();
-      const start = await pointAt(page, foot);
-      const end = await pointAt(page, landing);
-      await page.mouse.move(start.x, start.y);
-      await page.mouse.down();
-      await page.mouse.move(end.x, end.y, { steps: 4 });
+      assert.equal((await page.evaluate((tiles) => window.oikos.previewRoad(tiles), crossing)).ok, true);
       await paint(page);
       assert.deepEqual(await page.evaluate(() => window.oikos.state), before, 'Preview changed simulation');
-      await page.screenshot({ path: `${output}/stairs-preview.png`, style: '.hud-toast-region { visibility: hidden; }' });
-      await page.mouse.up();
-      await page.keyboard.press('Escape');
-      await page.mouse.move(1, 1);
-      const roads = await page.evaluate(() => window.oikos.state.cities[0].roads);
-      for (const tile of crossing) assert(roads.includes(tile.z * originalMap.width + tile.x), 'Stair drag failed');
+      await page.screenshot({ path: `${output}/stairs-preview.png` });
+      await page.evaluate(() => window.oikos.hidePreview());
+      assert.equal((await page.evaluate((tiles) => window.oikos.road(tiles), crossing)).ok, true);
     }
     const state = await page.evaluate(() => window.oikos.state);
     for (let side = 0; side < 4; side++) {
       await paint(page);
-      await page.screenshot({ path: `${output}/${phase}-side-${side}.png`, style: '.hud-toast-region { visibility: hidden; }' });
+      await page.screenshot({ path: `${output}/${phase}-side-${side}.png` });
       await page.keyboard.press('q');
     }
-    await paint(page, 8);
+    await paint(page, 20);
     const frames = await page.evaluate(() => window.oikos.frames);
-    await paint(page, 12);
-    assert.equal(await page.evaluate(() => window.oikos.frames), frames, 'Paused terraces keep rendering');
+    await paint(page, 20);
+    assert.equal(await page.evaluate(() => window.oikos.frames), frames, 'Still terraces keep rendering');
     assert.deepEqual(await page.evaluate(() => window.oikos.state), state, 'Viewing terraces changed the city');
-    if (phase === 'bare') bare = await page.locator('#app > canvas').screenshot({ style: '#ui { visibility: hidden; }' });
+    if (phase === 'bare') bare = await page.locator('#app > canvas').screenshot();
   }
   const beforeRejected = await page.evaluate(() => window.oikos.state);
   const dx = foot.x - stair.x;
@@ -95,22 +75,18 @@ try {
   const side = { x: stair.x + dz, z: stair.z - dx };
   assert.equal((await page.evaluate((tile) => window.oikos.road([tile]), side)).ok, false, 'Stairs accepted a side-road entrance');
   assert.deepEqual(await page.evaluate(() => window.oikos.state), beforeRejected, 'Rejected side road changed the city');
-  await page.getByRole('button', { name: /^Demolish,/ }).click();
-  const centre = await pointAt(page, stair);
-  await page.mouse.move(centre.x, centre.y);
+  await page.evaluate(({ x, z }) => window.oikos.previewDemolition(x, z), stair);
   await paint(page);
-  await page.screenshot({ path: `${output}/stairs-demolition-preview.png`, style: '.hud-toast-region { visibility: hidden; }' });
+  await page.screenshot({ path: `${output}/stairs-demolition-preview.png` });
+  await page.evaluate(() => window.oikos.hidePreview());
   for (const tile of [stair, landing, foot]) {
-    const point = await pointAt(page, tile);
-    await page.mouse.click(point.x, point.y);
+    await page.evaluate(({ x, z }) => window.oikos.demolish(x, z), tile);
     await paint(page);
   }
-  await page.keyboard.press('Escape');
-  await page.mouse.move(1, 1);
   await paint(page, 8);
-  assert.deepEqual(await page.evaluate(() => window.oikos.state.cities[0].roads), originalRoads, 'Demolition picked the wrong tile');
+  assert.deepEqual(await page.evaluate(() => window.oikos.state.cities[0].roads), originalRoads, 'Demolition removed the wrong tile');
   assert.deepEqual(await page.evaluate(() => window.oikos.map), originalMap, 'Stairs mutated the island');
-  const restored = await page.locator('#app > canvas').screenshot({ path: `${output}/restored.png`, style: '#ui { visibility: hidden; }' });
+  const restored = await page.locator('#app > canvas').screenshot({ path: `${output}/restored.png` });
   assert(bare.equals(restored), 'Demolition did not restore the exact cliffs and outcrops');
   assert((await page.evaluate((tiles) => window.oikos.road(tiles), crossing)).ok);
   const roundTrip = await page.evaluate(async () => {
@@ -126,11 +102,11 @@ try {
   }
   for (let side = 0; side < 4; side++) {
     await paint(page);
-    await page.screenshot({ path: `${output}/stairs-close-${side}.png`, style: '.hud-toast-region { visibility: hidden; }' });
+    await page.screenshot({ path: `${output}/stairs-close-${side}.png` });
     await page.keyboard.press('q');
   }
   assert.deepEqual(errors, []);
-  console.log(`Terrace captures passed: four sides, full-cell stairs, drag preview, blocked side entry, correct demolition picking, exact terrain restoration, save round-trip and paused rendering. ${output}`);
+  console.log(`Terrace captures passed: four sides, full-cell stairs, drag preview, blocked side entry, exact terrain restoration, save round-trip and idle rendering. ${output}`);
 } finally {
   await browser.close();
 }

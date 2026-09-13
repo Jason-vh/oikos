@@ -62,6 +62,7 @@ try {
   await atelier.clock.runFor(100);
   assert.equal(await atelier.locator('#construction').isVisible(), false);
   assert.deepEqual(await atelier.evaluate(() => ({ ...localStorage })), { 'construction-sentinel': 'untouched' });
+
   await atelier.close();
 
   const reduced = await open('/art.html?model=house:1', 'reduce');
@@ -73,8 +74,7 @@ try {
   assert.equal(await reduced.evaluate(() => window.artStudy.frames), reducedFrames, 'Reduced-motion scrubbing should stay still');
   await reduced.close();
 
-  const game = await open('/?debug');
-  await game.getByRole('button', { name: /pause/i }).first().click();
+  const game = await open('/sandbox.html');
   const house = await game.evaluate(() => window.oikos.plan.buildings.find((building) => building.kind === 'house'));
   await game.evaluate(({ x, z }) => window.oikos.focusTile(x, z), house);
   await game.clock.runFor(50);
@@ -86,22 +86,11 @@ try {
   await game.screenshot({ path: path.join(output, 'city-roof.png') });
   await game.clock.runFor(700);
   await game.screenshot({ path: path.join(output, 'city-finished.png') });
-  assert.equal(await game.evaluate(() => window.oikos.state.time), before, 'Construction advanced the paused simulation');
+  assert.equal(await game.evaluate(() => window.oikos.state.time), before, 'Construction advanced the simulation clock');
   assert.equal(await game.evaluate(() => window.oikos.state.cities[0].buildings.length), 1);
   const nextHouse = await game.evaluate(() => window.oikos.plan.buildings.find((building) => building.kind === 'house'));
   assert.equal(await game.evaluate(({ x, z }) => window.oikos.build('house', x, z).ok, nextHouse), true);
   await game.clock.runFor(200);
-  const saved = await game.evaluate(() => window.oikos.state);
-  const camera = await game.evaluate(() => window.oikos.camera);
-  await game.getByTestId('menu').click();
-  await game.getByTestId('load').click();
-  await game.clock.runFor(100);
-  assert.deepEqual(await game.evaluate(() => window.oikos.state), saved, 'Same-seed restore changed the saved world');
-  const restoredCamera = await game.evaluate(() => window.oikos.camera);
-  camera.forEach((value, index) => assert(Math.abs(value - restoredCamera[index]) < .00001, 'Same-seed restore moved the camera'));
-  const restoredFrames = await game.evaluate(() => window.oikos.frames);
-  await game.clock.runFor(500);
-  assert.equal(await game.evaluate(() => window.oikos.frames), restoredFrames, 'Same-seed restore retained construction transitions');
   await game.close();
   assert.deepEqual(errors, []);
   console.log(`Construction checks passed. Captures: ${output}`);

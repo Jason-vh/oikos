@@ -87,6 +87,11 @@ dust as each piece lands, then swaps to the ordinary material-batched model.
   building offers construction replay and a reversible progress slider, scaffolding
   and dust included — this is where timing is judged. Replay is disabled for reduced
   motion; manual scrubbing remains available without autoplay.
+- **`/sandbox.html`** (`src/sandbox.ts`): the terrain sandbox. One local island, no
+  HUD, no saves, no server: `?seed=` picks the island, `Q` turns the camera, `G`
+  toggles the grid, and `window.oikos` exposes seed, world, previews, road laying,
+  demolition and projection for the capture scripts below. It is an authoring tool,
+  never a way to play.
 - **`npm run art:check`**: `bun test src/art`.
 - **`npm run art:capture -- <base url>`**: captures every atelier model to
   `artifacts/art/`, including roads, bushes and outcrops from four sides, and asserts the
@@ -94,25 +99,26 @@ dust as each piece lands, then swaps to the ordinary material-batched model.
   the selection in the URL across a reload, and never touches the game's save.
 - **`npm run smoke:construction -- <base url>`**: assembly captures from four sides
   and at city zoom, one midway capture per kind, replay/scrub checks, idle rendering,
-  reduced motion, paused placement, same-island checkpoint restore and atelier save
-  isolation. Output: `artifacts/construction/`.
+  reduced motion, placement in the sandbox, and atelier save isolation.
+  Output: `artifacts/construction/`.
+The capture scripts below drive the sandbox; pass the site's base URL, not a route.
+
 - **`npm run coast:capture -- <base url> [output] [seeds…]`**: coastlines on seeds
   1, 2, 8 and 37, from four sides and with the grid, plus the seed-1 village.
   Also use these views to judge inland cliffs and scrub in context.
-  Uses isolated browser storage and checks paused rendering and unchanged simulation.
-  Requires the dev server. Output: `artifacts/coast/`.
+  Checks idle rendering and unchanged simulation. Requires the dev server.
+  Output: `artifacts/coast/`.
 - **`npm run terrace:capture -- <base url> [output]`**: inland cliffs from four
   sides, before and after laying stairs through an outcrop, plus four close views.
-  Checks drag previews, rejected side entries, demolition picking, pixel-identical
-  cliff restoration, save round-trips and paused rendering. Output: `artifacts/terraces/`.
+  Checks previews, rejected side entries, pixel-identical cliff restoration, save
+  round-trips and idle rendering. Output: `artifacts/terraces/`.
 - **`npm run road:capture -- <base url> [output]`**: limestone streets on seeds
-  1, 2, 8 and 37 from four sides. Checks paused rendering, unchanged simulation,
-  pixel-identical scenery after placing then demolishing a road, and road atelier
-  save isolation. Requires the dev server. Output: `artifacts/roads/`.
+  1, 2, 8 and 37 from four sides. Checks idle rendering, unchanged simulation, and
+  pixel-identical scenery after placing then demolishing a road. Requires the dev
+  server. Output: `artifacts/roads/`.
   Use `terrace:capture` alongside it for carved stairs, landings and rejected side entries.
-- **`npm run smoke:foam -- <base url>`**: breakers animate while running, freeze
-  when paused, behind the menu and under reduced motion, and never render while idle.
-  Output: `artifacts/foam/`.
+- **`npm run smoke:foam -- <base url>`**: breakers animate, stay still under reduced
+  motion, and never render while idle. Output: `artifacts/foam/`.
 - **`npm run check`**: build, tests and the capture suites. Models are judged in
   the running game by eye; no gameplay walkthrough script remains.
 - **`npm run art:diff -- <before dir> <after dir>`**: compares two capture
