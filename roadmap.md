@@ -238,8 +238,18 @@ new shipping network to supply these sanctuaries.”
   and founding go through the ordinary controls. Writes need a ready session and
   an owned city; disconnects disable them and cancel unfinished gestures, while
   visiting, camera and recovery stay available. It saves nothing locally.
-- Deploying that server, adopting or recovering an account, and unrestricted
-  coastal harbour siting are still ahead.
+- Deployed at <https://oikos.vhtm.eu>: Caddy serves the built client and proxies
+  the authority over the same origin.
+- Still ahead, in rough order:
+  - **Snapshot cost.** A snapshot is the whole World, four times a second, and a
+    client spends most of a second validating and syncing one. It shows as a few
+    seconds of lag after an action. Send less, less often, or diff it.
+  - **A pause of one's own.** Shared time never stops, so a solo player cannot
+    pause. A menu pause for a world nobody else is playing.
+  - **A minimap**, now that the island picker is gone and the sea is the map.
+  - **A growing archipelago**, so a newcomer arriving to a full sea can still
+    settle; today they can only watch.
+  - Adopting or recovering an account: the credential cookie is the whole account.
 
 ## Roadmap
 

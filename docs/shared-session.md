@@ -11,9 +11,11 @@ write World: `snapshot` delivers a validated authoritative replacement. Ownershi
 and cursor getters/events are defensive copies.
 
 Snapshots arrive as gzip binary frames and are inflated asynchronously. Text
-packets are handled synchronously while no inflation is in flight, and queued
-behind one otherwise, so server order is preserved. A frame that does not inflate
-is a protocol failure.
+packets are handled synchronously while nothing is queued, and queued behind the
+inflation otherwise, so server order is preserved. A snapshot still waiting behind
+another snapshot is replaced by the newer one: state is absolute, and a client that
+cannot keep up must fall behind by one frame, not by a growing queue. A frame that
+does not inflate is a protocol failure.
 
 ## Bootstrap contract
 

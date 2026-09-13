@@ -27,6 +27,7 @@ interface SocketData {
 interface Bucket { tokens: number; at: number }
 export const AGENT_PRESENCE_MS = 30_000;
 const BEARER = /^Bearer ([a-f0-9]{64})$/;
+const SNAPSHOT_INTERVAL_MS = 250;
 const clockDefault: RuntimeClock = {
   now: () => performance.now(),
   schedule(callback, milliseconds) {
@@ -130,7 +131,7 @@ export function startServer(options: RuntimeOptions) {
 
   function snapshots(): void {
     const now = clock.now();
-    const ready = [...sockets].filter((ws) => ws.readyState === 1 && ws.data.snapshotDue && now - ws.data.lastSnapshot >= 250 && ws.getBufferedAmount() === 0);
+    const ready = [...sockets].filter((ws) => ws.readyState === 1 && ws.data.snapshotDue && now - ws.data.lastSnapshot >= SNAPSHOT_INTERVAL_MS && ws.getBufferedAmount() === 0);
     if (!ready.length) return;
     if (serial >= Number.MAX_SAFE_INTEGER) throw new Error('Snapshot serial exhausted.');
     const world = JSON.stringify(authority.snapshot());

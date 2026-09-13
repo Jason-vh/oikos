@@ -145,20 +145,28 @@ export class SharedSession {
       this.phase = 'open';
       this.notify();
     };
-    let decoding: Promise<void> = Promise.resolve();
-    let decodingDepth = 0;
+    const queue: unknown[] = [];
+    let draining = false;
+    const drain = async () => {
+      if (draining) return;
+      draining = true;
+      while (queue.length > 0) {
+        const data = queue.shift();
+        const text = compressed(data) ? await inflate(data) : data;
+        if (!current()) break;
+        this.onMessage(text);
+      }
+      draining = false;
+    };
     const message = (event: MessageEvent) => {
       const data: unknown = event.data;
-      if (decodingDepth === 0 && !compressed(data)) {
+      if (queue.length === 0 && !draining && !compressed(data)) {
         if (current()) this.onMessage(data);
         return;
       }
-      decodingDepth += 1;
-      decoding = decoding.then(async () => {
-        const text = compressed(data) ? await inflate(data) : data;
-        decodingDepth -= 1;
-        if (current()) this.onMessage(text);
-      });
+      if (compressed(data) && queue.length > 0 && compressed(queue[queue.length - 1])) queue[queue.length - 1] = data;
+      else queue.push(data);
+      void drain();
     };
     const lost = () => { if (current()) this.disconnected(); };
     socket.addEventListener('open', opened);

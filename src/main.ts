@@ -59,7 +59,7 @@ export function boot(source: SharedBootSource): BootHandles {
   function overviewView(seed: number): { target: number[]; offset: number[]; size: number } {
     const island = islandFor(seed);
     const centre = worldPositionOn(island, island.width / 2, island.depth / 2);
-    return { target: [centre.x, GROUND_Y, centre.z], offset: [140, 190, 190], size: 220 };
+    return { target: [centre.x, GROUND_Y, centre.z], offset: [52, 66, 70], size: 240 };
   }
   stage.bounds(seaBounds(world.seed));
   const initialActive = activeCity(world, context);
