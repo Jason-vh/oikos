@@ -72,14 +72,17 @@ export function createIslandChoice(canvas: HTMLCanvasElement, choice: HTMLSelect
 
   choice.addEventListener('change', draw);
   canvas.addEventListener('click', (event) => {
-    if (!map) return;
+    if (!map || choice.disabled) return;
     const bounds = canvas.getBoundingClientRect();
     const x = Math.floor((event.clientX - bounds.left) / bounds.width * map.width);
     const z = Math.floor((event.clientY - bounds.top) / bounds.height * map.depth);
     if (terrainOn(map, x, z) === 'water') return;
     const island = islandAt(map, x, z);
     if (!island) return;
-    choice.value = String(map.islands.indexOf(island));
+    const index = map.islands.indexOf(island);
+    const option = Array.from(choice.options).find((candidate) => candidate.value === String(index));
+    if (!option || option.disabled) return;
+    choice.value = option.value;
     choice.dispatchEvent(new Event('change', { bubbles: true }));
   });
 

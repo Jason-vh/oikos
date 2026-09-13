@@ -50,11 +50,13 @@ function boot(): void {
     city.sync(world);
     const found = viewed ? viewed.buildings.find((b) => b.id === selectedId) ?? (viewed.harbour.id === selectedId ? viewed.harbour : null) : null;
     city.select(found ?? null, null);
+    const canEdit = canWrite(world, context);
     hud.update(
       world,
       scopeOf(viewed),
       scopeOf(active),
-      found ? { kind: 'building' as const, building: found, status: [], editable: canWrite(world, context) && viewed?.id === active?.id } : null,
+      found ? { kind: 'building' as const, building: found, status: [], editable: canEdit && viewed?.id === active?.id } : null,
+      canEdit,
     );
     hud.setCities(
       world.cities.map((candidate) => ({ id: candidate.id, label: candidate.id === active?.id ? 'Your city' : `City ${candidate.id}` })),
@@ -93,6 +95,8 @@ function boot(): void {
     sound: () => {},
     undo: () => {},
     visit: viewCity,
+    claim: () => {},
+    discardPending: () => {},
   });
 
   refresh();

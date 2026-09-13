@@ -36,6 +36,25 @@ export function returnToActive(context: CityContext): CityContext {
   return { ...context, viewedId: context.activeId };
 }
 
+function pickActiveId(world: World, ownedCityIds: readonly number[], previous: number | null): number | null {
+  if (previous !== null && ownedCityIds.includes(previous) && resolveCity(world, previous) !== null) return previous;
+  for (const id of ownedCityIds) if (resolveCity(world, id) !== null) return id;
+  return null;
+}
+
+export function contextForOwnedCity(world: World, ownedCityIds: readonly number[]): CityContext {
+  const activeId = pickActiveId(world, ownedCityIds, null);
+  return { viewedId: activeId, activeId };
+}
+
+export function reconcileContext(world: World, context: CityContext, ownedCityIds: readonly number[], realmChanged: boolean, bindingChanged = false): CityContext {
+  const activeId = pickActiveId(world, ownedCityIds, context.activeId);
+  const firstClaim = !bindingChanged && context.activeId === null && activeId !== null;
+  const viewedCandidate = realmChanged || firstClaim ? null : context.viewedId;
+  const viewedId = viewedCandidate !== null && resolveCity(world, viewedCandidate) !== null ? viewedCandidate : activeId;
+  return { activeId, viewedId };
+}
+
 const NO_ACTIVE_CITY: ActionResult = { ok: false, reason: 'You have no city of your own here.' };
 const VISITING: ActionResult = { ok: false, reason: 'Viewing another city grants no writes.' };
 

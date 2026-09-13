@@ -20,8 +20,24 @@ import { parseView, VIEW_KEY } from './ui/view';
 import { canUndoConstruction, undoConstruction } from './sim/history';
 import { foundingPlacement } from './sim/founding';
 import type { CityCommand } from './sim/commands';
-import { activeCity, bootstrapCityContext, canWrite, resolveCity, submitCityCommand, viewedCity, withPersistence, withViewed } from './ui/city-context';
+import { activeCity, bootstrapCityContext, canWrite, contextForOwnedCity, reconcileContext, resolveCity, submitCityCommand, viewedCity, withPersistence, withViewed } from './ui/city-context';
+import { SharedSession, type SendOutcome, type SharedRequestOutcome, type SharedSessionStatus, type SharedSnapshot } from './ui/shared-session';
+import { SharedIntent } from './ui/shared-intent';
 import './ui/style.css';
+
+export interface SharedBootSource {
+  kind: 'shared';
+  session: SharedSession;
+  initialSnapshot: SharedSnapshot;
+}
+export type BootSource = { kind: 'local' } | SharedBootSource;
+
+export interface BootHandles {
+  onSnapshot(snapshot: SharedSnapshot): void;
+  onStatus(status: SharedSessionStatus, reason: string): void;
+  onRealmChanged(): void;
+  onOutcome(result: SharedRequestOutcome): void;
+}
 
 const SAVE_KEY = AUTOSAVE_KEY;
 
@@ -56,14 +72,31 @@ function restoreLocalView(seed: number, home: number | undefined): View | null {
   }
 }
 
-export function boot(): void {
-  const { world: initialWorld, warning: storageWarning, autoSaveEnabled: initialAutoSaveEnabled } = createLocalWorld();
-  let world = initialWorld;
-  let autoSaveEnabled = initialAutoSaveEnabled;
+export function boot(source: BootSource = { kind: 'local' }): BootHandles | void {
+  let world: ReturnType<typeof createWorld>;
+  let autoSaveEnabled: boolean;
+  let storageWarning: string;
+  let realmId: string | null;
+  let bindingId: string | null;
+  let stateGeneration = 0;
+  if (source.kind === 'local') {
+    const local = createLocalWorld();
+    world = local.world;
+    autoSaveEnabled = local.autoSaveEnabled;
+    storageWarning = local.warning;
+    realmId = null;
+    bindingId = null;
+  } else {
+    world = source.initialSnapshot.world;
+    autoSaveEnabled = false;
+    storageWarning = '';
+    realmId = source.initialSnapshot.realmId;
+    bindingId = source.initialSnapshot.session.binding;
+  }
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const stage = new Stage(document.querySelector<HTMLElement>('#app')!, false);
   stage.reducedMotion = reducedMotion;
-  let context = bootstrapCityContext(world);
+  let context = source.kind === 'local' ? bootstrapCityContext(world) : contextForOwnedCity(world, source.initialSnapshot.session.ownedCityIds);
   const cameraMemory = new Map<number, View>();
   function mapFor(home: City | null): ReturnType<typeof islandFor> {
     return home ? islandFor(world.seed, home.home) : islandFor(world.seed);
@@ -80,14 +113,23 @@ export function boot(): void {
     const island = islandFor(seed);
     return Math.max(island.width, island.depth) * CELL_SIZE / 2 + 20;
   }
+  function overviewView(seed: number): { target: number[]; offset: number[]; size: number } {
+    const island = islandFor(seed);
+    const centre = worldPositionOn(island, island.width / 2, island.depth / 2);
+    return { target: [centre.x, GROUND_Y, centre.z], offset: [140, 190, 190], size: 220 };
+  }
   stage.bounds(seaBounds(world.seed));
   const initialActive = activeCity(world, context);
   if (initialActive) stage.setView(viewFor(initialActive));
-  const savedView = restoreLocalView(world.seed, initialActive?.home);
-  if (savedView) {
-    try { stage.setView(savedView); } catch {}
+  else if (source.kind === 'shared') stage.setView(overviewView(world.seed));
+  if (source.kind === 'local') {
+    const savedView = restoreLocalView(world.seed, initialActive?.home);
+    if (savedView) {
+      try { stage.setView(savedView); } catch {}
+    }
   }
-  function rebuildScene(): void {
+  function rebuildScene(preserveView = false): void {
+    const previousView = stage.getView();
     city.dispose();
     stage.bounds(seaBounds(world.seed));
     const home = activeCity(world, context);
@@ -95,7 +137,12 @@ export function boot(): void {
     city.watch(stage.controls.target, stage.viewSpan());
     overlay.dispose();
     overlay = new ConstructionOverlay(stage, mapFor(home));
-    if (home) stage.setView(viewFor(home));
+    if (preserveView) stage.setView(previousView);
+    else {
+      const viewed = viewedCity(world, context);
+      if (viewed) stage.setView(cameraMemory.get(viewed.id) ?? viewFor(viewed));
+      else if (source.kind === 'shared') stage.setView(overviewView(world.seed));
+    }
     stage.shadows();
   }
   let tool: Tool = 'inspect';
@@ -103,8 +150,9 @@ export function boot(): void {
   let speed: 0 | 1 | 3 = 1;
   let selectedId: number | null = null;
   let hover: Tile | null = null;
-  let drag: { tile: Tile; x: number; y: number; pointer: number } | null = null;
+  let drag: { tile: Tile; x: number; y: number; pointer: number; gestureWritable: boolean; gestureGeneration: number } | null = null;
   let bendVertical = false;
+  let renderedWritable = false;
   let accumulator = 0;
   let dirtySave = false;
   let showGrid = false;
@@ -142,22 +190,37 @@ export function boot(): void {
     return target ? { city: target, summary: getSummary(target) } : null;
   }
 
+  function writable(): boolean {
+    if (!canWrite(world, context)) return false;
+    return source.kind === 'local' || source.session.canSend();
+  }
+
+  function connectionHint(): string {
+    if (context.activeId === null) return 'You have no city of your own here.';
+    if (context.viewedId !== context.activeId) return 'Visiting another city · read-only. H returns home.';
+    if (source.kind === 'shared' && !source.session.canSend()) return 'Not ready to send actions right now · the world stays visible while this resolves.';
+    return 'Viewing another city grants no writes.';
+  }
+
   function refresh(): void {
     const viewed = viewedCity(world, context);
     const active = activeCity(world, context);
     const found = findBuildingOwner(selectedId);
     const foundWalker = found ? null : findWalkerOwner(selectedId);
     const animal = found || foundWalker ? null : world.wildlife.find((candidate) => candidate.id === selectedId) ?? null;
+    if (!found && !foundWalker && !animal) selectedId = null;
     city.sync(world);
     overlay.setRoads(active?.roads ?? []);
     city.select(found?.building ?? null, foundWalker?.walker.id ?? animal?.id ?? null);
     const viewedScope = scopeOf(viewed);
     const activeScope = scopeOf(active);
-    if (foundWalker) hud.update(world, viewedScope, activeScope, { kind: 'person', name: walkerName(foundWalker.walker), role: WALKER_ROLES[foundWalker.walker.kind], status: walkerStatus(foundWalker.city, foundWalker.walker) });
-    else if (animal) hud.update(world, viewedScope, activeScope, { kind: 'person', name: animalName(animal), role: 'Wildlife', status: animalStatus(animal) });
-    else if (found) hud.update(world, viewedScope, activeScope, { kind: 'building', building: found.building, status: buildingStatus(found.city, found.building), editable: canWrite(world, context) && found.city.id === active?.id });
-    else hud.update(world, viewedScope, activeScope, null);
-    hud.setCities(world.cities.map((candidate) => ({ id: candidate.id, label: candidate.id === active?.id ? 'Your city' : `City ${candidate.id}` })), context.viewedId);
+    const canEdit = writable();
+    renderedWritable = canEdit;
+    if (foundWalker) hud.update(world, viewedScope, activeScope, { kind: 'person', name: walkerName(foundWalker.walker), role: WALKER_ROLES[foundWalker.walker.kind], status: walkerStatus(foundWalker.city, foundWalker.walker) }, canEdit);
+    else if (animal) hud.update(world, viewedScope, activeScope, { kind: 'person', name: animalName(animal), role: 'Wildlife', status: animalStatus(animal) }, canEdit);
+    else if (found) hud.update(world, viewedScope, activeScope, { kind: 'building', building: found.building, status: buildingStatus(found.city, found.building), editable: canEdit && found.city.id === active?.id }, canEdit);
+    else hud.update(world, viewedScope, activeScope, null, canEdit);
+    hud.setCities(world.cities.map((candidate) => ({ id: candidate.id, label: candidate.id === active?.id ? 'Your city' : `City ${candidate.id}` })), context.viewedId, context.activeId);
     const debt = (active?.money ?? 0) < 0;
     if (debt && !inDebt) hud.notify('The treasury is in debt: upkeep outweighs income.', true);
     inDebt = debt;
@@ -175,7 +238,7 @@ export function boot(): void {
 
   function selectTool(next: Tool): void {
     if (next !== 'inspect') {
-      if (!canWrite(world, context)) { hud.notify('Viewing another city grants no writes.', true); return; }
+      if (!writable()) { hud.notify('Viewing another city grants no writes.', true); return; }
       const home = activeCity(world, context);
       if (!home || !home.founded) { hud.notify('Place your founding harbour first.', true); return; }
     }
@@ -283,8 +346,9 @@ export function boot(): void {
     tool: selectTool,
     rotate: () => { rotation = ((rotation + 1) % 4) as Rotation; hud.setTool(tool, rotation); updatePreview(); },
     speed: setSpeed,
-    save: () => save(),
+    save: () => { if (source.kind === 'local') save(); },
     load: () => {
+      if (source.kind !== 'local') return;
       try {
         const saved = readCheckpoint(localStorage);
         if (!saved) { hud.notify('No valid checkpoint found. Your current island is unchanged.', true); return; }
@@ -293,6 +357,7 @@ export function boot(): void {
       } catch { hud.notify('Browser storage is unavailable.', true); }
     },
     newIsland: (home) => {
+      if (source.kind !== 'local') return;
       const seed = nextArchipelagoSeed(world.seed);
       world = createWorld(seed, home, false);
       context = bootstrapCityContext(world);
@@ -311,27 +376,40 @@ export function boot(): void {
       save(false);
       hud.notify(`Island ${(active?.home ?? 0) + 1} awaits. Place your harbour beside the landing road.`);
     },
-    vendor: (id, enabled) => apply(submitCityCommand(world, context, { type: 'vendor', id, enabled })),
+    vendor: (id, enabled) => {
+      if (source.kind === 'local') { apply(submitCityCommand(world, context, { type: 'vendor', id, enabled })); return; }
+      dispatchShared({ type: 'vendor', id, enabled });
+    },
     focus: (x, z) => { const point = worldPositionOn(map(), x + .5, z + .5); stage.focus(point.x, point.z); },
     grid: setGrid,
     home: focusVillage,
-    undo: undoLastConstruction,
+    undo: () => { if (source.kind === 'local') undoLastConstruction(); },
     menu: (open) => {
+      if (source.kind === 'local') {
+        if (open) {
+          if (menuSpeed === null) menuSpeed = speed;
+          setSpeed(0);
+          held.clear();
+          panVelocity.right = 0;
+          panVelocity.forward = 0;
+          drag = null;
+        } else if (menuSpeed !== null) {
+          const previousSpeed = menuSpeed;
+          menuSpeed = null;
+          setSpeed(previousSpeed);
+        }
+        return;
+      }
       if (open) {
-        if (menuSpeed === null) menuSpeed = speed;
-        setSpeed(0);
         held.clear();
         panVelocity.right = 0;
         panVelocity.forward = 0;
         drag = null;
-      } else if (menuSpeed !== null) {
-        const previousSpeed = menuSpeed;
-        menuSpeed = null;
-        setSpeed(previousSpeed);
       }
     },
     sound: (enabled) => { sound.setEnabled(enabled); hud.setSound(enabled); },
     export: () => {
+      if (source.kind !== 'local') return;
       const url = URL.createObjectURL(new Blob([serializeWorld(world)], { type: 'application/json' }));
       const link = document.createElement('a');
       link.href = url;
@@ -340,7 +418,7 @@ export function boot(): void {
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     },
     import: async (file) => {
-      if (importing) return;
+      if (source.kind !== 'local' || importing) return;
       if (file.size > 5_000_000) { hud.notify('That file is too large to be an island save.', true); return; }
       importing = true;
       const previousSpeed = speed;
@@ -362,7 +440,25 @@ export function boot(): void {
       }
     },
     visit: viewCity,
+    claim: (home) => {
+      if (source.kind !== 'shared' || source.session.currentSession?.ownedCityIds.length !== 0) return;
+      if (world.cities.some((candidate) => candidate.home === home)) return;
+      sharedIntent?.send({ kind: 'claim', home });
+    },
+    discardPending: () => {
+      if (source.kind !== 'shared') return;
+      if (source.session.discardPending()) {
+        sharedIntent?.reset();
+        hud.setClaimError('');
+      }
+    },
   });
+
+  const sharedIntent = source.kind === 'shared' ? new SharedIntent(source.session, () => realmId!, (outcome, kind) => {
+    applySharedOutcome(outcome);
+    if (kind === 'claim') hud.setClaimError(outcome.ok ? '' : outcome.reason);
+    onStatusUpdate(source.session.currentStatus, source.session.statusReason);
+  }) : null;
 
   function apply(result: ActionResult): void {
     hud.notify(result.reason, !result.ok);
@@ -387,6 +483,24 @@ export function boot(): void {
       hud.setUndo(true);
     }
     return result;
+  }
+
+  function applySharedOutcome(outcome: SendOutcome): void {
+    const uncertain = outcome.status === 'indeterminate';
+    if (outcome.reason.length > 0) hud.notify(outcome.reason, !outcome.ok && !uncertain);
+    if (!outcome.ok && !uncertain) sound.play('error');
+    else if (outcome.ok) sound.play('build');
+  }
+
+  function dispatchShared(command: CityCommand): void {
+    if (!writable()) { applySharedOutcome({ ok: false, reason: 'Viewing another city grants no writes.', status: 'unsent' }); return; }
+    sharedIntent?.send({ kind: 'command', cityId: context.activeId!, command });
+  }
+
+  function submit(command: CityCommand): ActionResult | undefined {
+    if (source.kind === 'local') return construct(command);
+    dispatchShared(command);
+    return undefined;
   }
 
   function undoLastConstruction(): void {
@@ -436,7 +550,7 @@ export function boot(): void {
   }
 
   function updatePreview(pointer: { x: number; y: number } | null = null): void {
-    if (!canWrite(world, context)) {
+    if (!writable()) {
       city.hidePreview();
       city.clearHover();
       overlay.setFertileGround(null);
@@ -444,7 +558,7 @@ export function boot(): void {
       overlay.setDemolitionTarget([]);
       overlay.setHarbourRoute(null);
       stage.canvas.style.cursor = '';
-      hud.setHint(context.activeId === null ? 'You have no city of your own here.' : 'Visiting another city · read-only. H returns home.');
+      hud.setHint(connectionHint());
       if (pointer && !drag && city.hover(pointer.x, pointer.y, world)) stage.canvas.style.cursor = 'pointer';
       return;
     }
@@ -515,7 +629,7 @@ export function boot(): void {
     hover = atPointer(event);
     if (!hover) return;
     bendVertical = event.shiftKey;
-    drag = { tile: hover, x: event.clientX, y: event.clientY, pointer: event.pointerId };
+    drag = { tile: hover, x: event.clientX, y: event.clientY, pointer: event.pointerId, gestureWritable: writable(), gestureGeneration: stateGeneration };
     stage.canvas.setPointerCapture(event.pointerId);
     updatePreview();
   });
@@ -530,15 +644,20 @@ export function boot(): void {
     hover = atPointer(event);
     const moved = Math.hypot(event.clientX - drag.x, event.clientY - drag.y);
     if (hover && (tool === 'road' || moved < 9)) {
-      const home = canWrite(world, context) ? activeCity(world, context) : null;
+      const gestureStillValid = drag.gestureWritable && drag.gestureGeneration === stateGeneration && writable();
+      const home = gestureStillValid ? activeCity(world, context) : null;
       if (home && !home.founded) {
-        const result = submitCityCommand(world, context, { type: 'foundHarbour', x: hover.x, z: hover.z });
-        apply(result);
-        if (result.ok) {
-          selectedId = home.harbour.id;
-          selectTool('inspect');
-          refresh();
-          save(false);
+        if (source.kind === 'local') {
+          const result = submitCityCommand(world, context, { type: 'foundHarbour', x: hover.x, z: hover.z });
+          apply(result);
+          if (result.ok) {
+            selectedId = home.harbour.id;
+            selectTool('inspect');
+            refresh();
+            save(false);
+          }
+        } else {
+          dispatchShared({ type: 'foundHarbour', x: hover.x, z: hover.z });
         }
       } else if (!home || tool === 'inspect') {
         const picked = city.pick(event.clientX, event.clientY);
@@ -547,12 +666,12 @@ export function boot(): void {
       } else if (tool === 'demolish') {
         const picked = city.pick(event.clientX, event.clientY);
         const hit = home.buildings.find((building) => building.id === picked.building);
-        construct({ type: 'demolish', x: hit?.x ?? hover.x, z: hit?.z ?? hover.z });
-      } else if (tool === 'road') construct({ type: 'roadPath', tiles: roadPath() });
+        submit({ type: 'demolish', x: hit?.x ?? hover.x, z: hit?.z ?? hover.z });
+      } else if (tool === 'road') submit({ type: 'roadPath', tiles: roadPath() });
       else {
         const buildingTool = tool;
-        const result = construct({ type: 'build', tool: buildingTool, x: hover.x, z: hover.z, rotation });
-        if (result.ok) {
+        const result = submit({ type: 'build', tool: buildingTool, x: hover.x, z: hover.z, rotation });
+        if (result?.ok) {
           selectedId = home.buildings.find((building) => building.x === hover!.x && building.z === hover!.z)?.id ?? null;
           refresh();
         }
@@ -578,7 +697,7 @@ export function boot(): void {
   window.addEventListener('keydown', (event) => {
     if (event.target instanceof HTMLElement && (event.target.closest('input,select,textarea,dialog') || event.target.isContentEditable)) return;
     if (event.metaKey || event.ctrlKey) {
-      if (event.key.toLowerCase() === 'z' && !event.shiftKey) {
+      if (source.kind === 'local' && event.key.toLowerCase() === 'z' && !event.shiftKey) {
         event.preventDefault();
         undoLastConstruction();
       }
@@ -591,7 +710,7 @@ export function boot(): void {
       if (!escapeOpensMenu) selectTool('inspect');
     } else if (keys[event.key]) selectTool(keys[event.key]);
     else if (event.key.toLowerCase() === 'g') setGrid(!showGrid);
-    else if (event.code === 'Space' && !(event.target instanceof HTMLButtonElement)) { event.preventDefault(); setSpeed(speed === 0 ? 1 : 0); }
+    else if (event.code === 'Space' && !(event.target instanceof HTMLButtonElement)) { event.preventDefault(); if (source.kind === 'local') setSpeed(speed === 0 ? 1 : 0); }
     else if (event.key.toLowerCase() === 'r') { rotation = ((rotation + 1) % 4) as Rotation; hud.setTool(tool, rotation); updatePreview(); }
     else if (event.key.toLowerCase() === 'q') stage.rotate();
     else if (event.key.toLowerCase() === 'h') focusVillage();
@@ -627,34 +746,39 @@ export function boot(): void {
     stage.update(delta);
     city.watch(stage.controls.target, stage.viewSpan());
     city.transitions(delta);
-    if (speed > 0 && !document.hidden) {
-      accumulator += delta * speed;
-      let changed = false;
-      while (accumulator >= .25) {
-        advance(world, .25);
-        accumulator -= .25;
-        changed = true;
-      }
-      if (changed) {
-        dirtySave = true;
-        refresh();
-        if (reducedMotion) {
-          city.animate(0, .25, 1);
-          stage.shadows();
+    if (!document.hidden) {
+      if (source.kind === 'local' && speed > 0) {
+        accumulator += delta * speed;
+        let changed = false;
+        while (accumulator >= .25) {
+          advance(world, .25);
+          accumulator -= .25;
+          changed = true;
+        }
+        if (changed) {
+          dirtySave = true;
+          refresh();
+          if (reducedMotion) {
+            city.animate(0, .25, 1);
+            stage.shadows();
+          }
         }
       }
-      visualDelta += delta;
-      if (now - lastRender >= 1000 / 30) {
-        if (!reducedMotion) {
-          artTime += visualDelta;
-          city.animate(artTime, visualDelta, speed);
-          stage.shadowsFromMotion();
+      const animating = source.kind === 'shared' || speed > 0;
+      if (animating) {
+        visualDelta += delta;
+        if (now - lastRender >= 1000 / 30) {
+          if (!reducedMotion) {
+            artTime += visualDelta;
+            city.animate(artTime, visualDelta, source.kind === 'local' ? speed : 1);
+            stage.shadowsFromMotion();
+          }
+          visualDelta = 0;
+          lastRender = now;
         }
-        visualDelta = 0;
-        lastRender = now;
       }
     }
-    if (now - lastSave >= 5000) {
+    if (source.kind === 'local' && now - lastSave >= 5000) {
       if (dirtySave) save(false);
       lastSave = now;
     }
@@ -662,6 +786,7 @@ export function boot(): void {
   }
   document.addEventListener('visibilitychange', () => { previous = 0; if (!document.hidden) stage.invalidate(); });
   function saveView(): void {
+    if (source.kind !== 'local') return;
     try {
       const active = activeCity(world, context);
       if (!active) return;
@@ -670,25 +795,37 @@ export function boot(): void {
       localStorage.setItem(VIEW_KEY, JSON.stringify({ seed: world.seed, home: active.home, view }));
     } catch {}
   }
-  window.addEventListener('pagehide', () => { if (dirtySave) save(false); saveView(); });
+  window.addEventListener('pagehide', () => { if (source.kind === 'local' && dirtySave) save(false); saveView(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) saveView(); });
+  hud.setSharedMode(source.kind === 'shared');
   selectTool('inspect');
   hud.setSpeed(speed);
   hud.setSound(sound.enabled);
+  if (source.kind === 'shared') updateClaimAvailability(source.initialSnapshot);
   refresh();
+  if (source.kind === 'shared' && reducedMotion) city.animate(0, .25, 1);
   city.watch(stage.controls.target, stage.viewSpan());
   stage.shadows();
   if (storageWarning) hud.notify(storageWarning, true);
   requestAnimationFrame(frame);
 
+  function updateClaimAvailability(snapshot: SharedSnapshot): void {
+    const available = snapshot.session.ownedCityIds.length === 0;
+    hud.setClaimAvailable(available, available ? world.seed : undefined, world.cities.map((candidate) => candidate.home));
+  }
+
   function debugCommand(raw: unknown): ActionResult {
+    if (source.kind !== 'local') return { ok: false, reason: 'Debug simulation commands are unavailable in a shared game.' };
     return withPersistence(submitCityCommand(world, context, raw), () => { refresh(); save(true); });
   }
 
   if (import.meta.env.DEV || new URLSearchParams(location.search).has('debug')) {
     Reflect.set(window, 'oikos', {
       get state() { return structuredClone(world); },
-      freshWorld: (seed: number, home: number, founded = true) => createWorld(seed, home, founded),
+      freshWorld: (seed: number, home: number, founded = true) => {
+        if (source.kind !== 'local') throw new Error('freshWorld is unavailable in a shared game.');
+        return createWorld(seed, home, founded);
+      },
       get summary() { const home = activeCity(world, context); return home ? getSummary(home) : { population: 0, workers: 0, jobs: 0, food: 0, income: 0, upkeep: 0, balance: 0, prosperous: 0, goal: false }; },
       get frames() { return stage.frames; },
       get drawCalls() { return stage.renderer.info.render.calls; },
@@ -726,13 +863,21 @@ export function boot(): void {
         const p = worldPositionOn(map(), building.x + size.width / 2, building.z + size.depth / 2);
         return stage.project(p.x, groundHeight(map(), building.x, building.z) + 1.5, p.z);
       },
-      advance: (seconds: number) => { setSpeed(0); advance(world, seconds); refresh(); dirtySave = true; stage.shadows(); },
+      advance: (seconds: number) => {
+        if (source.kind !== 'local') return;
+        setSpeed(0);
+        advance(world, seconds);
+        refresh();
+        dirtySave = true;
+        stage.shadows();
+      },
       get plan() { const home = activeCity(world, context); return home ? planStarterNeighbourhood(world, home) : null; },
       foundingPlacement: (x: number, z: number) => {
         const home = activeCity(world, context);
         return home ? foundingPlacement(world, home, x, z) : { ok: false, reason: 'You have no city of your own here.', cost: 0, tiles: [] };
       },
       buildPlan: () => {
+        if (source.kind !== 'local') return { ok: false, reason: 'Scenario building is unavailable in a shared game.' };
         if (!canWrite(world, context)) return { ok: false, reason: 'Viewing another city grants no writes.' };
         const home = activeCity(world, context);
         if (!home) return { ok: false, reason: 'You have no city of your own here.' };
@@ -759,4 +904,85 @@ export function boot(): void {
       visit: (id: number) => viewCity(id),
     });
   }
+
+  if (source.kind !== 'shared') return;
+  const shared = source;
+
+  function connectionMessage(status: SharedSessionStatus): string {
+    switch (status) {
+      case 'connecting': return 'Connecting\u2026';
+      case 'open': return 'Connected. Waiting for the world\u2026';
+      case 'reconciling': return 'Confirming your last action\u2026';
+      case 'pending': return 'Sending\u2026';
+      case 'exhausted': return 'This session can no longer send requests.';
+      case 'offline': return 'Disconnected. Reconnecting\u2026';
+      case 'closed': return 'Disconnected.';
+      case 'protocol-error': return 'A protocol error occurred. Reload only once the connection problem is resolved.';
+      case 'storage-error': return 'Local storage is blocked. Resolve it to continue.';
+      case 'indeterminate': return 'Your last action may or may not have applied. You can discard it to continue.';
+      default: return '';
+    }
+  }
+
+  function onSnapshotUpdate(snapshot: SharedSnapshot): void {
+    const realmChanged = realmId !== null && realmId !== snapshot.realmId;
+    const bindingChanged = bindingId !== null && bindingId !== snapshot.session.binding;
+    if (realmChanged || bindingChanged) stateGeneration += 1;
+    const previousContext = context;
+    world = snapshot.world;
+    realmId = snapshot.realmId;
+    bindingId = snapshot.session.binding;
+    context = reconcileContext(world, context, snapshot.session.ownedCityIds, realmChanged, bindingChanged);
+    if (!realmChanged && previousContext.viewedId !== null && previousContext.viewedId !== context.viewedId) {
+      cameraMemory.set(previousContext.viewedId, stage.getView());
+    }
+    const contextChanged = previousContext.activeId !== context.activeId || previousContext.viewedId !== context.viewedId;
+    if (realmChanged || bindingChanged) {
+      sharedIntent?.reset();
+      hud.setClaimError('');
+    }
+    if (realmChanged || bindingChanged || contextChanged) {
+      if (realmChanged) cameraMemory.clear();
+      undoCheckpoint = null;
+      const active = activeCity(world, context);
+      milestones = active ? cityMilestones(active) : NO_MILESTONES;
+      selectedId = null;
+      hover = null;
+      drag = null;
+      rebuildScene(!realmChanged && previousContext.viewedId === context.viewedId);
+      selectTool('inspect');
+    }
+    updateClaimAvailability(snapshot);
+    refresh();
+    if (tool !== 'inspect' || hover !== null) updatePreview();
+    if (reducedMotion) {
+      city.animate(0, .25, 1);
+      stage.shadowsFromMotion();
+    }
+  }
+
+  function onStatusUpdate(status: SharedSessionStatus, reason: string): void {
+    hud.setConnection(status !== 'ready', reason.length > 0 ? reason : connectionMessage(status));
+    hud.setDiscardAvailable(status === 'indeterminate' || status === 'storage-error');
+    hud.setClaimBusy((sharedIntent?.busy ?? false) || !shared.session.canSend());
+    const nowWritable = writable();
+    if (!nowWritable) {
+      if (tool !== 'inspect') selectTool('inspect');
+      else drag = null;
+    }
+    if (nowWritable === renderedWritable) return;
+    refresh();
+    updatePreview();
+  }
+
+  function onOutcomeUpdate(result: SharedRequestOutcome): void {
+    sharedIntent?.outcome(result);
+  }
+
+  return {
+    onSnapshot: onSnapshotUpdate,
+    onStatus: onStatusUpdate,
+    onRealmChanged: () => {},
+    onOutcome: onOutcomeUpdate,
+  };
 }
