@@ -2,15 +2,16 @@ import type { ActionResult, Building, BuildTool, City, Food, Placement, Resource
 import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, STARTING_MONEY, VENDOR_COST, footprint, isFood } from './catalog';
 import { spawnWildlife, stepWildlife } from './wildlife';
 import { gatherArrival, gatherFinished, regrowForest, updateGatherer } from './gathering';
+import { findHarbourSite, harbourApron } from './founding';
 import { freshHarbour, HARBOUR_DOCK_CAP, harbourStatus, harbourTiles, setHarbourTrade, updateHarbour } from './harbour';
-import { buildable, insideMapOn, islandFor, landingRoads, levelOn, onHomeIsland, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
+import { buildable, insideMapOn, islandFor, levelOn, onHomeIsland, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import {
   accessDoors,
   accessTiles,
   bfsReachable,
   bfsShortest,
   buildServiceCircuit,
-  entryTileIndex,
+  harbourDoors,
   exitTile,
   findNearestConnected,
   footprintTiles,
@@ -47,23 +48,24 @@ import {
 
 export const DEFAULT_SEED = 1;
 
-export function createWorld(seed = DEFAULT_SEED, home?: number, founded = true): World {
+export function createWorld(seed = DEFAULT_SEED, home?: number, name = 'Kalliste'): World {
   const map = islandFor(seed, home);
-  const roadList = landingRoads(map);
+  const site = findHarbourSite(map, map.home);
+  if (!site) throw new Error('That island has no shore for a harbour.');
   const city: City = {
     id: 1,
+    name,
     home: map.home,
-    founded,
     money: STARTING_MONEY,
-    harbour: freshHarbour(seed, roadList, map.home),
+    harbour: freshHarbour(site),
     produced: 0,
     delivered: 0,
-    roads: roadList,
+    roads: harbourApron(site.x, site.z, site.rotation).map((tile) => tileIndexOn(map, tile.x, tile.z)),
     buildings: [],
     walkers: [],
   };
   const world: World = {
-    version: 10,
+    version: 11,
     island: 'kalliste',
     seed,
     time: 0,
@@ -82,7 +84,7 @@ export function createWorld(seed = DEFAULT_SEED, home?: number, founded = true):
 
 export function createSharedWorld(seed = DEFAULT_SEED): World {
   const world: World = {
-    version: 10,
+    version: 11,
     island: 'kalliste',
     seed,
     time: 0,
@@ -119,7 +121,6 @@ const REASON = {
   onlyAgoraHostsVendor: 'Only an agora can host a vendor.',
   harbourPermanent: 'The harbour is a permanent fixture.',
   unsettledIsland: 'Build on your settled island. Return to your village with H.',
-  foundingRequired: 'Place your founding harbour first.',
 } as const;
 
 function buildingAt(world: World, city: City, tile: number): Building | undefined {
@@ -184,7 +185,6 @@ function stairPlacementIssue(map: IslandMap, roads: ReadonlySet<number>, newTile
 }
 
 function evaluatePlacement(world: World, city: City, tool: BuildTool, x: number, z: number, rotation: Rotation): Placement {
-  if (!city.founded) return { ok: false, reason: REASON.foundingRequired, cost: 0, tiles: [] };
   const map = mapOf(world, city);
   const foreign = foreignOccupancy(world, city);
   if (tool === 'road') {
@@ -282,7 +282,6 @@ export function build(world: World, city: City, tool: BuildTool, x: number, z: n
 }
 
 function evaluateRoadPath(world: World, city: City, tiles: Tile[]): Placement {
-  if (!city.founded) return { ok: false, reason: REASON.foundingRequired, cost: 0, tiles: [] };
   const map = mapOf(world, city);
   const foreign = foreignOccupancy(world, city);
   const existing = new Set(city.roads);
@@ -334,7 +333,6 @@ export function placeRoadPath(world: World, city: City, tiles: Tile[]): ActionRe
 }
 
 export function demolish(world: World, city: City, x: number, z: number): ActionResult {
-  if (!city.founded) return { ok: false, reason: REASON.foundingRequired };
   const map = mapOf(world, city);
   if (!insideMapOn(map, x, z)) return { ok: false, reason: REASON.outOfBounds };
   const tile = tileIndexOn(map, x, z);
@@ -430,7 +428,6 @@ export function dropInvalidWalkers(world: World, city: City, beforeStairs?: Read
 }
 
 export function setVendor(city: City, id: number, enabled: boolean): ActionResult {
-  if (!city.founded) return { ok: false, reason: REASON.foundingRequired };
   if (id === city.harbour.id) return setHarbourTrade(city.harbour, enabled);
   const building = city.buildings.find((candidate) => candidate.id === id);
   if (!building) return { ok: false, reason: REASON.noSuchBuilding };
@@ -452,15 +449,29 @@ export function setVendor(city: City, id: number, enabled: boolean): ActionResul
   return { ok: true, reason: 'Vendor resumed.' };
 }
 
+export function harbourGate(world: World, city: City): number | null {
+  const roads = new Set(city.roads);
+  return harbourDoors(world, city).find((tile) => roads.has(tile)) ?? null;
+}
+
+function harbourReach(world: World, city: City, roads: ReadonlySet<number>): Set<number> {
+  const map = mapOf(world, city);
+  const reachable = new Set<number>();
+  for (const door of harbourDoors(world, city)) {
+    if (!roads.has(door) || reachable.has(door)) continue;
+    for (const tile of bfsReachable(map, roads, door)) reachable.add(tile);
+  }
+  return reachable;
+}
+
 export function recomputeConnectivity(world: World, city: City): void {
   const roads = new Set(city.roads);
   const map = mapOf(world, city);
-  const entry = entryTileIndex(world, city);
-  const reachable = roads.has(entry) ? bfsReachable(map, roads, entry) : new Set<number>();
+  const reachable = harbourReach(world, city, roads);
   for (const building of city.buildings) {
     building.connected = accessDoors(map, roads, building).some((tile) => reachable.has(tile));
   }
-  city.harbour.connected = city.founded && accessDoors(map, roads, city.harbour).some((tile) => reachable.has(tile));
+  city.harbour.connected = reachable.size > 0;
 }
 
 export function totalStock(building: Building): number {
@@ -770,7 +781,9 @@ function sendImmigrants(world: World, city: City, house: Building, party: number
   if (party <= 0) return;
   const roads = new Set(city.roads);
   const goals = new Set(accessTiles(world, city, house));
-  const path = bfsShortest(mapOf(world, city), roads, entryTileIndex(world, city), (tile) => goals.has(tile));
+  const start = harbourGate(world, city);
+  if (start === null) return;
+  const path = bfsShortest(mapOf(world, city), roads, start, (tile) => goals.has(tile));
   if (!path) return;
   spawnWalker(world, city, {
     kind: 'immigrant',
@@ -857,7 +870,6 @@ function updateFinances(city: City, dt: number): void {
 function simulationStep(world: World, dt: number): void {
   world.time += dt;
   for (const city of world.cities) {
-    if (!city.founded) continue;
     updateStaffing(city);
     for (const building of city.buildings) {
       if (building.kind === 'farm') updateFarm(world, city, building, dt);
@@ -872,7 +884,6 @@ function simulationStep(world: World, dt: number): void {
   stepWildlife(world, dt);
   regrowForest(world, dt);
   for (const city of world.cities) {
-    if (!city.founded) continue;
     for (const building of city.buildings) {
       if (building.kind === 'house') tickHouse(world, city, building, dt);
     }
@@ -881,7 +892,7 @@ function simulationStep(world: World, dt: number): void {
 }
 
 export function advance(world: World, seconds: number): void {
-  if (world.cities.every((city) => !city.founded)) return;
+  if (world.cities.length === 0) return;
   world.remainder += seconds;
   while (world.remainder >= STEP) {
     world.remainder -= STEP;

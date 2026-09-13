@@ -3,8 +3,8 @@ import { advance, build, buildingStatus, createWorld, demolish, getSummary, plac
 import { buildStarterNeighbourhood, planStarterNeighbourhood } from './scenario';
 import { BUILDINGS, ROAD_COST, STARTING_MONEY, VENDOR_COST } from './catalog';
 import { generateIsland, islandFor, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
-import { accessDoors, bfsShortest, entryTileIndex, exitTile } from './grid';
-import { connect, farCorner, findTile, freshRoadSpot, isolatedRoadPair, mapOf, slopeFixture, spotAdjacentTo, spotFor, unevenFootprint, SLOPE_SEED } from './testing';
+import { accessDoors, bfsShortest, exitTile, harbourDoors } from './grid';
+import { connect, farCorner, findTile, freshRoadSpot, isolatedRoadPair, mapOf, roadSpur, slopeFixture, spotAdjacentTo, spotFor, unevenFootprint, SLOPE_SEED } from './testing';
 import { primaryCity } from './city';
 import type { Building, BuildingKind, Tile, Walker, World } from './types';
 
@@ -151,6 +151,7 @@ describe('build costs', () => {
   test('placeRoadPath is atomic and only charges new tiles', () => {
     const world = createWorld();
     const map = mapOf(world);
+    const start = tileAtOn(map, primaryCity(world).roads[0]);
     const [a, b] = isolatedRoadPair(world, map.entry)!;
     const before = primaryCity(world).money;
     const badPath = [a, b, { x: 1000, z: 1000 }];
@@ -159,7 +160,7 @@ describe('build costs', () => {
     expect(primaryCity(world).money).toBe(before);
     expect(primaryCity(world).roads.includes(tileIndexOn(map, a.x, a.z))).toBe(false);
 
-    const goodPath = [{ x: map.entry.x, z: map.entry.z }, a, b];
+    const goodPath = [start, a, b];
     const ok = placeRoadPath(world, primaryCity(world), goodPath);
     expect(ok.ok).toBe(true);
     expect(before - primaryCity(world).money).toBe(ROAD_COST * 2);
@@ -278,8 +279,8 @@ describe('human-readable action results', () => {
   test('build reports what was built', () => {
     const world = createWorld();
     const houseSpot = spotFor(world, 'house')!;
-    const roadSpot = spotFor(world, 'road')!;
     expect(build(world, primaryCity(world), 'house', houseSpot.x, houseSpot.z).reason).toBe('Dwelling built.');
+    const roadSpot = freshRoadSpot(world)!;
     expect(build(world, primaryCity(world), 'road', roadSpot.x, roadSpot.z).reason).toBe('Road laid.');
   });
 
@@ -777,7 +778,7 @@ describe('immigration', () => {
       advance(world, 0.25);
       party = primaryCity(world).walkers.find((walker) => walker.kind === 'immigrant') ?? null;
       if (party) {
-        expect(party.path[0]).toBe(entryTileIndex(world, primaryCity(world)));
+        expect(harbourDoors(world, primaryCity(world))).toContain(party.path[0]);
         expect(party.targetId).toBe(house.id);
         expect(house.residents).toBe(0);
       }
@@ -792,9 +793,8 @@ describe('immigration', () => {
 
   test('a house that loses its road stops attracting settlers', () => {
     const world = createWorld();
-    const map = mapOf(world);
-    const topZ = Math.min(...primaryCity(world).roads.map((road) => Math.floor(road / map.width)));
-    const capTile = tileAtOn(map, tileIndexOn(map, map.entry.x, topZ));
+    const spur = roadSpur(world, 6);
+    const capTile = spur[spur.length - 1];
     const spot = spotAdjacentTo(world, 'house', capTile)!;
     build(world, primaryCity(world), 'house', spot.x, spot.z);
     advance(world, 1);

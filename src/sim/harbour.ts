@@ -1,6 +1,5 @@
-import type { ActionResult, Building, City, Stores, Tile, World } from './types';
-import { footprint } from './catalog';
-import { buildable, insideMapOn, islandFor, levelOn, terrainOn, tileIndexOn, type IslandMap } from './island';
+import type { ActionResult, Building, City, Rotation, Stores, World } from './types';
+import { islandFor } from './island';
 import { exitTile, findNearestConnected, footprintTiles } from './grid';
 import { addStore, spawnWalker, totalStock } from './world';
 import { parseStores } from './save';
@@ -19,71 +18,15 @@ function freshProgress(): HarbourProgress {
   return { tier: 1, stores: {}, vendorEnabled: false, vendorInstalled: false, progress: 0 };
 }
 
-function siteClear(map: IslandMap, x: number, z: number, width: number, depth: number, roads: Set<number>): boolean {
-  const level = levelOn(map, x, z);
-  for (let dz = 0; dz < depth; dz++) {
-    for (let dx = 0; dx < width; dx++) {
-      const tx = x + dx;
-      const tz = z + dz;
-      if (!insideMapOn(map, tx, tz)) return false;
-      if (levelOn(map, tx, tz) !== level) return false;
-      if (!buildable(terrainOn(map, tx, tz))) return false;
-      if (roads.has(tileIndexOn(map, tx, tz))) return false;
-    }
-  }
-  return true;
-}
+export interface HarbourPlot { x: number; z: number; rotation: Rotation }
 
-function siteTouchesRoad(map: IslandMap, roads: Set<number>, x: number, z: number, width: number, depth: number): boolean {
-  for (let dz = -1; dz <= depth; dz++) {
-    for (let dx = -1; dx <= width; dx++) {
-      const onRing = dx === -1 || dx === width || dz === -1 || dz === depth;
-      if (!onRing) continue;
-      const tx = x + dx;
-      const tz = z + dz;
-      if (!insideMapOn(map, tx, tz)) continue;
-      if (roads.has(tileIndexOn(map, tx, tz))) return true;
-    }
-  }
-  return false;
-}
-
-function northOfEntry(entry: { x: number; z: number }, z: number, depth: number): boolean {
-  return z + depth <= entry.z;
-}
-
-function findHarbourSite(map: IslandMap, roads: Set<number>, width: number, depth: number): { x: number; z: number } {
-  const entry = map.entry;
-  for (let radius = 1; radius <= 24; radius++) {
-    for (let dz = -radius; dz <= radius; dz++) {
-      for (let dx = -radius; dx <= radius; dx++) {
-        if (Math.max(Math.abs(dx), Math.abs(dz)) !== radius) continue;
-        const x = entry.x + dx;
-        const z = entry.z + dz;
-        if (!northOfEntry(entry, z, depth)) continue;
-        if (!siteClear(map, x, z, width, depth, roads)) continue;
-        if (!siteTouchesRoad(map, roads, x, z, width, depth)) continue;
-        return { x, z };
-      }
-    }
-  }
-  return { x: entry.x, z: entry.z - depth };
-}
-
-export function siteHarbour(seed: number, roads: number[], progress: HarbourProgress, home?: number): Building {
-  const map = islandFor(seed, home);
-  const { width, depth } = footprint('harbour', 0);
-  const site = findHarbourSite(map, new Set(roads), width, depth);
-  return harbourAt(site, progress);
-}
-
-export function harbourAt(site: Tile, progress: HarbourProgress): Building {
+export function harbourAt(site: HarbourPlot, progress: HarbourProgress): Building {
   return {
     id: HARBOUR_ID,
     x: site.x,
     z: site.z,
     kind: 'harbour',
-    rotation: 0,
+    rotation: site.rotation,
     tier: progress.tier,
     residents: 0,
     food: 0,
@@ -100,12 +43,11 @@ export function harbourAt(site: Tile, progress: HarbourProgress): Building {
   };
 }
 
-export function freshHarbour(seed: number, roads: number[], home?: number): Building {
-  return siteHarbour(seed, roads, freshProgress(), home);
+export function freshHarbour(site: HarbourPlot): Building {
+  return harbourAt(site, freshProgress());
 }
 
 export function harbourTiles(world: World, city: City): number[] {
-  if (!city.founded) return [];
   return footprintTiles(islandFor(world.seed), city.harbour);
 }
 

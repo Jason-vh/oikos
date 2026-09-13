@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { advance, build, createWorld, getSummary, hasActiveWalker, placement, roadPathPlacement } from './world';
-import { entryTileIndex, mapOf } from './grid';
+import { harbourDoors, mapOf } from './grid';
 import { primaryCity } from './city';
 import { buildStarterNeighbourhood } from './scenario';
 import { freshRoadSpot, spotFor } from './testing';
@@ -9,7 +9,7 @@ import { ROAD_COST } from './catalog';
 import type { City } from './types';
 
 describe('queries take an explicit City rather than defaulting to the primary one', () => {
-  test('mapOf and entryTileIndex resolve the given City\'s home island, not primaryCity(world)\'s', () => {
+  test('mapOf resolves the given City\'s home island, not primaryCity(world)\'s', () => {
     const world = createWorld(1, 0);
     const primary = primaryCity(world);
     const otherHome = (primary.home + 1) % ISLAND_COUNT;
@@ -19,7 +19,7 @@ describe('queries take an explicit City rather than defaulting to the primary on
     const otherMap = mapOf(world, otherCity);
     expect(otherMap.home).toBe(otherHome);
     expect(otherMap.entry).not.toEqual(primaryMap.entry);
-    expect(entryTileIndex(world, otherCity)).not.toBe(entryTileIndex(world, primary));
+    expect(harbourDoors(world, primary).length).toBeGreaterThan(0);
   });
 
   test('placement checks the given City\'s money, not the primary city implicitly', () => {

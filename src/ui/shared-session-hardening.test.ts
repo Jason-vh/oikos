@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { claimFor } from '../server/authority-fixtures.test';
 import type { AuthorityRequest } from '../server/authority';
 import type { PendingEnvelope } from './shared-session-protocol';
 import { COMMAND, cursor, FakeSocket, FakeStorage, harness, KEY, OTHER, receipt, snapshotPacket } from './shared-session-fixtures.test';
@@ -150,7 +151,7 @@ test('reject may announce newly claimed ownership absent from old World without 
   const h = harness();
   const socket = h.connect({ session: cursor(1, []), world: { ...snapshotPacket().world, cities: [], nextCityId: 1 } });
   expect(h.session.canSend()).toBe(true);
-  const pending = h.session.send({ kind: 'claim', home: 0 });
+  const pending = h.session.send(claimFor(0));
   socket.message({ type: 'reject', code: 'conflict', session: cursor(2) });
   expect((await pending).status).toBe('conflict');
   expect(h.session.currentSession).toEqual(cursor(2));
@@ -356,9 +357,9 @@ test('replay rechecks durable bytes instead of sending changed storage', () => {
 test('serialization, invalid shape and UTF-8 oversize requests fail before persistence or send', async () => {
   const h = harness();
   const socket = h.connect();
-  const cycle: Record<string, unknown> = { kind: 'claim', home: 0 };
+  const cycle: Record<string, unknown> = claimFor(0);
   cycle.cycle = cycle;
-  const bad = [cycle, { kind: 'claim', home: 0n }, { kind: 'unknown' }, { ...COMMAND, command: { ...COMMAND.command, padding: '🌍'.repeat(17000) } }];
+  const bad = [cycle, { kind: 'claim', x: 0n, z: 0, rotation: 0 }, { kind: 'unknown' }, { ...COMMAND, command: { ...COMMAND.command, padding: '🌍'.repeat(17000) } }];
   for (const operation of bad) {
     expect((await h.session.send(operation as AuthorityRequest)).status).toBe('unsent');
     expect(h.storage.raw.has(KEY)).toBe(false);

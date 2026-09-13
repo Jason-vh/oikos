@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { islandFor, tileAtOn } from '../sim/island';
-import { admit, foundedActor, freshAuthority, rid, roadTileOf, sequenceRow } from './authority-fixtures.test';
+import { admit, claimFor, foundedActor, freshAuthority, rid, roadTileOf, sequenceRow } from './authority-fixtures.test';
 
 const cleanups: Array<() => void> = [];
 
@@ -118,6 +118,6 @@ describe('normalize once, execute the same value', () => {
     expect(calls).toBe(2);
 
     const admitted = admit(authority);
-    expect(authority.submit(admitted, 1, rid(4), { kind: 'claim', home: 1 }).ok).toBe(true);
+    expect(authority.submit(admitted, 1, rid(4), claimFor(1)).ok).toBe(true);
   });
 });

@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { ACTOR_CAP, Authority } from './authority';
-import { admit, foundedActor, freshAuthority, playerNames, rid, roadTileOf, sequenceRow } from './authority-fixtures.test';
+import { admit, claimFor, foundedActor, freshAuthority, playerNames, rid, roadTileOf, sequenceRow } from './authority-fixtures.test';
+import { harbourApron } from '../sim/founding';
 
 const cleanups: Array<() => void> = [];
 
@@ -62,7 +63,7 @@ describe('a genuinely valid claim, founding and a real build', () => {
     const { authority } = freshAuthority(cleanups);
     const { credential, cityId } = foundedActor(authority, 0);
     const city = authority.snapshot().cities.find((c) => c.id === cityId)!;
-    expect(city.founded).toBe(true);
+    expect(city.roads.length).toBeGreaterThan(0);
     const tile = roadTileOf(authority, cityId);
     const moneyBeforeDemolish = city.money;
 
@@ -114,11 +115,11 @@ describe('foreign denial and the one-initial-claim policy', () => {
   test('a second claim by the same actor is rejected, whether or not the first is founded', () => {
     const { authority } = freshAuthority(cleanups);
     const credential = admit(authority);
-    const pendingClaim = authority.submit(credential, 1, rid(1), { kind: 'claim', home: 0 });
+    const pendingClaim = authority.submit(credential, 1, rid(1), claimFor(0));
     expect(pendingClaim.ok).toBe(true);
 
     const before = authority.snapshot();
-    const second = authority.submit(credential, 2, rid(2), { kind: 'claim', home: 1 });
+    const second = authority.submit(credential, 2, rid(2), claimFor(1));
 
     expect(second).toEqual({ ok: false, reason: 'This actor already holds an island claim.', cityId: undefined, status: 'processed' });
     expect(authority.snapshot()).toEqual(before);
@@ -128,9 +129,9 @@ describe('foreign denial and the one-initial-claim policy', () => {
     const { authority } = freshAuthority(cleanups);
     const first = admit(authority);
     const second = admit(authority);
-    expect(authority.submit(first, 1, rid(1), { kind: 'claim', home: 0 }).ok).toBe(true);
+    expect(authority.submit(first, 1, rid(1), claimFor(0)).ok).toBe(true);
 
-    const result = authority.submit(second, 1, rid(2), { kind: 'claim', home: 0 });
+    const result = authority.submit(second, 1, rid(2), claimFor(0));
     expect(result.ok).toBe(false);
   });
 });
@@ -139,7 +140,7 @@ describe('sequencing basics', () => {
   test('an unauthenticated credential is rejected without any write', () => {
     const { authority } = freshAuthority(cleanups);
     const before = authority.snapshot();
-    const result = authority.submit('bogus-credential', 1, rid(1), { kind: 'claim', home: 0 });
+    const result = authority.submit('bogus-credential', 1, rid(1), claimFor(0));
     expect(result).toEqual({ ok: false, reason: 'Unauthenticated.', status: 'unauthenticated' });
     expect(authority.snapshot()).toEqual(before);
   });
@@ -152,7 +153,7 @@ describe('sequencing basics', () => {
 
     const shapeResult = authority.submit(credential, 1, rid(1), { kind: 'unknown', anything: true } as never);
     expect(shapeResult).toEqual({ ok: false, reason: 'Unrecognized request shape.', status: 'invalid-request' });
-    const idResult = authority.submit(credential, 1, 'not-a-valid-id', { kind: 'claim', home: 0 });
+    const idResult = authority.submit(credential, 1, 'not-a-valid-id', claimFor(0));
     expect(idResult).toEqual({ ok: false, reason: 'Invalid request id.', status: 'invalid-request' });
 
     expect(authority.snapshot()).toEqual(before);
@@ -163,7 +164,7 @@ describe('sequencing basics', () => {
     const { authority } = freshAuthority(cleanups);
     const { credential, cityId } = foundedActor(authority, 0);
     const harbour = authority.snapshot().cities.find((c) => c.id === cityId)!.harbour;
-    const foundRequest = { kind: 'command' as const, cityId, command: { type: 'foundHarbour', x: harbour.x, z: harbour.z } };
+    const foundRequest = { kind: 'command' as const, cityId, command: { type: 'roadPath', tiles: harbourApron(harbour.x, harbour.z, harbour.rotation) } };
 
     const replay = authority.submit(credential, 2, rid(2), foundRequest);
 
@@ -184,9 +185,9 @@ describe('restart', () => {
     cleanups.push(() => reopened.close());
     expect(reopened.realmId).toBe(realmId);
     const city = reopened.snapshot().cities.find((c) => c.id === cityId)!;
-    expect(city.founded).toBe(true);
+    expect(city.roads.length).toBeGreaterThan(0);
 
-    const replay = reopened.submit(credential, 2, rid(2), { kind: 'command', cityId, command: { type: 'foundHarbour', x: city.harbour.x, z: city.harbour.z } });
+    const replay = reopened.submit(credential, 2, rid(2), { kind: 'command', cityId, command: { type: 'roadPath', tiles: harbourApron(city.harbour.x, city.harbour.z, city.harbour.rotation) } });
     expect(replay.status).toBe('replayed');
 
     const next = reopened.submit(credential, 3, rid(3), { kind: 'command', cityId, command: { type: 'demolish', x: 0, z: 0 } });

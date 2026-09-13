@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from 'bun:test';
 import { Authority } from './authority';
-import { foundedActor, rawDb, rid, roadTileOf } from './authority-fixtures.test';
+import { claimFor, foundedActor, rawDb, rid, roadTileOf } from './authority-fixtures.test';
 import { connect, fixture } from './transport-fixtures.test';
 import { WirePeer } from './wire-fixtures.test';
 import { readWorldRow, selectAll } from './store';
@@ -54,7 +54,7 @@ test('foreign mutable targets fail without retargeting; actor-global races, gaps
   const unchanged = await connect(cleanups, f, `__Host-oikos=${b.credential}`);
   expect(unchanged.snapshot.world).toEqual(rebuilt.snapshot.world);
   expect(unchanged.snapshot.session).toEqual(cursor);
-  owner.peer.send(5, { kind: 'claim', home: 2 });
+  owner.peer.send(5, claimFor(2));
   expect((await owner.peer.next('receipt')).result).toMatchObject({ ok: false, status: 'processed' });
   await f.runtime.stop();
   const reopened = Authority.open(f.path);
@@ -101,7 +101,7 @@ test('exact acknowledgement-loss replay survives reconnect; rebuilt road survive
   expect((await second.peer.next('receipt')).result.status).toBe('replayed');
   for (let seq = 5; seq <= 260; seq++) {
     f.clock.time += 125;
-    second.peer.send(seq, { kind: 'claim', home: 1 });
+    second.peer.send(seq, claimFor(1));
     expect((await second.peer.next('receipt')).result).toMatchObject({ status: 'processed', ok: false });
   }
   second.peer.send(3, remove);

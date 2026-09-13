@@ -60,7 +60,7 @@ function storesKey(building: Building): string {
 }
 
 function visibleBuildings(world: World): Building[] {
-  return world.cities.flatMap((city: City) => (city.founded ? [...city.buildings, city.harbour] : city.buildings));
+  return world.cities.flatMap((city: City) => [...city.buildings, city.harbour]);
 }
 
 function allWalkers(world: World): Walker[] {

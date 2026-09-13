@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { demolitionPreview, footprintTileIssues, harbourRoute, suitableFarmGround } from './construction';
 import { BUILDINGS, VENDOR_COST } from './catalog';
 import { tileAtOn, tileIndexOn, terrainOn } from './island';
-import { entryTileIndex } from './grid';
+import { harbourGate } from './world';
 import { build, createWorld, setVendor } from './world';
 import { freshRoadSpot, mapOf, spotFor } from './testing';
 import { primaryCity } from './city';
@@ -56,11 +56,10 @@ describe('footprintTileIssues', () => {
 describe('harbourRoute', () => {
   test('finds a route from the harbour entry to a road-adjacent target', () => {
     const world = createWorld();
-    const entry = entryTileIndex(world, primaryCity(world));
     const road = primaryCity(world).roads[primaryCity(world).roads.length - 1];
     const route = harbourRoute(world, primaryCity(world), [road]);
     expect(route).not.toBeNull();
-    expect(route![0]).toBe(entry);
+    expect(route![0]).toBe(harbourGate(world, primaryCity(world))!);
     expect(primaryCity(world).roads.includes(route![route!.length - 1])).toBe(true);
   });
 

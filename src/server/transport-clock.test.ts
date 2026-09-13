@@ -2,7 +2,7 @@ import { afterEach, expect, test } from 'bun:test';
 import { copyFileSync, rmSync } from 'node:fs';
 import { Database } from 'bun:sqlite';
 import { Authority } from './authority';
-import { foundedActor, rawDb, rid } from './authority-fixtures.test';
+import { claimFor, foundedActor, rawDb, rid } from './authority-fixtures.test';
 import { connect, fixture } from './transport-fixtures.test';
 import { startServer } from './runtime';
 import { readWorldRow } from './store';
@@ -56,7 +56,7 @@ test('one remaining socket advances both cities; tick checkpoints, last close, r
   const gap = await second.peer.next('snapshot');
   expect(gap.world).toEqual(checkpoint.world);
   f.clock.time += 100;
-  second.peer.send(4, { kind: 'claim', home: 2 });
+  second.peer.send(4, claimFor(2));
   expect((await second.peer.next('receipt')).result.ok).toBe(false);
   f.clock.step(150);
   const settled = await second.peer.next('snapshot');

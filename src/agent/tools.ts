@@ -1,10 +1,9 @@
 import { z } from 'zod';
 import { BUILDINGS, ROAD_COST, VENDOR_COST } from '../sim/catalog';
 import { BUILD_TOOLS } from '../sim/commands';
-import { ISLAND_COUNT } from '../sim/island';
 import type { ActionResult, City, Rotation, Tile } from '../sim/types';
 import type { AgentGame } from './game';
-import { atlas, cityReport, cityWindow, describeFounding, describePlacement, describeRoadPath, inspectBuilding, inspectTile, islandBounds, surveyIsland } from './view';
+import { atlas, cityReport, cityWindow, describeHarbourSite, describePlacement, describeRoadPath, inspectBuilding, inspectTile, islandBounds, surveyIsland } from './view';
 
 export interface AgentTool<Shape extends z.ZodRawShape = z.ZodRawShape> {
   name: string;
@@ -16,6 +15,7 @@ export interface AgentTool<Shape extends z.ZodRawShape = z.ZodRawShape> {
 const tile = z.int32();
 const coordinates = { x: tile.describe('Tile column'), z: tile.describe('Tile row') };
 const tileObject = z.object(coordinates);
+const harbourSite = { ...coordinates, rotation: z.int().min(0).max(3).describe('Which way the pier points: 0 south, 1 west, 2 north, 3 east') };
 const buildTool = z.enum([...BUILD_TOOLS].sort() as [string, ...string[]]);
 const rotation = z.int().min(0).max(3).default(0).describe('Quarter turns clockwise');
 const bend = z.enum(['x-first', 'z-first']).default('x-first');
@@ -36,7 +36,7 @@ function elbowPath(from: Tile, to: Tile, corner: 'x-first' | 'z-first'): Tile[] 
   return tiles;
 }
 
-const UNCLAIMED = 'You hold no island yet. survey shows the archipelago, and claim_island takes one.';
+const UNCLAIMED = 'You hold no city yet. survey shows the archipelago, and found_city places your harbour on a shore.';
 
 function outcome(result: ActionResult, city: City | null): string {
   const treasury = city ? ` Treasury ${Math.round(city.money)} dr.` : '';
@@ -158,30 +158,19 @@ export const TOOLS: AgentTool[] = [
     },
   }),
   tool({
-    name: 'check_found_city',
-    description: 'Ask whether the founding dockyard may stand at a tile, without committing to it.',
-    schema: coordinates,
+    name: 'check_harbour_site',
+    description: 'Ask whether a harbour may stand at a tile, facing a way, without committing to it. Its quay takes two rows of shore and its pier three of water.',
+    schema: harbourSite,
     async run(game, args) {
-      const { world, city } = game.view();
-      if (!city) return UNCLAIMED;
-      return describeFounding(world, city, args.x, args.z);
+      return describeHarbourSite(game.view().world, args.x, args.z, args.rotation as Rotation);
     },
   }),
   tool({
     name: 'found_city',
-    description: 'Place the founding dockyard beside the landing road. Until it stands, nothing can be built and no time passes. The site is fixed for good.',
-    schema: coordinates,
+    description: 'Place your harbour on an unclaimed shore. It claims that island, founds your city, and cannot be moved or given back. Look at survey first.',
+    schema: harbourSite,
     async run(game, args) {
-      const result = await game.submit({ type: 'foundHarbour', x: args.x, z: args.z });
-      return outcome(result, game.view().city);
-    },
-  }),
-  tool({
-    name: 'claim_island',
-    description: 'Claim an unclaimed island of the shared archipelago as your own. One island to an agent, and the claim cannot be given back. Look at survey first.',
-    schema: { home: z.int().min(0).max(ISLAND_COUNT - 1).describe('Island number, 0 to 7') },
-    async run(game, args) {
-      const result = await game.claim(args.home);
+      const result = await game.claim(args.x, args.z, args.rotation as Rotation);
       return outcome(result, game.view().city);
     },
   }),

@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
 import { Authority } from './authority';
-import { admit, rid } from './authority-fixtures.test';
+import { admit, claimFor, rid } from './authority-fixtures.test';
 import { connect, fixture } from './transport-fixtures.test';
 import { startServer } from './runtime';
 
@@ -33,7 +33,7 @@ test('same-realm replacement login cannot replay another account request; bindin
 
   const unauthorized = await fetch(`${f.base}/api/world`, { headers: { Origin: f.origin, Cookie: `__Host-oikos=${firstBinding}` } });
   expect(unauthorized.status).toBe(401);
-  const operation = { kind: 'claim' as const, home: 0 };
+  const operation = claimFor(0);
   const previousLoginWire = JSON.stringify({ type: 'request', binding: firstBinding, requestId: rid(1), seq: 1, operation });
   second.peer.ws.send(previousLoginWire);
   expect(await second.peer.next('reject')).toEqual({ type: 'reject', code: 'session-mismatch', session: second.snapshot.session });

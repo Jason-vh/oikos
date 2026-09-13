@@ -3,6 +3,7 @@ import { footprint } from './catalog';
 import { buildable, islandFor, levelOn, terrainOn, tileIndexOn, type IslandMap } from './island';
 import { neighbours } from './grid';
 import { harbourTiles } from './harbour';
+import { harbourApron, harbourSite } from './founding';
 import { build, placement, placeRoadPath, roadPathPlacement, setVendor } from './world';
 import { foreignOccupancy, type ForeignOccupancy } from './occupancy';
 
@@ -66,21 +67,41 @@ export function roadReachable(world: World, city: City, map: IslandMap, roads: S
   return null;
 }
 
+const SPINE_LENGTH = 7;
+
+function harbourSpine(city: City): Tile[] {
+  const { x, z, rotation } = city.harbour;
+  const apron = harbourApron(x, z, rotation);
+  const quay = harbourSite(x, z, rotation).land[0];
+  const step = { x: Math.sign(apron[0].x - quay.x), z: Math.sign(apron[0].z - quay.z) };
+  const spine: Tile[] = [];
+  for (let index = 0; index < SPINE_LENGTH; index++) {
+    spine.push({ x: apron[0].x + step.x * index, z: apron[0].z + step.z * index });
+  }
+  return spine;
+}
+
 function frontDoor(kind: BuildingKind, x: number, z: number): Tile {
   const size = footprint(kind, 0);
   return { x: x + Math.floor(size.width / 2), z: z + size.depth };
 }
 
 export function planStarterNeighbourhood(world: World, city: City): StarterPlan | null {
-  if (!city.founded) return null;
   const map = islandFor(world.seed, city.home);
   const trial = structuredClone(world);
   const trialCity = trial.cities.find((candidate) => candidate.id === city.id)!;
+  const plan: StarterPlan = { buildings: [], roads: [] };
+  const spine = harbourSpine(trialCity);
+  for (const tile of spine) {
+    if (trialCity.roads.includes(tileIndexOn(map, tile.x, tile.z))) continue;
+    if (!placeRoadPath(trial, trialCity, [tile]).ok) break;
+    plan.roads.push(tile);
+  }
   const trialRoads = trialCity.roads;
+  if (trialRoads.length === 0) return null;
   const roads = new Set(trialRoads);
   const foreign = foreignOccupancy(trial, trialCity);
-  const plan: StarterPlan = { buildings: [], roads: [] };
-  const roadTop = { x: map.entry.x, z: Math.min(...trialRoads.map((index) => Math.floor(index / map.width))) };
+  const roadTop = spine[spine.length - 1];
   for (const kind of ORDER) {
     let placed = false;
     for (let radius = 2; radius <= 22 && !placed; radius++) {

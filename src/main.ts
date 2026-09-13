@@ -12,7 +12,7 @@ import type { Building, City, Placement, Rotation, Tile, Tool, Walker, World } f
 import { createHud, type CityScope } from './ui/hud';
 import { createSound } from './ui/sound';
 import { celebration, cityMilestones, NO_MILESTONES, rememberMilestones } from './ui/celebrations';
-import { foundingPlacement } from './sim/founding';
+import { harbourPlacement } from './sim/founding';
 import type { CityCommand } from './sim/commands';
 import { activeCity, canWrite, contextForOwnedCity, reconcileContext, resolveCity, viewedCity, withViewed } from './ui/city-context';
 import { SharedSession, type SendOutcome, type SharedRequestOutcome, type SharedSessionStatus, type SharedSnapshot } from './ui/shared-session';
@@ -125,6 +125,10 @@ export function boot(source: SharedBootSource): BootHandles {
     return canWrite(world, context) && source.session.canSend();
   }
 
+  function siting(): boolean {
+    return context.activeId === null && source.session.canSend() && !sharedIntent.busy;
+  }
+
   function connectionHint(): string {
     if (context.activeId === null) return 'You have no city of your own here.';
     if (context.viewedId !== context.activeId) return 'Visiting another city · read-only. H returns home.';
@@ -169,14 +173,14 @@ export function boot(source: SharedBootSource): BootHandles {
     if (next !== 'inspect') {
       if (!writable()) { hud.notify('Viewing another city grants no writes.', true); return; }
       const home = activeCity(world, context);
-      if (!home || !home.founded) { hud.notify('Place your founding harbour first.', true); return; }
+      if (!home) { hud.notify('Place your harbour first.', true); return; }
     }
     tool = next;
     drag = null;
     hud.setTool(tool, rotation);
     stage.controls.touches.ONE = tool === 'inspect' ? T.TOUCH.ROTATE : null;
     const home = activeCity(world, context);
-    city.scenery.grid.visible = !(home?.founded ?? false) || showGrid || tool !== 'inspect';
+    city.scenery.grid.visible = !home || showGrid || tool !== 'inspect';
     updatePreview();
     stage.invalidate();
   }
@@ -184,7 +188,7 @@ export function boot(source: SharedBootSource): BootHandles {
   function setGrid(enabled: boolean): void {
     showGrid = enabled;
     const home = activeCity(world, context);
-    city.scenery.grid.visible = !(home?.founded ?? false) || enabled || tool !== 'inspect';
+    city.scenery.grid.visible = !home || enabled || tool !== 'inspect';
     hud.setGrid(enabled);
     stage.invalidate();
   }
@@ -244,22 +248,14 @@ export function boot(source: SharedBootSource): BootHandles {
     },
     sound: (enabled) => { sound.setEnabled(enabled); hud.setSound(enabled); },
     visit: viewCity,
-    claim: (home) => {
-      if (source.session.currentSession?.ownedCityIds.length !== 0) return;
-      if (world.cities.some((candidate) => candidate.home === home)) return;
-      sharedIntent.send({ kind: 'claim', home });
-    },
     discardPending: () => {
-      if (source.session.discardPending()) {
-        sharedIntent.reset();
-        hud.setClaimError('');
-      }
+      if (source.session.discardPending()) sharedIntent.reset();
     },
   });
 
   const sharedIntent = new SharedIntent(source.session, () => realmId, (outcome, kind) => {
     applySharedOutcome(outcome);
-    if (kind === 'claim') hud.setClaimError(outcome.ok ? '' : outcome.reason);
+    if (kind === 'claim') updateSiting();
     onStatusUpdate(source.session.currentStatus, source.session.statusReason);
   });
 
@@ -308,7 +304,23 @@ export function boot(source: SharedBootSource): BootHandles {
     return { ...preview, reason, tiles };
   }
 
+  function previewHarbourSite(site: Tile): void {
+    const preview = harbourPlacement(world, site.x, site.z, rotation);
+    city.showPreview('harbour', site.x, site.z, rotation, preview);
+    city.clearHover();
+    overlay.setFertileGround(null);
+    overlay.setBlockedTiles([]);
+    overlay.setDemolitionTarget([]);
+    overlay.setHarbourRoute(null);
+    stage.canvas.style.cursor = preview.ok ? 'crosshair' : 'not-allowed';
+    hud.setHint(preview.ok ? 'Found your city here · the harbour is free · R turns it' : preview.reason);
+  }
+
   function updatePreview(pointer: { x: number; y: number } | null = null): void {
+    if (siting() && hover) {
+      previewHarbourSite(hover);
+      return;
+    }
     if (!writable()) {
       city.hidePreview();
       city.clearHover();
@@ -322,19 +334,6 @@ export function boot(source: SharedBootSource): BootHandles {
       return;
     }
     const homeCity = activeCity(world, context)!;
-    if (!homeCity.founded) {
-      const site = hover ?? homeCity.harbour;
-      const preview = foundingPlacement(world, homeCity, site.x, site.z);
-      city.showPreview('harbour', site.x, site.z, 0, preview, homeCity.roads);
-      city.clearHover();
-      overlay.setFertileGround(null);
-      overlay.setBlockedTiles([]);
-      overlay.setDemolitionTarget([]);
-      overlay.setHarbourRoute(preview.ok ? harbourRoute(world, homeCity, preview.tiles) : null);
-      stage.canvas.style.cursor = preview.ok ? 'crosshair' : 'not-allowed';
-      hud.setHint(preview.ok ? 'Found your city here · Harbour is free · H returns to the landing · Escape opens the menu' : preview.reason);
-      return;
-    }
     overlay.setFertileGround(tool === 'farm' ? suitableFarmGround(world, homeCity) : null);
     stage.canvas.style.cursor = tool === 'inspect' ? '' : 'crosshair';
     if (tool !== 'inspect') city.clearHover();
@@ -388,7 +387,7 @@ export function boot(source: SharedBootSource): BootHandles {
     hover = atPointer(event);
     if (!hover) return;
     bendVertical = event.shiftKey;
-    drag = { tile: hover, x: event.clientX, y: event.clientY, pointer: event.pointerId, gestureWritable: writable(), gestureGeneration: stateGeneration };
+    drag = { tile: hover, x: event.clientX, y: event.clientY, pointer: event.pointerId, gestureWritable: writable() || siting(), gestureGeneration: stateGeneration };
     stage.canvas.setPointerCapture(event.pointerId);
     updatePreview();
   });
@@ -403,10 +402,10 @@ export function boot(source: SharedBootSource): BootHandles {
     hover = atPointer(event);
     const moved = Math.hypot(event.clientX - drag.x, event.clientY - drag.y);
     if (hover && (tool === 'road' || moved < 9)) {
-      const gestureStillValid = drag.gestureWritable && drag.gestureGeneration === stateGeneration && writable();
-      const home = gestureStillValid ? activeCity(world, context) : null;
-      if (home && !home.founded) {
-        dispatchShared({ type: 'foundHarbour', x: hover.x, z: hover.z });
+      const gestureStillValid = drag.gestureWritable && drag.gestureGeneration === stateGeneration;
+      const home = gestureStillValid && writable() ? activeCity(world, context) : null;
+      if (gestureStillValid && siting()) {
+        sharedIntent.send({ kind: 'claim', x: hover.x, z: hover.z, rotation });
       } else if (!home || tool === 'inspect') {
         const picked = city.pick(event.clientX, event.clientY);
         selectedId = picked.walker ?? picked.animal ?? picked.building;
@@ -495,16 +494,21 @@ export function boot(source: SharedBootSource): BootHandles {
   document.addEventListener('visibilitychange', () => { previous = 0; if (!document.hidden) stage.invalidate(); });
   selectTool('inspect');
   hud.setSound(sound.enabled);
-  updateClaimAvailability(source.initialSnapshot);
+  updateSiting();
   refresh();
   if (reducedMotion) city.animate(0, .25, 1);
   city.watch(stage.controls.target, stage.viewSpan());
   stage.shadows();
   requestAnimationFrame(frame);
 
-  function updateClaimAvailability(snapshot: SharedSnapshot): void {
-    const available = snapshot.session.ownedCityIds.length === 0;
-    hud.setClaimAvailable(available, available ? world.seed : undefined, world.cities.map((candidate) => candidate.home));
+  function updateSiting(): void {
+    if (context.activeId !== null) {
+      hud.setSiting(false, '');
+      return;
+    }
+    hud.setSiting(true, source.session.canSend()
+      ? 'Choose a shore and place your harbour: two rows of land, three of water.'
+      : 'Waiting for the world before you can settle…');
   }
 
 
@@ -537,10 +541,7 @@ export function boot(source: SharedBootSource): BootHandles {
       cameraMemory.set(previousContext.viewedId, stage.getView());
     }
     const contextChanged = previousContext.activeId !== context.activeId || previousContext.viewedId !== context.viewedId;
-    if (realmChanged || bindingChanged) {
-      sharedIntent.reset();
-      hud.setClaimError('');
-    }
+    if (realmChanged || bindingChanged) sharedIntent.reset();
     if (realmChanged || bindingChanged || contextChanged) {
       if (realmChanged) cameraMemory.clear();
       const active = activeCity(world, context);
@@ -551,7 +552,7 @@ export function boot(source: SharedBootSource): BootHandles {
       rebuildScene(!realmChanged && previousContext.viewedId === context.viewedId);
       selectTool('inspect');
     }
-    updateClaimAvailability(snapshot);
+    updateSiting();
     refresh();
     if (tool !== 'inspect' || hover !== null) updatePreview();
     if (reducedMotion) {
@@ -563,7 +564,7 @@ export function boot(source: SharedBootSource): BootHandles {
   function onStatusUpdate(status: SharedSessionStatus, reason: string): void {
     hud.setConnection(status !== 'ready', reason.length > 0 ? reason : connectionMessage(status));
     hud.setDiscardAvailable(status === 'indeterminate' || status === 'storage-error');
-    hud.setClaimBusy(sharedIntent.busy || !source.session.canSend());
+    updateSiting();
     const nowWritable = writable();
     if (!nowWritable) {
       if (tool !== 'inspect') selectTool('inspect');

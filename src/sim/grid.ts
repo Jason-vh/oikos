@@ -2,6 +2,7 @@ import type { Building, City, World } from './types';
 import { footprint } from './catalog';
 import { islandFor, insideMapOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import { doorTiles, roadStepAllowed, stairLayout } from './stairs';
+import { harbourLandTiles } from './founding';
 
 export function mapOf(world: World, city: City): IslandMap {
   return islandFor(world.seed, city.home);
@@ -66,9 +67,10 @@ export function exitTile(world: World, city: City, building: Building): number {
   return -1;
 }
 
-export function entryTileIndex(world: World, city: City): number {
+export function harbourDoors(world: World, city: City): number[] {
   const map = mapOf(world, city);
-  return tileIndexOn(map, map.entry.x, map.entry.z);
+  const land = new Set(harbourLandTiles(map, city.harbour));
+  return doorTiles(map, stairLayout(map, new Set(city.roads)), land);
 }
 
 export function bfsReachable(map: IslandMap, roads: ReadonlySet<number>, start: number): Set<number> {

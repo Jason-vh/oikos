@@ -1,36 +1,9 @@
 import { expect, test } from 'bun:test';
 import { footprintTiles, mapOf } from './grid';
-import { islandFor, tileAtOn } from './island';
+import { islandFor } from './island';
 import { deserializeWorld, serializeWorld } from './save';
-import { createWorld, demolish } from './world';
+import { createWorld } from './world';
 import { primaryCity } from './city';
-
-function flattenCity(raw: Record<string, any>, version: number): Record<string, any> {
-  const { id: _id, ...flatCity } = raw.cities[0];
-  const flat = { ...raw, ...flatCity, version };
-  delete flat.cities;
-  if (version === 4) delete flat.home;
-  return flat;
-}
-
-for (const version of [4, 5, 6]) {
-  test(`version ${version} keeps its harbour site after the entry roads are demolished`, () => {
-    const world = createWorld(2);
-    const original = { ...primaryCity(world).harbour };
-    for (const tile of [...primaryCity(world).roads]) {
-      const { x, z } = tileAtOn(mapOf(world, primaryCity(world)), tile);
-      expect(demolish(world, primaryCity(world), x, z).ok).toBe(true);
-    }
-    expect(primaryCity(world).harbour.connected).toBe(false);
-    const raw = JSON.parse(serializeWorld(world));
-    const legacy = flattenCity(raw, version);
-    const loaded = deserializeWorld(JSON.stringify(legacy));
-    expect(loaded).toEqual(world);
-    expect(primaryCity(loaded!).harbour.x).toBe(original.x);
-    expect(primaryCity(loaded!).harbour.z).toBe(original.z);
-    expect(deserializeWorld(serializeWorld(loaded!))).toEqual(loaded);
-  });
-}
 
 test('rejects missing, fractional, off-map, and foreign harbour sites instead of inventing a replacement', () => {
   const world = createWorld(1, 0);

@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from 'bun:test';
 import { ACTOR_CAP, Authority } from './authority';
-import { admit, foundedActor, rawDb, rid } from './authority-fixtures.test';
+import { admit, claimFor, foundedActor, rawDb, rid } from './authority-fixtures.test';
 import { connect, fixture, Peer } from './transport-fixtures.test';
 import { MAX_REQUEST_BYTES } from './protocol';
 import { startServer } from './runtime';
@@ -47,10 +47,10 @@ test('request rate is shared by actor across sockets; malformed, binary and over
     peer.ws.send(i === 0 ? new Uint8Array([1, 2]) : '{');
     expect((await peer.next('reject')).code).toBe('invalid-request');
   }
-  b.peer.send(1, { kind: 'claim', home: 0 });
+  b.peer.send(1, claimFor(0));
   expect((await b.peer.next('reject')).code).toBe('rate-limited');
   f.clock.time += 125;
-  b.peer.send(1, { kind: 'claim', home: 0 });
+  b.peer.send(1, claimFor(0));
   expect((await b.peer.next('receipt')).result.ok).toBe(true);
   a.peer.ws.send('x'.repeat(MAX_REQUEST_BYTES + 1));
   await a.peer.closed;

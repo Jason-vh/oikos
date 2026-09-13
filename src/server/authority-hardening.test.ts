@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { RETAINED_RECEIPTS, Authority } from './authority';
 import { closeStore, initStore, openStore } from './store';
-import { claimIsland } from '../sim/claims';
+import type { Rotation } from '../sim/types';
+import { claimHarbour } from '../sim/claims';
 import { createSharedWorld } from '../sim/world';
 import { serializeWorld } from '../sim/save';
-import { foundedActor, freshAuthority, freshPath, rawDb, revisionOf, rid, roadTileOf, sequenceRow } from './authority-fixtures.test';
+import { claimFor, foundedActor, freshAuthority, freshPath, rawDb, revisionOf, rid, roadTileOf, sequenceRow } from './authority-fixtures.test';
 
 const cleanups: Array<() => void> = [];
 
@@ -121,7 +122,7 @@ describe('sequencing, dedupe and replay edge cases', () => {
       authority.submit(credential, seq, rid(seq), { kind: 'command', cityId, command: { type: 'demolish', x: 0, z: 0 } });
       seq += 1;
     }
-    const result = authority.submit(credential, 1, rid(1), { kind: 'claim', home: 0 });
+    const result = authority.submit(credential, 1, rid(1), claimFor(0));
     expect(result).toEqual({ ok: false, reason: 'Sequence already processed; history not retained.', status: 'pruned' });
   });
 
@@ -231,7 +232,8 @@ describe('corrupt authority state', () => {
     const path = freshPath(cleanups);
     initStore(path);
     const world = createSharedWorld();
-    claimIsland(world, 0);
+    const site = claimFor(0);
+    claimHarbour(world, 'Tycho', site.x, site.z, site.rotation as Rotation);
     const store = openStore(path);
     store.db.run('UPDATE world SET revision = revision + 1, data = ? WHERE id = 1;', [serializeWorld(world)]);
     closeStore(store);

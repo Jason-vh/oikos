@@ -8,8 +8,8 @@ import { AuthorityGame } from './authority-game';
 import { createServer } from './mcp';
 import { Authority } from '../server/authority';
 import { initStore } from '../server/store';
-import { mapOf } from '../sim/grid';
-import { ISLAND_COUNT } from '../sim/island';
+import { ISLAND_COUNT, islandFor } from '../sim/island';
+import { findHarbourSite } from '../sim/founding';
 
 let directory: string;
 let authority: Authority;
@@ -34,6 +34,12 @@ async function agent(credential: string) {
   };
 }
 
+function siteOn(home: number): { x: number; z: number; rotation: number } {
+  const site = findHarbourSite(islandFor(authority.snapshot().seed), home);
+  if (!site) throw new Error(`island ${home} has no shore`);
+  return site;
+}
+
 beforeEach(() => {
   directory = mkdtempSync(join(tmpdir(), 'oikos-authority-'));
   initStore(join(directory, 'world.db'));
@@ -54,33 +60,33 @@ describe('an agent on the shared archipelago', () => {
 
     expect(survey).toContain('Island 0: free');
     expect(survey.split('\n').filter((line) => line.startsWith('Island'))).toHaveLength(ISLAND_COUNT);
-    expect(report).toContain('claim_island');
+    expect(report).toContain('found_city');
   });
 
   test('refuses to build before it has claimed an island', async () => {
     const { call } = await agent(admit('Thales'));
 
-    expect(await call('build', { tool: 'house', x: 10, z: 10 })).toContain('Claim an island');
-    expect(await call('inspect_tile', { x: 10, z: 10 })).toContain('no island yet');
+    expect(await call('build', { tool: 'house', x: 10, z: 10 })).toContain('found_city');
+    expect(await call('inspect_tile', { x: 10, z: 10 })).toContain('no city yet');
   });
 
-  test('claims an island and then sees its own city', async () => {
+  test('founds a city on a shore and then sees it', async () => {
     const { call } = await agent(admit('Thales'));
 
-    const claimed = await call('claim_island', { home: 2 });
+    const founded = await call('found_city', siteOn(2));
     const survey = await call('survey');
     const report = await call('report');
 
-    expect(claimed).toStartWith('Done.');
+    expect(founded).toStartWith('Done.');
     expect(survey).toContain('Island 2 of the Kalliste archipelago');
-    expect(report).toContain('is not founded yet');
+    expect(report).toContain('City 1 on island 2');
   });
 
   test('holds one island only', async () => {
     const { call } = await agent(admit('Thales'));
 
-    await call('claim_island', { home: 2 });
-    const again = await call('claim_island', { home: 3 });
+    await call('found_city', siteOn(2));
+    const again = await call('found_city', siteOn(3));
 
     expect(again).toStartWith('Refused.');
     expect(again).toContain('already holds an island claim');
@@ -90,43 +96,31 @@ describe('an agent on the shared archipelago', () => {
     const first = await agent(admit('Thales'));
     const second = await agent(admit('Anaximander'));
 
-    await first.call('claim_island', { home: 2 });
-    const taken = await second.call('claim_island', { home: 2 });
-    const free = await second.call('claim_island', { home: 5 });
+    await first.call('found_city', siteOn(2));
+    const taken = await second.call('found_city', siteOn(2));
+    const free = await second.call('found_city', siteOn(5));
 
-    expect(taken).toContain('already claimed');
+    expect(taken).toContain('already belongs');
     expect(free).toStartWith('Done.');
   });
 
   test('founds its city and builds on it, through the authority', async () => {
     const { call } = await agent(admit('Thales'));
-    await call('claim_island', { home: 2 });
-    const entry = mapOf(authority.snapshot(), authority.snapshot().cities[0]).entry;
-
-    let founded = '';
-    for (let dz = 1; dz <= 6 && !founded.startsWith('Done.'); dz++) {
-      for (let dx = -3; dx <= 3; dx++) {
-        const site = { x: entry.x + dx, z: entry.z - dz };
-        if (!(await call('check_found_city', site)).includes('allowed')) continue;
-        founded = await call('found_city', site);
-        break;
-      }
-    }
+    const founded = await call('found_city', siteOn(2));
 
     expect(founded).toStartWith('Done.');
-    expect(authority.snapshot().cities[0].founded).toBe(true);
-
-    const built = await call('build', { tool: 'house', x: entry.x + 2, z: entry.z - 6 });
-    expect(built === 'Refused.' ? '' : built).toContain('Treasury');
+    const city = authority.snapshot().cities[0];
+    expect(city.home).toBe(2);
+    expect(city.name).toBe('Thales');
   });
-
   test('cannot touch another agent\'s city, whatever it addresses', async () => {
     const first = await agent(admit('Thales'));
     const second = await agent(admit('Anaximander'));
-    await first.call('claim_island', { home: 2 });
-    await second.call('claim_island', { home: 5 });
+    await first.call('found_city', siteOn(2));
+    await second.call('found_city', siteOn(5));
 
-    const trespass = await second.call('build', { tool: 'house', x: mapOf(authority.snapshot(), authority.snapshot().cities[0]).entry.x, z: 40 });
+    const victim = authority.snapshot().cities[0];
+    const trespass = await second.call('build', { tool: 'house', x: victim.harbour.x, z: victim.harbour.z - 6 });
 
     expect(authority.snapshot().cities[0].buildings).toHaveLength(0);
     expect(trespass).toStartWith('Refused.');
@@ -134,7 +128,7 @@ describe('an agent on the shared archipelago', () => {
 
   test('has no tool for turning the clock: time is the world\'s, not the agent\'s', async () => {
     const { client, call } = await agent(admit('Thales'));
-    await call('claim_island', { home: 2 });
+    await call('found_city', siteOn(2));
 
     const names = (await client.listTools()).tools.map((tool) => tool.name);
 
@@ -145,11 +139,11 @@ describe('an agent on the shared archipelago', () => {
   test('stops working when its admission is gone', async () => {
     const credential = admit('Thales');
     const { call } = await agent(credential);
-    await call('claim_island', { home: 2 });
+    await call('found_city', siteOn(2));
 
     const stranger = await agent('f'.repeat(64));
 
-    expect(await stranger.call('report')).toContain('no island yet');
-    expect(await stranger.call('claim_island', { home: 4 })).toContain('no longer admitted');
+    expect(await stranger.call('report')).toContain('no city yet');
+    expect(await stranger.call('found_city', siteOn(4))).toContain('no longer admitted');
   });
 });

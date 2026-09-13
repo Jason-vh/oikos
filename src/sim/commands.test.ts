@@ -49,14 +49,13 @@ test('parsing copies command data and strips fields that do not belong to the ac
 });
 
 test('JSON commands found and grow exactly the same city as the direct simulation API', () => {
-  const world = createWorld(2, 0, false);
+  const world = createWorld(2, 0);
   const replay = structuredClone(world);
   const commands: CityCommand[] = [];
   const execute = (command: CityCommand) => {
     commands.push(command);
     expect(applyCommand(world, primaryCity(world).id, JSON.parse(JSON.stringify(command))).ok).toBe(true);
   };
-  execute({ type: 'foundHarbour', x: primaryCity(world).harbour.x, z: primaryCity(world).harbour.z });
   const plan = planStarterNeighbourhood(world, primaryCity(world))!;
   expect(plan).not.toBeNull();
   for (const building of plan.buildings) execute({ type: 'build', tool: building.kind, x: building.x, z: building.z, rotation: 0 });
@@ -76,13 +75,11 @@ test('JSON commands found and grow exactly the same city as the direct simulatio
   expect(primaryCity(world).buildings.some((building) => building.id === house.id)).toBe(false);
 });
 
-test('well-formed commands still enforce founding and territory rules', () => {
-  const world = createWorld(1, 0, false);
+test('well-formed commands still enforce territory rules', () => {
+  const world = createWorld(1, 0);
   const foreign = createWorld(1, 7);
   const spot = spotFor(foreign, 'house')!;
   const command: CityCommand = { type: 'build', tool: 'house', x: spot.x, z: spot.z, rotation: 0 };
-  expect(applyCommand(world, primaryCity(world).id, command).reason).toContain('founding harbour');
-  expect(applyCommand(world, primaryCity(world).id, { type: 'foundHarbour', x: primaryCity(world).harbour.x, z: primaryCity(world).harbour.z }).ok).toBe(true);
   const before = serializeWorld(world);
   expect(applyCommand(world, primaryCity(world).id, command).reason).toContain('settled island');
   expect(serializeWorld(world)).toBe(before);

@@ -1,13 +1,15 @@
-import type { Animal, AnimalKind, Building, BuildingKind, City, Resource, Stores, Walker, WalkerKind, World } from './types';
+import type { Animal, AnimalKind, Building, BuildingKind, City, Resource, Rotation, Stores, Walker, WalkerKind, World } from './types';
 
 const ANIMAL_KINDS: AnimalKind[] = ['boar', 'rabbit', 'fish', 'gull'];
 
-import { BUILDINGS, HOUSE_CAPACITY, RESOURCES, STARTING_MONEY } from './catalog';
-import { buildable, islandFor, insideMapOn, ISLAND_COUNT, landingRoads, levelOn, onHomeIsland, terrainOn, tileAtOn, type IslandMap } from './island';
+import { BUILDINGS, HOUSE_CAPACITY, RESOURCES } from './catalog';
+import { islandFor, insideMapOn, ISLAND_COUNT, type IslandMap } from './island';
+import { harbourIslandAt } from './founding';
+import { cityName } from './claims';
 import { footprintTiles, neighbours } from './grid';
 import { dropInvalidWalkers, recomputeConnectivity } from './world';
 import { harbourAt, validateHarbourProgress } from './harbour';
-import { ARCHIPELAGO_VERSION, CURRENT_VERSION, migrateSave } from './save-migrations';
+export const CURRENT_VERSION = 11 as const;
 
 export function serializeWorld(world: World): string {
   return JSON.stringify(world);
@@ -127,24 +129,22 @@ function validateBuilding(map: IslandMap, raw: unknown, roads: Set<number>, occu
   };
 }
 
-function validateHarbour(map: IslandMap, raw: unknown, roads: Set<number>, occupied: Set<number>): Building | null {
+function validateHarbour(map: IslandMap, home: number, raw: unknown, roads: Set<number>, occupied: Set<number>): Building | null {
   if (!isPlainObject(raw)) return null;
   const { id, kind, rotation, x, z } = raw;
-  if (!isSafeInteger(id) || id < 0 || kind !== 'harbour' || rotation !== 0) return null;
+  if (!isSafeInteger(id) || id < 0 || kind !== 'harbour') return null;
+  if (!isInteger(rotation) || (rotation as number) < 0 || (rotation as number) > 3) return null;
   if (!isInteger(x) || !isInteger(z)) return null;
   const progress = validateHarbourProgress(raw);
   if (!progress) return null;
-  const tiles = footprintFor(map, 'harbour', 0, x, z);
+  const site = { x: x as number, z: z as number, rotation: rotation as Rotation };
+  if (harbourIslandAt(map, site.x, site.z, site.rotation) !== map.islands[home]) return null;
+  const tiles = footprintFor(map, 'harbour', site.rotation, site.x, site.z);
   if (!tiles) return null;
-  const level = levelOn(map, x, z);
   for (const tile of tiles) {
-    const position = tileAtOn(map, tile);
-    if (!onHomeIsland(map, position.x, position.z)) return null;
-    if (!buildable(terrainOn(map, position.x, position.z))) return null;
-    if (levelOn(map, position.x, position.z) !== level) return null;
     if (roads.has(tile) || occupied.has(tile)) return null;
   }
-  return { ...harbourAt({ x, z }, progress), id: id as number };
+  return { ...harbourAt(site, progress), id: id as number };
 }
 
 function pathIsAdjacent(map: IslandMap, path: number[], roads: Set<number>, overland: Set<number>): boolean {
@@ -194,16 +194,6 @@ function validateWalker(map: IslandMap, raw: unknown, roads: Set<number>, buildi
   };
 }
 
-export function savedBeforeArchipelago(raw: string): boolean {
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!isPlainObject(parsed)) return false;
-    return isInteger(parsed.version) && (parsed.version as number) < ARCHIPELAGO_VERSION;
-  } catch {
-    return false;
-  }
-}
-
 export function deserializeWorld(raw: string): World | null {
   return parseWorld(raw, (count) => count === 1);
 }
@@ -220,9 +210,7 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
     return null;
   }
   if (!isPlainObject(parsed)) return null;
-  const migrated = migrateSave(parsed);
-  if (!migrated) return null;
-  const { version, island, seed, time, remainder, nextId, nextCityId, wildlife: rawWildlife, felled: rawFelled, regrowth, cities: rawCities } = migrated;
+  const { version, island, seed, time, remainder, nextId, nextCityId, wildlife: rawWildlife, felled: rawFelled, regrowth, cities: rawCities } = parsed;
 
   if (version !== CURRENT_VERSION) return null;
   if (island !== 'kalliste') return null;
@@ -247,7 +235,7 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
 
   for (const rawCity of rawCities) {
     if (!isPlainObject(rawCity)) return null;
-    const { id, home, founded, money, harbour: rawHarbour, produced, delivered, roads: rawRoads, buildings: rawBuildings, walkers: rawWalkers } = rawCity;
+    const { id, name, home, money, harbour: rawHarbour, produced, delivered, roads: rawRoads, buildings: rawBuildings, walkers: rawWalkers } = rawCity;
     if (!isSafeInteger(id) || id <= 0) return null;
     if (usedCityIds.has(id) || id >= (nextCityId as number)) return null;
     usedCityIds.add(id);
@@ -255,7 +243,7 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
     if (usedHomes.has(home)) return null;
     usedHomes.add(home);
     const map = islandFor(seed as number, home as number);
-    if (typeof founded !== 'boolean') return null;
+    if (typeof name !== 'string' || cityName(name) !== name) return null;
     if (!isFiniteNumber(money)) return null;
     if (!isNonNegativeFinite(produced)) return null;
     if (!isNonNegativeFinite(delivered)) return null;
@@ -283,7 +271,7 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
       occupiedTiles.add(tile);
     }
 
-    const harbour = validateHarbour(map, rawHarbour, roadSet, localOccupied);
+    const harbour = validateHarbour(map, home as number, rawHarbour, roadSet, localOccupied);
     if (!harbour) return null;
     if (usedEntityIds.has(harbour.id)) return null;
     if (harbour.id === 0) {
@@ -291,11 +279,9 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
       zeroHarbourSeen = true;
     } else if (harbour.id >= (nextId as number)) return null;
     usedEntityIds.add(harbour.id);
-    if (founded) {
-      for (const tile of footprintTiles(map, harbour)) {
-        if (occupiedTiles.has(tile)) return null;
-        occupiedTiles.add(tile);
-      }
+    for (const tile of footprintTiles(map, harbour)) {
+      if (occupiedTiles.has(tile)) return null;
+      occupiedTiles.add(tile);
     }
 
     if (!Array.isArray(rawWalkers)) return null;
@@ -309,14 +295,7 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
       walkers.push(walker);
     }
 
-    const city: City = { id: id as number, home: home as number, founded, money: money as number, harbour, produced: produced as number, delivered: delivered as number, roads, buildings, walkers };
-    if (!city.founded) {
-      const preparedRoads = landingRoads(map);
-      if (city.money !== STARTING_MONEY || roads.length !== preparedRoads.length || preparedRoads.some((tile) => !roadSet.has(tile))) return null;
-      if (city.produced !== 0 || city.delivered !== 0) return null;
-      if (buildings.length > 0 || walkers.length > 0) return null;
-      if (city.harbour.tier !== 1 || city.harbour.progress !== 0 || city.harbour.vendorInstalled || Object.keys(city.harbour.stores).length > 0) return null;
-    }
+    const city: City = { id: id as number, name, home: home as number, money: money as number, harbour, produced: produced as number, delivered: delivered as number, roads, buildings, walkers };
     cities.push(city);
   }
 

@@ -41,7 +41,9 @@ A client sends:
 {"type":"request","binding":"<session binding from snapshot>","requestId":"00000000000000000000000000000001","seq":1,"operation":{"kind":"claim","home":0}}
 ```
 
-Commands use `{"kind":"command","cityId":1,"command":<CityCommand>}`. Outer
+A claim is `{"kind":"claim","x":…,"z":…,"rotation":0-3}`: it places the player's
+harbour, claims that island and founds a city named after the actor. Commands use
+`{"kind":"command","cityId":1,"command":<CityCommand>}`. Outer
 fields are exact. Pure normalization parses inner command data for replay
 fingerprints; dispatch executes only after explicit city authorization. There are
 no actor, World replacement or clock inputs.

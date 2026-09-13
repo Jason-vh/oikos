@@ -44,7 +44,8 @@ export function parseRequest(raw: string): ClientRequest | null {
     if (!Number.isSafeInteger(value.seq) || (value.seq as number) <= 0 || !record(value.operation)) return null;
     const operation = value.operation;
     if (operation.kind === 'claim') {
-      if (!exactKeys(operation, ['kind', 'home']) || !Number.isSafeInteger(operation.home)) return null;
+      if (!exactKeys(operation, ['kind', 'x', 'z', 'rotation'])) return null;
+      if (![operation.x, operation.z, operation.rotation].every((value) => Number.isSafeInteger(value))) return null;
     } else if (operation.kind === 'command') {
       if (!exactKeys(operation, ['kind', 'cityId', 'command']) || !Number.isSafeInteger(operation.cityId)) return null;
     } else return null;

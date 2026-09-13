@@ -48,13 +48,4 @@ describe('the local game', () => {
     expect(game.view().world.time).toBeLessThanOrEqual(MAX_CATCH_UP_SECONDS);
   });
 
-  test('does not start the clock before the city is founded', async () => {
-    let time = 1000;
-    const game = LocalGame.start({ home: 3, founded: false, now: () => time });
-
-    time += 3000;
-
-    expect(game.view().world.time).toBe(0);
-    expect(game.view().city!.founded).toBe(false);
-  });
 });

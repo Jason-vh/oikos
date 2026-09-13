@@ -6,6 +6,8 @@ import { admit, foundedActor } from './authority-fixtures.test';
 import { AGENT_PRESENCE_MS } from './runtime';
 import { fixture } from './transport-fixtures.test';
 import type { World } from '../sim/types';
+import { findHarbourSite } from '../sim/founding';
+import { islandFor } from '../sim/island';
 
 const cleanups: Array<() => unknown> = [];
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup(); });
@@ -46,10 +48,11 @@ test('an admitted agent plays the shared world over HTTP, and a stranger cannot'
 
   const { client, call } = await agent(f.base, credential);
   expect(client.getServerVersion()?.name).toBe('oikos');
-  expect((await client.listTools()).tools.map((tool) => tool.name)).toContain('claim_island');
+  expect((await client.listTools()).tools.map((tool) => tool.name)).toContain('found_city');
   expect(await call('survey')).toContain('Island 0: free');
-  expect(await call('claim_island', { home: 4 })).toStartWith('Done.');
-  expect(await call('report')).toContain('is not founded yet');
+  const site = findHarbourSite(islandFor(1), 4)!;
+  expect(await call('found_city', { x: site.x, z: site.z, rotation: site.rotation })).toStartWith('Done.');
+  expect(await call('report')).toContain('City 1 on island 4');
   await client.close();
 
   const world = await worldAfterStop(f);

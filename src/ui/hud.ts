@@ -2,8 +2,6 @@ import type { Building, City, Rotation, Summary, Tool, World } from '../sim/type
 import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, VENDOR_COST } from '../sim/catalog';
 import { FOOD_CONSUMPTION_PER_RESIDENT, WATER_DECAY_PER_SECOND } from '../sim/balance';
 import { toolIcon } from './icons';
-import { ISLAND_COUNT } from '../sim/island';
-import { createIslandChoice } from './island-choice';
 
 export interface HudActions {
   tool(tool: Tool): void;
@@ -15,7 +13,6 @@ export interface HudActions {
   home(): void;
   sound(enabled: boolean): void;
   visit(id: number): void;
-  claim(home: number): void;
   discardPending(): void;
 }
 
@@ -37,9 +34,7 @@ export interface Hud {
   setSound(enabled: boolean): void;
   setCities(cities: { id: number; label: string }[], viewedId: number | null, activeId?: number | null): void;
   setConnection(blocked: boolean, message: string): void;
-  setClaimAvailable(available: boolean, seed?: number, claimedHomes?: number[]): void;
-  setClaimBusy(busy: boolean): void;
-  setClaimError(message: string): void;
+  setSiting(siting: boolean, message: string): void;
   setDiscardAvailable(available: boolean): void;
   toggleMenu(): boolean;
   dispose(): void;
@@ -138,7 +133,7 @@ const SKELETON = `
       <p data-field="connection"></p>
       <button type="button" data-action="discard-pending" data-testid="discard-pending" hidden>Discard unresolved action</button>
     </div>
-    <button type="button" class="hud-panel hud-claim-available" data-action="claim-open" data-testid="claim-available" hidden>Claim an island to begin</button>
+    <p class="hud-panel hud-siting" data-field="siting" data-testid="siting" role="status" hidden></p>
   </div>
   <details class="hud-panel hud-guide" data-testid="guide" open>
     <summary>Guide</summary>
@@ -194,24 +189,6 @@ const SKELETON = `
       <p class="hud-menu-footer"><a href="/art.html" target="_blank" rel="noopener">Model atelier</a><button type="submit" value="close">Close</button></p>
     </form>
   </dialog>
-  <dialog class="hud-dialog hud-island-dialog" data-testid="claim-dialog" aria-labelledby="claim-title">
-    <form method="dialog">
-      <h2 id="claim-title">Choose your island</h2>
-      <p>Claim an unclaimed island, then place your founding harbour there. Someone may claim an island before you confirm; pick again if that happens.</p>
-      <canvas class="hud-island-map" data-testid="claim-preview" role="img" aria-label="Archipelago preview"></canvas>
-      <p data-testid="claim-facts" aria-live="polite"></p>
-      <label class="hud-island-choice">Island
-        <select name="claim-home" data-testid="claim-select">
-          ${Array.from({ length: ISLAND_COUNT }, (_, index) => `<option value="${index}">Island ${index + 1}</option>`).join('')}
-        </select>
-      </label>
-      <p class="hud-claim-error" data-field="claim-error" role="alert" hidden></p>
-      <div class="hud-dialog-actions">
-        <button type="submit" value="cancel">Cancel</button>
-        <button type="submit" value="confirm" class="hud-primary">Claim island</button>
-      </div>
-    </form>
-  </dialog>
 `;
 
 function field(root: ParentNode, name: string): HTMLElement {
@@ -264,21 +241,6 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     toolButtons.set(def.tool, button);
   }
 
-  const claimDialog = root.querySelector<HTMLDialogElement>('[data-testid="claim-dialog"]')!;
-  const claimSelect = claimDialog.querySelector<HTMLSelectElement>('[name="claim-home"]')!;
-  const claimError = field(claimDialog, 'claim-error');
-  const showClaimChoice = createIslandChoice(
-    claimDialog.querySelector<HTMLCanvasElement>('[data-testid="claim-preview"]')!,
-    claimSelect,
-    claimDialog.querySelector<HTMLElement>('[data-testid="claim-facts"]')!,
-  );
-  claimDialog.querySelector('form')!.addEventListener('submit', (event) => {
-    if ((event.submitter as HTMLButtonElement | null)?.value !== 'confirm') return;
-    event.preventDefault();
-    if (canClaim()) actions.claim(Number(claimSelect.value));
-  });
-  claimSelect.addEventListener('change', updateClaimControls);
-  action(root, 'claim-open').addEventListener('click', () => claimDialog.showModal());
   action(root, 'discard-pending').addEventListener('click', () => {
     if (window.confirm('This may abandon an action that already applied to the shared city. Discard the unresolved request?')) actions.discardPending();
   });
@@ -452,13 +414,10 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
   }
 
   function updateMilestones(active: CityScope | null): void {
-    const founded = active?.city.founded ?? false;
-    guidePanel.querySelector<HTMLElement>('.hud-milestones')!.hidden = !founded;
-    if (!active || !founded) {
-      guidePanel.querySelector('summary')!.textContent = active ? 'Found your city' : 'No city yet';
-      guidePanel.querySelector('.hud-guide-note')!.textContent = active
-        ? 'Place your harbour beside the landing road. The green footprint shows a valid site. H returns here; Escape opens the menu.'
-        : '';
+    guidePanel.querySelector<HTMLElement>('.hud-milestones')!.hidden = !active;
+    if (!active) {
+      guidePanel.querySelector('summary')!.textContent = 'No city yet';
+      guidePanel.querySelector('.hud-guide-note')!.textContent = 'Find a shore and place your harbour: the quay on land, its pier over the water.';
       return;
     }
     const summary = active.summary;
@@ -492,7 +451,7 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     foodField.textContent = Math.round(viewed?.summary.food ?? 0).toLocaleString('en-US');
     for (const def of TOOL_DEFS) {
       const button = toolButtons.get(def.tool)!;
-      button.disabled = !writable || !(active?.city.founded ?? false);
+      button.disabled = !writable || !active;
       button.classList.toggle('hud-tool-unaffordable', !!active && def.price > active.city.money);
     }
     balanceField.textContent = formatSigned(viewed?.summary.balance ?? 0);
@@ -562,41 +521,10 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     connectionText.textContent = message;
   }
 
-  const claimAvailableButton = action(root, 'claim-open');
-  const claimSubmitButton = claimDialog.querySelector<HTMLButtonElement>('button[value="confirm"]')!;
-  let claimAvailable = false;
-  let claimBusy = false;
-  function canClaim(): boolean {
-    const selected = claimSelect.selectedOptions[0];
-    return claimAvailable && !claimBusy && !!selected && !selected.disabled;
-  }
-
-  function updateClaimControls(): void {
-    const hasIsland = Array.from(claimSelect.options).some((option) => !option.disabled);
-    claimAvailableButton.hidden = !claimAvailable || !hasIsland;
-    claimAvailableButton.disabled = claimBusy;
-    claimSelect.disabled = !claimAvailable || !hasIsland || claimBusy;
-    claimSubmitButton.disabled = !canClaim();
-  }
-
-  function setClaimAvailable(available: boolean, seed?: number, claimedHomes: number[] = []): void {
-    claimAvailable = available;
-    if (available && seed !== undefined) {
-      for (const option of Array.from(claimSelect.options)) option.disabled = claimedHomes.includes(Number(option.value));
-      showClaimChoice(seed);
-    } else if (claimDialog.open) claimDialog.close('cancel');
-    updateClaimControls();
-  }
-
-  function setClaimBusy(busy: boolean): void {
-    claimBusy = busy;
-    updateClaimControls();
-  }
-
-  function setClaimError(message: string): void {
-    claimError.textContent = message;
-    claimError.hidden = message.length === 0;
-    if (message.length === 0 && claimDialog.open) claimDialog.close('cancel');
+  const sitingPanel = field(root, 'siting');
+  function setSiting(siting: boolean, message: string): void {
+    sitingPanel.hidden = !siting;
+    sitingPanel.textContent = message;
   }
 
   function setDiscardAvailable(available: boolean): void {
@@ -605,6 +533,6 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
 
   return {
     update, setTool, notify, setHint, setGrid, setSound, setCities, toggleMenu, dispose,
-    setConnection, setClaimAvailable, setClaimBusy, setClaimError, setDiscardAvailable,
+    setConnection, setSiting, setDiscardAvailable,
   };
 }

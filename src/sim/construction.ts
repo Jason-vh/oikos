@@ -1,7 +1,8 @@
 import type { BuildingKind, City, Rotation, Tile, World } from './types';
 import { BUILDINGS, footprint, VENDOR_COST } from './catalog';
 import { buildable, insideMapOn, levelOn, onHomeIsland, terrainOn, tileIndexOn, type IslandMap } from './island';
-import { bfsShortest, entryTileIndex, footprintTiles as buildingFootprintTiles, mapOf } from './grid';
+import { bfsShortest, footprintTiles as buildingFootprintTiles, mapOf } from './grid';
+import { harbourGate } from './world';
 import { doorTiles, stairLayout } from './stairs';
 import { foreignOccupancy } from './occupancy';
 
@@ -17,7 +18,7 @@ export interface DemolitionPreview {
 
 function buildingOccupancy(map: IslandMap, city: City): Set<number> {
   const occupied = new Set<number>();
-  const buildings = city.founded ? [...city.buildings, city.harbour] : city.buildings;
+  const buildings = [...city.buildings, city.harbour];
   for (const building of buildings) for (const tile of buildingFootprintTiles(map, building)) occupied.add(tile);
   return occupied;
 }
@@ -84,11 +85,11 @@ function accessPoints(world: World, city: City, tileIndices: number[]): number[]
 export function harbourRoute(world: World, city: City, tileIndices: number[]): number[] | null {
   const map = mapOf(world, city);
   const roads = new Set(city.roads);
-  const entry = entryTileIndex(world, city);
-  if (!roads.has(entry) || tileIndices.length === 0) return null;
+  const gate = harbourGate(world, city);
+  if (gate === null || tileIndices.length === 0) return null;
   const goals = new Set(accessPoints(world, city, tileIndices));
   if (goals.size === 0) return null;
-  return bfsShortest(map, roads, entry, (tile) => goals.has(tile));
+  return bfsShortest(map, roads, gate, (tile) => goals.has(tile));
 }
 
 export function demolitionPreview(world: World, city: City, x: number, z: number): DemolitionPreview | null {

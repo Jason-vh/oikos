@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from 'bun:test';
 import { Authority } from './authority';
-import { freshAuthority, foundedActor, rawDb, revisionOf, rid, roadTileOf } from './authority-fixtures.test';
+import { claimFor, foundedActor, freshAuthority, rawDb, revisionOf, rid, roadTileOf } from './authority-fixtures.test';
 import { readWorldRow } from './store';
 
 const cleanups: Array<() => void> = [];
@@ -14,8 +14,8 @@ test('trusted ticks remain private until checkpoint; replay and logical failure 
   authority.advance(1);
   expect(authority.snapshot().time).toBeGreaterThan(initial.time);
   expect(readWorldRow(rawDb(authority)).world).toEqual(initial);
-  expect(authority.submit(actor.credential, 1, rid(1), { kind: 'claim', home: 0 }).status).toBe('replayed');
-  expect(authority.submit(actor.credential, 3, rid(3), { kind: 'claim', home: 1 })).toMatchObject({ status: 'processed', ok: false });
+  expect(authority.submit(actor.credential, 1, rid(1), claimFor(0)).status).toBe('replayed');
+  expect(authority.submit(actor.credential, 3, rid(3), claimFor(1))).toMatchObject({ status: 'processed', ok: false });
   expect(revisionOf(authority)).toBe(revision);
   expect(authority.checkpoint()).toBe(true);
   expect(revisionOf(authority)).toBe(revision + 1);

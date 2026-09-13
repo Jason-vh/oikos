@@ -1,11 +1,12 @@
 import { afterEach, expect, test } from 'bun:test';
 import { Authority, type AuthorityRequest } from '../server/authority';
-import { foundedActor, rawDb } from '../server/authority-fixtures.test';
+import { claimFor, foundedActor, rawDb } from '../server/authority-fixtures.test';
 import { connect, fixture } from '../server/transport-fixtures.test';
 import { WirePeer } from '../server/wire-fixtures.test';
 import { startServer } from '../server/runtime';
 import { readWorldRow, selectAll } from '../server/store';
 import { islandFor, tileAtOn } from '../sim/island';
+import { harbourApron } from '../sim/founding';
 import { SharedSession, type SendOutcome, type SharedRequestOutcome, type SharedSessionInit, type SharedSnapshot } from './shared-session';
 
 const cleanups: Array<() => unknown> = [];
@@ -161,7 +162,7 @@ test('a real client claims an island and issues a command through receipts only'
   const cookie = await f.cookie();
   const client = await realClient(f, cookie);
 
-  const claim = await client.session.send({ kind: 'claim', home: 0 });
+  const claim = await client.session.send(claimFor(0));
   expect(claim.ok).toBe(true);
   const cityId = claim.cityId!;
   await reconcile(f, client);
@@ -169,10 +170,10 @@ test('a real client claims an island and issues a command through receipts only'
   expect(client.snapshots.at(-1)!.session.ownedCityIds).toContain(cityId);
 
   const harbour = client.snapshots.at(-1)!.world.cities.find((city) => city.id === cityId)!.harbour;
-  const found = await client.session.send({ kind: 'command', cityId, command: { type: 'foundHarbour', x: harbour.x, z: harbour.z } });
-  expect(found.ok).toBe(true);
+  const road = await client.session.send({ kind: 'command', cityId, command: { type: 'roadPath', tiles: harbourApron(harbour.x, harbour.z, harbour.rotation) } });
+  expect(road.ok).toBe(true);
   await reconcile(f, client);
-  expect(client.snapshots.at(-1)!.world.cities.find((city) => city.id === cityId)!.founded).toBe(true);
+  expect(client.snapshots.at(-1)!.world.cities.find((city) => city.id === cityId)!.roads.length).toBeGreaterThan(0);
 }, 10000);
 
 test('an acknowledgement lost on a paused socket settles indeterminate, then the recovered receipt reports replayed exactly once', async () => {

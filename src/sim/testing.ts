@@ -1,8 +1,9 @@
 import type { ActionResult, Building, BuildingKind, BuildTool, City, Rotation, Tile, World } from './types';
 import { STARTING_MONEY, footprint } from './catalog';
-import { buildable, islandFor, landingRoads, levelOn, terrainOn, tileAtOn, tileIndexOn, type IslandMap, type IslandPlacement } from './island';
+import { buildable, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn, type IslandMap, type IslandPlacement } from './island';
 import { mapOf as gridMapOf, neighbours, perimeterTiles, footprintTiles } from './grid';
 import { freshHarbour, harbourTiles } from './harbour';
+import { findHarbourSite, harbourApron, harbourSiteOf } from './founding';
 import { placement, placeRoadPath, recomputeConnectivity } from './world';
 import { primaryCity } from './city';
 
@@ -10,17 +11,19 @@ export function mapOf(world: World): IslandMap {
   return gridMapOf(world, primaryCity(world));
 }
 
-export function foundSecondCity(world: World, home: number, founded = true): City {
+export function foundSecondCity(world: World, home: number, name = 'Naxos'): City {
   const map = islandFor(world.seed, home);
+  const site = findHarbourSite(map, home);
+  if (!site) throw new Error('That island has no shore for a harbour.');
   const city: City = {
     id: world.nextCityId++,
-    home: map.home,
-    founded,
+    name,
+    home,
     money: STARTING_MONEY,
-    harbour: { ...freshHarbour(world.seed, landingRoads(map), map.home), id: world.nextId++ },
+    harbour: { ...freshHarbour(site), id: world.nextId++ },
     produced: 0,
     delivered: 0,
-    roads: landingRoads(map),
+    roads: harbourApron(site.x, site.z, site.rotation).map((tile) => tileIndexOn(map, tile.x, tile.z)),
     buildings: [],
     walkers: [],
   };
@@ -92,6 +95,21 @@ export function freshRoadSpot(world: World, near?: Tile): Tile | null {
     if (city.roads.includes(tileIndexOn(map, x, z))) return false;
     return placement(world, city, 'road', x, z).ok;
   }, near);
+}
+
+export function roadSpur(world: World, length: number): Tile[] {
+  const city = primaryCity(world);
+  const apron = harbourApron(city.harbour.x, city.harbour.z, city.harbour.rotation);
+  const quay = harbourSiteOf(city.harbour).land[0];
+  const step = { x: Math.sign(apron[0].x - quay.x), z: Math.sign(apron[0].z - quay.z) };
+  const spur: Tile[] = [];
+  for (let index = 1; index <= length; index++) {
+    const tile = { x: apron[0].x + step.x * index, z: apron[0].z + step.z * index };
+    if (!placeRoadPath(world, city, [tile]).ok) break;
+    spur.push(tile);
+  }
+  recomputeConnectivity(world, city);
+  return spur;
 }
 
 export function farCorner(world: World): Tile {
@@ -204,7 +222,7 @@ export function connect(world: World, building: Building): ActionResult {
 export function isolatedRoadPair(world: World, near: Tile): [Tile, Tile] | null {
   const map = mapOf(world);
   const first = findTile(world, (candidateMap, x, z) => {
-    if (!buildable(terrainOn(candidateMap, x, z))) return false;
+    if (!placement(world, primaryCity(world), 'road', x, z).ok) return false;
     if (primaryCity(world).roads.includes(tileIndexOn(candidateMap, x, z))) return false;
     return secondOf(candidateMap, x, z) !== null;
   }, near);
@@ -218,6 +236,7 @@ export function isolatedRoadPair(world: World, near: Tile): [Tile, Tile] | null 
       const nz = z + dz;
       if (nx < 0 || nz < 0 || nx >= candidateMap.width || nz >= candidateMap.depth) continue;
       if (primaryCity(world).roads.includes(tileIndexOn(candidateMap, nx, nz))) continue;
+      if (!placement(world, primaryCity(world), 'road', nx, nz).ok) continue;
       if (!buildable(terrainOn(candidateMap, nx, nz))) continue;
       if (levelOn(candidateMap, nx, nz) !== levelOn(candidateMap, x, z)) continue;
       return { x: nx, z: nz };

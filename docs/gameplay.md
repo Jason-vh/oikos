@@ -21,6 +21,7 @@ Islands never share a bounding box and each is a single landmass, so a road netw
 can never leave the island it started on. The other seven are, for now, unclaimed
 ground: wildlife lives there, the player cannot yet build there. Building previews, single placements, and road
 strokes all refuse construction outside the city's home island, without spending money.
+An island belongs to the first harbour placed on it.
 Fertility overlays only highlight fields on the settled island. Older saves with
 outlying disconnected construction remain loadable, and those structures can still
 be demolished.
@@ -37,35 +38,28 @@ hold buildings. The harbour entry is chosen on the widest flat south-facing shor
 ground around it is cleared, with a fertile patch to its north-east. `islandFor(seed)`
 caches whole archipelagos; the world stores only the seed.
 
-## Starting a city
+## Founding a city
 
-`createWorld(seed = 1, home?, founded = true)` returns a treasury of 1600 drachma,
-no buildings, and a starter road running north from the chosen island's entry. Omitting
-`home` selects the most central island. Menu → New island offers all eight starting
-islands in a fresh archipelago; cancelling leaves the current city unchanged.
-The dialog previews that exact archipelago using the shared art palette, with
-land, fertile-ground, and forest counts for the selected island. Clicking land
-selects an island; the native select provides the same choice without using the
-map. Clicking open sea does nothing. Browsing never writes to the current city.
+A city exists because its harbour does. `harbourPlacement(world, x, z, rotation)`
+in `src/sim/founding.ts` previews a 2×5 site: two rows of quay on flat, buildable,
+level-0 shore and three rows of pier over open water, facing whichever of the four
+ways `rotation` points. `claimHarbour(world, name, x, z, rotation)` commits it,
+which is also the claim: the island under the quay becomes that city's `home`, and
+an island already held by another city refuses the site. Founding is one-time; the
+harbour can never move or be demolished. There is no landing road and no free
+ground: a new city holds 1600 drachma, one harbour, and nothing else, and pays for
+its first road out of the quay.
 
-New islands from the menu start with `founded = false`. `foundingPlacement()`
-previews a free 3×2 dockyard on flat lowland beside the prepared landing road;
-`foundHarbour()` commits its site and unlocks ordinary construction. The site must
-be on the chosen island, within sixteen tiles of the landing, north of the quay,
-and have a door onto a road connected to the entry. Founding is one-time: the
-harbour cannot subsequently move or be demolished. This slice chooses the dockyard
-site, not a new coastal landing or quay orientation.
-
-Simulation time does not advance before founding. Ordinary construction,
-demolition, and vendor commands are refused. Version 7 saves the founding phase;
-older cities migrate as already founded. Pending saves cannot contain buildings,
-walkers, or advanced economic progress. The initial quick-start city remains
-pre-founded; Menu → New island uses the on-map founding flow.
+`createWorld(seed = 1, home?, name?)` is the quick-start constructor used by tools
+and tests. It sites the harbour itself with `findHarbourSite`, which walks outward
+from the island's generated shore looking for a legal site with open ground behind
+it, and paves the two apron tiles in front of the quay so the city is ready to
+build. Nothing in the playable game calls it.
 
 ## One city, for now
 
 A `World` holds the shared map seed, simulation clock, entity allocator, and
-wildlife, plus `cities: City[]`. Each city owns `home`, `founded`, `money`,
+wildlife, plus `cities: City[]`. Each city owns `name`, `home`, `money`,
 `harbour`, `produced`, `delivered`, `roads`, `buildings`, and `walkers` — the
 whole of one settlement's infrastructure. Only a single city is supported
 today; `primaryCity(world)` in `src/sim/city.ts` names that transitional
@@ -75,7 +69,8 @@ separately owned cities sharing one archipelago, and the ownership and
 actor checks that come with them, are future work.
 
 Nobody lives on the island yet — population only arrives once a dwelling is built
-and connected, by road, back to that entry. All eight islands on seeds 1 and 2 are tested
+and connected, by road, back to the quay: settlers walk out of the harbour's own
+door tiles, and `harbourDoors` is what connectivity is measured from. All eight islands on seeds 1 and 2 are tested
 through the complete neighbourhood loop and save/load continuation.
 
 ## Placing and removing things
@@ -131,12 +126,11 @@ stays `''`.
 Every building needs flat, unoccupied land: grass or fertile ground, never a hill
 tile or water. A farm additionally needs *every* tile of its footprint to be
 fertile. A tile can't hold both a road and a building at once. "Occupied" reads
-globally: `placement`, `build`, `placeRoadPath`, and `foundingPlacement`/`foundHarbour`
+globally: `placement`, `build`, `placeRoadPath`, and `harbourPlacement`
 all reject a tile already held by another city's road, building, or founded
 harbour, with no charge and no mutation, using `src/sim/occupancy.ts`. A city's
 own existing road tiles remain free to re-lay regardless of anyone else's
-territory, and an unfounded city's placeholder harbour site never counts as
-occupied.
+territory.
 
 Placement does **not** require a road connection — you can drop a farm in the
 middle of nowhere — but a disconnected building is flagged as such
@@ -268,9 +262,8 @@ off-road paths.
 
 ## The harbour
 
-`src/sim/harbour.ts`. Every island starts with a harbour: a dockyard sited once, at
-`createWorld`, on buildable ground touching the starter road nearest the entry —
-the city's `harbour`, not a placeable tool, and never demolishable. It begins unrebuilt
+`src/sim/harbour.ts`. A city's harbour is the quay and pier it was founded on —
+never a placeable tool afterwards, and never demolishable. It begins unrebuilt
 (`tier` 1): whenever a connected stockpile holds lumber, a porter carries up to a
 cartload to the harbour, the same way a farm cart reaches a granary. Once
 `HARBOUR_UPGRADE_LUMBER` (200) has arrived, the harbour rebuilds itself in stone
@@ -363,27 +356,13 @@ another building, and that every walker's path is a real, road-adjacent route
 rejected as unsupported rather than partially loaded. A valid save round-trips
 exactly, including walkers already mid-journey, which keep walking correctly after
 a reload. The harbour's site and progress (tier, stock, trade order, voyage) are preserved
-exactly. Version 9 moves each city's `roads`, `buildings`, and `walkers` into
-`world.cities` alongside the metadata version 8 already nested there, leaving
-terrain seed, clock, remainder, entity allocator, wildlife, felled trees, and
-regrowth timer as the only fields left on `World`. Version 10 adds
-`World.nextCityId`, a City-id allocator kept separate from the entity `nextId`;
-older saves derive it from their one legacy city's id. `deserializeWorld` keeps
-rejecting anything but exactly one city — this remains a local, single-city
-game. `deserializeSharedWorld` in `src/sim/save.ts` is a separate loader ahead
-of a future server: the same field-by-field validation, but 0 to `ISLAND_COUNT`
-cities, unique ids and homes, no two cities' roads/buildings/founded harbours
-overlapping, and at most one harbour keeping the legacy id `0`. Nothing in the
-playable game calls it yet.
-Version 6 validates the saved footprint rather than choosing another site
-from the current road layout: demolishing roads cannot move the harbour on reload.
-Invalid sites and overlaps are rejected instead of silently relocated.
-Version 5 stores the chosen home island explicitly. Version-4 archipelago saves
-migrate to their original central island without moving their cities. Version-5
-saves retain their chosen homes and harbour sites; versions
-before the archipelago remain unsupported. Camera preferences identify the chosen
-home as well as the seed. Restoring a different home rebuilds the scene even when
-the archipelago seed is unchanged.
+exactly, including the quay's orientation. Version 11 is the only format loaded:
+each city carries a `name` and a coastal harbour, and there is no migration chain —
+older saves are refused outright, because an inland dockyard cannot be moved to a
+shore. `deserializeWorld` still accepts exactly one city; `deserializeSharedWorld`
+accepts 0 to `ISLAND_COUNT`, with unique ids and homes, no two cities' roads,
+buildings or harbours overlapping, and every harbour standing on its own island's
+shore.
 
 Older road layouts are retained, but trips using incompatible stair connections
 are retired on load; those edges no longer provide access.

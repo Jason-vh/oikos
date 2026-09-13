@@ -14,6 +14,7 @@ import { getBuildingModel } from './buildings';
 const KINDS: BuildingKind[] = ['house', 'farm', 'granary', 'agora', 'fountain', 'maintenance', 'lodge', 'woodcutter', 'stockpile', 'harbour'];
 const FOOTPRINT_EPSILON = 0.01;
 const GROUND_EPSILON = 0.02;
+const PIER_DEPTH = 0.5;
 const TRIANGLE_BUDGET = 12000;
 const DRAW_CALL_BUDGET = 18;
 
@@ -81,7 +82,8 @@ describe('getBuildingModel ground contact', () => {
   for (const { kind, tier, vendorEnabled, model } of instances()) {
     test(`${kind} tier ${tier}${vendorEnabled ? ' (vendor)' : ''} sits on y = 0`, () => {
       const bounds = new T.Box3().setFromObject(model);
-      expect(bounds.min.y).toBeGreaterThanOrEqual(-GROUND_EPSILON);
+      const floor = kind === 'harbour' ? -PIER_DEPTH : -GROUND_EPSILON;
+      expect(bounds.min.y).toBeGreaterThanOrEqual(floor);
       expect(bounds.min.y).toBeLessThanOrEqual(GROUND_EPSILON);
     });
   }

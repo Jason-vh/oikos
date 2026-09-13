@@ -1,48 +1,137 @@
-import type { City, ActionResult, Placement, World } from './types';
+import type { Building, City, Placement, Rotation, Tile, World } from './types';
 import { footprint } from './catalog';
-import { accessDoors, bfsReachable, entryTileIndex, mapOf } from './grid';
-import { buildable, insideMapOn, levelOn, onHomeIsland, terrainOn, tileIndexOn } from './island';
-import { recomputeConnectivity } from './world';
+import { buildable, insideMapOn, islandAt, islandFor, levelOn, terrainOn, tileIndexOn, type IslandMap, type IslandPlacement } from './island';
 import { foreignOccupancy } from './occupancy';
 
-export const FOUNDING_RANGE = 16;
+export const HARBOUR_WIDTH = 2;
+export const HARBOUR_LAND_DEPTH = 2;
+export const HARBOUR_WATER_DEPTH = 3;
 
-export function foundingPlacement(world: World, city: City, x: number, z: number): Placement {
-  if (city.founded) return { ok: false, reason: 'This city already has its founding harbour.', cost: 0, tiles: [] };
-  const map = mapOf(world, city);
-  const { width, depth } = footprint('harbour');
-  const tiles: number[] = [];
-  for (let dz = 0; dz < depth; dz++) {
-    for (let dx = 0; dx < width; dx++) {
-      if (!insideMapOn(map, x + dx, z + dz)) return { ok: false, reason: 'Out of bounds.', cost: 0, tiles: [] };
-      tiles.push(tileIndexOn(map, x + dx, z + dz));
-    }
-  }
-  const reject = (reason: string): Placement => ({ ok: false, reason, cost: 0, tiles });
-  if (!onHomeIsland(map, x, z) || !onHomeIsland(map, x + width - 1, z + depth - 1)) return reject('Choose a harbour site on your starting island.');
-  if (Math.abs(x - map.entry.x) > FOUNDING_RANGE || map.entry.z - z > FOUNDING_RANGE || z + depth > map.entry.z) return reject('Place the dockyard beside the prepared landing road. H returns to the landing.');
-  const roads = new Set(city.roads);
-  const foreign = foreignOccupancy(world, city);
-  for (const tile of tiles) {
-    const tx = tile % map.width;
-    const tz = Math.floor(tile / map.width);
-    if (!buildable(terrainOn(map, tx, tz)) || levelOn(map, tx, tz) !== 0) return reject('The harbour needs flat, clear lowland.');
-    if (roads.has(tile)) return reject('Place the harbour beside the road, not on it.');
-    if (foreign.roads.has(tile) || foreign.buildings.has(tile)) return reject('Another city already holds that ground.');
-  }
-  const entry = entryTileIndex(world, city);
-  const reachable = roads.has(entry) ? bfsReachable(map, roads, entry) : new Set<number>();
-  const candidate = { ...city.harbour, x, z };
-  if (!accessDoors(map, roads, candidate).some((tile) => reachable.has(tile))) return reject('The harbour needs a door onto the landing road.');
-  return { ok: true, reason: '', cost: 0, tiles };
+const SEAWARD: Record<Rotation, Tile> = {
+  0: { x: 0, z: 1 },
+  1: { x: -1, z: 0 },
+  2: { x: 0, z: -1 },
+  3: { x: 1, z: 0 },
+};
+
+export interface HarbourSite {
+  land: Tile[];
+  water: Tile[];
+  offshore: Tile[];
 }
 
-export function foundHarbour(world: World, city: City, x: number, z: number): ActionResult {
-  const result = foundingPlacement(world, city, x, z);
-  if (!result.ok) return { ok: false, reason: result.reason };
-  city.harbour.x = x;
-  city.harbour.z = z;
-  city.founded = true;
-  recomputeConnectivity(world, city);
-  return { ok: true, reason: 'Your city is founded. Build homes beside the harbour road.' };
+export function harbourSite(x: number, z: number, rotation: Rotation): HarbourSite {
+  const seaward = SEAWARD[rotation];
+  const along = { x: Math.abs(seaward.z), z: Math.abs(seaward.x) };
+  const { width, depth } = footprint('harbour', rotation);
+  const start = {
+    x: x + (seaward.x < 0 ? width - 1 : 0),
+    z: z + (seaward.z < 0 ? depth - 1 : 0),
+  };
+  const rows = HARBOUR_LAND_DEPTH + HARBOUR_WATER_DEPTH;
+  const site: HarbourSite = { land: [], water: [], offshore: [] };
+  for (let row = 0; row < rows; row++) {
+    for (let step = 0; step < HARBOUR_WIDTH; step++) {
+      const tile = {
+        x: start.x + seaward.x * row + along.x * step,
+        z: start.z + seaward.z * row + along.z * step,
+      };
+      if (row < HARBOUR_LAND_DEPTH) site.land.push(tile);
+      else site.water.push(tile);
+      if (row === rows - 1) site.offshore.push(tile);
+    }
+  }
+  return site;
+}
+
+export function harbourApron(x: number, z: number, rotation: Rotation): Tile[] {
+  const seaward = SEAWARD[rotation];
+  return harbourSite(x, z, rotation).land
+    .filter((_, index) => index < HARBOUR_WIDTH)
+    .map((tile) => ({ x: tile.x - seaward.x, z: tile.z - seaward.z }));
+}
+
+export function harbourSiteOf(building: Building): HarbourSite {
+  return harbourSite(building.x, building.z, building.rotation);
+}
+
+export function harbourLandTiles(map: IslandMap, building: Building): number[] {
+  return harbourSiteOf(building).land.map((tile) => tileIndexOn(map, tile.x, tile.z));
+}
+
+export function harbourIslandAt(map: IslandMap, x: number, z: number, rotation: Rotation): IslandPlacement | null {
+  const islands = harbourSite(x, z, rotation).land.map((tile) => islandAt(map, tile.x, tile.z));
+  const first = islands[0];
+  if (!first || islands.some((island) => island !== first)) return null;
+  return first;
+}
+
+function shoreRefusal(map: IslandMap, site: HarbourSite): string {
+  for (const tile of site.land) {
+    if (!buildable(terrainOn(map, tile.x, tile.z)) || levelOn(map, tile.x, tile.z) !== 0) return 'The quay needs flat, open shore.';
+  }
+  for (const tile of site.water) {
+    if (terrainOn(map, tile.x, tile.z) !== 'water') return 'The pier needs open water in front of the quay.';
+  }
+  return '';
+}
+
+export function harbourPlacement(world: World, x: number, z: number, rotation: Rotation, city: City | null = null): Placement {
+  const map = islandFor(world.seed);
+  const site = harbourSite(x, z, rotation);
+  const all = [...site.land, ...site.water];
+  if (all.some((tile) => !insideMapOn(map, tile.x, tile.z))) return { ok: false, reason: 'Out of bounds.', cost: 0, tiles: [] };
+  const occupied = all.map((tile) => tileIndexOn(map, tile.x, tile.z));
+  const reject = (reason: string): Placement => ({ ok: false, reason, cost: 0, tiles: occupied });
+
+  const refusal = shoreRefusal(map, site);
+  if (refusal) return reject(refusal);
+
+  const island = harbourIslandAt(map, x, z, rotation);
+  if (!island) return reject('A harbour stands at the shore of one island.');
+  const owner = world.cities.find((candidate) => map.islands[candidate.home] === island);
+  if (owner && owner !== city) return reject('That island already belongs to another city.');
+
+  const foreign = foreignOccupancy(world, city?.id ?? null);
+  const roads = new Set(city?.roads ?? []);
+  for (const tile of occupied) {
+    if (foreign.roads.has(tile) || foreign.buildings.has(tile)) return reject('Another city already holds that ground.');
+    if (roads.has(tile)) return reject('Place the harbour beside the road, not on it.');
+  }
+  return { ok: true, reason: '', cost: 0, tiles: occupied };
+}
+
+function openBehind(map: IslandMap, x: number, z: number, rotation: Rotation): boolean {
+  const seaward = SEAWARD[rotation];
+  const apron = harbourApron(x, z, rotation);
+  for (let step = 0; step < 4; step++) {
+    for (const tile of apron) {
+      const inland = { x: tile.x - seaward.x * step, z: tile.z - seaward.z * step };
+      if (!insideMapOn(map, inland.x, inland.z)) return false;
+      if (!buildable(terrainOn(map, inland.x, inland.z)) || levelOn(map, inland.x, inland.z) !== 0) return false;
+    }
+  }
+  return true;
+}
+
+export function findHarbourSite(map: IslandMap, home: number): { x: number; z: number; rotation: Rotation } | null {
+  const island = map.islands[home];
+  for (let radius = 0; radius <= 40; radius++) {
+    for (let dz = -radius; dz <= radius; dz++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== radius) continue;
+        const x = island.entry.x + dx;
+        const z = island.entry.z + dz;
+        for (const rotation of [0, 3, 1, 2] as Rotation[]) {
+          const site = harbourSite(x, z, rotation);
+          if ([...site.land, ...site.water].some((tile) => !insideMapOn(map, tile.x, tile.z))) continue;
+          if (shoreRefusal(map, site)) continue;
+          if (harbourIslandAt(map, x, z, rotation) !== island) continue;
+          if (!openBehind(map, x, z, rotation)) continue;
+          return { x, z, rotation };
+        }
+      }
+    }
+  }
+  return null;
 }

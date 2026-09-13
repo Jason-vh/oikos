@@ -57,8 +57,8 @@ export interface Walker {
 }
 export interface City {
   id: number;
+  name: string;
   home: number;
-  founded: boolean;
   money: number;
   harbour: Building;
   produced: number;
@@ -68,7 +68,7 @@ export interface City {
   walkers: Walker[];
 }
 export interface World {
-  version: 10;
+  version: 11;
   island: 'kalliste';
   seed: number;
   time: number;

@@ -189,14 +189,13 @@ new shipping network to supply these sanctuaries.”
 
 ## Implementation progress
 
-- Starting-island selection is playable through Menu → New island. All eight
-  islands have prepared landing roads and support the existing village loop. A
-  clickable atlas previews their coastlines, farmland, and forests before choosing.
-- New islands begin with on-map founding: preview and place the dockyard beside
-  the landing road before building the city. Unfinished founding can be saved and
-  resumed, and the chosen harbour site stays fixed when roads change.
-- The selected home survives saves, imports, checkpoints, and camera restoration.
-  Existing version-4 archipelago saves migrate without moving their cities.
+- A player joins under a name and settles by placing a harbour: two rows of quay
+  on the shore, three of pier over open water, facing any of four ways. That
+  placement claims the island under the quay and founds the city; the site is
+  fixed for good. There is no island picker, no landing road and no free ground:
+  the first road out of the quay is paid for like any other.
+- Save format 11 refuses everything older: an inland dockyard cannot be moved to
+  a shore, so the migration chain is gone.
 - Construction and field overlays respect the settled island. Other islands remain
   available to explore but cannot yet be built on; colony claims will unlock them.
 - Player actions use a validated, serializable command API. The private authority

@@ -1,7 +1,7 @@
 import type { Database } from 'bun:sqlite';
 import { createHash, randomBytes } from 'node:crypto';
-import type { World } from '../sim/types';
-import { claimIsland } from '../sim/claims';
+import type { Rotation, World } from '../sim/types';
+import { claimHarbour } from '../sim/claims';
 import { applyCommand, parseCommand } from '../sim/commands';
 import { advance } from '../sim/world';
 import { NAME_LIMIT, parsePlayerName } from './protocol';
@@ -10,7 +10,8 @@ import { type AuthorityDb, closeStore, openStore, readWorldRow, selectAll, selec
 export const ACTOR_CAP = 1024;
 export const RETAINED_RECEIPTS = 256;
 
-export type AuthorityRequest = { kind: 'claim'; home: number } | { kind: 'command'; cityId: number; command: unknown };
+export type ClaimRequest = { kind: 'claim'; x: number; z: number; rotation: number };
+export type AuthorityRequest = ClaimRequest | { kind: 'command'; cityId: number; command: unknown };
 
 export type RequestStatus = 'unauthenticated' | 'invalid-request' | 'gap' | 'pruned' | 'conflict' | 'replayed' | 'processed' | 'exhausted';
 
@@ -90,9 +91,9 @@ function normalizeRequestOnce(request: unknown): AuthorityRequest | null {
   const candidate = request as Record<string, unknown>;
   const kind = candidate.kind;
   if (kind === 'claim') {
-    const home = candidate.home;
-    if (typeof home !== 'number' || !Number.isInteger(home)) return null;
-    return { kind, home };
+    const { x, z, rotation } = candidate;
+    if (![x, z, rotation].every((value) => typeof value === 'number' && Number.isSafeInteger(value))) return null;
+    return { kind, x: x as number, z: z as number, rotation: rotation as number };
   }
   if (kind !== 'command') return null;
   const cityId = candidate.cityId;
@@ -219,8 +220,10 @@ function resolveOutcome(world: World, db: Database, actorId: number, request: Au
   if (request.kind === 'claim') {
     const owned = selectOne<{ count: number }>(db, 'SELECT COUNT(*) as count FROM ownership WHERE actor_id = ?;', actorId)!.count;
     if (owned > 0) return { ok: false, reason: 'This actor already holds an island claim.' };
+    if (request.rotation < 0 || request.rotation > 3) return { ok: false, reason: 'A harbour faces one of four ways.' };
+    const name = selectOne<{ name: string }>(db, 'SELECT name FROM actors WHERE id = ?;', actorId)!.name;
     const candidate = structuredClone(world);
-    const result = claimIsland(candidate, request.home);
+    const result = claimHarbour(candidate, name, request.x, request.z, request.rotation as Rotation);
     if (!result.ok || !result.city) return { ok: false, reason: result.reason };
     return { ok: true, reason: result.reason, cityId: result.city.id, world: candidate, ownerCityId: result.city.id };
   }
@@ -273,7 +276,7 @@ export class Authority {
   advance(seconds: number): void {
     this.guardWritable();
     if (!Number.isFinite(seconds) || seconds < 0 || seconds > 5) throw new Error('Invalid authority clock interval.');
-    if (seconds === 0 || !this.world.cities.some((city) => city.founded)) return;
+    if (seconds === 0 || this.world.cities.length === 0) return;
     this.poison(() => {
       advance(this.world, seconds);
       this.dirty = true;

@@ -84,19 +84,6 @@ test('buildings from a second city appear and persist while the primary city is 
   }
 });
 
-test('an unfounded (pending) second city has no harbour model but its prepared landing road is still drawn', () => {
-  const { city, world, scene, model } = fixture();
-  try {
-    const city1 = primaryCity(world);
-    const pending = foundSecondCity(world, (city1.home + 1) % 8, false);
-    city.sync(world);
-    expect(model(pending.harbour.id)).toBeUndefined();
-    for (const tile of pending.roads) expect(roadsCover(scene, roadTilePoint(world, pending, tile))).toBe(true);
-  } finally {
-    city.dispose();
-  }
-});
-
 test('a walker belonging to a second city is rendered, not just the first city\'s walkers', () => {
   const { city, world } = fixture();
   try {

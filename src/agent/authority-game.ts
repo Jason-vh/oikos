@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Authority, AuthorityRequest } from '../server/authority';
 import type { CityCommand } from '../sim/commands';
-import type { ActionResult, City, World } from '../sim/types';
+import type { Rotation, ActionResult, City, World } from '../sim/types';
 import type { AgentGame, AgentView } from './game';
 
 export class AuthorityGame implements AgentGame {
@@ -15,12 +15,12 @@ export class AuthorityGame implements AgentGame {
   async submit(command: CityCommand): Promise<ActionResult> {
     const world = this.authority.snapshot();
     const city = this.ownedCity(world);
-    if (!city) return { ok: false, reason: 'Claim an island before building on it.' };
+    if (!city) return { ok: false, reason: 'Found your city with found_city before building on it.' };
     return this.request({ kind: 'command', cityId: city.id, command });
   }
 
-  async claim(home: number): Promise<ActionResult> {
-    return this.request({ kind: 'claim', home });
+  async claim(x: number, z: number, rotation: Rotation): Promise<ActionResult> {
+    return this.request({ kind: 'claim', x, z, rotation });
   }
 
   private ownedCity(world: World): City | null {

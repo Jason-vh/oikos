@@ -1,13 +1,10 @@
 import { expect, test } from 'bun:test';
 import { createWorld } from './world';
 import { primaryCity } from './city';
-import { foundHarbour, foundingPlacement, FOUNDING_RANGE } from './founding';
 import { foundSecondCity } from './testing';
 import { buildStarterNeighbourhood, planStarterNeighbourhood, roadReachable } from './scenario';
 import { foreignOccupancy } from './occupancy';
-import { islandFor, tileIndexOn } from './island';
-import { mapOf } from './grid';
-import type { City, World } from './types';
+import { ISLAND_COUNT, islandFor, tileIndexOn } from './island';
 
 const DETOUR_SEED = 700_001;
 
@@ -36,22 +33,11 @@ function detourFixture() {
   };
 }
 
-function clearFoundingSite(world: World, city: City): { x: number; z: number } {
-  const map = mapOf(world, city);
-  const { entry } = map;
-  for (let z = entry.z - FOUNDING_RANGE; z < entry.z; z++) {
-    for (let x = entry.x - FOUNDING_RANGE; x <= entry.x + FOUNDING_RANGE; x++) {
-      if (foundingPlacement(world, city, x, z).ok) return { x, z };
-    }
-  }
-  throw new Error('No clear founding site.');
-}
-
 test('roadReachable detours around a foreign obstacle sitting on the only direct route', () => {
   const { map, from, direct, to, detour } = detourFixture();
   const world = createWorld(DETOUR_SEED);
   const city = primaryCity(world);
-  const other = foundSecondCity(world, city.home, false);
+  const other = foundSecondCity(world, (city.home + 1) % ISLAND_COUNT);
   const fromIndex = tileIndexOn(map, from.x, from.z);
   const roads = new Set([fromIndex]);
 
@@ -68,12 +54,10 @@ test('roadReachable detours around a foreign obstacle sitting on the only direct
   expect(detourPath!.some((tile) => tile.x === detour.x && tile.z === detour.z)).toBe(true);
 });
 
-test('planning does not mutate the source World, and its plan still builds cleanly with another city sharing the island', () => {
+test('planning does not mutate the source World, and its plan still builds cleanly beside another city', () => {
   const world = createWorld(1, 0);
   const city1 = primaryCity(world);
-  const city2 = foundSecondCity(world, city1.home, false);
-  const site = clearFoundingSite(world, city2);
-  expect(foundHarbour(world, city2, site.x, site.z).ok).toBe(true);
+  foundSecondCity(world, (city1.home + 1) % ISLAND_COUNT);
 
   const before = structuredClone(world);
   const plan = planStarterNeighbourhood(world, city1);

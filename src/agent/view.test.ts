@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { cityReport, cityWindow, describeFounding, describePlacement, describeRoadPath, inspectBuilding, inspectTile, islandBounds, renderMap, surveyIsland } from './view';
+import { cityReport, cityWindow, describeHarbourSite, describePlacement, describeRoadPath, inspectBuilding, inspectTile, islandBounds, renderMap, surveyIsland } from './view';
 import { primaryCity } from '../sim/city';
 import { mapOf } from '../sim/grid';
 import { ISLAND_COUNT, tileIndexOn } from '../sim/island';
@@ -113,18 +113,9 @@ describe('the city report', () => {
     expect(report).toContain(`farm #${farm.id} at (${farm.x},${farm.z}) 4x4`);
     expect(report).toContain('to harvest.');
     expect(report).toContain('Walkers (');
-    expect(report).toContain('Roads: 50 tiles.');
+    expect(report).toContain('Roads: 45 tiles.');
   });
 
-  test('tells an unfounded city to place its dockyard instead of reporting an economy', () => {
-    const world = createWorld(1, 3, false);
-    const city = primaryCity(world);
-    const report = cityReport(world, city);
-
-    expect(report).toContain('is not founded yet');
-    expect(report).toContain('Time does not pass');
-    expect(report).not.toContain('Population');
-  });
 });
 
 describe('inspection', () => {
@@ -195,9 +186,7 @@ describe('dry runs', () => {
 
     expect(describeRoadPath(world, city, path)).toContain('Road from');
 
-    const pending = createWorld(1, 3, false);
-    const pendingCity = primaryCity(pending);
-    expect(describeFounding(pending, pendingCity, 0, 0)).toContain('refused.');
+    expect(describeHarbourSite(world, 0, 0, 0)).toContain('refused.');
   });
 
   test('agree with the command that follows them', () => {

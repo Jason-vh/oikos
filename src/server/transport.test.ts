@@ -1,6 +1,8 @@
 import { afterEach, expect, test } from 'bun:test';
+import { claimFor } from './authority-fixtures.test';
 import { Authority } from './authority';
 import { deserializeSharedWorld } from '../sim/save';
+import { harbourApron } from '../sim/founding';
 import { connect, fixture } from './transport-fixtures.test';
 
 const cleanups: Array<() => unknown> = [];
@@ -38,7 +40,7 @@ test('two authenticated actors claim and found distinct cities; snapshots surviv
   const a = await connect(cleanups, f, cookieA);
   const b = await connect(cleanups, f, cookieB);
   for (const [home, connection] of [a, b].entries()) {
-    connection.peer.send(1, { kind: 'claim', home });
+    connection.peer.send(1, claimFor(home));
     const receipt = await connection.peer.next('receipt');
     expect(receipt.result).toMatchObject({ status: 'processed', ok: true });
   }
@@ -47,12 +49,12 @@ test('two authenticated actors claim and found distinct cities; snapshots surviv
   expect(claimSnapshot.world.cities.map((city) => city.home)).toEqual([0, 1]);
   for (const [index, connection] of [a, b].entries()) {
     const city = claimSnapshot.world.cities[index];
-    connection.peer.send(2, { kind: 'command', cityId: city.id, command: { type: 'foundHarbour', x: city.harbour.x, z: city.harbour.z } });
+    connection.peer.send(2, { kind: 'command', cityId: city.id, command: { type: 'roadPath', tiles: harbourApron(city.harbour.x, city.harbour.z, city.harbour.rotation) } });
     expect((await connection.peer.next('receipt')).result.ok).toBe(true);
   }
   f.clock.step();
   const founded = await a.peer.next('snapshot');
-  expect(founded.world.cities.every((city) => city.founded)).toBe(true);
+  expect(founded.world.cities.every((city) => city.roads.length > 0)).toBe(true);
   expect(founded.world.time).toBeGreaterThan(0);
   expect(founded.session.ownedCityIds).toEqual([founded.world.cities[0].id]);
   expect(founded.serial).toBeGreaterThan(claimSnapshot.serial);

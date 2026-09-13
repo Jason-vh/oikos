@@ -7,14 +7,13 @@ import, export, undo or speed control: the server owns the world and its clock.
 A menu pause of one's own, for a world nobody else is playing, is still to come.
 
 Joining takes a name and nothing else: the credential cookie is the whole account.
-It admits a player without claiming an island. Choose an available island,
-confirm the claim, then place its founding harbour. A claim focuses that city's
-landing. A rejected claim keeps the selected island and displays the reason;
-Cancel leaves the dialog without retrying. Pending claims disable both atlas
-selection and confirmation. Cancel remains available.
+It admits a player without a city. The camera opens on the whole sea; hovering a
+shore previews a harbour, R turns it, and clicking places it. That placement is the
+claim: the island under the quay becomes yours, the city is founded and named after
+you, and the view settles on it. A refused site says why and costs nothing.
 
-Construction, vendors and founding require an owned, viewed city and a ready
-session. Disconnects disable these controls and cancel unfinished gestures.
+Founding requires a ready session and no city yet. Construction and vendors
+require an owned, viewed city and a ready session. Disconnects disable these controls and cancel unfinished gestures.
 Read-only visits and camera controls remain available. A login change preserves a
 still-valid viewed city and camera, while H returns to the newly owned city.
 A realm change resets presentation.

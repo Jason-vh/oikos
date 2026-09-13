@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from 'bun:test';
-import { admit, foundedActor, freshAuthority, rid, roadTileOf, sequenceRow } from './authority-fixtures.test';
+import { admit, claimFor, foundedActor, freshAuthority, rid, roadTileOf, sequenceRow } from './authority-fixtures.test';
 
 const cleanups: Array<() => void> = [];
 afterEach(() => {
@@ -11,16 +11,19 @@ test('claim validation, fingerprint and execution share one captured envelope', 
   const credential = admit(authority);
   let kindReads = 0;
   let homeReads = 0;
+  const site = claimFor(0);
   const request = {
     get kind() { kindReads++; return 'claim' as const; },
-    get home() { return homeReads++; },
+    get x() { homeReads++; return site.x; },
+    get z() { return site.z; },
+    get rotation() { return site.rotation; },
   };
   expect(authority.submit(credential, 1, rid(1), request).ok).toBe(true);
   expect(kindReads).toBe(1);
   expect(homeReads).toBe(1);
   const world = authority.snapshot();
   expect(world.cities[0].home).toBe(0);
-  expect(authority.submit(credential, 1, rid(1), { kind: 'claim', home: 0 }).status).toBe('replayed');
+  expect(authority.submit(credential, 1, rid(1), claimFor(0)).status).toBe('replayed');
   expect(authority.snapshot()).toEqual(world);
 });
 
@@ -67,9 +70,9 @@ test('throwing envelope accessors are malformed input, not storage faults', () =
   const credential = admit(authority);
   const before = authority.snapshot();
   const sequence = sequenceRow(authority, credential);
-  const request = { get kind(): 'claim' { throw new Error('caller error'); }, home: 0 };
+  const request = { get kind(): 'claim' { throw new Error('caller error'); }, x: 0, z: 0, rotation: 0 };
   expect(authority.submit(credential, 1, rid(1), request).status).toBe('invalid-request');
   expect(authority.snapshot()).toEqual(before);
   expect(sequenceRow(authority, credential)).toEqual(sequence);
-  expect(authority.submit(credential, 1, rid(1), { kind: 'claim', home: 0 }).ok).toBe(true);
+  expect(authority.submit(credential, 1, rid(1), claimFor(0)).ok).toBe(true);
 });

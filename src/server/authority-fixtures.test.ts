@@ -5,6 +5,8 @@ import { join } from 'node:path';
 import { initStore, selectAll, type AuthorityDb } from './store';
 import { Authority } from './authority';
 import { islandFor, tileAtOn } from '../sim/island';
+import { findHarbourSite, harbourApron } from '../sim/founding';
+import type { ClaimRequest } from './authority';
 
 export function freshPath(cleanups: Array<() => void>): string {
   const dir = mkdtempSync(join(tmpdir(), 'authority-'));
@@ -32,6 +34,12 @@ export function rawDb(authority: Authority): Database {
   return (authority as unknown as { store: AuthorityDb }).store.db;
 }
 
+export function claimFor(home: number): ClaimRequest {
+  const site = findHarbourSite(islandFor(1), home);
+  if (!site) throw new Error('no harbour site');
+  return { kind: 'claim', x: site.x, z: site.z, rotation: site.rotation };
+}
+
 export function playerNames(authority: Authority): string[] {
   return selectAll<{ name: string }>(rawDb(authority), 'SELECT name FROM actors ORDER BY id;').map((row) => row.name);
 }
@@ -44,10 +52,11 @@ export function admit(authority: Authority, name = 'Tycho'): string {
 
 export function foundedActor(authority: Authority, home: number): { credential: string; cityId: number } {
   const credential = admit(authority);
-  const claim = authority.submit(credential, 1, rid(1), { kind: 'claim', home });
+  const claim = authority.submit(credential, 1, rid(1), claimFor(home));
   const cityId = claim.cityId!;
   const harbour = authority.snapshot().cities.find((city) => city.id === cityId)!.harbour;
-  authority.submit(credential, 2, rid(2), { kind: 'command', cityId, command: { type: 'foundHarbour', x: harbour.x, z: harbour.z } });
+  const apron = harbourApron(harbour.x, harbour.z, harbour.rotation);
+  authority.submit(credential, 2, rid(2), { kind: 'command', cityId, command: { type: 'roadPath', tiles: apron } });
   return { credential, cityId };
 }
 

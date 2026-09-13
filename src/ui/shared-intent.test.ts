@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { claimFor } from '../server/authority-fixtures.test';
 import { SharedIntent } from './shared-intent';
 import type { SendOutcome } from './shared-session';
 
@@ -27,7 +28,7 @@ async function flush(): Promise<void> { await Promise.resolve(); }
 
 test('uncertain persistence without an event settles the claim once and releases UI busy state', async () => {
   const h = fixture(uncertain);
-  h.intent.send({ kind: 'claim', home: 0 });
+  h.intent.send(claimFor(0));
   expect(h.intent.busy).toBe(true);
   await flush();
   expect(h.intent.busy).toBe(false);
@@ -40,8 +41,8 @@ test('uncertain persistence without an event settles the claim once and releases
 
 test('event and promise share one decision path and requests are single-flight', async () => {
   const h = fixture();
-  h.intent.send({ kind: 'claim', home: 0 });
-  h.intent.send({ kind: 'claim', home: 1 });
+  h.intent.send(claimFor(0));
+  h.intent.send(claimFor(1));
   expect(h.sends).toBe(1);
   h.intent.outcome({ requestId: 'one', seq: 1, outcome: success });
   h.resolve(success);
@@ -54,7 +55,7 @@ test('event and promise share one decision path and requests are single-flight',
 test('immediate unsent failure clears busy and is presented as a claim failure', async () => {
   const outcome: SendOutcome = { ok: false, status: 'unsent', reason: 'Storage blocked.' };
   const h = fixture(outcome);
-  h.intent.send({ kind: 'claim', home: 0 });
+  h.intent.send(claimFor(0));
   await flush();
   expect(h.intent.busy).toBe(false);
   expect(h.shown).toEqual([{ outcome, kind: 'claim' }]);
@@ -62,7 +63,7 @@ test('immediate unsent failure clears busy and is presented as a claim failure',
 
 test('recovered outcomes cannot settle a different sequence or request identity', () => {
   const h = fixture();
-  h.intent.send({ kind: 'claim', home: 0 });
+  h.intent.send(claimFor(0));
   h.intent.outcome({ requestId: 'older', seq: 2, outcome: success });
   expect(h.intent.busy).toBe(true);
   expect(h.shown[0].kind).toBeUndefined();
@@ -74,7 +75,7 @@ test('recovered outcomes cannot settle a different sequence or request identity'
 for (const replacement of ['realm', 'binding'] as const) {
   test(`${replacement} replacement cannot attach an old outcome to current claim presentation`, async () => {
     const h = fixture();
-    h.intent.send({ kind: 'claim', home: 0 });
+    h.intent.send(claimFor(0));
     if (replacement === 'realm') h.realm('realm-b');
     else h.session.currentSession.binding = 'binding-b';
     h.intent.outcome({ requestId: 'one', seq: 1, outcome: uncertain });
@@ -88,7 +89,7 @@ for (const replacement of ['realm', 'binding'] as const) {
 
 test('explicit discard fences a late promise and preserves generic recovered notifications', async () => {
   const h = fixture();
-  h.intent.send({ kind: 'claim', home: 0 });
+  h.intent.send(claimFor(0));
   h.intent.reset();
   h.resolve(uncertain);
   await flush();

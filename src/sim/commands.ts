@@ -1,5 +1,4 @@
 import { BUILDINGS } from './catalog';
-import { foundHarbour } from './founding';
 import type { ActionResult, BuildTool, Rotation, Tile, World } from './types';
 import { build, demolish, placeRoadPath, setVendor } from './world';
 
@@ -7,8 +6,7 @@ export type CityCommand =
   | { type: 'build'; tool: BuildTool; x: number; z: number; rotation: Rotation }
   | { type: 'roadPath'; tiles: Tile[] }
   | { type: 'demolish'; x: number; z: number }
-  | { type: 'vendor'; id: number; enabled: boolean }
-  | { type: 'foundHarbour'; x: number; z: number };
+  | { type: 'vendor'; id: number; enabled: boolean };
 
 export const MAX_ROAD_PATH = 1024;
 
@@ -42,9 +40,9 @@ export function parseCommand(raw: unknown): CityCommand | null {
     }
     return { type: 'roadPath', tiles };
   }
-  if (raw.type === 'demolish' || raw.type === 'foundHarbour') {
+  if (raw.type === 'demolish') {
     if (!tile(raw)) return null;
-    return { type: raw.type, x: raw.x, z: raw.z };
+    return { type: 'demolish', x: raw.x, z: raw.z };
   }
   if (raw.type === 'vendor') {
     if (!integer(raw.id) || raw.id < 0 || typeof raw.enabled !== 'boolean') return null;
@@ -63,6 +61,5 @@ export function applyCommand(world: World, cityId: number, raw: unknown): Action
     case 'roadPath': return placeRoadPath(world, city, command.tiles);
     case 'demolish': return demolish(world, city, command.x, command.z);
     case 'vendor': return setVendor(city, command.id, command.enabled);
-    case 'foundHarbour': return foundHarbour(world, city, command.x, command.z);
   }
 }

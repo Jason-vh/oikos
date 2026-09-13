@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { deserializeWorld, serializeWorld } from './save';
-import { CURRENT_VERSION } from './save-migrations';
+import { CURRENT_VERSION } from './save';
 import { advance, build, createWorld } from './world';
 import { buildStarterNeighbourhood } from './scenario';
 import { islandFor, tileIndexOn } from './island';

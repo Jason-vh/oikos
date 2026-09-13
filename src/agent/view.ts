@@ -1,5 +1,5 @@
 import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, footprint } from '../sim/catalog';
-import { foundingPlacement } from '../sim/founding';
+import { harbourPlacement } from '../sim/founding';
 import { footprintTiles, mapOf } from '../sim/grid';
 import { harbourStatus } from '../sim/harbour';
 import { ISLAND_COUNT, buildable, islandAt, islandFacts, islandFor, levelOn, terrainOn, tileIndexOn } from '../sim/island';
@@ -56,8 +56,7 @@ export function islandBounds(world: World, city: City): MapWindow {
 export function cityWindow(world: World, city: City, margin = 6): MapWindow {
   const map = mapOf(world, city);
   const tiles = [...city.roads, ...city.buildings.flatMap((building) => footprintTiles(map, building))];
-  if (city.founded) tiles.push(...footprintTiles(map, city.harbour));
-  if (!tiles.length) tiles.push(tileIndexOn(map, map.entry.x, map.entry.z));
+  tiles.push(...footprintTiles(map, city.harbour));
   const xs = tiles.map((tile) => tile % map.width);
   const zs = tiles.map((tile) => Math.floor(tile / map.width));
   const left = Math.min(...xs) - margin;
@@ -78,7 +77,6 @@ function glyphs(world: World, city: City, window: MapWindow): Map<number, string
       const glyph = own ? BUILDING_GLYPHS[building.kind] : BUILDING_GLYPHS[building.kind].toLowerCase();
       for (const tile of footprintTiles(map, building)) marks.set(tile, glyph);
     }
-    if (!other.founded) continue;
     const harbour = own ? BUILDING_GLYPHS.harbour : BUILDING_GLYPHS.harbour.toLowerCase();
     for (const tile of footprintTiles(map, other.harbour)) marks.set(tile, harbour);
   }
@@ -194,14 +192,6 @@ function walkerLines(city: City): string[] {
 }
 
 export function cityReport(world: World, city: City): string {
-  if (!city.founded) {
-    const map = mapOf(world, city);
-    return [
-      `City ${city.id} on island ${city.home} is not founded yet.`,
-      `Place the founding dockyard beside the landing road at (${map.entry.x},${map.entry.z}), within 16 tiles and north of the quay.`,
-      `Treasury ${Math.round(city.money)} dr. Time does not pass until the city is founded.`,
-    ].join('\n');
-  }
   const summary = getSummary(city);
   const months = world.time / MONTH_SECONDS;
   const lines = [
@@ -233,7 +223,7 @@ export function inspectTile(world: World, city: City, x: number, z: number): str
     home ? 'On your island.' : island ? 'On another island; you cannot build there.' : 'Open sea.',
   ];
   if (city.roads.includes(tile)) lines.push('Your road runs here.');
-  const occupant = [...city.buildings, ...(city.founded ? [city.harbour] : [])].find((building) => footprintTiles(map, building).includes(tile));
+  const occupant = [...city.buildings, city.harbour].find((building) => footprintTiles(map, building).includes(tile));
   if (occupant) lines.push(describeBuilding(city, occupant).trimStart());
   const foreign = foreignOccupancy(world, city);
   if (foreign.roads.has(tile)) lines.push("Another city's road holds this tile.");
@@ -243,13 +233,13 @@ export function inspectTile(world: World, city: City, x: number, z: number): str
 
 export function atlas(world: World): string {
   const map = islandFor(world.seed);
-  const lines = ['The Kalliste archipelago has eight islands. Claim one to begin; each has a prepared landing road.'];
+  const lines = ['The Kalliste archipelago has eight islands. Found your city on the shore of a free one; its harbour claims the island.'];
   for (let home = 0; home < ISLAND_COUNT; home++) {
     const facts = islandFacts(map, home);
     const island = map.islands[home];
     const holder = world.cities.find((city) => city.home === home);
     const state = holder ? 'claimed' : 'free';
-    lines.push(`Island ${home}: ${state}, landing at (${island.entry.x},${island.entry.z}), ${facts.land} land tiles, ${facts.fertile} fertile, ${facts.forest} forest.`);
+    lines.push(`Island ${home}: ${state}, around (${island.entry.x},${island.entry.z}), ${facts.land} land tiles, ${facts.fertile} fertile, ${facts.forest} forest.`);
   }
   return lines.join('\n');
 }
@@ -282,9 +272,9 @@ export function describeRoadPath(world: World, city: City, tiles: Tile[]): strin
   return `${head}: allowed, ${result.tiles.length} tiles of which ${result.cost / ROAD_COST} are new, ${afford(city, result.cost)}.`;
 }
 
-export function describeFounding(world: World, city: City, x: number, z: number): string {
-  const result = foundingPlacement(world, city, x, z);
-  const head = `Founding dockyard at (${x},${z})`;
+export function describeHarbourSite(world: World, x: number, z: number, rotation: Rotation): string {
+  const result = harbourPlacement(world, x, z, rotation);
+  const head = `Harbour at (${x},${z}) facing ${rotation}`;
   if (!result.ok) return `${head}: refused. ${result.reason}`;
   return `${head}: allowed, free, and fixed once placed.`;
 }

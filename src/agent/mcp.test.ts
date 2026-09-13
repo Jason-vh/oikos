@@ -96,9 +96,9 @@ describe('the MCP server', () => {
     const before = game.view().city!.money;
     const laid = textOf(await client.callTool({ name: 'lay_road', arguments: { from, to } }));
 
-    expect(quoted).toContain('8 tiles of which 7 are new, costs 14 dr');
+    expect(quoted).toContain('8 tiles of which 8 are new, costs 16 dr');
     expect(laid).toStartWith('Done.');
-    expect(game.view().city!.money).toBe(before - 14);
+    expect(game.view().city!.money).toBe(before - 16);
     expect(game.view().city!.roads).toContain(to.x + to.z * grid.width);
 
     await client.callTool({ name: 'lay_road', arguments: { from, to: { x: from.x - 3, z: from.z - 3 }, bend: 'z-first' } });

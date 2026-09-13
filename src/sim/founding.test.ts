@@ -1,121 +1,75 @@
 import { expect, test } from 'bun:test';
-import { foundHarbour, foundingPlacement, FOUNDING_RANGE } from './founding';
-import { mapOf } from './grid';
-import { ISLAND_COUNT } from './island';
-import { deserializeWorld, serializeWorld } from './save';
-import { buildStarterNeighbourhood } from './scenario';
-import type { World } from './types';
-import { advance, build, createWorld, demolish, getSummary, placement, placeRoadPath, setVendor } from './world';
+import { findHarbourSite, harbourApron, harbourLandTiles, harbourPlacement, harbourSite, HARBOUR_LAND_DEPTH, HARBOUR_WATER_DEPTH, HARBOUR_WIDTH } from './founding';
+import { footprint } from './catalog';
+import { islandFor, ISLAND_COUNT, terrainOn, tileIndexOn } from './island';
+import { createSharedWorld, createWorld } from './world';
+import { claimHarbour } from './claims';
 import { primaryCity } from './city';
+import type { Rotation } from './types';
 
-function alternateSite(world: World) {
-  const { entry } = mapOf(world, primaryCity(world));
-  const harbour = primaryCity(world).harbour;
-  for (let z = entry.z - FOUNDING_RANGE; z < entry.z; z++) {
-    for (let x = entry.x - FOUNDING_RANGE; x <= entry.x + FOUNDING_RANGE; x++) {
-      if (x === harbour.x && z === harbour.z) continue;
-      if (foundingPlacement(world, primaryCity(world), x, z).ok) return { x, z };
+const ROTATIONS: Rotation[] = [0, 1, 2, 3];
+
+test('a harbour site is two rows of quay and three of pier, whichever way it faces', () => {
+  for (const rotation of ROTATIONS) {
+    const site = harbourSite(10, 10, rotation);
+    expect(site.land).toHaveLength(HARBOUR_WIDTH * HARBOUR_LAND_DEPTH);
+    expect(site.water).toHaveLength(HARBOUR_WIDTH * HARBOUR_WATER_DEPTH);
+    expect(site.offshore).toHaveLength(HARBOUR_WIDTH);
+    const { width, depth } = footprint('harbour', rotation);
+    const xs = [...site.land, ...site.water].map((tile) => tile.x);
+    const zs = [...site.land, ...site.water].map((tile) => tile.z);
+    expect(Math.min(...xs)).toBe(10);
+    expect(Math.min(...zs)).toBe(10);
+    expect(Math.max(...xs) - Math.min(...xs) + 1).toBe(width);
+    expect(Math.max(...zs) - Math.min(...zs) + 1).toBe(depth);
+  }
+});
+
+test('the apron is the row of ground behind the quay, never part of the harbour', () => {
+  for (const rotation of ROTATIONS) {
+    const site = harbourSite(20, 20, rotation);
+    const apron = harbourApron(20, 20, rotation);
+    expect(apron).toHaveLength(HARBOUR_WIDTH);
+    const occupied = new Set([...site.land, ...site.water].map((tile) => `${tile.x},${tile.z}`));
+    for (const tile of apron) expect(occupied.has(`${tile.x},${tile.z}`)).toBe(false);
+  }
+});
+
+test('every island offers a legal harbour site on both tested seeds', () => {
+  for (const seed of [1, 2]) {
+    const map = islandFor(seed);
+    for (let home = 0; home < ISLAND_COUNT; home++) {
+      const site = findHarbourSite(map, home);
+      expect(site).not.toBeNull();
+      const water = harbourSite(site!.x, site!.z, site!.rotation).water;
+      for (const tile of water) expect(terrainOn(map, tile.x, tile.z)).toBe('water');
     }
   }
-  throw new Error('No alternative founding site.');
-}
+});
 
-for (const seed of [1, 2]) {
-  for (let home = 0; home < ISLAND_COUNT; home++) {
-    test(`seed ${seed}, island ${home + 1} can be founded at its prepared site`, () => {
-      const world = createWorld(seed, home, false);
-      const city = primaryCity(world);
-      expect(city.harbour.connected).toBe(false);
-      expect(foundHarbour(world, primaryCity(world), city.harbour.x, city.harbour.z).ok).toBe(true);
-      expect(city.founded).toBe(true);
-      expect(city.harbour.connected).toBe(true);
-      expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
-      advance(world, 180);
-      expect(getSummary(primaryCity(world)).goal).toBe(true);
-    });
-  }
-}
-
-test('founding can choose a different dockyard site, which survives saves and cannot move again', () => {
-  const world = createWorld(2, 0, false);
-  const site = alternateSite(world);
-  const money = primaryCity(world).money;
-  expect(foundHarbour(world, primaryCity(world), site.x, site.z).ok).toBe(true);
+test('a new city stands at its own quay, its apron paved and its land tiles known', () => {
+  const world = createWorld(1, 3);
   const city = primaryCity(world);
-  expect(city.harbour.x).toBe(site.x);
-  expect(city.harbour.z).toBe(site.z);
-  expect(city.money).toBe(money);
-  expect(city.harbour.connected).toBe(true);
-  expect(deserializeWorld(serializeWorld(world))).toEqual(world);
-  const before = serializeWorld(world);
-  expect(foundHarbour(world, primaryCity(world), site.x + 1, site.z).ok).toBe(false);
-  expect(serializeWorld(world)).toBe(before);
+  const map = islandFor(world.seed, city.home);
+  expect(city.roads).toEqual(harbourApron(city.harbour.x, city.harbour.z, city.harbour.rotation).map((tile) => tileIndexOn(map, tile.x, tile.z)));
+  const land = harbourLandTiles(map, city.harbour);
+  expect(land).toHaveLength(HARBOUR_WIDTH * HARBOUR_LAND_DEPTH);
+  const site = harbourSite(city.harbour.x, city.harbour.z, city.harbour.rotation);
+  expect(land).toEqual(site.land.map((tile) => tileIndexOn(map, tile.x, tile.z)));
 });
 
-test('invalid sites do not consume the founding opportunity or mutate the city', () => {
-  const world = createWorld(1, 0, false);
-  const { entry, islands } = mapOf(world, primaryCity(world));
-  const before = serializeWorld(world);
-  const sites = [
-    { x: -1, z: -1 },
-    { x: .5, z: entry.z },
-    { x: entry.x, z: entry.z - 4 },
-    { x: entry.x, z: entry.z + 4 },
-    islands[7].entry,
-  ];
-  for (const { x, z } of sites) {
-    expect(foundingPlacement(world, primaryCity(world), x, z).ok).toBe(false);
-    expect(foundHarbour(world, primaryCity(world), x, z).ok).toBe(false);
-    expect(serializeWorld(world)).toBe(before);
-  }
+test('a claimed shore refuses another city, and open shore elsewhere still accepts one', () => {
+  const world = createSharedWorld();
+  const first = findHarbourSite(islandFor(world.seed), 0)!;
+  expect(claimHarbour(world, 'Tycho', first.x, first.z, first.rotation).ok).toBe(true);
+  expect(harbourPlacement(world, first.x, first.z, first.rotation).ok).toBe(false);
+  const second = findHarbourSite(islandFor(world.seed), 6)!;
+  expect(harbourPlacement(world, second.x, second.z, second.rotation).ok).toBe(true);
 });
 
-test('an unfinished founding round-trips and rejects normal commands without advancing time', () => {
-  const world = createWorld(2, 7, false);
-  const before = serializeWorld(world);
-  const { entry } = mapOf(world, primaryCity(world));
-  expect(placement(world, primaryCity(world), 'house', entry.x + 2, entry.z - 6).ok).toBe(false);
-  expect(build(world, primaryCity(world), 'house', entry.x + 2, entry.z - 6).ok).toBe(false);
-  expect(placeRoadPath(world, primaryCity(world), [entry]).ok).toBe(false);
-  expect(demolish(world, primaryCity(world), entry.x, entry.z).ok).toBe(false);
-  expect(setVendor(primaryCity(world), 0, true).ok).toBe(false);
-  advance(world, 600);
-  expect(serializeWorld(world)).toBe(before);
-  expect(deserializeWorld(before)).toEqual(world);
-});
-
-test('unfinished saves must retain the prepared roads and starting treasury', () => {
-  const world = createWorld(2, 7, false);
-  const startingMoney = primaryCity(world).money;
-  for (const money of [-1, 0, startingMoney + 1]) {
-    const cities = [{ ...primaryCity(world), money }];
-    expect(deserializeWorld(serializeWorld({ ...world, cities }))).toBeNull();
-  }
-  const preparedRoads = primaryCity(world).roads;
-  for (const roads of [[], preparedRoads.slice(1), [...preparedRoads, 0], [0, ...preparedRoads.slice(1)]]) {
-    const cities = [{ ...primaryCity(world), roads }];
-    expect(deserializeWorld(serializeWorld({ ...world, cities }))).toBeNull();
-  }
-  const reversedCities = [{ ...primaryCity(world), roads: [...preparedRoads].reverse() }];
-  const loaded = deserializeWorld(serializeWorld({ ...world, cities: reversedCities }));
-  expect(loaded).not.toBeNull();
-  const harbour = primaryCity(loaded!).harbour;
-  expect(foundHarbour(loaded!, primaryCity(loaded!), harbour.x, harbour.z).ok).toBe(true);
-});
-
-test('saves cannot hide a populated or progressed city behind an unfinished founding', () => {
-  const world = createWorld(2, 0);
-  expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
-  primaryCity(world).founded = false;
-  expect(deserializeWorld(serializeWorld(world))).toBeNull();
-  const pending = createWorld(2, 0, false);
-  primaryCity(pending).money -= 1;
-  expect(deserializeWorld(serializeWorld(pending))).toBeNull();
-});
-
-test('a pending city can still be aged: the shared clock and ecology are not a per-city invariant', () => {
-  const pending = createWorld(2, 0, false);
-  pending.time = 1;
-  pending.felled = [primaryCity(pending).roads[0]];
-  expect(deserializeWorld(serializeWorld(pending))).toEqual(pending);
+test('a site running off the map is out of bounds, not a crash', () => {
+  const world = createSharedWorld();
+  const map = islandFor(world.seed);
+  expect(harbourPlacement(world, -4, 0, 0).reason).toBe('Out of bounds.');
+  expect(harbourPlacement(world, map.width - 1, map.depth - 1, 0).reason).toBe('Out of bounds.');
 });

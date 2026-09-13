@@ -1,45 +1,42 @@
-import type { City, World } from './types';
+import type { City, Rotation, World } from './types';
 import { STARTING_MONEY } from './catalog';
 import { freshHarbour } from './harbour';
-import { footprintTiles } from './grid';
-import { ISLAND_COUNT, islandAt, islandFor, landingRoads, tileAtOn } from './island';
+import { harbourIslandAt, harbourPlacement } from './founding';
+import { islandFor } from './island';
+import { recomputeConnectivity } from './world';
 
 export interface ClaimResult { ok: boolean; reason: string; city: City | null; }
 
-function islandHeldByAnotherCity(world: World, home: number): boolean {
-  const map = islandFor(world.seed);
-  const target = map.islands[home];
-  const onTarget = (tile: number) => {
-    const { x, z } = tileAtOn(map, tile);
-    return islandAt(map, x, z) === target;
-  };
-  return world.cities.some((city) => {
-    if (city.roads.some(onTarget)) return true;
-    if (city.buildings.some((building) => footprintTiles(map, building).some(onTarget))) return true;
-    return city.founded && footprintTiles(map, city.harbour).some(onTarget);
-  });
+export const CITY_NAME_LIMIT = 24;
+
+export function cityName(raw: string): string | null {
+  const name = raw.trim();
+  if (name.length === 0 || name.length > CITY_NAME_LIMIT) return null;
+  return /^[^\p{C}]+$/u.test(name) ? name : null;
 }
 
-export function claimIsland(world: World, home: number): ClaimResult {
-  if (!Number.isInteger(home) || home < 0 || home >= ISLAND_COUNT) return { ok: false, reason: 'Unknown starting island.', city: null };
-  if (world.cities.some((city) => city.home === home)) return { ok: false, reason: 'That island is already claimed.', city: null };
-  if (islandHeldByAnotherCity(world, home)) return { ok: false, reason: 'That island already holds another city\'s infrastructure.', city: null };
-  if (world.nextCityId >= Number.MAX_SAFE_INTEGER || world.nextId >= Number.MAX_SAFE_INTEGER) return { ok: false, reason: 'No safe ids remain to claim another city.', city: null };
+export function claimHarbour(world: World, name: string, x: number, z: number, rotation: Rotation): ClaimResult {
+  const chosen = cityName(name);
+  if (!chosen) return { ok: false, reason: `A city needs a name of up to ${CITY_NAME_LIMIT} characters.`, city: null };
+  const placement = harbourPlacement(world, x, z, rotation);
+  if (!placement.ok) return { ok: false, reason: placement.reason, city: null };
+  if (world.nextCityId >= Number.MAX_SAFE_INTEGER || world.nextId >= Number.MAX_SAFE_INTEGER) return { ok: false, reason: 'No safe ids remain to found another city.', city: null };
 
-  const map = islandFor(world.seed, home);
-  const roads = landingRoads(map);
+  const map = islandFor(world.seed);
+  const island = harbourIslandAt(map, x, z, rotation)!;
   const city: City = {
     id: world.nextCityId++,
-    home,
-    founded: false,
+    name: chosen,
+    home: map.islands.indexOf(island),
     money: STARTING_MONEY,
-    harbour: { ...freshHarbour(world.seed, roads, home), id: world.nextId++ },
+    harbour: { ...freshHarbour({ x, z, rotation }), id: world.nextId++ },
     produced: 0,
     delivered: 0,
-    roads,
+    roads: [],
     buildings: [],
     walkers: [],
   };
   world.cities.push(city);
-  return { ok: true, reason: 'Island claimed.', city };
+  recomputeConnectivity(world, city);
+  return { ok: true, reason: 'Your harbour stands. Lay a road from it and build.', city };
 }

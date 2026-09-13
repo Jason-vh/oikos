@@ -8,12 +8,13 @@ export interface ForeignOccupancy {
   buildings: Set<number>;
 }
 
-export function foreignOccupancy(world: World, city: City): ForeignOccupancy {
+export function foreignOccupancy(world: World, city: City | number | null): ForeignOccupancy {
+  const cityId = typeof city === 'number' ? city : city?.id ?? null;
   const map = islandFor(world.seed);
   const roads = new Set<number>();
   const buildings = new Set<number>();
   for (const other of world.cities) {
-    if (other.id === city.id) continue;
+    if (other.id === cityId) continue;
     for (const tile of other.roads) roads.add(tile);
     for (const tile of harbourTiles(world, other)) buildings.add(tile);
     for (const building of other.buildings) for (const tile of footprintTiles(map, building)) buildings.add(tile);

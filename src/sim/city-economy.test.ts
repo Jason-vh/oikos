@@ -105,22 +105,6 @@ describe('two founded cities in one World', () => {
     expect(world.regrowth).toBe(0);
   });
 
-  test('a pending (unfounded) city is skipped entirely, even when it is the first city in World.cities', () => {
-    const world = createWorld(1, 0);
-    const founded = primaryCity(world);
-    expect(buildStarterNeighbourhood(world, founded).ok).toBe(true);
-    const otherHome = (founded.home + 1) % ISLAND_COUNT;
-    const pending = foundSecondCity(world, otherHome, false);
-    world.cities = [pending, ...world.cities.filter((city) => city !== pending)];
-    expect(world.cities[0]).toBe(pending);
-    const snapshotPending = structuredClone(pending);
-
-    advance(world, 120);
-
-    expect(founded.produced).toBeGreaterThan(0);
-    expect(pending).toEqual(snapshotPending);
-  });
-
   test('an asymmetric second city with gathering and harbour buildings runs correctly under the shared multi-city tick', () => {
     const world = createWorld(1, 0);
     const city1 = primaryCity(world);
@@ -156,6 +140,8 @@ describe('two founded cities in one World', () => {
       sawWoodcutterWalker ||= city2.walkers.some((walker) => walker.kind === 'woodcutter');
       sawPorterWalker ||= city2.walkers.some((walker) => walker.kind === 'porter');
     }
+
+    advance(world, 120);
 
     expect(sawWoodcutterWalker).toBe(true);
     expect(world.felled.length).toBeGreaterThan(0);

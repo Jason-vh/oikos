@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
-import { entryTileIndex, footprintTiles, mapOf } from './grid';
-import { islandAt, islandFor, ISLAND_COUNT, terrainOn, tileAtOn } from './island';
-import { deserializeWorld, savedBeforeArchipelago, serializeWorld } from './save';
+import { footprintTiles, harbourDoors, mapOf } from './grid';
+import { islandAt, islandFor, ISLAND_COUNT, tileAtOn } from './island';
+import { deserializeWorld, serializeWorld } from './save';
 import { buildStarterNeighbourhood } from './scenario';
 import { advance, createWorld, getSummary } from './world';
 import { primaryCity } from './city';
@@ -15,15 +15,15 @@ for (let choice = 0; choice < ISLAND_COUNT * 2; choice++) {
     const island = map.islands[home];
     const city = primaryCity(world);
     expect(city.home).toBe(home);
-    expect(map.entry).toEqual(island.entry);
-    expect(city.roads).toContain(entryTileIndex(world, city));
-    for (const tile of [...city.roads, ...footprintTiles(map, city.harbour)]) {
+    expect(city.roads.length).toBeGreaterThan(0);
+    expect(harbourDoors(world, city).some((tile) => city.roads.includes(tile))).toBe(true);
+    for (const tile of footprintTiles(map, city.harbour)) {
       const { x, z } = tileAtOn(map, tile);
       expect(islandAt(map, x, z)).toEqual(island);
-      expect(terrainOn(map, x, z)).not.toBe('water');
     }
     expect(city.harbour.connected).toBe(true);
     expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
+    expect(primaryCity(world).harbour.connected).toBe(true);
     advance(world, 180);
     expect(getSummary(primaryCity(world)).goal).toBe(true);
     expect(city.walkers.length).toBeGreaterThan(0);
@@ -62,18 +62,3 @@ test('current saves require a valid explicit starting island', () => {
   }
 });
 
-test('version 4 cities migrate to their original central island without changing their economy', () => {
-  const world = createWorld(2);
-  expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
-  advance(world, 60);
-  const raw = JSON.parse(serializeWorld(world));
-  const { id: _id, ...flatCity } = raw.cities[0];
-  delete raw.cities;
-  const legacy = { ...raw, ...flatCity, version: 4 };
-  const saved = JSON.stringify(legacy);
-  expect(savedBeforeArchipelago(saved)).toBe(false);
-  expect(deserializeWorld(saved)).toEqual(world);
-  legacy.version = 3;
-  expect(savedBeforeArchipelago(JSON.stringify(legacy))).toBe(true);
-  expect(deserializeWorld(JSON.stringify(legacy))).toBeNull();
-});

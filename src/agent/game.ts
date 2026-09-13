@@ -1,7 +1,7 @@
 import { primaryCity } from '../sim/city';
 import { applyCommand, type CityCommand } from '../sim/commands';
 import { deserializeWorld, serializeWorld } from '../sim/save';
-import type { ActionResult, City, World } from '../sim/types';
+import type { ActionResult, City, Rotation, World } from '../sim/types';
 import { advance, createWorld } from '../sim/world';
 
 export interface AgentView { world: World; city: City | null }
@@ -9,7 +9,7 @@ export interface AgentView { world: World; city: City | null }
 export interface AgentGame {
   view(): AgentView;
   submit(command: CityCommand): Promise<ActionResult>;
-  claim(home: number): Promise<ActionResult>;
+  claim(x: number, z: number, rotation: Rotation): Promise<ActionResult>;
 }
 
 export interface SaveSlot {
@@ -20,7 +20,7 @@ export interface SaveSlot {
 export interface LocalGameOptions {
   seed?: number;
   home?: number;
-  founded?: boolean;
+  name?: string;
   slot?: SaveSlot;
   now?: () => number;
 }
@@ -42,7 +42,7 @@ export class LocalGame implements AgentGame {
       if (!world) throw new Error('The saved city could not be read.');
       return new LocalGame(world, options.slot ?? null, now);
     }
-    const world = createWorld(options.seed, options.home, options.founded ?? true);
+    const world = createWorld(options.seed, options.home, options.name);
     const game = new LocalGame(world, options.slot ?? null, now);
     game.persist();
     return game;
