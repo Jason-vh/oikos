@@ -25,9 +25,9 @@ import './ui/style.css';
 
 const SAVE_KEY = AUTOSAVE_KEY;
 
-function boot(): void {
+function createLocalWorld(): { world: ReturnType<typeof createWorld>; warning: string; autoSaveEnabled: boolean } {
   let world = createWorld();
-  let storageWarning = '';
+  let warning = '';
   let autoSaveEnabled = true;
   try {
     const raw = localStorage.getItem(SAVE_KEY);
@@ -36,15 +36,30 @@ function boot(): void {
       if (saved) world = saved;
       else {
         autoSaveEnabled = false;
-        storageWarning = savedBeforeArchipelago(raw)
+        warning = savedBeforeArchipelago(raw)
           ? 'The sea opened up: a city built on the single island cannot be moved to the archipelago. A fresh map is open; Save will replace the old file.'
           : 'Saved island could not be read. A fresh island is open; Save will replace the old file.';
       }
     }
   } catch {
     autoSaveEnabled = false;
-    storageWarning = 'Browser storage is unavailable. This island cannot be saved.';
+    warning = 'Browser storage is unavailable. This island cannot be saved.';
   }
+  return { world, warning, autoSaveEnabled };
+}
+
+function restoreLocalView(seed: number, home: number | undefined): View | null {
+  try {
+    return parseView(localStorage.getItem(VIEW_KEY), seed, home);
+  } catch {
+    return null;
+  }
+}
+
+export function boot(): void {
+  const { world: initialWorld, warning: storageWarning, autoSaveEnabled: initialAutoSaveEnabled } = createLocalWorld();
+  let world = initialWorld;
+  let autoSaveEnabled = initialAutoSaveEnabled;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const stage = new Stage(document.querySelector<HTMLElement>('#app')!, false);
   stage.reducedMotion = reducedMotion;
@@ -68,10 +83,10 @@ function boot(): void {
   stage.bounds(seaBounds(world.seed));
   const initialActive = activeCity(world, context);
   if (initialActive) stage.setView(viewFor(initialActive));
-  try {
-    const saved = parseView(localStorage.getItem(VIEW_KEY), world.seed, initialActive?.home);
-    if (saved) stage.setView(saved);
-  } catch {}
+  const savedView = restoreLocalView(world.seed, initialActive?.home);
+  if (savedView) {
+    try { stage.setView(savedView); } catch {}
+  }
   function rebuildScene(): void {
     city.dispose();
     stage.bounds(seaBounds(world.seed));
@@ -744,11 +759,4 @@ function boot(): void {
       visit: (id: number) => viewCity(id),
     });
   }
-}
-
-try { boot(); }
-catch (error) {
-  document.body.dataset.error = 'true';
-  document.querySelector<HTMLElement>('#status')!.textContent = 'The island could not open. WebGL 2 and hardware acceleration are required.';
-  console.error(error);
 }
