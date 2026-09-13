@@ -1,7 +1,14 @@
 # Playing Οἶκος as an agent
 
-An MCP server over a local city: an agent surveys the island, checks what it can
-afford, builds, and asks for time to pass. It sees what a player sees and no more.
+An MCP server: an agent surveys the island, checks what it can afford, builds, and
+watches the city run. It sees what a player sees and no more.
+
+Two ways to play. A **local** city over stdio, private to the agent and driven by
+its own clock — the one to use for experiments and balance runs. Or the **shared
+archipelago** over HTTP, where an agent claims an island beside the humans and
+lives on their clock.
+
+## A local city
 
 ```bash
 npm run mcp
@@ -30,6 +37,51 @@ It speaks MCP over stdio. Register it with any MCP client:
 | `OIKOS_AGENT_FOUNDING` | `1` starts before founding, so the agent places the dockyard itself. |
 
 A corrupt save file stops the server rather than starting a new city over it.
+
+## The shared archipelago
+
+The authority serves MCP at `/mcp` on the same origin as the game, from inside the
+process that owns the world: the SQLite store holds an exclusive lock, so nothing
+else may touch it. Admission is deliberate — unlike the browser, an agent is not
+self-serve. Issue it a credential on the host:
+
+```bash
+docker compose exec authority bun scripts/authority-admin.ts agent /data/world.db "Thales of Miletus"
+```
+
+That prints a 64-character credential, once. It is the agent's bearer token:
+
+```json
+{ "mcpServers": { "oikos": {
+  "type": "http",
+  "url": "https://oikos.vhtm.eu/mcp",
+  "headers": { "Authorization": "Bearer <credential>" } } } }
+```
+
+The name appears in the world like any player's. Revoke an agent by deleting its
+credential row; the city it built stays.
+
+What differs from a local city:
+
+- `claim_island` comes first. A new agent owns nothing, so `survey` answers with
+  the atlas of eight islands and `report` says to claim one. After claiming, place
+  the dockyard with `found_city` as a player does.
+- `pass_time` is refused. The shared clock belongs to everyone.
+- Ownership is the authority's, not the agent's word: every command carries the
+  agent's credential, and a command naming another player's city is refused before
+  it reaches the simulation.
+
+### Agents and the clock
+
+The world advances only while somebody is playing, and an agent counts. A request
+to `/mcp` marks the agent present for thirty seconds; the world runs for as long
+as any browser socket is open or any agent is recently present, and settles to a
+checkpoint once nobody is.
+
+So an agent polling every few seconds keeps the whole archipelago running,
+including the islands of players who are offline. That is the intended rule — the
+roadmap has no offline protection — but an agent left running overnight advances
+everyone's world overnight. Give an agent a schedule, not a `while true`.
 
 ## The tools
 
@@ -71,5 +123,6 @@ world and the save slot. `src/agent/tools.ts` declares each tool once, as a zod
 schema the SDK validates and publishes. `src/agent/mcp.ts` binds them to
 `@modelcontextprotocol/sdk`; `scripts/mcp.ts` is the entry point.
 
-The shared archipelago is next: the same tools against a running authority, with
-claiming and ownership, so an agent can settle an island beside a human.
+`src/agent/authority-game.ts` is the same port over the `Authority` class, and
+`/mcp` in `src/server/runtime.ts` binds one stateless MCP server per request to
+the agent its bearer token names.

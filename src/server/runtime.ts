@@ -1,5 +1,8 @@
 import type { ServerWebSocket } from 'bun';
 import { createHash, randomUUID } from 'node:crypto';
+import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
+import { AuthorityGame } from '../agent/authority-game';
+import { createServer } from '../agent/mcp';
 import { Authority } from './authority';
 import { COOKIE, MAX_REQUEST_BYTES, PROTOCOL, credentialFrom, parseJoinName, parseRequest, publicSession, type RejectCode } from './protocol';
 
@@ -22,6 +25,8 @@ interface SocketData {
   lastSnapshot: number;
 }
 interface Bucket { tokens: number; at: number }
+export const AGENT_PRESENCE_MS = 30_000;
+const BEARER = /^Bearer ([a-f0-9]{64})$/;
 const clockDefault: RuntimeClock = {
   now: () => performance.now(),
   schedule(callback, milliseconds) {
@@ -66,6 +71,7 @@ export function startServer(options: RuntimeOptions) {
   let healthy = true;
   let stopped = false;
   let anchor: number | null = null;
+  let agentsPresentUntil = -Infinity;
   let checkpointAt = clock.now();
   let serial = 0;
   let cancel = () => {};
@@ -75,6 +81,16 @@ export function startServer(options: RuntimeOptions) {
 
   function hasOpenSocket(): boolean {
     return [...sockets].some((ws) => ws.readyState === 1);
+  }
+
+  function anyonePlaying(): boolean {
+    return hasOpenSocket() || clock.now() < agentsPresentUntil;
+  }
+
+  function beginPlaying(): void {
+    if (anchor !== null) return;
+    anchor = clock.now();
+    checkpointAt = anchor;
   }
 
   function settle(): void {
@@ -130,7 +146,13 @@ export function startServer(options: RuntimeOptions) {
 
   function tick(): void {
     guarded(() => {
-      if (!hasOpenSocket()) return;
+      if (!anyonePlaying()) {
+        if (anchor === null) return;
+        settle();
+        authority.checkpoint();
+        anchor = null;
+        return;
+      }
       settle();
       const now = clock.now();
       if (now - checkpointAt >= 5000 || now < checkpointAt) {
@@ -158,16 +180,45 @@ export function startServer(options: RuntimeOptions) {
     return stopPromise;
   }
 
+  async function serveAgent(request: Request): Promise<Response> {
+    const origin = request.headers.get('origin');
+    if (origin !== null && origin !== options.publicOrigin) return response(403, 'origin-denied');
+    const offered = BEARER.exec(request.headers.get('authorization') ?? '');
+    const credential = offered ? offered[1] : '';
+    const authenticated = credential ? authority.authenticate(credential) : null;
+    if (!authenticated) {
+      return Response.json({ code: 'unauthenticated' }, { status: 401, headers: { 'Cache-Control': 'no-store', 'WWW-Authenticate': 'Bearer realm="oikos"' } });
+    }
+    if (!take(requests, authenticated.actorId, clock.now(), 16, 8)) return response(429, 'rate-limited');
+
+    settle();
+    agentsPresentUntil = clock.now() + AGENT_PRESENCE_MS;
+    beginPlaying();
+
+    const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
+    const server = createServer(new AuthorityGame(authority, credential));
+    await server.connect(transport);
+    try {
+      return await transport.handleRequest(request);
+    } finally {
+      for (const ws of sockets) ws.data.snapshotDue = true;
+      snapshots();
+    }
+  }
+
   let server: ReturnType<typeof Bun.serve<SocketData>>;
   try {
     server = Bun.serve({
       hostname: options.hostname ?? '127.0.0.1',
       port: options.port ?? 3000,
-      maxRequestBodySize: 1024,
+      maxRequestBodySize: MAX_REQUEST_BYTES,
       fetch(request, listener) {
         if (!healthy || stopped) return response(503, 'unavailable');
         const path = new URL(request.url).pathname;
         if (path === '/healthz' && request.method === 'GET') return response(200, 'healthy');
+        if (path === '/mcp') {
+          return serveAgent(request).catch(() => { fatal(); return response(503, 'unavailable'); });
+        }
         if (path !== '/api/session/join' && path !== '/api/world') return response(404, 'not-found');
         if (request.headers.get('origin') !== options.publicOrigin) return response(403, 'origin-denied');
         try {
@@ -213,7 +264,7 @@ export function startServer(options: RuntimeOptions) {
         open(ws) {
           if (stopped) { slots.delete(ws.data); ws.terminate(); return; }
           guarded(() => {
-            if (!hasOpenSocket()) { anchor = clock.now(); checkpointAt = anchor; }
+            beginPlaying();
             sockets.add(ws);
             snapshots();
           });
@@ -238,7 +289,7 @@ export function startServer(options: RuntimeOptions) {
           slots.delete(ws.data);
           guarded(() => {
             sockets.delete(ws);
-            if (!hasOpenSocket()) { settle(); authority.checkpoint(); anchor = null; }
+            if (!anyonePlaying()) { settle(); authority.checkpoint(); anchor = null; }
           });
         },
       },

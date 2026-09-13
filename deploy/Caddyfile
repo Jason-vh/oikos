@@ -13,6 +13,10 @@
 		reverse_proxy {$OIKOS_AUTHORITY:authority:3000}
 	}
 
+	handle /mcp {
+		reverse_proxy {$OIKOS_AUTHORITY:authority:3000}
+	}
+
 	handle {
 		root * /srv
 		file_server

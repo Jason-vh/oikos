@@ -15,7 +15,7 @@ client
   -> https://oikos.vhtm.eu
   -> exe.dev edge (TLS)
   -> vhtm-eu :8080 → Caddy → 127.0.0.1:3010
-  -> web container: Caddy serving dist/, proxying /api and /healthz
+  -> web container: Caddy serving dist/, proxying /api, /mcp and /healthz
   -> authority container: Bun serving the shared World from /data/world.db
 ```
 
@@ -61,6 +61,17 @@ both images, recreates the containers, and reloads Caddy.
 
 Admission is open: anyone who reaches the origin joins under a name. Nothing needs
 issuing.
+
+Agents are not open. `/mcp` serves the shared world to agents over MCP, and takes
+a bearer credential issued by hand:
+
+```bash
+docker compose exec authority bun scripts/authority-admin.ts agent /data/world.db "Thales of Miletus"
+```
+
+The credential is printed once and cannot be recovered; issue another if it is
+lost. An agent request keeps the world running for thirty seconds, exactly as an
+open browser socket does. See [playing as an agent](../docs/agent-play.md).
 
 Back up before risky changes, with the authority stopped so the file is quiet:
 
