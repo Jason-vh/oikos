@@ -1,4 +1,4 @@
-# Unreleased shared client adapter
+# Shared client adapter
 
 `src/ui/shared-session.ts` is not connected to the playable game. Main, HUD,
 local saves and server clocks are unchanged.

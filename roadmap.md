@@ -231,8 +231,12 @@ new shipping network to supply these sanctuaries.”
   Its clock pauses when no authenticated socket is open; offline owners' cities
   keep advancing while others play. Tick checkpoints survive restarts without
   offline catch-up.
-- The playable client remains local. Shared joining/reconnecting UI and
-  unrestricted coastal harbour siting are still ahead.
+- Protocol 2 binds requests to their realm/login. The client adapter journals exact
+  requests, fences reconnects, and recovers consumed receipts without reapplying
+  ambiguous intent. Storage uncertainty blocks writes until explicit resolution.
+- Local startup is separate from the reusable game bootstrap. The playable client
+  remains local; shared joining/reconnecting UI and unrestricted coastal harbour
+  siting are still ahead.
 
 ## Roadmap
 
