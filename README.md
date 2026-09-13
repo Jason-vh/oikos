@@ -52,6 +52,7 @@ the art captures; there are no gameplay walkthrough scripts.
 - [Art direction](docs/art-direction.md)
 - [Model authoring and visual checks](docs/art-tooling.md)
 - [Deployment](deploy/README.md)
+- [Playing as an agent](docs/agent-play.md)
 - [Private server transport](docs/server-transport.md)
 - [Shared client adapter](docs/shared-session.md) and [shared game](docs/shared-game.md)
 

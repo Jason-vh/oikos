@@ -19,18 +19,21 @@
     "road:capture": "node scripts/road-capture.mjs",
     "check": "bash scripts/check.sh",
     "authority": "bun scripts/authority-admin.ts",
-    "server": "bun scripts/server.ts"
+    "server": "bun scripts/server.ts",
+    "mcp": "bun scripts/mcp.ts"
   },
   "dependencies": {
     "three": "^0.186.0"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@types/bun": "^1.4.2",
     "@types/three": "^0.185.4",
     "bun": "1.4.2",
     "playwright": "^1.62.0",
     "typescript": "^5.7.2",
     "vite": "^6.0.7",
-    "wait-on": "^9.1.0"
+    "wait-on": "^9.1.0",
+    "zod": "^4.6.4"
   }
 }

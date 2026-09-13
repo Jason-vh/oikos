@@ -92,9 +92,13 @@ agent quietly.
 
 ## Decisions to make
 
-- **MCP SDK or hand-rolled.** The project has exactly one runtime dependency.
-  A stdio server with tools only is a few hundred lines of JSON-RPC; the official
-  SDK is correct and maintained. Either stays out of the browser bundle.
+- **MCP SDK or hand-rolled.** Settled: `@modelcontextprotocol/sdk`, as a dev
+  dependency, out of the browser bundle. Its stdio transport pulls in nothing but
+  `node:process` — express and hono sit behind the HTTP transports and are never
+  loaded — and it runs under Bun, which `src/agent/mcp.test.ts` proves by spawning
+  the real server. Each tool is declared once as a zod schema: the SDK validates
+  arguments against it and publishes it, so there is no second hand-written copy
+  of the contract to drift.
 - **Map encoding.** One char per tile reads well and costs ~2.7k tokens per
   island. Windows plus a coarse overview are probably right, but this needs an
   agent actually playing to settle.

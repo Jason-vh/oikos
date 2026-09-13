@@ -12,7 +12,7 @@ export type CityCommand =
 
 export const MAX_ROAD_PATH = 1024;
 
-const BUILD_TOOLS = new Set<string>(['road', ...Object.keys(BUILDINGS).filter((kind) => kind !== 'harbour')]);
+export const BUILD_TOOLS = new Set<string>(['road', ...Object.keys(BUILDINGS).filter((kind) => kind !== 'harbour')]);
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

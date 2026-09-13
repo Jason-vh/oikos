@@ -1,4 +1,4 @@
-import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, footprint } from '../sim/catalog';
+import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, footprint } from '../sim/catalog';
 import { foundingPlacement } from '../sim/founding';
 import { footprintTiles, mapOf } from '../sim/grid';
 import { harbourStatus } from '../sim/harbour';
@@ -266,7 +266,7 @@ export function describeRoadPath(world: World, city: City, tiles: Tile[]): strin
   const result = roadPathPlacement(world, city, tiles);
   const head = `Road from (${tiles[0].x},${tiles[0].z}) to (${tiles[tiles.length - 1].x},${tiles[tiles.length - 1].z})`;
   if (!result.ok) return `${head}: refused. ${result.reason}`;
-  return `${head}: allowed, ${result.tiles.length} new tiles, ${afford(city, result.cost)}.`;
+  return `${head}: allowed, ${result.tiles.length} tiles of which ${result.cost / ROAD_COST} are new, ${afford(city, result.cost)}.`;
 }
 
 export function describeFounding(world: World, city: City, x: number, z: number): string {
