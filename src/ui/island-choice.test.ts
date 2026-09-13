@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
-import { createIslandChoice, islandFacts } from './island-choice';
-import { islandAt, islandFor, nextArchipelagoSeed } from '../sim/island';
+import { createIslandChoice } from './island-choice';
+import { islandAt, islandFacts, islandFor, nextArchipelagoSeed } from '../sim/island';
 
 function atlas() {
   const map = islandFor(2);

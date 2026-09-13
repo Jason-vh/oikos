@@ -52,15 +52,15 @@ describe('the MCP server', () => {
   test('builds through a tool call and charges the treasury', async () => {
     const { client, game } = await connected();
     const spot = spotFor(game.view().world, 'granary')!;
-    const before = game.view().city.money;
+    const before = game.view().city!.money;
 
     const checked = textOf(await client.callTool({ name: 'check_build', arguments: { tool: 'granary', x: spot.x, z: spot.z } }));
     const built = textOf(await client.callTool({ name: 'build', arguments: { tool: 'granary', x: spot.x, z: spot.z } }));
 
     expect(checked).toContain('allowed, costs 120 dr');
     expect(built).toStartWith('Done.');
-    expect(game.view().city.money).toBe(before - 120);
-    expect(game.view().city.buildings).toHaveLength(1);
+    expect(game.view().city!.money).toBe(before - 120);
+    expect(game.view().city!.buildings).toHaveLength(1);
   });
 
   test('reports a refused command as an answer, not a failure', async () => {
@@ -88,21 +88,21 @@ describe('the MCP server', () => {
 
   test('turns a road one corner, either way round, and charges what it quoted', async () => {
     const { client, game } = await connected();
-    const grid = mapOf(game.view().world, game.view().city);
+    const grid = mapOf(game.view().world, game.view().city!);
     const from = { x: grid.entry.x, z: grid.entry.z - 4 };
     const to = { x: from.x + 4, z: from.z - 3 };
 
     const quoted = textOf(await client.callTool({ name: 'check_road', arguments: { from, to } }));
-    const before = game.view().city.money;
+    const before = game.view().city!.money;
     const laid = textOf(await client.callTool({ name: 'lay_road', arguments: { from, to } }));
 
     expect(quoted).toContain('8 tiles of which 7 are new, costs 14 dr');
     expect(laid).toStartWith('Done.');
-    expect(game.view().city.money).toBe(before - 14);
-    expect(game.view().city.roads).toContain(to.x + to.z * grid.width);
+    expect(game.view().city!.money).toBe(before - 14);
+    expect(game.view().city!.roads).toContain(to.x + to.z * grid.width);
 
     await client.callTool({ name: 'lay_road', arguments: { from, to: { x: from.x - 3, z: from.z - 3 }, bend: 'z-first' } });
-    expect(game.view().city.roads).toContain(from.x + (from.z - 3) * grid.width);
+    expect(game.view().city!.roads).toContain(from.x + (from.z - 3) * grid.width);
   });
 
   test('refuses a tool it does not have', async () => {

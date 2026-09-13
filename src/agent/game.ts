@@ -4,12 +4,13 @@ import { deserializeWorld, serializeWorld } from '../sim/save';
 import type { ActionResult, City, World } from '../sim/types';
 import { advance, createWorld } from '../sim/world';
 
-export interface AgentView { world: World; city: City }
+export interface AgentView { world: World; city: City | null }
 
 export interface AgentGame {
   view(): AgentView;
   submit(command: CityCommand): Promise<ActionResult>;
   pass(seconds: number): Promise<ActionResult>;
+  claim(home: number): Promise<ActionResult>;
 }
 
 export interface SaveSlot {
@@ -50,6 +51,10 @@ export class LocalGame implements AgentGame {
     const result = applyCommand(this.world_, primaryCity(this.world_).id, command);
     if (result.ok) this.persist();
     return result;
+  }
+
+  async claim(): Promise<ActionResult> {
+    return { ok: false, reason: 'This city is already yours. Claiming islands belongs to the shared archipelago.' };
   }
 
   async pass(seconds: number): Promise<ActionResult> {

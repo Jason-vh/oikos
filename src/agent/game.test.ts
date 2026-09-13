@@ -22,7 +22,7 @@ describe('the local game', () => {
 
     expect(slot.saved).toBeString();
     expect(primaryCity(resumed.view().world).buildings).toHaveLength(1);
-    expect(resumed.view().city.money).toBe(game.view().city.money);
+    expect(resumed.view().city!.money).toBe(game.view().city!.money);
   });
 
   test('refuses to open a corrupt slot rather than starting a new city over it', () => {

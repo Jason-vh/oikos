@@ -2,7 +2,7 @@ import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, footp
 import { foundingPlacement } from '../sim/founding';
 import { footprintTiles, mapOf } from '../sim/grid';
 import { harbourStatus } from '../sim/harbour';
-import { buildable, islandAt, levelOn, terrainOn, tileIndexOn } from '../sim/island';
+import { ISLAND_COUNT, buildable, islandAt, islandFacts, islandFor, levelOn, terrainOn, tileIndexOn } from '../sim/island';
 import { foreignOccupancy } from '../sim/occupancy';
 import type { Building, BuildingKind, BuildTool, City, Rotation, Terrain, Tile, World } from '../sim/types';
 import { WALKER_ROLES, buildingStatus, getSummary, placement, roadPathPlacement, storeCapacity, walkerStatus } from '../sim/world';
@@ -238,6 +238,19 @@ export function inspectTile(world: World, city: City, x: number, z: number): str
   const foreign = foreignOccupancy(world, city);
   if (foreign.roads.has(tile)) lines.push("Another city's road holds this tile.");
   if (foreign.buildings.has(tile)) lines.push("Another city's building holds this tile.");
+  return lines.join('\n');
+}
+
+export function atlas(world: World): string {
+  const map = islandFor(world.seed);
+  const lines = ['The Kalliste archipelago has eight islands. Claim one to begin; each has a prepared landing road.'];
+  for (let home = 0; home < ISLAND_COUNT; home++) {
+    const facts = islandFacts(map, home);
+    const island = map.islands[home];
+    const holder = world.cities.find((city) => city.home === home);
+    const state = holder ? 'claimed' : 'free';
+    lines.push(`Island ${home}: ${state}, landing at (${island.entry.x},${island.entry.z}), ${facts.land} land tiles, ${facts.fertile} fertile, ${facts.forest} forest.`);
+  }
   return lines.join('\n');
 }
 

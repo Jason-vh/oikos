@@ -350,3 +350,20 @@ export function islandFor(seed: number, home?: number): IslandMap {
   }
   return chosen;
 }
+
+export interface IslandFacts { land: number; fertile: number; forest: number }
+
+export function islandFacts(map: IslandMap, home: number): IslandFacts {
+  const island = map.islands[home];
+  const facts = { land: 0, fertile: 0, forest: 0 };
+  if (!island) return facts;
+  for (let z = island.z; z < island.z + island.depth; z++) {
+    for (let x = island.x; x < island.x + island.width; x++) {
+      const terrain = terrainOn(map, x, z);
+      if (terrain !== 'water') facts.land++;
+      if (terrain === 'fertile') facts.fertile++;
+      if (terrain === 'forest') facts.forest++;
+    }
+  }
+  return facts;
+}
