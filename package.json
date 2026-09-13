@@ -17,6 +17,7 @@
     "smoke:island-choice": "node scripts/island-choice-smoke.mjs",
     "smoke:city-context": "node scripts/city-context-smoke.mjs",
     "smoke:shared": "npm run build && bun scripts/shared-browser-smoke.ts",
+    "smoke:deployment": "bun scripts/deployment-smoke.ts",
     "smoke:shared:live": "npm run build && bun scripts/shared-browser-live.ts",
     "smoke:shared:recovery": "npm run build && bun scripts/shared-browser-recovery.ts",
     "smoke:polish": "node scripts/polish-smoke.mjs",

@@ -1,11 +1,35 @@
+name: oikos
+
 services:
-  app:
-    build: .
+  authority:
+    build:
+      context: .
+      target: authority
     restart: unless-stopped
+    environment:
+      OIKOS_DB: /data/world.db
+      OIKOS_PUBLIC_ORIGIN: ${OIKOS_PUBLIC_ORIGIN:-https://oikos.vhtm.eu}
+      OIKOS_HOST: 0.0.0.0
+      PORT: 3000
+    volumes:
+      - world:/data
+    networks:
+      - apps-net
+
+  web:
+    build:
+      context: .
+      target: web
+    restart: unless-stopped
+    depends_on:
+      - authority
     ports:
       - "127.0.0.1:3010:3000"
     networks:
       - apps-net
+
+volumes:
+  world:
 
 networks:
   apps-net:

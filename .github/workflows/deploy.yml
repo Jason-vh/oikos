@@ -53,16 +53,28 @@ jobs:
           rm -rf "$DEPLOY_DIR"
           mv "$DEPLOY_DIR.tmp" "$DEPLOY_DIR"
 
-      - name: Build image
+      - name: Build images
         run: |
           cd "$DEPLOY_DIR"
           docker compose build
 
-      - name: Start app
+      - name: Start the game and the authority
         run: |
           cd "$DEPLOY_DIR"
           docker compose up -d --remove-orphans
           docker compose ps
+
+      - name: Check both are serving
+        run: |
+          for attempt in $(seq 1 10); do
+            static=$(curl -sS -o /dev/null -w '%{http_code}' http://localhost:3010/ || true)
+            world=$(curl -sS -o /dev/null -w '%{http_code}' http://localhost:3010/healthz || true)
+            if [ "$static" = 200 ] && [ "$world" = 200 ]; then exit 0; fi
+            sleep 3
+          done
+          echo "static $static, authority $world; see deploy/README.md for first-time world setup"
+          cd "$DEPLOY_DIR" && docker compose logs --tail 50 authority
+          exit 1
 
       - name: Reload Caddy
         run: |
