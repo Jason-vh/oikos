@@ -1,7 +1,6 @@
 import { expect, test } from 'bun:test';
 import { entryTileIndex, footprintTiles, mapOf } from './grid';
 import { islandAt, islandFor, ISLAND_COUNT, terrainOn, tileAtOn } from './island';
-import { canUndoConstruction } from './history';
 import { deserializeWorld, savedBeforeArchipelago, serializeWorld } from './save';
 import { buildStarterNeighbourhood } from './scenario';
 import { advance, createWorld, getSummary } from './world';
@@ -47,7 +46,6 @@ test('selecting a home shares terrain without changing another city or the defau
   expect(selected.entry).toEqual(original.islands[home].entry);
   expect(islandFor(1).entry).toEqual(originalEntry);
   expect(primaryCity(createWorld(1)).home).toBe(original.home);
-  expect(canUndoConstruction(createWorld(1, home), createWorld(1))).toBe(false);
 });
 
 test('invalid starting islands fail before founding a city', () => {

@@ -121,7 +121,7 @@ export function startServer(options: RuntimeOptions) {
 
   function control(ws: ServerWebSocket<SocketData>, packet: unknown): void {
     if (ws.readyState !== 1) return;
-    if (ws.getBufferedAmount() > 0 || ws.send(JSON.stringify(packet), true) <= 0) ws.terminate();
+    if (ws.send(JSON.stringify(packet)) === 0) ws.terminate();
   }
 
   function reject(ws: ServerWebSocket<SocketData>, code: RejectCode): void {
@@ -137,7 +137,7 @@ export function startServer(options: RuntimeOptions) {
     const header = { type: 'snapshot', protocol: PROTOCOL, realmId: authority.realmId, streamId, serial: ++serial };
     for (const ws of ready) {
       const prefix = JSON.stringify({ ...header, session: session(ws) });
-      const sent = ws.send(`${prefix.slice(0, -1)},"world":${world}}`, true);
+      const sent = ws.send(Bun.gzipSync(`${prefix.slice(0, -1)},"world":${world}}`));
       ws.data.snapshotDue = false;
       ws.data.lastSnapshot = now;
       if (sent === 0) ws.terminate();
@@ -256,7 +256,7 @@ export function startServer(options: RuntimeOptions) {
       },
       websocket: {
         data: {} as SocketData,
-        perMessageDeflate: true,
+        perMessageDeflate: false,
         maxPayloadLength: MAX_REQUEST_BYTES,
         backpressureLimit: 1024 * 1024,
         closeOnBackpressureLimit: true,

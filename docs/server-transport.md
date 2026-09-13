@@ -85,14 +85,17 @@ Tick-only changes checkpoint every five seconds and on last close/graceful stop.
 Successful mutations already persist current World; replay and logical failure
 do not clear dirty tick state. Checkpoint fences and exhaustion fail closed.
 
-Requests allow 64 KiB uncompressed, eight/second/actor with burst 16. Limits are
-64 sockets total and eight/actor. Snapshots are compressed, at most four/second
-per socket, with one shared serialized World per broadcast. A backpressured socket
-skips snapshots until writable; there is no application snapshot queue. Bun may
-hold one already-enqueued snapshot (send returns -1); it is never resent. Control
-traffic cannot accumulate behind it: immediate termination and exact replay
-instead, including when a control send itself reports backpressure. Bun's
-outgoing buffer limit is 1 MiB with closure on overflow.
+Requests allow 64 KiB, eight/second/actor with burst 16. Limits are 64 sockets
+total and eight/actor. Snapshots are gzip binary frames, at most four/second per
+socket, with one shared serialized World per broadcast; clients inflate them and
+must keep packet order. Control packets stay text.
+
+permessage-deflate is off. Bun drops compressed browser-to-server frames, so
+negotiating it silently loses every request; application gzip replaces it. A
+backpressured socket skips snapshots until writable; there is no application
+snapshot queue. Receipts and rejects are sent even when a snapshot is still
+draining, and only a failed send terminates the socket. Bun's outgoing buffer
+limit is 1 MiB with closure on overflow.
 
 Run `npm test`, `npm run typecheck`, and `npm run build`. Transport tests use
 real ephemeral listeners and temporary SQLite; only the private factory clock

@@ -10,6 +10,11 @@ per journal. The adapter does not
 write World: `snapshot` delivers a validated authoritative replacement. Ownership
 and cursor getters/events are defensive copies.
 
+Snapshots arrive as gzip binary frames and are inflated asynchronously. Text
+packets are handled synchronously while no inflation is in flight, and queued
+behind one otherwise, so server order is preserved. A frame that does not inflate
+is a protocol failure.
+
 ## Bootstrap contract
 
 - `currentStatus` and `status(status, reason)` distinguish connecting/open (waiting

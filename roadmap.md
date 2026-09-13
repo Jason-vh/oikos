@@ -234,7 +234,7 @@ new shipping network to supply these sanctuaries.”
 - Protocol 3 binds requests to their realm/login. The client adapter journals exact
   requests, fences reconnects, and recovers consumed receipts without reapplying
   ambiguous intent. Storage uncertainty blocks writes until explicit resolution.
-- `/shared.html` runs the same game against the authority: anyone may join under
+- `/` runs the game against the authority: anyone may join under
   a name, the island atlas claims an unclaimed island, and construction, vendors
   and founding go through the ordinary controls. Writes need a ready session and
   an owned city; disconnects disable them and cancel unfinished gestures, while

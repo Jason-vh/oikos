@@ -206,10 +206,20 @@ test.each([
   h.session.close();
 });
 
-test.each(['not-json', '[]', null, new Uint8Array([1])])('invalid raw frames fail closed: %j', (raw) => {
+test.each(['not-json', '[]', null])('invalid raw frames fail closed: %j', (raw) => {
   const h = harness();
   const socket = h.connect();
   socket.raw(raw);
+  expect(h.session.currentStatus).toBe('protocol-error');
+  h.session.close();
+});
+
+test('a binary frame that is not a gzip snapshot fails closed', async () => {
+  const h = harness();
+  const socket = h.connect();
+  socket.raw(new Uint8Array([1]));
+  await Promise.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
   expect(h.session.currentStatus).toBe('protocol-error');
   h.session.close();
 });

@@ -3,34 +3,26 @@ import { Stage } from './render/stage';
 import type { View } from './render/stage';
 import { CityScene } from './render/city';
 import { ConstructionOverlay } from './render/construction';
-import { BUILDINGS, footprint, ROAD_COST } from './sim/catalog';
+import { BUILDINGS } from './sim/catalog';
 import { demolitionPreview, footprintTileIssues, harbourRoute, suitableFarmGround } from './sim/construction';
-import { CELL_SIZE, groundHeight, islandFor, nextArchipelagoSeed, terrainOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
-import { roadHeight, stairLayout } from './sim/stairs';
-import { advance, buildingStatus, createWorld, getSummary, placement, roadPathPlacement, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
-import { deserializeWorld, savedBeforeArchipelago, serializeWorld } from './sim/save';
+import { CELL_SIZE, islandFor, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
+import { buildingStatus, getSummary, placement, roadPathPlacement, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
 import { animalName, animalStatus } from './sim/wildlife';
-import { buildStarterNeighbourhood, planStarterNeighbourhood } from './sim/scenario';
-import type { ActionResult, Building, BuildTool, City, Placement, Rotation, Tile, Tool, Walker } from './sim/types';
+import type { Building, City, Placement, Rotation, Tile, Tool, Walker, World } from './sim/types';
 import { createHud, type CityScope } from './ui/hud';
-import { AUTOSAVE_KEY, islandFilename, readCheckpoint, writeAutosave, writeCheckpoint } from './ui/save-slots';
 import { createSound } from './ui/sound';
 import { celebration, cityMilestones, NO_MILESTONES, rememberMilestones } from './ui/celebrations';
-import { parseView, VIEW_KEY } from './ui/view';
-import { canUndoConstruction, undoConstruction } from './sim/history';
 import { foundingPlacement } from './sim/founding';
 import type { CityCommand } from './sim/commands';
-import { activeCity, bootstrapCityContext, canWrite, contextForOwnedCity, reconcileContext, resolveCity, submitCityCommand, viewedCity, withPersistence, withViewed } from './ui/city-context';
+import { activeCity, canWrite, contextForOwnedCity, reconcileContext, resolveCity, viewedCity, withViewed } from './ui/city-context';
 import { SharedSession, type SendOutcome, type SharedRequestOutcome, type SharedSessionStatus, type SharedSnapshot } from './ui/shared-session';
 import { SharedIntent } from './ui/shared-intent';
 import './ui/style.css';
 
 export interface SharedBootSource {
-  kind: 'shared';
   session: SharedSession;
   initialSnapshot: SharedSnapshot;
 }
-export type BootSource = { kind: 'local' } | SharedBootSource;
 
 export interface BootHandles {
   onSnapshot(snapshot: SharedSnapshot): void;
@@ -39,64 +31,15 @@ export interface BootHandles {
   onOutcome(result: SharedRequestOutcome): void;
 }
 
-const SAVE_KEY = AUTOSAVE_KEY;
-
-function createLocalWorld(): { world: ReturnType<typeof createWorld>; warning: string; autoSaveEnabled: boolean } {
-  let world = createWorld();
-  let warning = '';
-  let autoSaveEnabled = true;
-  try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (raw) {
-      const saved = deserializeWorld(raw);
-      if (saved) world = saved;
-      else {
-        autoSaveEnabled = false;
-        warning = savedBeforeArchipelago(raw)
-          ? 'The sea opened up: a city built on the single island cannot be moved to the archipelago. A fresh map is open; Save will replace the old file.'
-          : 'Saved island could not be read. A fresh island is open; Save will replace the old file.';
-      }
-    }
-  } catch {
-    autoSaveEnabled = false;
-    warning = 'Browser storage is unavailable. This island cannot be saved.';
-  }
-  return { world, warning, autoSaveEnabled };
-}
-
-function restoreLocalView(seed: number, home: number | undefined): View | null {
-  try {
-    return parseView(localStorage.getItem(VIEW_KEY), seed, home);
-  } catch {
-    return null;
-  }
-}
-
-export function boot(source: BootSource = { kind: 'local' }): BootHandles | void {
-  let world: ReturnType<typeof createWorld>;
-  let autoSaveEnabled: boolean;
-  let storageWarning: string;
-  let realmId: string | null;
-  let bindingId: string | null;
+export function boot(source: SharedBootSource): BootHandles {
+  let world: World = source.initialSnapshot.world;
+  let realmId: string = source.initialSnapshot.realmId;
+  let bindingId: string = source.initialSnapshot.session.binding;
   let stateGeneration = 0;
-  if (source.kind === 'local') {
-    const local = createLocalWorld();
-    world = local.world;
-    autoSaveEnabled = local.autoSaveEnabled;
-    storageWarning = local.warning;
-    realmId = null;
-    bindingId = null;
-  } else {
-    world = source.initialSnapshot.world;
-    autoSaveEnabled = false;
-    storageWarning = '';
-    realmId = source.initialSnapshot.realmId;
-    bindingId = source.initialSnapshot.session.binding;
-  }
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const stage = new Stage(document.querySelector<HTMLElement>('#app')!, false);
   stage.reducedMotion = reducedMotion;
-  let context = source.kind === 'local' ? bootstrapCityContext(world) : contextForOwnedCity(world, source.initialSnapshot.session.ownedCityIds);
+  let context = contextForOwnedCity(world, source.initialSnapshot.session.ownedCityIds);
   const cameraMemory = new Map<number, View>();
   function mapFor(home: City | null): ReturnType<typeof islandFor> {
     return home ? islandFor(world.seed, home.home) : islandFor(world.seed);
@@ -121,13 +64,7 @@ export function boot(source: BootSource = { kind: 'local' }): BootHandles | void
   stage.bounds(seaBounds(world.seed));
   const initialActive = activeCity(world, context);
   if (initialActive) stage.setView(viewFor(initialActive));
-  else if (source.kind === 'shared') stage.setView(overviewView(world.seed));
-  if (source.kind === 'local') {
-    const savedView = restoreLocalView(world.seed, initialActive?.home);
-    if (savedView) {
-      try { stage.setView(savedView); } catch {}
-    }
-  }
+  else stage.setView(overviewView(world.seed));
   function rebuildScene(preserveView = false): void {
     const previousView = stage.getView();
     city.dispose();
@@ -141,26 +78,20 @@ export function boot(source: BootSource = { kind: 'local' }): BootHandles | void
     else {
       const viewed = viewedCity(world, context);
       if (viewed) stage.setView(cameraMemory.get(viewed.id) ?? viewFor(viewed));
-      else if (source.kind === 'shared') stage.setView(overviewView(world.seed));
+      else stage.setView(overviewView(world.seed));
     }
     stage.shadows();
   }
   let tool: Tool = 'inspect';
   let rotation: Rotation = 0;
-  let speed: 0 | 1 | 3 = 1;
   let selectedId: number | null = null;
   let hover: Tile | null = null;
   let drag: { tile: Tile; x: number; y: number; pointer: number; gestureWritable: boolean; gestureGeneration: number } | null = null;
   let bendVertical = false;
   let renderedWritable = false;
-  let accumulator = 0;
-  let dirtySave = false;
   let showGrid = false;
   let artTime = 0;
   let inDebt = false;
-  let menuSpeed: 0 | 1 | 3 | null = null;
-  let importing = false;
-  let undoCheckpoint: typeof world | null = null;
   let milestones = initialActive ? cityMilestones(initialActive) : NO_MILESTONES;
   const sound = createSound();
   window.addEventListener('pointerdown', sound.unlock, { capture: true });
@@ -191,14 +122,13 @@ export function boot(source: BootSource = { kind: 'local' }): BootHandles | void
   }
 
   function writable(): boolean {
-    if (!canWrite(world, context)) return false;
-    return source.kind === 'local' || source.session.canSend();
+    return canWrite(world, context) && source.session.canSend();
   }
 
   function connectionHint(): string {
     if (context.activeId === null) return 'You have no city of your own here.';
     if (context.viewedId !== context.activeId) return 'Visiting another city · read-only. H returns home.';
-    if (source.kind === 'shared' && !source.session.canSend()) return 'Not ready to send actions right now · the world stays visible while this resolves.';
+    if (!source.session.canSend()) return 'Not ready to send actions right now · the world stays visible while this resolves.';
     return 'Viewing another city grants no writes.';
   }
 
@@ -233,7 +163,6 @@ export function boot(source: BootSource = { kind: 'local' }): BootHandles | void
         sound.play(event.sound);
       }
     }
-    hud.setUndo(canUndoConstruction(world, undoCheckpoint));
   }
 
   function selectTool(next: Tool): void {
@@ -258,49 +187,6 @@ export function boot(source: BootSource = { kind: 'local' }): BootHandles | void
     city.scenery.grid.visible = !(home?.founded ?? false) || enabled || tool !== 'inspect';
     hud.setGrid(enabled);
     stage.invalidate();
-  }
-
-  function setSpeed(next: 0 | 1 | 3): void {
-    speed = next;
-    accumulator = 0;
-    hud.setSpeed(speed);
-  }
-
-  function save(manual = true): void {
-    if (!manual && !autoSaveEnabled) return;
-    try {
-      if (manual) writeCheckpoint(localStorage, world);
-      writeAutosave(localStorage, world);
-      dirtySave = false;
-      autoSaveEnabled = true;
-      hud.setSaved();
-      if (manual) hud.notify('Checkpoint saved. Autosaves will not replace it.');
-    } catch {
-      autoSaveEnabled = false;
-      hud.notify('Could not save. Browser storage may be full or unavailable.', true);
-    }
-  }
-
-  function restore(saved: typeof world): void {
-    const previousSeed = world.seed;
-    const previousHome = activeCity(world, context)?.home;
-    world = saved;
-    context = bootstrapCityContext(world);
-    cameraMemory.clear();
-    undoCheckpoint = null;
-    const active = activeCity(world, context);
-    milestones = active ? cityMilestones(active) : NO_MILESTONES;
-    selectedId = null;
-    hover = null;
-    accumulator = 0;
-    dirtySave = true;
-    autoSaveEnabled = true;
-    if (world.seed !== previousSeed || active?.home !== previousHome) rebuildScene();
-    else city.reload(world);
-    selectTool('inspect');
-    setSpeed(0);
-    refresh();
-    save(false);
   }
 
   function switchView(id: number): boolean {
@@ -345,145 +231,37 @@ export function boot(source: BootSource = { kind: 'local' }): BootHandles | void
   const hud = createHud(document.querySelector<HTMLElement>('#ui')!, {
     tool: selectTool,
     rotate: () => { rotation = ((rotation + 1) % 4) as Rotation; hud.setTool(tool, rotation); updatePreview(); },
-    speed: setSpeed,
-    save: () => { if (source.kind === 'local') save(); },
-    load: () => {
-      if (source.kind !== 'local') return;
-      try {
-        const saved = readCheckpoint(localStorage);
-        if (!saved) { hud.notify('No valid checkpoint found. Your current island is unchanged.', true); return; }
-        restore(saved);
-        hud.notify('Checkpoint restored. Paused for you to look around.');
-      } catch { hud.notify('Browser storage is unavailable.', true); }
-    },
-    newIsland: (home) => {
-      if (source.kind !== 'local') return;
-      const seed = nextArchipelagoSeed(world.seed);
-      world = createWorld(seed, home, false);
-      context = bootstrapCityContext(world);
-      cameraMemory.clear();
-      undoCheckpoint = null;
-      const active = activeCity(world, context);
-      milestones = active ? cityMilestones(active) : NO_MILESTONES;
-      autoSaveEnabled = true;
-      selectedId = null;
-      hover = null;
-      accumulator = 0;
-      rebuildScene();
-      selectTool('inspect');
-      setSpeed(1);
-      refresh();
-      save(false);
-      hud.notify(`Island ${(active?.home ?? 0) + 1} awaits. Place your harbour beside the landing road.`);
-    },
-    vendor: (id, enabled) => {
-      if (source.kind === 'local') { apply(submitCityCommand(world, context, { type: 'vendor', id, enabled })); return; }
-      dispatchShared({ type: 'vendor', id, enabled });
-    },
+    vendor: (id, enabled) => dispatchShared({ type: 'vendor', id, enabled }),
     focus: (x, z) => { const point = worldPositionOn(map(), x + .5, z + .5); stage.focus(point.x, point.z); },
     grid: setGrid,
     home: focusVillage,
-    undo: () => { if (source.kind === 'local') undoLastConstruction(); },
     menu: (open) => {
-      if (source.kind === 'local') {
-        if (open) {
-          if (menuSpeed === null) menuSpeed = speed;
-          setSpeed(0);
-          held.clear();
-          panVelocity.right = 0;
-          panVelocity.forward = 0;
-          drag = null;
-        } else if (menuSpeed !== null) {
-          const previousSpeed = menuSpeed;
-          menuSpeed = null;
-          setSpeed(previousSpeed);
-        }
-        return;
-      }
-      if (open) {
-        held.clear();
-        panVelocity.right = 0;
-        panVelocity.forward = 0;
-        drag = null;
-      }
+      if (!open) return;
+      held.clear();
+      panVelocity.right = 0;
+      panVelocity.forward = 0;
+      drag = null;
     },
     sound: (enabled) => { sound.setEnabled(enabled); hud.setSound(enabled); },
-    export: () => {
-      if (source.kind !== 'local') return;
-      const url = URL.createObjectURL(new Blob([serializeWorld(world)], { type: 'application/json' }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = islandFilename(world);
-      link.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    },
-    import: async (file) => {
-      if (source.kind !== 'local' || importing) return;
-      if (file.size > 5_000_000) { hud.notify('That file is too large to be an island save.', true); return; }
-      importing = true;
-      const previousSpeed = speed;
-      setSpeed(0);
-      try {
-        const saved = deserializeWorld(await file.text());
-        if (!saved) {
-          hud.notify('That island could not be read. Your current island is unchanged.', true);
-          setSpeed(previousSpeed);
-          return;
-        }
-        restore(saved);
-        hud.notify('Island imported. Your checkpoint is unchanged.');
-      } catch {
-        hud.notify('Could not read that file. Your current island is unchanged.', true);
-        setSpeed(previousSpeed);
-      } finally {
-        importing = false;
-      }
-    },
     visit: viewCity,
     claim: (home) => {
-      if (source.kind !== 'shared' || source.session.currentSession?.ownedCityIds.length !== 0) return;
+      if (source.session.currentSession?.ownedCityIds.length !== 0) return;
       if (world.cities.some((candidate) => candidate.home === home)) return;
-      sharedIntent?.send({ kind: 'claim', home });
+      sharedIntent.send({ kind: 'claim', home });
     },
     discardPending: () => {
-      if (source.kind !== 'shared') return;
       if (source.session.discardPending()) {
-        sharedIntent?.reset();
+        sharedIntent.reset();
         hud.setClaimError('');
       }
     },
   });
 
-  const sharedIntent = source.kind === 'shared' ? new SharedIntent(source.session, () => realmId!, (outcome, kind) => {
+  const sharedIntent = new SharedIntent(source.session, () => realmId, (outcome, kind) => {
     applySharedOutcome(outcome);
     if (kind === 'claim') hud.setClaimError(outcome.ok ? '' : outcome.reason);
     onStatusUpdate(source.session.currentStatus, source.session.statusReason);
-  }) : null;
-
-  function apply(result: ActionResult): void {
-    hud.notify(result.reason, !result.ok);
-    if (!result.ok) sound.play('error');
-    else if (tool === 'road') sound.play('road');
-    else if (tool === 'demolish') sound.play('remove');
-    else sound.play('build');
-    if (result.ok) {
-      undoCheckpoint = null;
-      dirtySave = true;
-      refresh();
-      updatePreview();
-    }
-  }
-
-  function construct(command: CityCommand): ActionResult {
-    const before = structuredClone(world);
-    const result = submitCityCommand(world, context, command);
-    apply(result);
-    if (result.ok) {
-      undoCheckpoint = before;
-      hud.setUndo(true);
-    }
-    return result;
-  }
+  });
 
   function applySharedOutcome(outcome: SendOutcome): void {
     const uncertain = outcome.status === 'indeterminate';
@@ -494,26 +272,7 @@ export function boot(source: BootSource = { kind: 'local' }): BootHandles | void
 
   function dispatchShared(command: CityCommand): void {
     if (!writable()) { applySharedOutcome({ ok: false, reason: 'Viewing another city grants no writes.', status: 'unsent' }); return; }
-    sharedIntent?.send({ kind: 'command', cityId: context.activeId!, command });
-  }
-
-  function submit(command: CityCommand): ActionResult | undefined {
-    if (source.kind === 'local') return construct(command);
-    dispatchShared(command);
-    return undefined;
-  }
-
-  function undoLastConstruction(): void {
-    const restored = undoConstruction(world, undoCheckpoint);
-    if (!restored) return;
-    world = restored;
-    undoCheckpoint = null;
-    selectedId = null;
-    dirtySave = true;
-    refresh();
-    updatePreview();
-    sound.play('remove');
-    hud.notify('Construction undone.');
+    sharedIntent.send({ kind: 'command', cityId: context.activeId!, command });
   }
 
   function atPointer(event: PointerEvent): Tile | null {
@@ -647,18 +406,7 @@ export function boot(source: BootSource = { kind: 'local' }): BootHandles | void
       const gestureStillValid = drag.gestureWritable && drag.gestureGeneration === stateGeneration && writable();
       const home = gestureStillValid ? activeCity(world, context) : null;
       if (home && !home.founded) {
-        if (source.kind === 'local') {
-          const result = submitCityCommand(world, context, { type: 'foundHarbour', x: hover.x, z: hover.z });
-          apply(result);
-          if (result.ok) {
-            selectedId = home.harbour.id;
-            selectTool('inspect');
-            refresh();
-            save(false);
-          }
-        } else {
-          dispatchShared({ type: 'foundHarbour', x: hover.x, z: hover.z });
-        }
+        dispatchShared({ type: 'foundHarbour', x: hover.x, z: hover.z });
       } else if (!home || tool === 'inspect') {
         const picked = city.pick(event.clientX, event.clientY);
         selectedId = picked.walker ?? picked.animal ?? picked.building;
@@ -666,16 +414,9 @@ export function boot(source: BootSource = { kind: 'local' }): BootHandles | void
       } else if (tool === 'demolish') {
         const picked = city.pick(event.clientX, event.clientY);
         const hit = home.buildings.find((building) => building.id === picked.building);
-        submit({ type: 'demolish', x: hit?.x ?? hover.x, z: hit?.z ?? hover.z });
-      } else if (tool === 'road') submit({ type: 'roadPath', tiles: roadPath() });
-      else {
-        const buildingTool = tool;
-        const result = submit({ type: 'build', tool: buildingTool, x: hover.x, z: hover.z, rotation });
-        if (result?.ok) {
-          selectedId = home.buildings.find((building) => building.x === hover!.x && building.z === hover!.z)?.id ?? null;
-          refresh();
-        }
-      }
+        dispatchShared({ type: 'demolish', x: hit?.x ?? hover.x, z: hit?.z ?? hover.z });
+      } else if (tool === 'road') dispatchShared({ type: 'roadPath', tiles: roadPath() });
+      else dispatchShared({ type: 'build', tool, x: hover.x, z: hover.z, rotation });
     }
     drag = null;
     updatePreview();
@@ -696,13 +437,6 @@ export function boot(source: BootSource = { kind: 'local' }): BootHandles | void
   });
   window.addEventListener('keydown', (event) => {
     if (event.target instanceof HTMLElement && (event.target.closest('input,select,textarea,dialog') || event.target.isContentEditable)) return;
-    if (event.metaKey || event.ctrlKey) {
-      if (source.kind === 'local' && event.key.toLowerCase() === 'z' && !event.shiftKey) {
-        event.preventDefault();
-        undoLastConstruction();
-      }
-      return;
-    }
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     const keys: Record<string, Tool> = { '1': 'road', '2': 'house', '3': 'farm', '4': 'granary', '5': 'agora', '6': 'fountain', '7': 'maintenance', '8': 'lodge', '9': 'woodcutter', '0': 'stockpile', x: 'demolish' };
     if (event.key === 'Escape') {
@@ -710,7 +444,6 @@ export function boot(source: BootSource = { kind: 'local' }): BootHandles | void
       if (!escapeOpensMenu) selectTool('inspect');
     } else if (keys[event.key]) selectTool(keys[event.key]);
     else if (event.key.toLowerCase() === 'g') setGrid(!showGrid);
-    else if (event.code === 'Space' && !(event.target instanceof HTMLButtonElement)) { event.preventDefault(); if (source.kind === 'local') setSpeed(speed === 0 ? 1 : 0); }
     else if (event.key.toLowerCase() === 'r') { rotation = ((rotation + 1) % 4) as Rotation; hud.setTool(tool, rotation); updatePreview(); }
     else if (event.key.toLowerCase() === 'q') stage.rotate();
     else if (event.key.toLowerCase() === 'h') focusVillage();
@@ -726,7 +459,6 @@ export function boot(source: BootSource = { kind: 'local' }): BootHandles | void
 
   let previous = 0;
   let lastRender = 0;
-  let lastSave = 0;
   let visualDelta = 0;
   function frame(now: number): void {
     const delta = previous === 0 || document.hidden ? 0 : Math.min((now - previous) / 1000, .25);
@@ -747,66 +479,27 @@ export function boot(source: BootSource = { kind: 'local' }): BootHandles | void
     city.watch(stage.controls.target, stage.viewSpan());
     city.transitions(delta);
     if (!document.hidden) {
-      if (source.kind === 'local' && speed > 0) {
-        accumulator += delta * speed;
-        let changed = false;
-        while (accumulator >= .25) {
-          advance(world, .25);
-          accumulator -= .25;
-          changed = true;
+      visualDelta += delta;
+      if (now - lastRender >= 1000 / 30) {
+        if (!reducedMotion) {
+          artTime += visualDelta;
+          city.animate(artTime, visualDelta, 1);
+          stage.shadowsFromMotion();
         }
-        if (changed) {
-          dirtySave = true;
-          refresh();
-          if (reducedMotion) {
-            city.animate(0, .25, 1);
-            stage.shadows();
-          }
-        }
+        visualDelta = 0;
+        lastRender = now;
       }
-      const animating = source.kind === 'shared' || speed > 0;
-      if (animating) {
-        visualDelta += delta;
-        if (now - lastRender >= 1000 / 30) {
-          if (!reducedMotion) {
-            artTime += visualDelta;
-            city.animate(artTime, visualDelta, source.kind === 'local' ? speed : 1);
-            stage.shadowsFromMotion();
-          }
-          visualDelta = 0;
-          lastRender = now;
-        }
-      }
-    }
-    if (source.kind === 'local' && now - lastSave >= 5000) {
-      if (dirtySave) save(false);
-      lastSave = now;
     }
     requestAnimationFrame(frame);
   }
   document.addEventListener('visibilitychange', () => { previous = 0; if (!document.hidden) stage.invalidate(); });
-  function saveView(): void {
-    if (source.kind !== 'local') return;
-    try {
-      const active = activeCity(world, context);
-      if (!active) return;
-      const view = context.viewedId === context.activeId ? stage.getView() : cameraMemory.get(active.id);
-      if (!view) return;
-      localStorage.setItem(VIEW_KEY, JSON.stringify({ seed: world.seed, home: active.home, view }));
-    } catch {}
-  }
-  window.addEventListener('pagehide', () => { if (source.kind === 'local' && dirtySave) save(false); saveView(); });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) saveView(); });
-  hud.setSharedMode(source.kind === 'shared');
   selectTool('inspect');
-  hud.setSpeed(speed);
   hud.setSound(sound.enabled);
-  if (source.kind === 'shared') updateClaimAvailability(source.initialSnapshot);
+  updateClaimAvailability(source.initialSnapshot);
   refresh();
-  if (source.kind === 'shared' && reducedMotion) city.animate(0, .25, 1);
+  if (reducedMotion) city.animate(0, .25, 1);
   city.watch(stage.controls.target, stage.viewSpan());
   stage.shadows();
-  if (storageWarning) hud.notify(storageWarning, true);
   requestAnimationFrame(frame);
 
   function updateClaimAvailability(snapshot: SharedSnapshot): void {
@@ -814,99 +507,6 @@ export function boot(source: BootSource = { kind: 'local' }): BootHandles | void
     hud.setClaimAvailable(available, available ? world.seed : undefined, world.cities.map((candidate) => candidate.home));
   }
 
-  function debugCommand(raw: unknown): ActionResult {
-    if (source.kind !== 'local') return { ok: false, reason: 'Debug simulation commands are unavailable in a shared game.' };
-    return withPersistence(submitCityCommand(world, context, raw), () => { refresh(); save(true); });
-  }
-
-  if (import.meta.env.DEV || new URLSearchParams(location.search).has('debug')) {
-    Reflect.set(window, 'oikos', {
-      get state() { return structuredClone(world); },
-      freshWorld: (seed: number, home: number, founded = true) => {
-        if (source.kind !== 'local') throw new Error('freshWorld is unavailable in a shared game.');
-        return createWorld(seed, home, founded);
-      },
-      get summary() { const home = activeCity(world, context); return home ? getSummary(home) : { population: 0, workers: 0, jobs: 0, food: 0, income: 0, upkeep: 0, balance: 0, prosperous: 0, goal: false }; },
-      get frames() { return stage.frames; },
-      get drawCalls() { return stage.renderer.info.render.calls; },
-      get sceneBudget() {
-        const tally: Record<string, { meshes: number; triangles: number }> = {};
-        stage.scene.traverse((object) => {
-          const mesh = object as T.InstancedMesh;
-          if (!(mesh as T.Mesh).isMesh) return;
-          const position = mesh.geometry.getAttribute('position');
-          if (!position) return;
-          const instances = mesh.isInstancedMesh ? mesh.count : 1;
-          const triangles = (mesh.geometry.index ? mesh.geometry.index.count : position.count) / 3 * instances;
-          let owner: T.Object3D | null = mesh;
-          let name = mesh.isInstancedMesh ? 'instanced' : 'mesh';
-          while (owner) {
-            if (owner.name) { name = owner.name; break; }
-            owner = owner.parent;
-          }
-          const entry = tally[name] ?? { meshes: 0, triangles: 0 };
-          entry.meshes += 1;
-          entry.triangles += triangles;
-          tally[name] = entry;
-        });
-        return tally;
-      },
-      get triangles() { return stage.renderer.info.render.triangles; },
-      get foamVersion() { return (city.scenery.foam.mesh.geometry.attributes.position as T.BufferAttribute).version; },
-      get camera() { return [...stage.camera.position.toArray(), ...stage.controls.target.toArray(), stage.camera.zoom]; },
-      projectTile: (x: number, z: number) => { const p = worldPositionOn(map(), x + .5, z + .5); const roads = activeCity(world, context)?.roads ?? []; return stage.project(p.x, roadHeight(map(), stairLayout(map(), new Set(roads)), x + .5, z + .5), p.z); },
-      projectPoint: (x: number, z: number, y = 0) => { const p = worldPositionOn(map(), x, z); return stage.project(p.x, groundHeight(map(), Math.floor(x), Math.floor(z)) + y, p.z); },
-      projectBuilding: (id: number) => {
-        const building = findBuildingOwner(id)?.building;
-        if (!building) return null;
-        const size = footprint(building.kind, building.rotation);
-        const p = worldPositionOn(map(), building.x + size.width / 2, building.z + size.depth / 2);
-        return stage.project(p.x, groundHeight(map(), building.x, building.z) + 1.5, p.z);
-      },
-      advance: (seconds: number) => {
-        if (source.kind !== 'local') return;
-        setSpeed(0);
-        advance(world, seconds);
-        refresh();
-        dirtySave = true;
-        stage.shadows();
-      },
-      get plan() { const home = activeCity(world, context); return home ? planStarterNeighbourhood(world, home) : null; },
-      foundingPlacement: (x: number, z: number) => {
-        const home = activeCity(world, context);
-        return home ? foundingPlacement(world, home, x, z) : { ok: false, reason: 'You have no city of your own here.', cost: 0, tiles: [] };
-      },
-      buildPlan: () => {
-        if (source.kind !== 'local') return { ok: false, reason: 'Scenario building is unavailable in a shared game.' };
-        if (!canWrite(world, context)) return { ok: false, reason: 'Viewing another city grants no writes.' };
-        const home = activeCity(world, context);
-        if (!home) return { ok: false, reason: 'You have no city of your own here.' };
-        const result = buildStarterNeighbourhood(world, home);
-        refresh();
-        save(true);
-        stage.shadows();
-        return result;
-      },
-      build: (tool: BuildTool, x: number, z: number) => debugCommand({ type: 'build', tool, x, z, rotation: 0 }),
-      road: (tiles: Tile[]) => debugCommand({ type: 'roadPath', tiles }),
-      projectWalker: (id: number) => {
-        const point = city.moverPoint(id);
-        return point ? stage.project(point.x, point.y + .5, point.z) : null;
-      },
-      probe: (clientX: number, clientY: number) => city.probe(clientX, clientY),
-      focusTile: (x: number, z: number) => { const point = worldPositionOn(map(), x + .5, z + .5); stage.focus(point.x, point.z, true); },
-      terrainAt: (x: number, z: number) => terrainOn(map(), x, z),
-      get map() { const island = map(); return { width: island.width, depth: island.depth, home: island.home, islands: island.islands, entry: island.entry, terrain: island.terrain, level: Array.from(island.level) }; },
-      roadCost: ROAD_COST,
-      saveKey: SAVE_KEY,
-      get overlayCounts() { return overlay.counts; },
-      get cityContext() { return { ...context }; },
-      visit: (id: number) => viewCity(id),
-    });
-  }
-
-  if (source.kind !== 'shared') return;
-  const shared = source;
 
   function connectionMessage(status: SharedSessionStatus): string {
     switch (status) {
@@ -938,12 +538,11 @@ export function boot(source: BootSource = { kind: 'local' }): BootHandles | void
     }
     const contextChanged = previousContext.activeId !== context.activeId || previousContext.viewedId !== context.viewedId;
     if (realmChanged || bindingChanged) {
-      sharedIntent?.reset();
+      sharedIntent.reset();
       hud.setClaimError('');
     }
     if (realmChanged || bindingChanged || contextChanged) {
       if (realmChanged) cameraMemory.clear();
-      undoCheckpoint = null;
       const active = activeCity(world, context);
       milestones = active ? cityMilestones(active) : NO_MILESTONES;
       selectedId = null;
@@ -964,7 +563,7 @@ export function boot(source: BootSource = { kind: 'local' }): BootHandles | void
   function onStatusUpdate(status: SharedSessionStatus, reason: string): void {
     hud.setConnection(status !== 'ready', reason.length > 0 ? reason : connectionMessage(status));
     hud.setDiscardAvailable(status === 'indeterminate' || status === 'storage-error');
-    hud.setClaimBusy((sharedIntent?.busy ?? false) || !shared.session.canSend());
+    hud.setClaimBusy(sharedIntent.busy || !source.session.canSend());
     const nowWritable = writable();
     if (!nowWritable) {
       if (tool !== 'inspect') selectTool('inspect');
@@ -976,7 +575,7 @@ export function boot(source: BootSource = { kind: 'local' }): BootHandles | void
   }
 
   function onOutcomeUpdate(result: SharedRequestOutcome): void {
-    sharedIntent?.outcome(result);
+    sharedIntent.outcome(result);
   }
 
   return {

@@ -4,21 +4,26 @@ Live at <https://oikos.vhtm.eu>.
 
 *Οἶκος* (oikos): the household, root of *economy*. A city builder on the Aegean:
 settle an island, feed and water its households along real roads, hunt, fell,
-farm and trade your way to a thriving city. Kalliste is an archipelago of eight
-islands; you start on the most central one, or choose another through Menu → New
-island. Each has a prepared landing road. On a new island, place your founding
-dockyard beside that road before building homes; the rest remain unsettled.
+farm and trade your way to a thriving city. Kalliste is a shared archipelago of
+eight islands. Join under a name, claim an unclaimed island, place your founding
+dockyard beside its landing road, and build. One player or eight, it is the same
+world: the server owns it and saves it.
 
 ```bash
 npm install
-npm run dev
+npm run dev                                     # the game; needs a running authority
 ```
 
-- `/` — playable archipelago; autosaves locally, never to a server.
+- `/` — the shared archipelago. Nothing is saved locally.
 - `/art.html` — isolated model viewer.
 - `/sandbox.html` — one local island for terrain and road art work; no HUD, no saves.
-- `/shared.html` — the same game on a private shared archipelago; needs a running
-  authority, admits anyone under a name, and saves nothing locally.
+
+Running the authority locally:
+
+```bash
+npm run authority -- init /tmp/oikos/world.db
+OIKOS_DB=/tmp/oikos/world.db OIKOS_PUBLIC_ORIGIN=http://localhost:5180 npm run server
+```
 
 ## Play
 
@@ -31,11 +36,10 @@ overseas for coin.
 
 Left-click builds or inspects. Drag to lay roads. WASD / arrow keys or right-drag
 pan; scroll zooms; Alt-drag orbits. `1`–`0` select construction tools, `X` demolishes, `R` rotates a
-building, `G` toggles the grid, `Q` rotates the camera, `H` returns to the village,
-and `Space` pauses. `Shift` switches the bend while laying roads.
-`Escape` cancels the current tool or opens the menu, pausing the city until closed.
-The menu holds checkpoints, import/export, sound, and the model atelier.
-Autosaves never replace your manual checkpoint. Camera and sound preferences stay local.
+building, `G` toggles the grid, `Q` rotates the camera, and `H` returns to the village.
+`Shift` switches the bend while laying roads. `Escape` cancels the current tool or
+opens the menu. Shared time never pauses for a menu; a pause of your own is still to
+come. The menu holds the grid, sound, and the model atelier.
 
 ## Development
 

@@ -1,8 +1,10 @@
-# Private shared game
+# The shared game
 
-`/` remains the local game. `/shared.html` renders authoritative snapshots through
-SharedSession; it never advances, replaces or autosaves the shared World locally.
-The private transport must serve the production frontend and same-origin API.
+`/` is the only game. It renders authoritative snapshots through SharedSession; it
+never advances, replaces or saves the World locally. The private transport must
+serve the frontend and same-origin API. There is no local mode, no checkpoint,
+import, export, undo or speed control: the server owns the world and its clock.
+A menu pause of one's own, for a world nobody else is playing, is still to come.
 
 Joining takes a name and nothing else: the credential cookie is the whole account.
 It admits a player without claiming an island. Choose an available island,
@@ -24,6 +26,5 @@ automatically retried as fresh intent. Request outcomes are associated with thei
 sequence and realm/login scope; promise fallback and event delivery share one
 presentation path.
 
-Menus do not pause shared time. Shared mode exposes no local checkpoint, import,
-export, reset, undo or speed controls. Browser storage failures still allow
+Menus do not pause shared time. Browser storage failures still allow
 read-only snapshots. Startup failure retains a visible error and closes the socket.

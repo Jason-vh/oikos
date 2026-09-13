@@ -32,6 +32,19 @@ export interface SharedSessionEvents {
   outcome?(result: SharedRequestOutcome): void;
 }
 
+function compressed(data: unknown): data is Blob | ArrayBuffer | ArrayBufferView {
+  return data instanceof Blob || data instanceof ArrayBuffer || ArrayBuffer.isView(data);
+}
+
+async function inflate(data: Blob | ArrayBuffer | ArrayBufferView): Promise<string> {
+  try {
+    const blob = data instanceof Blob ? data : new Blob([data as BlobPart]);
+    return await new Response(blob.stream().pipeThrough(new DecompressionStream('gzip'))).text();
+  } catch {
+    return '';
+  }
+}
+
 export interface SharedSessionInit {
   connect(): WebSocket;
   storage: SharedSessionStorage;
@@ -132,8 +145,20 @@ export class SharedSession {
       this.phase = 'open';
       this.notify();
     };
+    let decoding: Promise<void> = Promise.resolve();
+    let decodingDepth = 0;
     const message = (event: MessageEvent) => {
-      if (current()) this.onMessage(event.data);
+      const data: unknown = event.data;
+      if (decodingDepth === 0 && !compressed(data)) {
+        if (current()) this.onMessage(data);
+        return;
+      }
+      decodingDepth += 1;
+      decoding = decoding.then(async () => {
+        const text = compressed(data) ? await inflate(data) : data;
+        decodingDepth -= 1;
+        if (current()) this.onMessage(text);
+      });
     };
     const lost = () => { if (current()) this.disconnected(); };
     socket.addEventListener('open', opened);

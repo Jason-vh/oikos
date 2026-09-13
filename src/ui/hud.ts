@@ -2,25 +2,18 @@ import type { Building, City, Rotation, Summary, Tool, World } from '../sim/type
 import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, VENDOR_COST } from '../sim/catalog';
 import { FOOD_CONSUMPTION_PER_RESIDENT, WATER_DECAY_PER_SECOND } from '../sim/balance';
 import { toolIcon } from './icons';
-import { ISLAND_COUNT, nextArchipelagoSeed } from '../sim/island';
+import { ISLAND_COUNT } from '../sim/island';
 import { createIslandChoice } from './island-choice';
 
 export interface HudActions {
   tool(tool: Tool): void;
   rotate(): void;
-  speed(speed: 0 | 1 | 3): void;
-  save(): void;
-  load(): void;
-  newIsland(home?: number): void;
   vendor(id: number, enabled: boolean): void;
   focus(x: number, z: number): void;
   grid(enabled: boolean): void;
   menu(open: boolean): void;
   home(): void;
-  export(): void;
-  import(file: File): void;
   sound(enabled: boolean): void;
-  undo(): void;
   visit(id: number): void;
   claim(home: number): void;
   discardPending(): void;
@@ -38,15 +31,11 @@ export type Selection =
 export interface Hud {
   update(world: World, viewed: CityScope | null, active: CityScope | null, selected: Selection | null, writable: boolean): void;
   setTool(tool: Tool, rotation: Rotation): void;
-  setSpeed(speed: 0 | 1 | 3): void;
   notify(message: string, error?: boolean): void;
   setHint(message: string): void;
   setGrid(enabled: boolean): void;
   setSound(enabled: boolean): void;
-  setSaved(): void;
-  setUndo(available: boolean): void;
   setCities(cities: { id: number; label: string }[], viewedId: number | null, activeId?: number | null): void;
-  setSharedMode(enabled: boolean): void;
   setConnection(blocked: boolean, message: string): void;
   setClaimAvailable(available: boolean, seed?: number, claimedHomes?: number[]): void;
   setClaimBusy(busy: boolean): void;
@@ -140,11 +129,6 @@ const SKELETON = `
       </dl>
       <div class="hud-clock">
         <time data-field="time">1 Jan 421 BC</time>
-        <div class="hud-speed" role="group" aria-label="Simulation speed">
-          <button type="button" data-speed="0" aria-pressed="false" aria-label="Pause, shortcut Space">Pause</button>
-          <button type="button" data-speed="1" aria-pressed="true" aria-label="Normal speed">1\u00d7</button>
-          <button type="button" data-speed="3" aria-pressed="false" aria-label="Fast speed">3\u00d7</button>
-        </div>
         <button type="button" class="hud-menu-button" data-action="home" aria-label="Return to village, shortcut H">Village</button>
         <button type="button" class="hud-menu-button" data-action="menu" aria-label="Menu, shortcut Escape" data-testid="menu">Menu</button>
       </div>
@@ -185,7 +169,6 @@ const SKELETON = `
     <button type="button" class="hud-vendor" data-action="vendor" hidden data-testid="vendor-toggle"></button>
   </details>
   <div class="hud-bottom">
-    <button type="button" class="hud-panel hud-undo" data-action="undo" data-testid="undo" hidden>Undo construction · Ctrl / ⌘ Z</button>
     <p class="hud-hint" data-field="hint" role="note" hidden></p>
     <div class="hud-panel hud-toolbar" role="group" aria-label="Build tools" data-testid="toolbar"></div>
   </div>
@@ -194,15 +177,10 @@ const SKELETON = `
     <form method="dialog">
       <h2 lang="grc">Οἶκος</h2>
       <div class="hud-menu-actions">
-        <button type="submit" value="save" data-testid="save">Save checkpoint</button>
-        <button type="submit" value="load" data-testid="load">Restore checkpoint</button>
-        <button type="submit" value="export" data-testid="export">Export island</button>
-        <button type="submit" value="import" data-testid="import">Import island</button>
-        <button type="submit" value="new" data-testid="new-island">New island</button>
         <button type="submit" value="grid" data-testid="grid-toggle" aria-pressed="false">Placement grid</button>
         <button type="button" data-action="sound" data-testid="sound-toggle" aria-pressed="true">Sound on</button>
       </div>
-      <p class="hud-save-status" data-field="saved">Autosaves locally. Checkpoints stay until you replace them.</p>
+      <p class="hud-save-status" data-field="saved">The server saves this city. Menus do not pause shared time.</p>
       <dl class="hud-keys">
         <div><dt>1\u20130</dt><dd>Build tools</dd></div>
         <div><dt>X</dt><dd>Demolish</dd></div>
@@ -211,29 +189,9 @@ const SKELETON = `
         <div><dt>WASD / \u2190\u2191\u2192\u2193</dt><dd>Pan the view</dd></div>
         <div><dt>Q / H</dt><dd>Rotate / return to village</dd></div>
         <div><dt>Shift</dt><dd>Switch road bend</dd></div>
-        <div data-local-only><dt>Space</dt><dd>Pause</dd></div>
         <div><dt>Esc</dt><dd>Cancel tool / menu</dd></div>
       </dl>
       <p class="hud-menu-footer"><a href="/art.html" target="_blank" rel="noopener">Model atelier</a><button type="submit" value="close">Close</button></p>
-    </form>
-  </dialog>
-  <dialog class="hud-dialog hud-island-dialog" data-testid="new-island-dialog" aria-labelledby="new-island-title">
-    <form method="dialog">
-      <h2 id="new-island-title">Start a new island?</h2>
-      <p>This opens a fresh archipelago and replaces your autosave. Save a checkpoint or export first to keep this city.</p>
-      <canvas class="hud-island-map" data-testid="island-preview" role="img" aria-label="Archipelago preview"></canvas>
-      <p data-testid="island-facts" aria-live="polite"></p>
-      <label class="hud-island-choice">Starting island
-        <select name="home" data-testid="starting-island">
-          <option value="">Central island (recommended)</option>
-          ${Array.from({ length: ISLAND_COUNT }, (_, index) => `<option value="${index}">Island ${index + 1}</option>`).join('')}
-        </select>
-      </label>
-      <p>Next, place your dockyard beside the prepared landing road. The other islands remain unexplored.</p>
-      <div class="hud-dialog-actions">
-        <button type="submit" value="cancel" autofocus>Cancel</button>
-        <button type="submit" value="confirm" class="hud-primary">New island</button>
-      </div>
     </form>
   </dialog>
   <dialog class="hud-dialog hud-island-dialog" data-testid="claim-dialog" aria-labelledby="claim-title">
@@ -254,7 +212,6 @@ const SKELETON = `
       </div>
     </form>
   </dialog>
-  <input type="file" data-testid="import-file" accept=".json,application/json" hidden />
 `;
 
 function field(root: ParentNode, name: string): HTMLElement {
@@ -307,29 +264,6 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     toolButtons.set(def.tool, button);
   }
 
-  const speedButtons = new Map<0 | 1 | 3, HTMLButtonElement>();
-  root.querySelectorAll<HTMLButtonElement>('[data-speed]').forEach((button) => {
-    const speed = Number(button.dataset.speed) as 0 | 1 | 3;
-    speedButtons.set(speed, button);
-    button.addEventListener('click', () => actions.speed(speed));
-  });
-
-  const dialog = root.querySelector<HTMLDialogElement>('[data-testid="new-island-dialog"]')!;
-  const showIslandChoice = createIslandChoice(
-    dialog.querySelector<HTMLCanvasElement>('[data-testid="island-preview"]')!,
-    dialog.querySelector<HTMLSelectElement>('[name="home"]')!,
-    dialog.querySelector<HTMLElement>('[data-testid="island-facts"]')!,
-  );
-  let nextSeed = nextArchipelagoSeed(1);
-  dialog.addEventListener('close', () => {
-    actions.menu(false);
-    if (dialog.returnValue === 'confirm') {
-      const choice = dialog.querySelector<HTMLSelectElement>('[name="home"]')!.value;
-      actions.newIsland(choice === '' ? undefined : Number(choice));
-    }
-    dialog.returnValue = '';
-  });
-
   const claimDialog = root.querySelector<HTMLDialogElement>('[data-testid="claim-dialog"]')!;
   const claimSelect = claimDialog.querySelector<HTMLSelectElement>('[name="claim-home"]')!;
   const claimError = field(claimDialog, 'claim-error');
@@ -355,29 +289,14 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     actions.menu(true);
     menu.showModal();
   }
-  const importFile = root.querySelector<HTMLInputElement>('[data-testid="import-file"]')!;
-  importFile.addEventListener('change', () => {
-    const file = importFile.files?.[0];
-    if (file) actions.import(file);
-    importFile.value = '';
-  });
   action(root, 'home').addEventListener('click', actions.home);
-  action(root, 'undo').addEventListener('click', actions.undo);
   action(root, 'sound').addEventListener('click', () => actions.sound(action(root, 'sound').getAttribute('aria-pressed') !== 'true'));
   action(root, 'menu').addEventListener('click', openMenu);
   menu.addEventListener('close', () => {
     const choice = menu.returnValue;
     menu.returnValue = '';
-    if (choice !== 'new') actions.menu(false);
-    if (choice === 'save') actions.save();
-    else if (choice === 'load') actions.load();
-    else if (choice === 'new') {
-      showIslandChoice(nextSeed);
-      dialog.showModal();
-    }
-    else if (choice === 'export') actions.export();
-    else if (choice === 'import') importFile.click();
-    else if (choice === 'grid') actions.grid(gridButton.getAttribute('aria-pressed') !== 'true');
+    actions.menu(false);
+    if (choice === 'grid') actions.grid(gridButton.getAttribute('aria-pressed') !== 'true');
   });
 
 
@@ -566,7 +485,6 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
   const toastTimers = new Set<number>();
 
   function update(world: World, viewed: CityScope | null, active: CityScope | null, selected: Selection | null, writable: boolean): void {
-    nextSeed = nextArchipelagoSeed(world.seed);
     const money = viewed?.city.money ?? 0;
     populationField.textContent = (viewed?.summary.population ?? 0).toLocaleString('en-US');
     treasuryField.textContent = formatDrachma(money);
@@ -599,16 +517,8 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
       menu.close('close');
       return false;
     }
-    if (dialog.open) {
-      dialog.close('cancel');
-      return false;
-    }
     openMenu();
     return true;
-  }
-
-  function setSpeed(speed: 0 | 1 | 3): void {
-    for (const [key, button] of speedButtons) button.setAttribute('aria-pressed', String(key === speed));
   }
 
   function notify(message: string, error = false): void {
@@ -642,24 +552,6 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     const button = action(root, 'sound');
     button.setAttribute('aria-pressed', String(enabled));
     button.textContent = enabled ? 'Sound on' : 'Sound off';
-  }
-
-  function setSaved(): void {
-    field(root, 'saved').textContent = 'Autosaved locally. Your checkpoint is kept separately.';
-  }
-
-  function setUndo(available: boolean): void {
-    action(root, 'undo').hidden = !available;
-  }
-
-  function setSharedMode(enabled: boolean): void {
-    root.querySelector<HTMLElement>('.hud-speed')!.hidden = enabled;
-    for (const name of ['save', 'load', 'export', 'import', 'new-island']) {
-      const item = root.querySelector<HTMLButtonElement>(`[data-testid="${name}"]`);
-      if (item) item.hidden = enabled;
-    }
-    root.querySelectorAll<HTMLElement>('[data-local-only]').forEach((item) => { item.hidden = enabled; });
-    if (enabled) field(root, 'saved').textContent = 'The server saves this city. Menus do not pause shared time.';
   }
 
   const connectionPanel = root.querySelector<HTMLElement>('.hud-connection')!;
@@ -712,7 +604,7 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
   }
 
   return {
-    update, setTool, setSpeed, notify, setHint, setGrid, setSound, setSaved, setUndo, setCities, toggleMenu, dispose,
-    setSharedMode, setConnection, setClaimAvailable, setClaimBusy, setClaimError, setDiscardAvailable,
+    update, setTool, notify, setHint, setGrid, setSound, setCities, toggleMenu, dispose,
+    setConnection, setClaimAvailable, setClaimBusy, setClaimError, setDiscardAvailable,
   };
 }

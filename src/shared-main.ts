@@ -128,7 +128,7 @@ function boot_(): void {
             if (myEpoch !== epoch) return;
             try {
               if (!firstSnapshotSeen) {
-                handles = boot({ kind: 'shared', session: session!, initialSnapshot: snapshot }) ?? null;
+                handles = boot({ session: session!, initialSnapshot: snapshot }) ?? null;
                 if (!handles) throw new Error('Shared game did not start.');
                 handles.onStatus(session!.currentStatus, session!.statusReason);
                 for (const result of bufferedOutcomes.splice(0)) handles.onOutcome(result);

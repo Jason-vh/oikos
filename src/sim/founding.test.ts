@@ -1,7 +1,6 @@
 import { expect, test } from 'bun:test';
 import { foundHarbour, foundingPlacement, FOUNDING_RANGE } from './founding';
 import { mapOf } from './grid';
-import { canUndoConstruction } from './history';
 import { ISLAND_COUNT } from './island';
 import { deserializeWorld, serializeWorld } from './save';
 import { buildStarterNeighbourhood } from './scenario';
@@ -83,7 +82,6 @@ test('an unfinished founding round-trips and rejects normal commands without adv
   advance(world, 600);
   expect(serializeWorld(world)).toBe(before);
   expect(deserializeWorld(before)).toEqual(world);
-  expect(canUndoConstruction(createWorld(2, 7), world)).toBe(false);
 });
 
 test('unfinished saves must retain the prepared roads and starting treasury', () => {

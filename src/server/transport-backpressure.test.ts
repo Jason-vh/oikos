@@ -8,20 +8,19 @@ import { MAX_REQUEST_BYTES } from './protocol';
 const cleanups: Array<() => unknown> = [];
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup(); });
 
-test('negotiates real compression and limits decompressed incoming payloads', async () => {
+test('refuses compression so browser frames arrive, and limits incoming payloads', async () => {
   const f = await fixture(cleanups);
   const cookie = await f.cookie();
   const wire = new WirePeer(f.base, f.origin, cookie, true);
   cleanups.push(() => wire.close());
   await wire.waitFor(() => wire.packets.length === 1);
   expect(wire.packets[0].type).toBe('snapshot');
-  expect(wire.frames[0].compressed).toBe(true);
-  expect(wire.frames[0].bytes).toBeLessThan(JSON.stringify(wire.packets[0]).length);
-  wire.send(JSON.stringify({ type: 'request', binding: wire.binding, requestId: rid(1), seq: 1, operation: { kind: 'claim', home: 0 } }), true);
+  expect(wire.frames[0].compressed).toBe(false);
+  wire.send(JSON.stringify({ type: 'request', binding: wire.binding, requestId: rid(1), seq: 1, operation: { kind: 'claim', home: 0 } }));
   await wire.waitFor(() => wire.packets.some((packet) => packet.type === 'receipt'));
   const receipt = wire.packets.find((packet) => packet.type === 'receipt');
   expect(receipt).toMatchObject({ result: { ok: true, status: 'processed' } });
-  wire.send('x'.repeat(MAX_REQUEST_BYTES + 1), true);
+  wire.send('x'.repeat(MAX_REQUEST_BYTES + 1));
   await wire.waitClosed();
   const { snapshot } = await connect(cleanups, f, cookie);
   expect(snapshot.session.nextSeq).toBe(2);
@@ -29,7 +28,7 @@ test('negotiates real compression and limits decompressed incoming payloads', as
   expect(f.runtime.healthy).toBe(true);
 });
 
-test('slow readers do not queue every snapshot or stall peers; control backpressure disconnects for replay', async () => {
+test('a slow reader skips snapshots rather than queueing them, and still receives its receipts', async () => {
   const f = await fixture(cleanups);
   const cookie = await f.cookie();
   const wire = new WirePeer(f.base, f.origin, cookie);
@@ -37,37 +36,20 @@ test('slow readers do not queue every snapshot or stall peers; control backpress
   await wire.waitFor(() => wire.packets.length === 1);
   wire.socket.pause();
   const fast = await connect(cleanups, f, cookie);
-  let latest = fast.snapshot.serial;
   let offered = 0;
-  let attempts = 0;
-  for (let batch = 0; batch < 64 && f.runtime.server.pendingWebSockets > 1; batch++) {
-    for (let i = 0; i < 16; i++) {
-      f.clock.step();
-      latest = (await fast.peer.next('snapshot')).serial;
-      offered++;
-    }
-    if (f.runtime.server.pendingWebSockets === 1) break;
-    const seq = ++attempts;
-    const home = seq === 1 ? 0 : 1;
-    f.clock.time += 250;
-    wire.send(JSON.stringify({ type: 'request', binding: wire.binding, requestId: rid(seq), seq, operation: { kind: 'claim', home } }));
-    const observed = await fast.peer.next('snapshot');
-    expect(observed.session.nextSeq).toBe(seq + 1);
-    latest = observed.serial;
+  for (let i = 0; i < 24; i++) {
+    f.clock.step();
+    await fast.peer.next('snapshot');
     offered++;
   }
-  expect(f.runtime.server.pendingWebSockets).toBe(1);
+  f.clock.time += 250;
+  wire.send(JSON.stringify({ type: 'request', binding: wire.binding, requestId: rid(1), seq: 1, operation: { kind: 'claim', home: 0 } }));
+  expect((await fast.peer.next('snapshot')).session.nextSeq).toBe(2);
   wire.socket.resume();
-  await wire.waitClosed();
-  const snapshots = wire.packets.filter((packet) => packet.type === 'snapshot');
-  expect(snapshots.length).toBeGreaterThan(1);
-  expect(snapshots.length).toBeLessThan(offered + 1);
-  expect(snapshots.at(-1)!.serial).toBeLessThan(latest);
-  const reconnected = await connect(cleanups, f, cookie);
-  expect(reconnected.snapshot.world.cities).toHaveLength(1);
-  reconnected.peer.send(1, { kind: 'claim', home: 0 });
-  expect((await reconnected.peer.next('receipt')).result.status).toBe('replayed');
-  expect(reconnected.snapshot.serial).toBeGreaterThan(latest);
+  await wire.waitFor(() => wire.packets.some((packet) => packet.type === 'receipt'));
+  expect(wire.packets.find((packet) => packet.type === 'receipt')).toMatchObject({ result: { ok: true, status: 'processed' } });
+  expect(wire.packets.filter((packet) => packet.type === 'snapshot').length).toBeLessThan(offered);
+  expect(f.runtime.server.pendingWebSockets).toBe(2);
   expect(f.runtime.healthy).toBe(true);
 });
 

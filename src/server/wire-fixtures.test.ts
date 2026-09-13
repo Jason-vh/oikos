@@ -1,6 +1,6 @@
 import { createConnection } from 'node:net';
 import { randomBytes } from 'node:crypto';
-import { deflateRawSync, inflateRawSync, constants } from 'node:zlib';
+import { deflateRawSync, gunzipSync, inflateRawSync, constants } from 'node:zlib';
 import type { ServerPacket } from './protocol';
 
 export class WirePeer {
@@ -49,10 +49,12 @@ export class WirePeer {
       if (this.buffer.length < offset + length) return;
       let payload = this.buffer.subarray(offset, offset + length);
       this.buffer = this.buffer.subarray(offset + length);
-      if ((first & 15) === 8) { this.socket.destroy(); return; }
-      if ((first & 15) !== 1) continue;
+      const opcode = first & 15;
+      if (opcode === 8) { this.socket.destroy(); return; }
+      if (opcode !== 1 && opcode !== 2) continue;
       const compressed = (first & 64) !== 0;
       if (compressed) payload = inflateRawSync(Buffer.concat([payload, Buffer.from([0, 0, 255, 255])]), { finishFlush: constants.Z_SYNC_FLUSH });
+      if (opcode === 2) payload = gunzipSync(payload);
       this.frames.push({ compressed, bytes: length });
       this.packets.push(JSON.parse(payload.toString()) as ServerPacket);
       for (const notify of this.listeners) notify();
@@ -66,11 +68,20 @@ export class WirePeer {
   send(text: string, compress = false) {
     let payload = Buffer.from(text);
     if (compress) payload = deflateRawSync(payload, { flush: constants.Z_SYNC_FLUSH, finishFlush: constants.Z_SYNC_FLUSH }).subarray(0, -4);
-    const lengthBytes = payload.length < 126 ? 0 : 2;
+    let lengthBytes = 0;
+    let lengthCode = payload.length;
+    if (payload.length > 65535) {
+      lengthBytes = 8;
+      lengthCode = 127;
+    } else if (payload.length >= 126) {
+      lengthBytes = 2;
+      lengthCode = 126;
+    }
     const header = Buffer.alloc(2 + lengthBytes + 4);
     header[0] = compress ? 193 : 129;
-    header[1] = 128 | (lengthBytes ? 126 : payload.length);
-    if (lengthBytes) header.writeUInt16BE(payload.length, 2);
+    header[1] = 128 | lengthCode;
+    if (lengthBytes === 2) header.writeUInt16BE(payload.length, 2);
+    if (lengthBytes === 8) header.writeBigUInt64BE(BigInt(payload.length), 2);
     const mask = randomBytes(4);
     mask.copy(header, 2 + lengthBytes);
     payload = Buffer.from(payload);

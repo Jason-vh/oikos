@@ -42,6 +42,11 @@ export async function fixture(cleanups: Array<() => unknown>, prepare: (authorit
   return { path, clock, origin, runtime, base, joinAs, cookie };
 }
 
+function decodeFrame(data: unknown): string {
+  if (typeof data === 'string') return data;
+  return new TextDecoder().decode(Bun.gunzipSync(new Uint8Array(data as ArrayBuffer)));
+}
+
 export class Peer {
   readonly ws: WebSocket;
   readonly packets: ServerPacket[] = [];
@@ -51,8 +56,9 @@ export class Peer {
   constructor(base: string, origin: string, cookie: string) {
     const BunWebSocket = WebSocket as unknown as { new(url: string, options: Bun.WebSocketOptions): WebSocket };
     this.ws = new BunWebSocket(`${base.replace('http:', 'ws:')}/api/world`, { headers: { Origin: origin, Cookie: cookie } });
+    this.ws.binaryType = 'arraybuffer';
     this.ws.addEventListener('message', (event) => {
-      const packet = JSON.parse(String(event.data)) as ServerPacket;
+      const packet = JSON.parse(decodeFrame(event.data)) as ServerPacket;
       if (packet.type === 'snapshot') this.binding = packet.session.binding;
       this.packets.push(packet);
       for (const notify of this.listeners) notify();
