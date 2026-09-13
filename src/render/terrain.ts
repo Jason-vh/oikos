@@ -49,10 +49,10 @@ function heightOf(map: IslandMap, x: number, z: number): number {
   return GROUND_Y + levelOn(map, x, z) * LEVEL_HEIGHT;
 }
 
-export function buildTerrain(map: IslandMap, stairs: ReadonlyMap<number, Stair> = new Map()): T.Group {
+export function buildTerrain(map: IslandMap, stairs: ReadonlyMap<number, Stair> = new Map(), quays: ReadonlySet<number> = new Set()): T.Group {
   const batches = new Map<number, Batch>();
   const root = new T.Group();
-  root.add(buildCoast(map), buildCliffs(map));
+  root.add(buildCoast(map, quays), buildCliffs(map));
   for (let z = 0; z < map.depth; z++) {
     for (let x = 0; x < map.width; x++) {
       const terrain = terrainOn(map, x, z);

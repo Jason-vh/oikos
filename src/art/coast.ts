@@ -68,11 +68,12 @@ function quad(positions: number[], a: Point, b: Point, c: Point, d: Point, facin
   triangle(positions, a, c, d, facing);
 }
 
-export function coastalSegments(map: IslandMap): CoastalSegment[] {
+export function coastalSegments(map: IslandMap, quays: ReadonlySet<number> = new Set()): CoastalSegment[] {
   const segments: CoastalSegment[] = [];
   for (let z = 0; z < map.depth; z++) {
     for (let x = 0; x < map.width; x++) {
       if (terrainOn(map, x, z) === 'water') continue;
+      if (quays.has(z * map.width + x)) continue;
       const profiles = EDGES.map((edge) => {
         if (terrainOn(map, x + edge.outward[0], z + edge.outward[1]) !== 'water') return null;
         return { start: coastalProfile(map, x, z, edge, false), end: coastalProfile(map, x, z, edge, true) };
@@ -91,11 +92,11 @@ export function coastalSegments(map: IslandMap): CoastalSegment[] {
   return segments;
 }
 
-export function buildCoast(map: IslandMap): T.Group {
+export function buildCoast(map: IslandMap, quays: ReadonlySet<number> = new Set()): T.Group {
   const stone: number[] = [];
   const shallows: number[] = [];
   const joints = new Map<string, { profile: Profile; facing: Point }>();
-  for (const { start: a, end: b, outward } of coastalSegments(map)) {
+  for (const { start: a, end: b, outward } of coastalSegments(map, quays)) {
     const facing: Point = [outward[0], 0, outward[1]];
     quad(stone, a.rim, b.rim, b.shoulder, a.shoulder, facing);
     quad(stone, a.shoulder, b.shoulder, b.foot, a.foot, facing);

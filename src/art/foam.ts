@@ -17,9 +17,9 @@ export class CoastalFoam {
   private readonly positions: T.BufferAttribute;
   private lastTime = NaN;
 
-  constructor(map: IslandMap) {
+  constructor(map: IslandMap, quays: ReadonlySet<number> = new Set()) {
     const bounds = new T.Box3();
-    for (const segment of coastalSegments(map)) {
+    for (const segment of coastalSegments(map, quays)) {
       const x = (segment.start.foot[0] + segment.end.foot[0]) / 2;
       const z = (segment.start.foot[2] + segment.end.foot[2]) / 2;
       const variation = hash(Math.round(x * 100), Math.round(z * 100), map.seed + 853);

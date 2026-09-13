@@ -29,9 +29,12 @@ interface DecorEntry {
 export class IslandScenery {
   readonly root = new T.Group();
   readonly grid = new T.Group();
-  readonly foam: CoastalFoam;
+  foam: CoastalFoam;
   readonly terrain = new T.Group();
   private stairKey = '';
+  private quayKey = '';
+  private stairs: ReadonlyMap<number, Stair> = new Map();
+  private quays: ReadonlySet<number> = new Set();
   private readonly waterTime = { value: 0 };
   private readonly ship = boat(colors.blue, false);
   private readonly fields = new Map<number, InstanceField>();
@@ -110,10 +113,32 @@ export class IslandScenery {
     const key = [...stairs.values()].sort((a, b) => a.tile - b.tile).map((stair) => `${stair.tile}:${stair.down}`).join(',');
     if (key === this.stairKey) return;
     this.stairKey = key;
-    const terrain = buildTerrain(this.map, stairs);
+    this.stairs = stairs;
+    this.rebuildTerrain();
+  }
+
+  setQuays(quays: ReadonlySet<number>): void {
+    const key = [...quays].sort((a, b) => a - b).join(',');
+    if (key === this.quayKey) return;
+    this.quayKey = key;
+    this.quays = new Set(quays);
+    this.rebuildTerrain();
+    this.rebuildFoam();
+  }
+
+  private rebuildTerrain(): void {
+    const terrain = buildTerrain(this.map, this.stairs, this.quays);
     disposeModel(this.terrain);
     this.terrain.clear();
     this.terrain.add(terrain);
+  }
+
+  private rebuildFoam(): void {
+    const replacement = new CoastalFoam(this.map, this.quays);
+    this.root.remove(this.foam.mesh);
+    this.foam.mesh.geometry.dispose();
+    this.foam = replacement;
+    this.root.add(this.foam.mesh);
   }
 
   private settle(tile: number, x: number, y: number, z: number, source: T.Group): void {
