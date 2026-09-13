@@ -39,11 +39,12 @@ Autosaves never replace your manual checkpoint. Camera and sound preferences sta
 ## Development
 
 ```bash
-npm run check                                   # build, tests, browser walkthrough, art captures (run before merging; CI runs tests and build only)
-npm run smoke -- http://localhost:5180/?debug   # gameplay walkthrough against a running dev server (append &lean for a fast, unshaded run)
-npm run smoke:settlement -- http://localhost:5180/?debug
+npm run check                                   # build, tests, art captures (run before merging; CI runs tests and build only)
 npm run art:capture -- http://localhost:5180    # model captures into artifacts/art
 ```
+
+Behaviour is covered by `bun test`. Browser work is judged in the game and through
+the art captures; there are no gameplay walkthrough scripts.
 
 - [Vision and roadmap](roadmap.md)
 - [Gameplay and first-island scope](docs/gameplay.md)

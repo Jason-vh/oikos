@@ -86,11 +86,5 @@ curl -I http://localhost:3010/
 curl http://localhost:3010/healthz
 ```
 
-An invite also buys an end-to-end check of a running deployment: it serves the
-local game, redeems through the proxy, and claims an island on the real world.
-Run it from a checkout with `npm ci` and Playwright available, and remember it
-spends the invite and claims an island.
-
-```bash
-npm run smoke:deployment -- https://oikos.vhtm.eu <invite>
-```
+Check the deployment by hand in a browser: the game loads, joining works, and the
+world advances.

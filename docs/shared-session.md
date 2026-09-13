@@ -63,7 +63,6 @@ recovery data. Realm/login replacement never sends the old session's intent.
 
 ## Verification
 
-`npm ci` installs Bun 1.4.2. Run `npm test`, `npm run build`, and the browser smoke
-walkthrough. Adapter tests cover valid baselines, strict frames, reconnect fences,
+`npm ci` installs Bun 1.4.2. Run `npm test` and `npm run build`. Adapter tests cover valid baselines, strict frames, reconnect fences,
 storage faults, bounded retries, lifecycle uncertainty and real SQLite/WebSocket
 receipt loss and conflict/gap recovery.

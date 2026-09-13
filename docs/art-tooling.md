@@ -113,8 +113,8 @@ dust as each piece lands, then swaps to the ordinary material-batched model.
 - **`npm run smoke:foam -- <base url>`**: breakers animate while running, freeze
   when paused, behind the menu and under reduced motion, and never render while idle.
   Output: `artifacts/foam/`.
-- **`npm run smoke`** and **`npm run check`**: the gameplay walkthrough
-  (`scripts/smoke.mjs`), which is where models are judged in context.
+- **`npm run check`**: build, tests and the capture suites. Models are judged in
+  the running game by eye; no gameplay walkthrough script remains.
 - **`npm run art:diff -- <before dir> <after dir>`**: compares two capture
   directories pixel by pixel and reports how much of each image moved. Use it when
   a change is meant to leave the picture alone, such as a rendering optimisation.

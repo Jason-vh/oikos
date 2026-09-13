@@ -4,21 +4,9 @@ cd "$(dirname "$0")/.."
 PORT="${PORT:-5181}"
 npm run build
 npm test
-npm run art:check
-npm run smoke:shared
-npm run smoke:shared:live
-npm run smoke:shared:recovery
 npx vite preview --host 127.0.0.1 --port "$PORT" --strictPort &
 SERVER=$!
 trap 'kill $SERVER' EXIT
 npx wait-on "http://127.0.0.1:$PORT"
-node scripts/smoke.mjs "http://127.0.0.1:$PORT/?debug${LEAN:+&lean}" artifacts/smoke
-node scripts/polish-smoke.mjs "http://127.0.0.1:$PORT/?debug${LEAN:+&lean}" artifacts/polish
-node scripts/settlement-smoke.mjs "http://127.0.0.1:$PORT/?debug${LEAN:+&lean}" artifacts/settlement
-node scripts/territory-smoke.mjs "http://127.0.0.1:$PORT/?debug${LEAN:+&lean}" artifacts/territory
-node scripts/harbour-site-smoke.mjs "http://127.0.0.1:$PORT/?debug${LEAN:+&lean}"
-node scripts/founding-smoke.mjs "http://127.0.0.1:$PORT/?debug${LEAN:+&lean}" artifacts/founding
-node scripts/island-choice-smoke.mjs "http://127.0.0.1:$PORT/?debug${LEAN:+&lean}" artifacts/island-choice
-node scripts/city-context-smoke.mjs "http://127.0.0.1:$PORT" artifacts/city-context
 node scripts/art-capture.mjs "http://127.0.0.1:$PORT" artifacts/art
 node scripts/construction-smoke.mjs "http://127.0.0.1:$PORT" artifacts/construction

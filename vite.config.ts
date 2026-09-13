@@ -8,6 +8,6 @@ export default defineConfig({
   preview: { proxy: authorityProxy },
   build: {
     target: 'es2022',
-    rollupOptions: { input: { game: 'index.html', art: 'art.html', cityContext: 'city-context.html', shared: 'shared.html' } },
+    rollupOptions: { input: { game: 'index.html', art: 'art.html', shared: 'shared.html' } },
   },
 });
