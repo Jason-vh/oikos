@@ -242,8 +242,14 @@ new shipping network to supply these sanctuaries.”
   the authority over the same origin.
 - Still ahead, in rough order:
   - **Snapshot cost.** A snapshot is the whole World, four times a second, and a
-    client spends most of a second validating and syncing one. It shows as a few
-    seconds of lag after an action. Send less, less often, or diff it.
+    browser spends most of a second receiving, validating and syncing one. It shows
+    as a few seconds of lag after an action. Measured on a fresh world: 396,714
+    bytes, of which wildlife is 396,570 — 2,358 animals against two bytes of cities.
+    Serialising costs 0.3 ms, so the second is transfer and parse. Wildlife is
+    therefore the whole problem: sending only what is near a viewer, or on its own
+    slower stream, cuts the payload about a hundredfold and lets a claim appear at
+    once. Agents are unaffected — in-process, they read the object graph and never
+    serialise a World.
   - **A pause of one's own.** Shared time never stops, so a solo player cannot
     pause. A menu pause for a world nobody else is playing.
   - **A minimap**, now that the island picker is gone and the sea is the map.
