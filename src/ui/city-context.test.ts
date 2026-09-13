@@ -7,6 +7,8 @@ import {
   activeCity,
   bootstrapCityContext,
   canWrite,
+  contextForOwnedCity,
+  reconcileContext,
   resolveCity,
   returnToActive,
   submitCityCommand,
@@ -135,6 +137,86 @@ describe('submitCityCommand', () => {
     const before = structuredClone(city2);
     submitCityCommand(world, context, { type: 'vendor', id: city2.harbour.id, enabled: true });
     expect(city2).toEqual(before);
+  });
+});
+
+describe('contextForOwnedCity', () => {
+  test('a canonical owned id becomes both viewed and active, never world.cities[0]', () => {
+    const { world, city1, city2 } = twoCityWorld();
+    const context = contextForOwnedCity(world, [city2.id]);
+    expect(context.activeId).toBe(city2.id);
+    expect(context.viewedId).toBe(city2.id);
+    expect(world.cities[0]).toBe(city1);
+    expect(context.activeId).not.toBe(world.cities[0].id);
+  });
+
+  test('no owned cities yields no active/viewed id, safely', () => {
+    const { world } = twoCityWorld();
+    const context = contextForOwnedCity(world, []);
+    expect(context.activeId).toBeNull();
+    expect(context.viewedId).toBeNull();
+  });
+
+  test('an owned id absent from the world is skipped in favour of one that resolves', () => {
+    const { world, city2 } = twoCityWorld();
+    const context = contextForOwnedCity(world, [city2.id + 999, city2.id]);
+    expect(context.activeId).toBe(city2.id);
+  });
+});
+
+describe('reconcileContext', () => {
+  test('an ordinary snapshot preserves a still-valid active and viewed id untouched', () => {
+    const { world, city1, city2 } = twoCityWorld();
+    const context = { activeId: city1.id, viewedId: city2.id };
+    const next = reconcileContext(world, context, [city1.id], false);
+    expect(next).toEqual({ activeId: city1.id, viewedId: city2.id });
+  });
+
+  test('a first claim under an unchanged binding adopts the newly owned city as active and viewed', () => {
+    const { world, city1 } = twoCityWorld();
+    const context = { activeId: null, viewedId: null };
+    const next = reconcileContext(world, context, [city1.id], false);
+    expect(next).toEqual({ activeId: city1.id, viewedId: city1.id });
+  });
+
+  test('first claim while visiting focuses the newly owned city', () => {
+    const { world, city1, city2 } = twoCityWorld();
+    const next = reconcileContext(world, { activeId: null, viewedId: city2.id }, [city1.id], false);
+    expect(next).toEqual({ activeId: city1.id, viewedId: city1.id });
+  });
+
+  test('a replacement login gaining its first active city preserves a valid visit', () => {
+    const { world, city1, city2 } = twoCityWorld();
+    const next = reconcileContext(world, { activeId: null, viewedId: city2.id }, [city1.id], false, true);
+    expect(next).toEqual({ activeId: city1.id, viewedId: city2.id });
+  });
+
+  test('an ownership change to a different city preserves a still-valid viewed city; the old one becomes read-only', () => {
+    const { world, city1, city2 } = twoCityWorld();
+    const context = { activeId: city1.id, viewedId: city1.id };
+    const next = reconcileContext(world, context, [city2.id], false);
+    expect(next).toEqual({ activeId: city2.id, viewedId: city1.id });
+  });
+
+  test('a viewed city that no longer resolves falls back to the active city, not null', () => {
+    const { world, city1 } = twoCityWorld();
+    const context = { activeId: city1.id, viewedId: city1.id + 999 };
+    const next = reconcileContext(world, context, [city1.id], false);
+    expect(next).toEqual({ activeId: city1.id, viewedId: city1.id });
+  });
+
+  test('a realm change forces the view back to the active city even though the old viewed id still resolves', () => {
+    const { world, city1, city2 } = twoCityWorld();
+    const context = { activeId: city1.id, viewedId: city2.id };
+    const next = reconcileContext(world, context, [city1.id], true);
+    expect(next).toEqual({ activeId: city1.id, viewedId: city1.id });
+  });
+
+  test('reconciliation never mutates World, at any depth', () => {
+    const { world, city1 } = twoCityWorld();
+    const before = structuredClone(world);
+    reconcileContext(world, { activeId: null, viewedId: null }, [city1.id], false);
+    expect(world).toEqual(before);
   });
 });
 

@@ -5,6 +5,9 @@ PORT="${PORT:-5181}"
 npm run build
 npm test
 npm run art:check
+npm run smoke:shared
+npm run smoke:shared:live
+npm run smoke:shared:recovery
 npx vite preview --host 127.0.0.1 --port "$PORT" --strictPort &
 SERVER=$!
 trap 'kill $SERVER' EXIT

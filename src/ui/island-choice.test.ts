@@ -1,6 +1,48 @@
 import { expect, test } from 'bun:test';
-import { islandFacts } from './island-choice';
-import { islandFor, nextArchipelagoSeed } from '../sim/island';
+import { createIslandChoice, islandFacts } from './island-choice';
+import { islandAt, islandFor, nextArchipelagoSeed } from '../sim/island';
+
+function atlas() {
+  const map = islandFor(2);
+  const canvas = Object.assign(new EventTarget(), {
+    getContext: () => null,
+    remove: () => {},
+    setAttribute: () => {},
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: map.width, height: map.depth }),
+  });
+  const choice = Object.assign(new EventTarget(), {
+    value: '', disabled: false,
+    options: [{ value: '', disabled: true }, ...map.islands.map((_, index) => ({ value: String(index), disabled: false }))],
+  });
+  createIslandChoice(canvas as unknown as HTMLCanvasElement, choice as unknown as HTMLSelectElement, { textContent: '' } as HTMLElement)(2);
+  function click(home: number): void {
+    const index = map.terrain.findIndex((terrain, tile) => terrain !== 'water' && islandAt(map, tile % map.width, Math.floor(tile / map.width)) === map.islands[home]);
+    const event = Object.assign(new Event('click'), { clientX: index % map.width + .5, clientY: Math.floor(index / map.width) + .5 });
+    canvas.dispatchEvent(event);
+  }
+  return { choice, click };
+}
+
+test('atlas selection matches option values rather than the local placeholder index', () => {
+  const h = atlas();
+  h.click(0);
+  expect(h.choice.value).toBe('0');
+  h.choice.options[2].disabled = true;
+  h.click(1);
+  expect(h.choice.value).toBe('0');
+  h.click(2);
+  expect(h.choice.value).toBe('2');
+});
+
+test('disabled native selection also disables atlas selection', () => {
+  const h = atlas();
+  h.choice.disabled = true;
+  h.click(0);
+  expect(h.choice.value).toBe('');
+  h.choice.disabled = false;
+  h.click(0);
+  expect(h.choice.value).toBe('0');
+});
 
 test('the preview uses exactly the next archipelago seed', () => {
   expect(nextArchipelagoSeed(1)).toBe(2);
