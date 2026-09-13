@@ -56,7 +56,7 @@ describe('finite-JSON shape edge cases', () => {
     const validCommand = authority.submit(credential, 3, rid(3), { kind: 'command', cityId, command: { type: 'demolish', x: tile.x, z: tile.z } });
     expect(validCommand.ok).toBe(true);
     expect(authority.snapshot().cities.find((city) => city.id === cityId)!.roads).not.toContain(tile.index);
-    expect(authority.admitInvite(authority.issueInvite()).ok).toBe(true);
+    expect(authority.admit('Kleio').ok).toBe(true);
   });
 });
 

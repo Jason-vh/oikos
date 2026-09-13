@@ -26,7 +26,7 @@ export interface ReceiptResult {
 }
 
 type Packet =
-  | (SharedSnapshot & { type: 'snapshot'; protocol: 2 })
+  | (SharedSnapshot & { type: 'snapshot'; protocol: 3 })
   | { type: 'receipt'; requestId: string; seq: number; result: ReceiptResult }
   | { type: 'reject'; code: RejectCode; session: PublicSession };
 

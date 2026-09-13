@@ -16,8 +16,8 @@ npm run dev
 
 - `/` — playable archipelago; autosaves locally, never to a server.
 - `/art.html` — isolated model viewer.
-- `/shared.html` — the same game on a private shared archipelago; needs an invite
-  and a running authority, and saves nothing locally.
+- `/shared.html` — the same game on a private shared archipelago; needs a running
+  authority, admits anyone under a name, and saves nothing locally.
 
 ## Play
 

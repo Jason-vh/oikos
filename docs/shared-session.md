@@ -37,7 +37,7 @@ and cursor getters/events are defensive copies.
 
 ## Recovery
 
-Protocol 2 requests contain exactly `type`, `binding`, `requestId`, `seq`, and
+Protocol 3 requests contain exactly `type`, `binding`, `requestId`, `seq`, and
 `operation`. The opaque server-issued binding is not a credential. Realm IDs
 never go on the wire. The journal key is `oikos.shared.pending.v1`; its wrapper
 binds the exact wire bytes to both realm and login binding. Old protocol journals

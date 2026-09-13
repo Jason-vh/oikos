@@ -8,13 +8,13 @@ the factory refuses them. Explicitly initialize SQLite outside the checkout:
 ```bash
 npm ci
 npm run authority -- init /absolute/persistent/world.db
-npm run authority -- invite /absolute/persistent/world.db
 OIKOS_DB=/absolute/persistent/world.db OIKOS_PUBLIC_ORIGIN=https://game.example npm run server
 ```
 
-Issue invites while stopped: the server exclusively locks its database for its
-lifetime. Treat invite stdout as a secret, never a log. There is no public invite
-creation or recovery endpoint. Never initialize over an existing database.
+The server exclusively locks its database for its lifetime. Never initialize over
+an existing database. Admission is open: anyone reaching the configured origin may
+join under a name of their choosing. A player is their cookie and nothing else;
+there is no recovery endpoint, so a lost cookie is a lost city.
 `PORT` defaults to 3000; `OIKOS_HOST` defaults to 127.0.0.1. Terminate HTTPS at a
 trusted same-origin proxy forwarding HTTP and WebSocket upgrades. Forwarded IP
 headers are deliberately ignored: admission quotas use the TCP peer, so proxied
@@ -23,14 +23,16 @@ development. Cookies remain Secure even there. Never expose this private service
 without the configured HTTPS origin. `/healthz` reports liveness without state.
 SIGINT/SIGTERM checkpoint and stop; storage faults stop the listener and exit 1.
 
-## Protocol 2
+## Protocol 3
 
-POST `/api/session/redeem`, exact configured `Origin`, `application/json`, and
-`{"invite":"<64 hex>"}` (maximum 1 KiB) admits a single-use invite. Success returns
-only `{"ok":true}` and `__Host-oikos=<credential>; Path=/; HttpOnly; Secure;
-SameSite=Strict; Max-Age=31536000`. All application responses are `no-store`.
-Authenticated browsers cannot redeem another invite. Bad, used and full-world
-invites fail normally. Admissions allow five attempts/minute/IP, burst five.
+POST `/api/session/join`, exact configured `Origin`, `application/json`, and
+`{"name":"<1–24 characters>"}` (maximum 1 KiB) admits a player. Names are trimmed,
+reject control characters, need not be unique, and are stored on the actor row.
+Success returns only `{"ok":true}` and `__Host-oikos=<credential>; Path=/; HttpOnly;
+Secure; SameSite=Strict; Max-Age=31536000`. All application responses are `no-store`.
+An authenticated browser cannot join again. Unusable names and a full realm fail
+normally. Joins allow five attempts/minute/IP, burst five, and the realm holds at
+most 1024 actors.
 
 GET `/api/world` upgrades only with that exact Origin and an authenticated cookie.
 A client sends:
@@ -52,7 +54,7 @@ snapshot at the next permitted send. Non-consuming refusals produce
 `conflict`, `pruned`, `exhausted`, `rate-limited`, `session-mismatch`. Never parse human reasons.
 Logical failures consume a sequence and receipt without changing World.
 
-Snapshots are `{type:"snapshot",protocol:2,realmId,streamId,serial,session,world}`.
+Snapshots are `{type:"snapshot",protocol:3,realmId,streamId,serial,session,world}`.
 Session contains only `binding`, `ownedCityIds`, `nextSeq` (null at exhaustion), and
 `receiptWatermark` (highest pruned sequence). `realmId` persists across restarts;
 `streamId` is fresh each lifetime; serial increases within that stream. Public

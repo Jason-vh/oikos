@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { ACTOR_CAP, Authority } from './authority';
-import { admit, foundedActor, freshAuthority, rid, roadTileOf, sequenceRow } from './authority-fixtures.test';
+import { admit, foundedActor, freshAuthority, playerNames, rid, roadTileOf, sequenceRow } from './authority-fixtures.test';
 
 const cleanups: Array<() => void> = [];
 
@@ -9,44 +9,51 @@ afterEach(() => {
   while (cleanups.length > 0) cleanups.pop()!();
 });
 
-describe('credential and invite secrecy', () => {
-  test('issued tokens are 256-bit hex and never persisted anywhere in plaintext', () => {
+describe('credential secrecy', () => {
+  test('issued credentials are 256-bit hex and never persisted in plaintext', () => {
     const { path, authority } = freshAuthority(cleanups);
-    const inviteCode = authority.issueInvite();
-    const admission = authority.admitInvite(inviteCode);
+    const admission = authority.admit('Tycho');
     if (!admission.ok) throw new Error('expected admission to succeed');
 
-    expect(/^[0-9a-f]{64}$/.test(inviteCode)).toBe(true);
     expect(/^[0-9a-f]{64}$/.test(admission.credential)).toBe(true);
 
     authority.close();
     const raw = readFileSync(path, 'latin1');
-    expect(raw.includes(inviteCode)).toBe(false);
     expect(raw.includes(admission.credential)).toBe(false);
   });
 });
 
-describe('admission', () => {
-  test('a valid invite admits exactly one actor and is then refused', () => {
+describe('open admission', () => {
+  test('anyone may join, and each join is a separate actor with its own credential', () => {
     const { authority } = freshAuthority(cleanups);
-    const code = authority.issueInvite();
-    const first = authority.admitInvite(code);
-    if (!first.ok) throw new Error('expected admission to succeed');
+    const first = authority.admit('Tycho');
+    const second = authority.admit('Kleio');
+    if (!first.ok || !second.ok) throw new Error('expected both admissions to succeed');
     expect(first.actorId).toBeGreaterThan(0);
-    expect(first.credential.length).toBeGreaterThanOrEqual(32);
-    expect(authority.admitInvite(code)).toEqual({ ok: false, reason: 'Invalid or already-used invite.' });
+    expect(second.actorId).not.toBe(first.actorId);
+    expect(second.credential).not.toBe(first.credential);
   });
 
-  test('an unknown invite code is refused, an ordinary denial rather than a fault: a later valid admission still succeeds', () => {
+  test('a joined name is trimmed and kept, and authenticates as its own actor', () => {
     const { authority } = freshAuthority(cleanups);
-    expect(authority.admitInvite('not-a-real-invite')).toEqual({ ok: false, reason: 'Invalid or already-used invite.' });
-    expect(authority.admitInvite(authority.issueInvite()).ok).toBe(true);
+    const admission = authority.admit('  Tycho  ');
+    if (!admission.ok) throw new Error('expected admission to succeed');
+    expect(playerNames(authority)).toEqual(['Tycho']);
+    expect(authority.authenticate(admission.credential)?.actorId).toBe(admission.actorId);
   });
 
-  test('admission is capped and issues no further actors once full', () => {
+  test('an unusable name is refused without admitting anyone', () => {
+    const { authority } = freshAuthority(cleanups);
+    for (const name of ['', '   ', 'x'.repeat(25), 'Ty\u0000cho']) {
+      expect(authority.admit(name)).toEqual({ ok: false, reason: 'Choose a name of up to 24 characters.' });
+    }
+    expect(playerNames(authority)).toEqual([]);
+  });
+
+  test('admission is capped and admits nobody once full', () => {
     const { authority } = freshAuthority(cleanups);
     for (let i = 0; i < ACTOR_CAP; i++) admit(authority);
-    expect(authority.admitInvite(authority.issueInvite())).toEqual({ ok: false, reason: 'No admission slots remain.' });
+    expect(authority.admit('Tycho')).toEqual({ ok: false, reason: 'No admission slots remain.' });
   });
 });
 

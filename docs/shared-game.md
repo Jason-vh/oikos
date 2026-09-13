@@ -4,7 +4,8 @@
 SharedSession; it never advances, replaces or autosaves the shared World locally.
 The private transport must serve the production frontend and same-origin API.
 
-An invite admits a player without claiming an island. Choose an available island,
+Joining takes a name and nothing else: the credential cookie is the whole account.
+It admits a player without claiming an island. Choose an available island,
 confirm the claim, then place its founding harbour. A claim focuses that city's
 landing. A rejected claim keeps the selected island and displays the reason;
 Cancel leaves the dialog without retrying. Pending claims disable both atlas

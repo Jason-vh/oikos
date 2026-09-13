@@ -141,8 +141,8 @@ Redeployment must preserve that volume and the stored identities.
 `src/server/store.ts` and `src/server/authority.ts` hold the private,
 transport-free authoritative core: one exclusively-locked SQLite file per world,
 validated well beyond schema/FK checks on open (ownership, actor/credential/
-sequence bijection, receipt shape) before it's trusted. Single-use invites admit
-an actor and a 256-bit credential without claiming an island; a separate
+sequence bijection, receipt shape) before it's trusted. An open join admits a
+named actor and a 256-bit credential without claiming an island; a separate
 authenticated claim adds a City, ownership and a receipt together, one per actor.
 Every request carries an actor-scoped sequence and a request id, resolved
 against a normalized fingerprint with replay, conflict, gap and pruning rules;

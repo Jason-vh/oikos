@@ -3,11 +3,11 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { World } from '../sim/types';
 import { claimIsland } from '../sim/claims';
 import { applyCommand, parseCommand } from '../sim/commands';
-import { ISLAND_COUNT } from '../sim/island';
 import { advance } from '../sim/world';
+import { NAME_LIMIT, parsePlayerName } from './protocol';
 import { type AuthorityDb, closeStore, openStore, readWorldRow, selectAll, selectOne, writeWorldRow } from './store';
 
-export const ACTOR_CAP = ISLAND_COUNT;
+export const ACTOR_CAP = 1024;
 export const RETAINED_RECEIPTS = 256;
 
 export type AuthorityRequest = { kind: 'claim'; home: number } | { kind: 'command'; cityId: number; command: unknown };
@@ -153,10 +153,8 @@ function verifyStoredInvariants(db: Database, world: World): void {
   }
   if (credentialActorIds.size !== actorIds.size) throw new Error('Authority store actors do not each have exactly one credential row.');
 
-  for (const row of selectAll<{ code_hash: string; consumed_by: number | null; consumed_at: number | null }>(db, 'SELECT code_hash, consumed_by, consumed_at FROM invites;')) {
-    if (!HASH_PATTERN.test(row.code_hash)) throw new Error('Authority store has a malformed invite hash.');
-    if ((row.consumed_by === null) !== (row.consumed_at === null)) throw new Error('Authority store has an invite whose consumption fields disagree.');
-    if (row.consumed_by !== null && !actorIds.has(row.consumed_by)) throw new Error('Authority store has an invite consumed by an actor that does not exist.');
+  for (const row of selectAll<{ name: string }>(db, 'SELECT name FROM actors;')) {
+    if (parsePlayerName(row.name) !== row.name) throw new Error('Authority store has an actor with a malformed name.');
   }
 
   const watermarkByActor = new Map<number, number>();
@@ -320,37 +318,24 @@ export class Authority {
     });
   }
 
-  issueInvite(): string {
+  admit(name: string): { ok: true; actorId: number; credential: string } | { ok: false; reason: string } {
     this.guardWritable();
     return this.poison(() => {
-      const code = randomToken();
-      this.store.db.run('INSERT INTO invites (code_hash, created_at) VALUES (?, ?);', [hashToken(code), Date.now()]);
-      return code;
-    });
-  }
-
-  admitInvite(inviteCode: string): { ok: true; actorId: number; credential: string } | { ok: false; reason: string } {
-    this.guardWritable();
-    return this.poison(() => {
+      const playerName = parsePlayerName(name);
+      if (!playerName) return { ok: false, reason: `Choose a name of up to ${NAME_LIMIT} characters.` };
       const db = this.store.db;
-      const codeHash = hashToken(inviteCode);
-      const invite = selectOne<{ consumed_by: number | null }>(db, 'SELECT consumed_by FROM invites WHERE code_hash = ?;', codeHash);
-      if (!invite || invite.consumed_by !== null) return { ok: false, reason: 'Invalid or already-used invite.' };
       const actorCount = selectOne<{ count: number }>(db, 'SELECT COUNT(*) as count FROM actors;')!.count;
       if (actorCount >= ACTOR_CAP) return { ok: false, reason: 'No admission slots remain.' };
 
       const now = Date.now();
       const credential = randomToken();
-      const admit = db.transaction(() => {
-        const actorId = Number(db.run('INSERT INTO actors (created_at) VALUES (?);', [now]).lastInsertRowid);
+      const join = db.transaction(() => {
+        const actorId = Number(db.run('INSERT INTO actors (name, created_at) VALUES (?, ?);', [playerName, now]).lastInsertRowid);
         db.run('INSERT INTO credentials (actor_id, credential_hash, created_at) VALUES (?, ?, ?);', [actorId, hashToken(credential), now]);
         db.run('INSERT INTO sequences (actor_id, high_watermark) VALUES (?, 0);', [actorId]);
-        const changes = db.run('UPDATE invites SET consumed_by = ?, consumed_at = ? WHERE code_hash = ? AND consumed_by IS NULL;', [actorId, now, codeHash]);
-        if (changes.changes !== 1) throw new Error('Authority store invite state changed underneath this transaction.');
         return actorId;
       });
-      const actorId = admit.exclusive();
-      return { ok: true, actorId, credential };
+      return { ok: true, actorId: join.exclusive(), credential };
     });
   }
 

@@ -35,5 +35,5 @@ test('checkpoint revision mismatch rolls back a real tick checkpoint and poisons
   expect(() => authority.checkpoint()).toThrow('revision changed underneath');
   expect(readWorldRow(rawDb(authority))).toEqual(before);
   expect(() => authority.checkpoint()).toThrow('terminal fault');
-  expect(() => authority.issueInvite()).toThrow('terminal fault');
+  expect(() => authority.admit('Kleio')).toThrow('terminal fault');
 });

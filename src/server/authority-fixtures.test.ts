@@ -2,7 +2,7 @@ import type { Database } from 'bun:sqlite';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { initStore, type AuthorityDb } from './store';
+import { initStore, selectAll, type AuthorityDb } from './store';
 import { Authority } from './authority';
 import { islandFor, tileAtOn } from '../sim/island';
 
@@ -32,8 +32,12 @@ export function rawDb(authority: Authority): Database {
   return (authority as unknown as { store: AuthorityDb }).store.db;
 }
 
-export function admit(authority: Authority): string {
-  const admission = authority.admitInvite(authority.issueInvite());
+export function playerNames(authority: Authority): string[] {
+  return selectAll<{ name: string }>(rawDb(authority), 'SELECT name FROM actors ORDER BY id;').map((row) => row.name);
+}
+
+export function admit(authority: Authority, name = 'Tycho'): string {
+  const admission = authority.admit(name);
   if (!admission.ok) throw new Error(admission.reason);
   return admission.credential;
 }

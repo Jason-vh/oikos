@@ -1,4 +1,5 @@
 import { boot, type BootHandles } from './main';
+import { NAME_LIMIT } from './server/protocol';
 import { SharedSession, type SharedRequestOutcome, type SharedSessionStatus, type SharedSessionStorage } from './ui/shared-session';
 import './ui/style.css';
 
@@ -17,9 +18,9 @@ function wsUrl(): string {
 
 function buildOverlay(): {
   setStatus(message: string): void;
-  showInviteForm(onSubmit: (code: string) => void): void;
-  setInviteError(message: string): void;
-  setInviteBusy(busy: boolean): void;
+  showJoinForm(onSubmit: (name: string) => void): void;
+  setJoinError(message: string): void;
+  setJoinBusy(busy: boolean): void;
   remove(): void;
 } {
   const root = document.createElement('div');
@@ -27,40 +28,39 @@ function buildOverlay(): {
   root.innerHTML = `
     <div class="shared-boot-panel">
       <p data-field="shared-status" role="status">Connecting\u2026</p>
-      <form data-testid="invite-form">
-        <label>Invite code
-          <input type="text" name="invite" autocomplete="off" spellcheck="false" autocapitalize="off" required />
+      <form data-testid="join-form">
+        <label>Your name
+          <input type="text" name="name" maxlength="${NAME_LIMIT}" autocomplete="nickname" spellcheck="false" required />
         </label>
         <button type="submit">Join</button>
       </form>
-      <p data-field="invite-error" role="alert" hidden></p>
+      <p data-field="join-error" role="alert" hidden></p>
     </div>
   `;
   document.body.appendChild(root);
   const statusField = root.querySelector<HTMLElement>('[data-field="shared-status"]')!;
-  const form = root.querySelector<HTMLFormElement>('[data-testid="invite-form"]')!;
-  const input = form.querySelector<HTMLInputElement>('input[name="invite"]')!;
+  const form = root.querySelector<HTMLFormElement>('[data-testid="join-form"]')!;
+  const input = form.querySelector<HTMLInputElement>('input[name="name"]')!;
   const submitButton = form.querySelector<HTMLButtonElement>('button')!;
-  const errorField = root.querySelector<HTMLElement>('[data-field="invite-error"]')!;
+  const errorField = root.querySelector<HTMLElement>('[data-field="join-error"]')!;
   return {
     setStatus(message) {
       if (!root.isConnected) document.body.appendChild(root);
       statusField.textContent = message;
     },
-    showInviteForm(onSubmit) {
+    showJoinForm(onSubmit) {
       form.addEventListener('submit', (event) => {
         event.preventDefault();
-        const code = input.value.trim();
-        input.value = '';
-        if (code.length === 0) return;
-        onSubmit(code);
+        const name = input.value.trim();
+        if (name.length === 0) return;
+        onSubmit(name);
       });
     },
-    setInviteError(message) {
+    setJoinError(message) {
       errorField.textContent = message;
       errorField.hidden = message.length === 0;
     },
-    setInviteBusy(busy) {
+    setJoinBusy(busy) {
       input.disabled = busy;
       submitButton.disabled = busy;
     },
@@ -68,17 +68,18 @@ function buildOverlay(): {
   };
 }
 
-async function redeemInvite(code: string): Promise<{ ok: boolean; reason: string }> {
+async function join(name: string): Promise<{ ok: boolean; reason: string }> {
   try {
-    const response = await fetch('/api/session/redeem', {
+    const response = await fetch('/api/session/join', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ invite: code }),
+      body: JSON.stringify({ name }),
     });
     if (response.ok) return { ok: true, reason: '' };
     if (response.status === 409) return { ok: false, reason: 'Already joined. Reload the page to reconnect.' };
     if (response.status === 429) return { ok: false, reason: 'Too many attempts. Wait a moment and try again.' };
-    return { ok: false, reason: 'That invite could not be used.' };
+    if (response.status === 400) return { ok: false, reason: `Choose a name of up to ${NAME_LIMIT} characters.` };
+    return { ok: false, reason: 'The world could not admit you. Try again.' };
   } catch {
     return { ok: false, reason: 'Could not reach the server. Check your connection and try again.' };
   }
@@ -104,7 +105,7 @@ function boot_(): void {
     epoch += 1;
     session?.close();
     session = null;
-    overlay.setInviteBusy(true);
+    overlay.setJoinBusy(true);
     overlay.setStatus('The shared game could not open. Reload to try again.');
     document.body.dataset.error = 'true';
     console.error(error);
@@ -158,17 +159,17 @@ function boot_(): void {
     }
   }
 
-  overlay.showInviteForm((code) => {
+  overlay.showJoinForm((name) => {
     if (firstSnapshotSeen) return;
     const submittedAt = epoch;
-    overlay.setInviteBusy(true);
-    overlay.setInviteError('');
-    void redeemInvite(code)
+    overlay.setJoinBusy(true);
+    overlay.setJoinError('');
+    void join(name)
       .then((result) => {
         if (submittedAt !== epoch || firstSnapshotSeen) return;
-        overlay.setInviteBusy(false);
+        overlay.setJoinBusy(false);
         if (!result.ok) {
-          overlay.setInviteError(result.reason);
+          overlay.setJoinError(result.reason);
           return;
         }
         session?.close();
@@ -177,8 +178,8 @@ function boot_(): void {
       })
       .catch((error) => {
         if (submittedAt !== epoch || firstSnapshotSeen) return;
-        overlay.setInviteBusy(false);
-        overlay.setInviteError('Something went wrong joining. Try again.');
+        overlay.setJoinBusy(false);
+        overlay.setJoinError('Something went wrong joining. Try again.');
         console.error(error);
       });
   });

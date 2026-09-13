@@ -42,7 +42,7 @@ describe('malformed in-process payload resilience', () => {
 
     const validCommand = authority.submit(credential, 3, rid(3), { kind: 'command', cityId, command: { type: 'demolish', x: 0, z: 0 } });
     expect(validCommand.status).toBe('processed');
-    expect(authority.admitInvite(authority.issueInvite()).ok).toBe(true);
+    expect(authority.admit('Kleio').ok).toBe(true);
   });
 
   test('null is processed as an ordinary logical-failure baseline; NaN at the same seq is rejected as malformed, never replaying it', () => {
@@ -203,7 +203,7 @@ describe('failed commit consistency', () => {
     expect(receipt).toBeNull();
 
     expect(() => authority.submit(credential, 3, rid(3), { kind: 'command', cityId, command: { type: 'demolish', x: tile.x, z: tile.z } })).toThrow();
-    expect(() => authority.issueInvite()).toThrow();
+    expect(() => authority.admit('Kleio')).toThrow();
   });
 
   test('a COMMIT-time constraint failure (not just a statement failure) rolls back the whole transaction and leaves memory untouched', () => {
@@ -261,14 +261,14 @@ describe('corrupt authority state', () => {
     ['an actor is missing its sequence row', (authority: Authority) => rawDb(authority).run('DELETE FROM sequences;')],
     ['a receipt outcome is malformed JSON', (authority: Authority) => rawDb(authority).run("UPDATE receipts SET outcome = 'not json' WHERE seq = 2;")],
     ['a credential hash is malformed', (authority: Authority) => rawDb(authority).run("UPDATE credentials SET credential_hash = 'not-a-hash';")],
-    ['an invite hash is malformed', (authority: Authority) => rawDb(authority).run("INSERT INTO invites (code_hash, created_at) VALUES ('not-a-hash', 0);")],
+    ['an actor name is malformed', (authority: Authority) => rawDb(authority).run("UPDATE actors SET name = '  ';")],
     ['a receipt request id is malformed', (authority: Authority) => rawDb(authority).run("UPDATE receipts SET request_id = 'not-a-valid-id' WHERE seq = 2;")],
     ['a receipt fingerprint is malformed', (authority: Authority) => rawDb(authority).run("UPDATE receipts SET fingerprint = 'not-a-hash' WHERE seq = 2;")],
     ['a receipt outcome carries an unexpected extra key', (authority: Authority) => rawDb(authority).run("UPDATE receipts SET outcome = json_set(outcome, '$.extra', 1) WHERE seq = 2;")],
     ['a receipt names a city absent from the World', (authority: Authority) => rawDb(authority).run("UPDATE receipts SET outcome = json_set(outcome, '$.cityId', 999999) WHERE seq = 2;")],
     ['a successful receipt is missing its city', (authority: Authority) => rawDb(authority).run("UPDATE receipts SET outcome = json_remove(outcome, '$.cityId') WHERE seq = 2;")],
     ['the realm id is malformed', (authority: Authority) => rawDb(authority).run("UPDATE meta SET realm_id = 'not-a-uuid';")],
-    ['the invites table is missing', (authority: Authority) => rawDb(authority).run('DROP TABLE invites;')],
+    ['the actors table lost its name column', (authority: Authority) => rawDb(authority).run('ALTER TABLE actors DROP COLUMN name;')],
   ] as const)('refuses to open when %s', (_label, corrupt) => {
     const { path, authority } = freshAuthority(cleanups);
     foundedActor(authority, 0);

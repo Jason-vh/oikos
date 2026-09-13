@@ -224,18 +224,18 @@ new shipping network to supply these sanctuaries.”
   makes today's sole city both viewed and active, so single-city play is
   unchanged; the read-only visit control stays hidden until a second city
   exists.
-- A private SQLite authority now persists the shared World, invite admission,
+- A private SQLite authority now persists the shared World, open named admission,
   ownership, and bounded command receipts. Authenticated claims and commands are
   atomic, replay-safe, and fail closed on storage errors.
 - A private Bun server now serves authenticated WebSocket snapshots and commands.
   Its clock pauses when no authenticated socket is open; offline owners' cities
   keep advancing while others play. Tick checkpoints survive restarts without
   offline catch-up.
-- Protocol 2 binds requests to their realm/login. The client adapter journals exact
+- Protocol 3 binds requests to their realm/login. The client adapter journals exact
   requests, fences reconnects, and recovers consumed receipts without reapplying
   ambiguous intent. Storage uncertainty blocks writes until explicit resolution.
-- `/shared.html` runs the same game against the authority: an invite admits a
-  player, the island atlas claims an unclaimed island, and construction, vendors
+- `/shared.html` runs the same game against the authority: anyone may join under
+  a name, the island atlas claims an unclaimed island, and construction, vendors
   and founding go through the ordinary controls. Writes need a ready session and
   an owned city; disconnects disable them and cancel unfinished gestures, while
   visiting, camera and recovery stay available. It saves nothing locally.

@@ -57,5 +57,5 @@ test('checkpoint commit failure preserves durable state and poisons subsequent w
   expect(readWorldRow(rawDb(authority))).toEqual(durable);
   expect(() => authority.advance(1)).toThrow('terminal fault');
   expect(() => authority.checkpoint()).toThrow('terminal fault');
-  expect(() => authority.issueInvite()).toThrow('terminal fault');
+  expect(() => authority.admit('Kleio')).toThrow('terminal fault');
 });

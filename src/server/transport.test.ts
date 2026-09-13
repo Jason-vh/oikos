@@ -6,24 +6,23 @@ import { connect, fixture } from './transport-fixtures.test';
 const cleanups: Array<() => unknown> = [];
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup(); });
 
-test('redeems only same-origin invites, keeps credentials solely in the secure cookie', async () => {
+test('joins only from the configured origin, keeps credentials solely in the secure cookie', async () => {
   const f = await fixture(cleanups);
-  expect((await f.redeem(f.invites[0], { Origin: 'https://foreign.example' })).status).toBe(403);
+  expect((await f.joinAs('Tycho', { Origin: 'https://foreign.example' })).status).toBe(403);
   expect((await fetch(`${f.base}/api/world`, { headers: { Origin: f.origin } })).status).toBe(401);
   expect((await fetch(`${f.base}/api/world`)).status).toBe(403);
-  const response = await f.redeem(f.invites[0]);
+  const response = await f.joinAs('Tycho');
   expect(response.status).toBe(200);
   expect(response.headers.get('cache-control')).toBe('no-store');
   const cookie = response.headers.get('set-cookie')!;
   expect(cookie).toMatch(/^__Host-oikos=[a-f0-9]{64}; Path=\/; HttpOnly; Secure; SameSite=Strict; Max-Age=31536000$/);
   expect(await response.json()).toEqual({ ok: true });
-  expect((await f.redeem(f.invites[1], { Cookie: cookie.split(';')[0] })).status).toBe(409);
-  expect((await f.redeem(f.invites[0])).status).toBe(403);
-  const admitted = await f.cookie(f.invites[1]);
+  expect((await f.joinAs('Kleio', { Cookie: cookie.split(';')[0] })).status).toBe(409);
+  const admitted = await f.cookie('Kleio');
   expect((await fetch(`${f.base}/api/world`, { headers: { Origin: 'https://foreign.example', Cookie: admitted, Upgrade: 'websocket' } })).status).toBe(403);
   const { snapshot } = await connect(cleanups, f, admitted);
   expect(Object.keys(snapshot).sort()).toEqual(['protocol', 'realmId', 'serial', 'session', 'streamId', 'type', 'world']);
-  expect(snapshot.protocol).toBe(2);
+  expect(snapshot.protocol).toBe(3);
   expect(snapshot.session.binding).toMatch(/^[a-f0-9]{64}$/);
   expect(snapshot.session).toEqual({ binding: snapshot.session.binding, ownedCityIds: [], nextSeq: 1, receiptWatermark: 0 });
   expect(deserializeSharedWorld(JSON.stringify(snapshot.world))).toEqual(snapshot.world);
@@ -34,8 +33,8 @@ test('redeems only same-origin invites, keeps credentials solely in the secure c
 
 test('two authenticated actors claim and found distinct cities; snapshots survive shared loading and restart', async () => {
   const f = await fixture(cleanups);
-  const cookieA = await f.cookie();
-  const cookieB = await f.cookie(f.invites[1]);
+  const cookieA = await f.cookie('Tycho');
+  const cookieB = await f.cookie('Kleio');
   const a = await connect(cleanups, f, cookieA);
   const b = await connect(cleanups, f, cookieB);
   for (const [home, connection] of [a, b].entries()) {

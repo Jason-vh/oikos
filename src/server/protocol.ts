@@ -1,9 +1,18 @@
 import type { AuthorityRequest, RequestOutcome, RequestStatus, Session } from './authority';
 import type { World } from '../sim/types';
 
-export const PROTOCOL = 2;
+export const PROTOCOL = 3;
 export const MAX_REQUEST_BYTES = 64 * 1024;
 export const COOKIE = '__Host-oikos';
+export const NAME_LIMIT = 24;
+
+const NAME_PATTERN = new RegExp(`^[^\\p{C}]{1,${NAME_LIMIT}}$`, 'u');
+
+export function parsePlayerName(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const name = raw.trim();
+  return NAME_PATTERN.test(name) ? name : null;
+}
 export interface PublicSession extends Omit<Session, 'actorId'> { binding: string }
 export interface ClientRequest {
   type: 'request';
@@ -14,7 +23,7 @@ export interface ClientRequest {
 }
 export type RejectCode = Exclude<RequestStatus, 'processed' | 'replayed'> | 'rate-limited' | 'session-mismatch';
 export type ServerPacket =
-  | { type: 'snapshot'; protocol: 2; realmId: string; streamId: string; serial: number; session: PublicSession; world: World }
+  | { type: 'snapshot'; protocol: 3; realmId: string; streamId: string; serial: number; session: PublicSession; world: World }
   | { type: 'receipt'; requestId: string; seq: number; result: RequestOutcome }
   | { type: 'reject'; code: RejectCode; session: PublicSession };
 
@@ -56,7 +65,7 @@ export function credentialFrom(request: Request): string {
   return /^[a-f0-9]{64}$/.test(value) ? value : '';
 }
 
-export async function parseInvite(request: Request): Promise<string | null> {
+export async function parseJoinName(request: Request): Promise<string | null> {
   if (!/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(request.headers.get('content-type') ?? '') || !request.body) return null;
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -70,8 +79,8 @@ export async function parseInvite(request: Request): Promise<string | null> {
       chunks.push(value);
     }
     const value: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-    if (!record(value) || !exactKeys(value, ['invite']) || typeof value.invite !== 'string' || !/^[a-f0-9]{64}$/i.test(value.invite)) return null;
-    return value.invite.toLowerCase();
+    if (!record(value) || !exactKeys(value, ['name'])) return null;
+    return parsePlayerName(value.name);
   } catch {
     return null;
   } finally {

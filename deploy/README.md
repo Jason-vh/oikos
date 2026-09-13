@@ -59,16 +59,8 @@ both images, recreates the containers, and reloads Caddy.
 
 ## Operations
 
-Invites need the database lock, so stop the authority first. Treat the printed
-code as a secret: it admits one player, once.
-
-```bash
-ssh vhtm-eu.exe.xyz
-cd /home/exedev/apps/oikos
-docker compose stop authority
-docker compose run --rm authority bun scripts/authority-admin.ts invite /data/world.db
-docker compose start authority
-```
+Admission is open: anyone who reaches the origin joins under a name. Nothing needs
+issuing.
 
 Back up before risky changes, with the authority stopped so the file is quiet:
 

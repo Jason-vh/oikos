@@ -1,7 +1,7 @@
 import type { ServerWebSocket } from 'bun';
 import { createHash, randomUUID } from 'node:crypto';
 import { Authority } from './authority';
-import { COOKIE, MAX_REQUEST_BYTES, PROTOCOL, credentialFrom, parseInvite, parseRequest, publicSession, type RejectCode } from './protocol';
+import { COOKIE, MAX_REQUEST_BYTES, PROTOCOL, credentialFrom, parseJoinName, parseRequest, publicSession, type RejectCode } from './protocol';
 
 export interface RuntimeClock {
   now(): number;
@@ -168,20 +168,20 @@ export function startServer(options: RuntimeOptions) {
         if (!healthy || stopped) return response(503, 'unavailable');
         const path = new URL(request.url).pathname;
         if (path === '/healthz' && request.method === 'GET') return response(200, 'healthy');
-        if (path !== '/api/session/redeem' && path !== '/api/world') return response(404, 'not-found');
+        if (path !== '/api/session/join' && path !== '/api/world') return response(404, 'not-found');
         if (request.headers.get('origin') !== options.publicOrigin) return response(403, 'origin-denied');
         try {
           const credential = credentialFrom(request);
           const authenticated = credential ? authority.authenticate(credential) : null;
-          if (path === '/api/session/redeem') {
+          if (path === '/api/session/join') {
             if (request.method !== 'POST') return response(405, 'method-not-allowed');
             if (authenticated) return response(409, 'already-authenticated');
             const ip = listener.requestIP(request)?.address;
             if (!ip || !take(admissions, ip, clock.now(), 5, 5 / 60)) return response(429, 'rate-limited');
-            return parseInvite(request).then((invite) => {
-              if (!invite) return response(400, 'invalid-invite');
+            return parseJoinName(request).then((name) => {
+              if (!name) return response(400, 'invalid-name');
               if (!healthy || stopped) return response(503, 'unavailable');
-              const admission = authority.admitInvite(invite);
+              const admission = authority.admit(name);
               if (!admission.ok) return response(403, 'admission-denied');
               return Response.json({ ok: true }, { headers: {
                 'Cache-Control': 'no-store',

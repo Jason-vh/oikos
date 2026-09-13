@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from 'bun:test';
-import { Authority } from './authority';
+import { ACTOR_CAP, Authority } from './authority';
 import { admit, foundedActor, rawDb, rid } from './authority-fixtures.test';
 import { connect, fixture, Peer } from './transport-fixtures.test';
 import { MAX_REQUEST_BYTES } from './protocol';
@@ -9,32 +9,31 @@ import { readWorldRow, selectAll } from './store';
 const cleanups: Array<() => unknown> = [];
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup(); });
 
-test('admissions bound JSON, type and per-IP attempts without poisoning or consuming denied invites', async () => {
+test('joins bound JSON, type and per-IP attempts without poisoning the realm', async () => {
   const f = await fixture(cleanups);
-  const post = (body: string, contentType = 'application/json') => fetch(`${f.base}/api/session/redeem`, { method: 'POST', headers: { Origin: f.origin, 'Content-Type': contentType }, body });
+  const post = (body: string, contentType = 'application/json') => fetch(`${f.base}/api/session/join`, { method: 'POST', headers: { Origin: f.origin, 'Content-Type': contentType }, body });
   expect((await post('{')).status).toBe(400);
-  expect((await post(JSON.stringify({ invite: f.invites[0] }), 'text/plain')).status).toBe(400);
-  expect((await post(JSON.stringify({ invite: f.invites[0], actorId: 1 }))).status).toBe(400);
-  const oversized = await post(JSON.stringify({ invite: f.invites[0], padding: 'x'.repeat(1024) }));
+  expect((await post(JSON.stringify({ name: 'Tycho' }), 'text/plain')).status).toBe(400);
+  expect((await post(JSON.stringify({ name: 'Tycho', actorId: 1 }))).status).toBe(400);
+  const oversized = await post(JSON.stringify({ name: 'Tycho', padding: 'x'.repeat(1024) }));
   expect([400, 413]).toContain(oversized.status);
   f.clock.step(60_000);
-  for (let i = 0; i < 5; i++) expect((await f.redeem('0'.repeat(64))).status).toBe(403);
-  expect((await f.redeem(f.invites[0])).status).toBe(429);
+  for (let i = 0; i < 5; i++) expect((await f.joinAs('  ')).status).toBe(400);
+  expect((await f.joinAs('Tycho')).status).toBe(429);
   f.clock.step(12_000);
   const cookie = await f.cookie();
   expect((await connect(cleanups, f, cookie)).snapshot.session.nextSeq).toBe(1);
   expect(f.runtime.healthy).toBe(true);
 });
 
-test('a full realm denies normally and retains the unused invite', async () => {
-  const f = await fixture(cleanups, (authority) => { for (let i = 0; i < 8; i++) admit(authority); });
-  expect((await f.redeem(f.invites[0])).status).toBe(403);
+test('a full realm denies normally and keeps every admitted actor intact', async () => {
+  const f = await fixture(cleanups, (authority) => { for (let i = 0; i < ACTOR_CAP; i++) admit(authority); });
+  expect((await f.joinAs('Tycho')).status).toBe(403);
   expect(f.runtime.healthy).toBe(true);
   await f.runtime.stop();
   const reopened = Authority.open(f.path);
   try {
-    expect(selectAll(rawDb(reopened), 'SELECT consumed_by FROM invites WHERE consumed_by IS NULL')).toHaveLength(8);
-    expect(reopened.issueInvite()).toMatch(/^[a-f0-9]{64}$/);
+    expect(selectAll(rawDb(reopened), 'SELECT id FROM actors')).toHaveLength(ACTOR_CAP);
   } finally { reopened.close(); }
 });
 

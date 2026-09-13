@@ -1,5 +1,6 @@
 import { createWorld } from '../sim/world';
 import { serializeWorld } from '../sim/save';
+import { PROTOCOL } from '../server/protocol';
 import { SharedSession, type SharedRequestOutcome, type SharedSessionEvents, type SharedSnapshot } from './shared-session';
 
 export const REALM = '11111111-1111-4111-8111-111111111111';
@@ -52,7 +53,7 @@ export class FakeStorage {
 
 export function snapshotPacket(overrides: Record<string, unknown> = {}) {
   return {
-    type: 'snapshot', protocol: 2, realmId: REALM, streamId: STREAM, serial: 1,
+    type: 'snapshot', protocol: PROTOCOL, realmId: REALM, streamId: STREAM, serial: 1,
     session: { binding: BINDING, ownedCityIds: [1], nextSeq: 2, receiptWatermark: 0 },
     world: structuredClone(WORLD), ...overrides,
   };

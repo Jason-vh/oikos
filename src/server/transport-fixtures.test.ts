@@ -24,7 +24,6 @@ export async function fixture(cleanups: Array<() => unknown>, prepare: (authorit
   const files: Array<() => void> = [];
   const { path, authority } = freshAuthority(files);
   cleanups.push(() => { for (const cleanup of files.reverse()) cleanup(); });
-  const invites = Array.from({ length: 8 }, () => authority.issueInvite());
   prepare(authority);
   authority.close();
   const clock = new TestClock();
@@ -32,15 +31,15 @@ export async function fixture(cleanups: Array<() => unknown>, prepare: (authorit
   const runtime = startServer({ path, publicOrigin: origin, port: 0, clock });
   cleanups.push(() => runtime.stop());
   const base = `http://127.0.0.1:${runtime.server.port}`;
-  async function redeem(invite: string, headers: Record<string, string> = {}) {
-    return fetch(`${base}/api/session/redeem`, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', ...headers }, body: JSON.stringify({ invite }) });
+  async function joinAs(name: string, headers: Record<string, string> = {}) {
+    return fetch(`${base}/api/session/join`, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', ...headers }, body: JSON.stringify({ name }) });
   }
-  async function cookie(invite = invites[0]) {
-    const response = await redeem(invite);
+  async function cookie(name = 'Tycho') {
+    const response = await joinAs(name);
     expect(response.status).toBe(200);
     return response.headers.get('set-cookie')!.split(';')[0];
   }
-  return { path, clock, origin, runtime, base, invites, redeem, cookie };
+  return { path, clock, origin, runtime, base, joinAs, cookie };
 }
 
 export class Peer {

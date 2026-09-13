@@ -6,16 +6,15 @@ import type { World } from '../sim/types';
 import { createSharedWorld } from '../sim/world';
 import { deserializeSharedWorld, serializeWorld } from '../sim/save';
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 const REALM_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const TABLE_SCHEMA: Record<string, string> = {
   meta: 'CREATE TABLE meta (id INTEGER PRIMARY KEY CHECK (id = 1), format_version INTEGER NOT NULL, realm_id TEXT NOT NULL) STRICT',
   world: 'CREATE TABLE world (id INTEGER PRIMARY KEY CHECK (id = 1), revision INTEGER NOT NULL CHECK (revision >= 0), data TEXT NOT NULL) STRICT',
-  actors: 'CREATE TABLE actors (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at INTEGER NOT NULL) STRICT',
+  actors: 'CREATE TABLE actors (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, created_at INTEGER NOT NULL) STRICT',
   credentials: 'CREATE TABLE credentials (actor_id INTEGER PRIMARY KEY REFERENCES actors(id), credential_hash TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL) STRICT',
-  invites: 'CREATE TABLE invites (code_hash TEXT PRIMARY KEY, created_at INTEGER NOT NULL, consumed_by INTEGER REFERENCES actors(id), consumed_at INTEGER) STRICT',
   ownership: 'CREATE TABLE ownership (city_id INTEGER PRIMARY KEY, actor_id INTEGER NOT NULL REFERENCES actors(id), created_at INTEGER NOT NULL) STRICT',
   sequences: 'CREATE TABLE sequences (actor_id INTEGER PRIMARY KEY REFERENCES actors(id), high_watermark INTEGER NOT NULL CHECK (high_watermark >= 0)) STRICT',
   receipts:

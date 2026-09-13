@@ -248,4 +248,4 @@ body[data-error] #status { background: #fbe9e2; color: var(--terracotta-deep); }
 .shared-boot-panel form { display: flex; flex-direction: column; gap: 10px; }
 .shared-boot-panel input { padding: 8px 10px; font-size: 14px; border: 1px solid var(--line); border-radius: 8px; }
 .shared-boot-panel button { padding: 8px 14px; background: var(--terracotta); color: #fffaf0; border-radius: 8px; }
-.shared-boot-panel [data-field="invite-error"] { color: var(--terracotta-deep); font-size: 12.5px; }
+.shared-boot-panel [data-field="join-error"] { color: var(--terracotta-deep); font-size: 12.5px; }
