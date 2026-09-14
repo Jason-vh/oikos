@@ -12,7 +12,7 @@ AUTHORITY=$!
 OIKOS_AUTHORITY_PORT="$AUTHORITY_PORT" npx vite preview --host 127.0.0.1 --port "$PORT" --strictPort &
 SERVER=$!
 trap 'kill $SERVER $AUTHORITY' EXIT
-npx wait-on "http://127.0.0.1:$PORT" "http://127.0.0.1:$AUTHORITY_PORT/healthz"
+npx wait-on "http://127.0.0.1:$PORT" "http-get://127.0.0.1:$AUTHORITY_PORT/healthz"
 node scripts/art-capture.mjs "http://127.0.0.1:$PORT" artifacts/art
 node scripts/construction-smoke.mjs "http://127.0.0.1:$PORT" artifacts/construction
 node scripts/play-smoke.mjs "http://127.0.0.1:$PORT" artifacts/play

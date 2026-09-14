@@ -5,7 +5,9 @@ import { chromium } from 'playwright';
 
 const [base = 'http://localhost:5180', output = 'artifacts/play'] = process.argv.slice(2);
 await mkdir(output, { recursive: true });
-const browser = await chromium.launch({ channel: 'chromium' });
+const browser = await chromium.launch({ channel: 'chromium' }).catch((error) => {
+  throw new Error(`The play smoke needs the full Chromium, not the headless shell: npx playwright install chromium\n${error.message}`);
+});
 const errors = [];
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 

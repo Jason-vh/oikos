@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import { ProtocolLog, debugEnabled, delaySends, latencyMillis, observe } from './debug';
 
 class FakeSocket extends EventTarget {
-  readyState = WebSocket.OPEN;
+  readyState: number = WebSocket.OPEN;
   sent: string[] = [];
   send(wire: string): void { this.sent.push(wire); }
 }
