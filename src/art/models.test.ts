@@ -2,7 +2,8 @@ import { describe, expect, test } from 'bun:test';
 import * as T from 'three';
 import type { BuildingKind } from '../sim/types';
 import { BUILDINGS } from '../sim/catalog';
-import { CELL_SIZE } from '../sim/island';
+import { CELL_SIZE, GROUND_Y } from '../sim/island';
+import { WATERLINE } from './coast';
 import { box, colors, disposeModel, group, lump, material, post } from './primitives';
 import { dwelling } from './houses';
 import { stall } from './stall';
@@ -14,7 +15,7 @@ import { getBuildingModel } from './buildings';
 const KINDS: BuildingKind[] = ['house', 'farm', 'granary', 'agora', 'fountain', 'maintenance', 'lodge', 'woodcutter', 'stockpile', 'harbour'];
 const FOOTPRINT_EPSILON = 0.01;
 const GROUND_EPSILON = 0.02;
-const PIER_DEPTH = 0.5;
+const HARBOUR_FLOOR = WATERLINE - GROUND_Y - 0.4;
 const TRIANGLE_BUDGET = 12000;
 const DRAW_CALL_BUDGET = 18;
 
@@ -82,7 +83,7 @@ describe('getBuildingModel ground contact', () => {
   for (const { kind, tier, vendorEnabled, model } of instances()) {
     test(`${kind} tier ${tier}${vendorEnabled ? ' (vendor)' : ''} sits on y = 0`, () => {
       const bounds = new T.Box3().setFromObject(model);
-      const floor = kind === 'harbour' ? -PIER_DEPTH : -GROUND_EPSILON;
+      const floor = kind === 'harbour' ? HARBOUR_FLOOR : -GROUND_EPSILON;
       expect(bounds.min.y).toBeGreaterThanOrEqual(floor);
       expect(bounds.min.y).toBeLessThanOrEqual(GROUND_EPSILON);
     });

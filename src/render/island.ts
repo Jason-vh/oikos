@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { bake, boat, box, colors, disposeModel, lump, post, tree } from '../art';
+import { box, colors, disposeModel, lump, tree } from '../art';
 import type { Stair } from '../sim/stairs';
 import { CELL_SIZE, buildable, groundHeight, levelOn, terrainOn, worldPositionOn, type IslandMap } from '../sim/island';
 import { fractal } from '../sim/island';
@@ -29,14 +29,11 @@ interface DecorEntry {
 export class IslandScenery {
   readonly root = new T.Group();
   readonly grid = new T.Group();
-  foam: CoastalFoam;
+  readonly foam: CoastalFoam;
   readonly terrain = new T.Group();
   private stairKey = '';
-  private quayKey = '';
   private stairs: ReadonlyMap<number, Stair> = new Map();
-  private quays: ReadonlySet<number> = new Set();
   private readonly waterTime = { value: 0 };
-  private readonly ship = boat(colors.blue, false);
   private readonly fields = new Map<number, InstanceField>();
   private readonly decor = new Map<number, DecorEntry>();
   private readonly falling = new Map<number, number>();
@@ -51,7 +48,6 @@ export class IslandScenery {
     this.foam = new CoastalFoam(map);
     this.terrain.add(buildTerrain(map));
     this.root.add(this.terrain, this.foam.mesh);
-    const props = new T.Group();
     const gridPoints: number[] = [];
     for (let z = 0; z < map.depth; z++) {
       for (let x = 0; x < map.width; x++) {
@@ -72,24 +68,11 @@ export class IslandScenery {
         }
       }
     }
-    const entrance = worldPositionOn(map, map.entry.x + .5, map.entry.z + .5);
-    box(props, colors.stone, entrance.x, .47, entrance.z + 3, 7, 1.24, 2.3);
-    box(props, colors.paving, entrance.x, 1.12, entrance.z + 3, 7.1, .15, 2.4);
-    box(props, colors.stone, entrance.x + 2.5, .41, entrance.z + 5, 1.4, 1.12, 5.8);
-    box(props, colors.paving, entrance.x + 2.5, 1.04, entrance.z + 5, 1.5, .17, 5.85);
-    box(props, colors.paving, entrance.x, 1.12, entrance.z + 1.3, 1.4, .15, 3);
-    for (const z of [3.5, 5.5, 7.3]) {
-      for (const x of [1.9, 3.1]) post(props, colors.wood, entrance.x + x, 1.32, entrance.z + z, .09, .46);
-    }
-    post(props, colors.wood, entrance.x - .85, 2.2, entrance.z + .2, .055, 2.15);
-    box(props, colors.blue, entrance.x - .5, 3.08, entrance.z + .2, .7, .4, .035);
-    this.ship.position.set(entrance.x + .5, 0, entrance.z + 5.5);
-    bake(props);
     const geometry = new T.BufferGeometry();
     geometry.setAttribute('position', new T.Float32BufferAttribute(gridPoints, 3));
     this.grid.add(new T.LineSegments(geometry, new T.LineBasicMaterial({ color: 0xfff1c9, transparent: true, opacity: .34, depthWrite: false })));
     this.grid.visible = false;
-    this.root.add(props, this.grid, this.ship);
+    this.root.add(this.grid);
     scene.add(this.root);
     const waterMaterial = new T.MeshStandardMaterial({ color: 0x559fa5, roughness: .48, metalness: .12 });
     waterMaterial.onBeforeCompile = (shader) => {
@@ -117,28 +100,11 @@ export class IslandScenery {
     this.rebuildTerrain();
   }
 
-  setQuays(quays: ReadonlySet<number>): void {
-    const key = [...quays].sort((a, b) => a - b).join(',');
-    if (key === this.quayKey) return;
-    this.quayKey = key;
-    this.quays = new Set(quays);
-    this.rebuildTerrain();
-    this.rebuildFoam();
-  }
-
   private rebuildTerrain(): void {
-    const terrain = buildTerrain(this.map, this.stairs, this.quays);
+    const terrain = buildTerrain(this.map, this.stairs);
     disposeModel(this.terrain);
     this.terrain.clear();
     this.terrain.add(terrain);
-  }
-
-  private rebuildFoam(): void {
-    const replacement = new CoastalFoam(this.map, this.quays);
-    this.root.remove(this.foam.mesh);
-    this.foam.mesh.geometry.dispose();
-    this.foam = replacement;
-    this.root.add(this.foam.mesh);
   }
 
   private settle(tile: number, x: number, y: number, z: number, source: T.Group): void {
@@ -357,8 +323,6 @@ export class IslandScenery {
   update(time: number, focus?: { x: number; z: number } | null): void {
     this.waterTime.value = time;
     this.foam.update(time, focus);
-    this.ship.position.y = Math.sin(time * 1.4) * .045;
-    this.ship.rotation.z = Math.sin(time * 1.1) * .018;
   }
 
   dispose(): void {

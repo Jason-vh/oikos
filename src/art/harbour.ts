@@ -1,14 +1,20 @@
 import * as T from 'three';
 import type { Stores } from '../sim/types';
+import { GROUND_Y } from '../sim/island';
 import { box, colors, group, lump, post, roof } from './primitives';
 import { bundle, bundlesOf } from './food';
+import { WATERLINE } from './coast';
 
 const QUAY_BACK = -3.05;
-const QUAY_FRONT = -.62;
+const QUAY_FRONT = -.625;
+const QUAY_WIDTH = 2.36;
+const QUAY_FOOT = -.5;
 const PIER_END = 3.0;
 const QUAY_Y = .34;
 const DECK_Y = .26;
-const WATERLINE = -.06;
+const SEA_Y = WATERLINE - GROUND_Y;
+const POST_TOP = DECK_Y + .04;
+const POST_FOOT = SEA_Y - .24;
 
 const DOCK_SLOTS: [number, number][] = [[-.74, -1.2], [-.74, -2.0]];
 
@@ -22,8 +28,8 @@ function stackedLumber(dock: T.Group, stores: Stores): void {
 function quay(dock: T.Group, improved: boolean): void {
   const depth = QUAY_FRONT - QUAY_BACK;
   const centre = (QUAY_FRONT + QUAY_BACK) / 2;
-  box(dock, improved ? colors.stone : colors.wood, 0, QUAY_Y / 2 - .12, centre, 2.36, QUAY_Y + .24, depth);
-  box(dock, improved ? colors.paving : colors.cream, 0, QUAY_Y, centre, 2.2, .06, depth - .16);
+  box(dock, improved ? colors.stone : colors.wood, 0, (QUAY_Y + QUAY_FOOT) / 2, centre, QUAY_WIDTH, QUAY_Y - QUAY_FOOT, depth);
+  box(dock, improved ? colors.paving : colors.cream, 0, QUAY_Y, centre, QUAY_WIDTH - .16, .06, depth - .16);
   for (const z of [QUAY_FRONT - .35, QUAY_BACK + .45]) {
     for (const x of [-.95, .95]) post(dock, colors.wood, x, QUAY_Y + .13, z, .09, .26);
   }
@@ -35,7 +41,7 @@ function pier(dock: T.Group, improved: boolean): void {
   box(dock, colors.wood, .18, DECK_Y - .07, centre, 1.02, .12, depth);
   box(dock, improved ? colors.paving : colors.cream, .18, DECK_Y, centre, .9, .05, depth - .12);
   for (const z of [QUAY_FRONT + .35, QUAY_FRONT + 1.5, PIER_END - .2]) {
-    for (const x of [-.22, .58]) post(dock, colors.wood, x, (DECK_Y + WATERLINE) / 2 - .1, z, .08, DECK_Y - WATERLINE + .28);
+    for (const x of [-.22, .58]) post(dock, colors.wood, x, (POST_TOP + POST_FOOT) / 2, z, .09, POST_TOP - POST_FOOT);
   }
   for (const z of [QUAY_FRONT + .45, PIER_END - .3]) post(dock, colors.wood, -.24, DECK_Y + .17, z, .09, .32);
 }
@@ -77,7 +83,7 @@ function ship(scale: number, z: number): T.Group {
   box(vessel, colors.blue, .014, .92, -.02, .3, .44, .028);
   box(vessel, colors.linen, -.014, .92, -.2, .3, .44, .028);
   vessel.scale.setScalar(scale);
-  vessel.position.set(-.72, WATERLINE, z);
+  vessel.position.set(-.8, SEA_Y, z);
   return vessel;
 }
 
@@ -95,7 +101,7 @@ export function harbour(tier: 1 | 2, stage: 0 | 1 | 2 | 3, stores: Stores): T.Gr
   }
   if (stage !== 2) {
     const docked = stage === 0;
-    dock.add(ship(docked ? .8 : .5, docked ? 1.35 : 2.6));
+    dock.add(ship(docked ? .85 : .55, docked ? 1.6 : 2.6));
   }
   return dock;
 }

@@ -11,7 +11,6 @@ import type { Animal, AnimalKind, Building, BuildTool, City, Placement, Resource
 import type { Stage } from './stage';
 import { IslandScenery } from './island';
 import { LogisticsOverlay, syncDisconnectedMark, syncHouseSupplies } from './logistics';
-import { harbourLandTiles } from '../sim/founding';
 import { BuildingConstruction } from './assembly';
 import { DustField } from './dust';
 import { WildlifeField } from './wildlife';
@@ -226,7 +225,6 @@ export class CityScene {
     }
     this.primed = true;
     this.scenery.clearDecor(occupied, new Set(world.felled));
-    this.scenery.setQuays(new Set(world.cities.flatMap((city) => harbourLandTiles(this.map, city.harbour))));
     const walkerIds = new Set(allWalkers(world).map((walker) => walker.id));
     for (const [id, entry] of this.walkers) {
       if (walkerIds.has(id)) continue;

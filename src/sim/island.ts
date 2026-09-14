@@ -1,7 +1,7 @@
 import type { Terrain, Tile } from './types';
 
 export const CELL_SIZE = 1.25;
-export const GROUND_Y = 1.15;
+export const GROUND_Y = .4;
 export const LEVEL_HEIGHT = 1.6;
 
 export interface IslandPlacement {

@@ -47,8 +47,9 @@ existing one reads correctly at city zoom.
 
 ## Scale and footprints
 
-- One cell is `CELL_SIZE = 1.25`; ground is `GROUND_Y = 1.15` plus `LEVEL_HEIGHT =
-  1.6` per terrace. A citizen is ~1.1 tall.
+- One cell is `CELL_SIZE = 1.25`; ground is `GROUND_Y = .4` plus `LEVEL_HEIGHT =
+  1.6` per terrace. A citizen is ~1.1 tall. Level-0 shore meets the sea in a low
+  lip; a coastal cliff is terrain that rose a terrace, not the default shoreline.
 - `getBuildingModel(kind, state)` returns a model centred on its footprint, ground at
   `y = 0`, front facing `+Z`, strictly inside `catalog width × depth × CELL_SIZE`
   (tested in `src/art/models.test.ts`). Nothing may overhang into a road.
