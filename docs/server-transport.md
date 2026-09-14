@@ -1,6 +1,7 @@
 # Private shared server
 
-The playable `/` remains local. This server has no game UI or static hosting yet.
+This server owns the world behind the shared game at `/`; it serves no static
+files, which a proxy or Vite provides on the same origin.
 Use Bun 1.4.2 or newer (`npm ci` installs the verified 1.4.2 runtime for npm
 scripts). Older Bun versions can hang while stopping backpressured WebSockets;
 the factory refuses them. Explicitly initialize SQLite outside the checkout:
@@ -38,7 +39,7 @@ GET `/api/world` upgrades only with that exact Origin and an authenticated cooki
 A client sends:
 
 ```json
-{"type":"request","binding":"<session binding from snapshot>","requestId":"00000000000000000000000000000001","seq":1,"operation":{"kind":"claim","home":0}}
+{"type":"request","binding":"<session binding from snapshot>","requestId":"00000000000000000000000000000001","seq":1,"operation":{"kind":"claim","x":343,"z":18,"rotation":2}}
 ```
 
 A claim is `{"kind":"claim","x":…,"z":…,"rotation":0-3}`: it places the player's
@@ -116,4 +117,6 @@ limit is 1 MiB with closure on overflow.
 
 Run `npm test`, `npm run typecheck`, and `npm run build`. Transport tests use
 real ephemeral listeners and temporary SQLite; only the private factory clock
-and scheduler are injected. No HTTP debug controls exist.
+and scheduler are injected. No HTTP debug controls exist. `OIKOS_LOG=1` traces
+sockets, requests, control frames and dropped snapshots to stdout; it is off by
+default and never prints a credential or a binding.

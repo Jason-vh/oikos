@@ -11,14 +11,18 @@ world: the server owns it and saves it.
 
 ```bash
 npm install
-npm run dev                                     # the game; needs a running authority
+npm run play                                    # the game: authority and client together
 ```
 
 - `/` — the shared archipelago. Nothing is saved locally.
 - `/art.html` — isolated model viewer.
 - `/sandbox.html` — one local island for terrain and road art work; no HUD, no saves.
 
-Running the authority locally:
+`npm run play -- --fresh` starts the archipelago over once its eight islands are
+claimed. `npm run dev` serves the pages without an authority, which is enough for
+`/art.html` and `/sandbox.html` but leaves `/` waiting to connect.
+
+Running the authority by hand:
 
 ```bash
 npm run authority -- init /tmp/oikos/world.db
@@ -44,13 +48,19 @@ come. The menu holds the grid, sound, and the model atelier.
 ## Development
 
 ```bash
-npm run check                                   # build, tests, art captures (run before merging; CI runs tests and build only)
+npm run check                                   # build, tests, art captures, smokes (run before merging; CI runs tests and build only)
 npm run art:capture -- http://localhost:5180    # model captures into artifacts/art
 ```
 
-Behaviour is covered by `bun test`. Browser work is judged in the game and through
-the art captures; there are no gameplay walkthrough scripts.
+Behaviour is covered by `bun test`. The play loop — joining, claiming, founding,
+building — is covered in a real browser by `npm run smoke:play`. Art is judged in
+the game and through the art captures.
 
+`/?debug` exposes `window.oikos` for scripting the shared game, and `?latency=250`
+delays what the client sends. See [the development loop](docs/dev-loop.md), which
+also explains why browser automation here must not use Playwright's headless shell.
+
+- [The development loop](docs/dev-loop.md)
 - [Vision and roadmap](roadmap.md)
 - [Gameplay and first-island scope](docs/gameplay.md)
 - [Art direction](docs/art-direction.md)
