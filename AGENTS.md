@@ -1,7 +1,10 @@
 # Οἶκος
 
-Read `README.md`, `docs/gameplay.md`, `docs/art-direction.md`, and
-`docs/art-tooling.md` before changing the game.
+Read `README.md`, `docs/dev-loop.md`, `docs/gameplay.md`, `docs/art-direction.md`,
+and `docs/art-tooling.md` before changing the game.
+
+`npm run play` runs the game. `/?debug` scripts it. Both are in `docs/dev-loop.md`,
+along with why browser automation here must not use the headless shell.
 
 ## Boundaries
 
@@ -14,7 +17,10 @@ Read `README.md`, `docs/gameplay.md`, `docs/art-direction.md`, and
 
 ## Verification
 
-- Behaviour changes: `npm test`, `npm run build`, and the browser smoke test.
+- Behaviour changes: `npm test`, `npm run build`, and the browser smoke tests.
+- Shared-game changes: `npm run smoke:play`, then play it yourself at `npm run play`.
+- Suspect your own harness before the game. Read `oikos.log` and `OIKOS_LOG=1`
+  before concluding the transport is broken.
 - Model changes: `npm run art:check`, then `npm run art:capture` and look at the game.
 - Judge models at normal city zoom, not only close-up. Check footprints from every side.
 - Preserve paused/reduced-motion behaviour and local-save isolation between art tools and game.

@@ -36,8 +36,10 @@ export function latencyMillis(search: string): number {
   return Math.min(raw, 10_000);
 }
 
+const encoder = new TextEncoder();
+
 function frameBytes(data: unknown): number {
-  if (typeof data === 'string') return data.length;
+  if (typeof data === 'string') return encoder.encode(data).length;
   if (data instanceof Blob) return data.size;
   if (data instanceof ArrayBuffer) return data.byteLength;
   if (ArrayBuffer.isView(data)) return data.byteLength;
