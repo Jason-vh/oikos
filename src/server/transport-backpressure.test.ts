@@ -52,25 +52,24 @@ test('a slow reader skips snapshots rather than queueing them, and still receive
   expect(f.runtime.healthy).toBe(true);
 });
 
-test('receipts precede current snapshots without raising the four-Hz snapshot cap', async () => {
+test('a receipt is followed at once by the snapshot that resolves it; rejects keep the four-Hz cap', async () => {
   const f = await fixture(cleanups);
   const cookie = await f.cookie();
   const { peer } = await connect(cleanups, f, cookie);
   peer.send(1, claimFor(0));
-  expect((await peer.next('receipt')).result.ok).toBe(true);
+  expect(await peer.next(['receipt', 'snapshot'])).toMatchObject({ type: 'receipt', seq: 1, result: { ok: true } });
+  expect(await peer.next(['receipt', 'snapshot'])).toMatchObject({ type: 'snapshot', session: { nextSeq: 2 }, world: { cities: [{ home: 0 }] } });
   for (let seq = 2; seq <= 8; seq++) {
     peer.send(seq, claimFor(1));
-    expect((await peer.next('receipt')).result.ok).toBe(false);
+    expect(await peer.next(['receipt', 'snapshot'])).toMatchObject({ type: 'receipt', seq, result: { ok: false } });
+    expect(await peer.next(['receipt', 'snapshot'])).toMatchObject({ type: 'snapshot', session: { nextSeq: seq + 1 } });
   }
   expect(peer.packets).toEqual([]);
-  f.clock.step(249);
   peer.ws.send('{');
   expect((await peer.next('reject')).code).toBe('invalid-request');
   expect(peer.packets).toEqual([]);
-  f.clock.time += 1;
-  peer.send(9, claimFor(1));
-  expect(await peer.next(['receipt', 'snapshot'])).toMatchObject({ type: 'receipt', seq: 9 });
-  expect(await peer.next(['receipt', 'snapshot'])).toMatchObject({ type: 'snapshot', session: { nextSeq: 10 }, world: { cities: [{ home: 0 }] } });
+  f.clock.step();
+  expect(await peer.next('snapshot')).toMatchObject({ session: { nextSeq: 9 } });
 });
 
 test('shutdown completes with an OPEN paused reader and checkpoints the last live World', async () => {

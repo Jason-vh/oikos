@@ -129,9 +129,10 @@ export function startServer(options: RuntimeOptions) {
     control(ws, { type: 'reject', code, session: session(ws) });
   }
 
-  function snapshots(): void {
+  function snapshots(author: ServerWebSocket<SocketData> | null = null): void {
     const now = clock.now();
-    const ready = [...sockets].filter((ws) => ws.readyState === 1 && ws.data.snapshotDue && now - ws.data.lastSnapshot >= SNAPSHOT_INTERVAL_MS && ws.getBufferedAmount() === 0);
+    const due = (ws: ServerWebSocket<SocketData>) => ws === author || now - ws.data.lastSnapshot >= SNAPSHOT_INTERVAL_MS;
+    const ready = [...sockets].filter((ws) => ws.readyState === 1 && ws.data.snapshotDue && due(ws) && ws.getBufferedAmount() === 0);
     if (!ready.length) return;
     if (serial >= Number.MAX_SAFE_INTEGER) throw new Error('Snapshot serial exhausted.');
     const world = JSON.stringify(authority.snapshot());
@@ -278,11 +279,13 @@ export function startServer(options: RuntimeOptions) {
             if (!request) { reject(ws, 'invalid-request'); return; }
             if (request.binding !== ws.data.binding) { reject(ws, 'session-mismatch'); return; }
             const result = authority.submit(ws.data.credential, request.seq, request.requestId, request.operation);
+            let author: ServerWebSocket<SocketData> | null = null;
             if (result.status === 'processed' || result.status === 'replayed') {
               control(ws, { type: 'receipt', requestId: request.requestId, seq: request.seq, result });
+              author = ws;
             } else reject(ws, result.status);
             for (const peer of sockets) peer.data.snapshotDue = true;
-            snapshots();
+            snapshots(author);
           });
         },
         drain() {},

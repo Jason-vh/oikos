@@ -43,14 +43,17 @@ test('two authenticated actors claim and found distinct cities; snapshots surviv
     connection.peer.send(1, claimFor(home));
     const receipt = await connection.peer.next('receipt');
     expect(receipt.result).toMatchObject({ status: 'processed', ok: true });
+    expect((await connection.peer.next('snapshot')).session.ownedCityIds).toHaveLength(1);
   }
   f.clock.step();
   const claimSnapshot = await a.peer.next('snapshot');
   expect(claimSnapshot.world.cities.map((city) => city.home)).toEqual([0, 1]);
+  expect((await b.peer.next('snapshot')).serial).toBe(claimSnapshot.serial);
   for (const [index, connection] of [a, b].entries()) {
     const city = claimSnapshot.world.cities[index];
     connection.peer.send(2, { kind: 'command', cityId: city.id, command: { type: 'roadPath', tiles: harbourApron(city.harbour.x, city.harbour.z, city.harbour.rotation) } });
     expect((await connection.peer.next('receipt')).result.ok).toBe(true);
+    expect((await connection.peer.next('snapshot')).world.cities[index].roads.length).toBeGreaterThan(0);
   }
   f.clock.step();
   const founded = await a.peer.next('snapshot');

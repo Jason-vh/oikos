@@ -92,6 +92,11 @@ total and eight/actor. Snapshots are gzip binary frames, at most four/second per
 socket, with one shared serialized World per broadcast; clients inflate them and
 must keep packet order. Control packets stay text.
 
+A consumed sequence snapshots its author immediately, past that cap: the receipt
+alone does not release the client's next write, so the reconciling snapshot must
+not wait for the loop. Its cost is bounded by the sender's own request budget, and
+it resets that socket's interval. Rejects, peers and ticks keep the four-Hz cap.
+
 permessage-deflate is off. Bun drops compressed browser-to-server frames, so
 negotiating it silently loses every request; application gzip replaces it. A
 backpressured socket skips snapshots until writable; there is no application
