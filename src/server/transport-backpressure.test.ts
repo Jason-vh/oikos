@@ -95,3 +95,18 @@ test('shutdown completes with an OPEN paused reader and checkpoints the last liv
   const reopened = Authority.open(f.path);
   try { expect(reopened.snapshot()).toEqual(world); } finally { reopened.close(); }
 });
+
+test('wildlife rides a slower stream than the world it belongs to', async () => {
+  let actor!: ReturnType<typeof foundedActor>;
+  const f = await fixture(cleanups, (authority) => { actor = foundedActor(authority, 0); });
+  const { peer, snapshot } = await connect(cleanups, f, `__Host-oikos=${actor.credential}`);
+  expect(snapshot.wildlife!.length).toBeGreaterThan(0);
+  for (let elapsed = 250; elapsed < 1000; elapsed += 250) {
+    f.clock.step();
+    expect((await peer.next('snapshot')).wildlife).toBeNull();
+  }
+  f.clock.step();
+  const refreshed = await peer.next('snapshot');
+  expect(refreshed.wildlife).toHaveLength(snapshot.wildlife!.length);
+  expect(refreshed.wildlife).not.toEqual(snapshot.wildlife!);
+});

@@ -10,6 +10,11 @@ per journal. The adapter does not
 write World: `snapshot` delivers a validated authoritative replacement. Ownership
 and cursor getters/events are defensive copies.
 
+A snapshot's World arrives without wildlife; the animals ride the same packet on
+their own slower cadence, and `null` means the ones already held still stand. The
+adapter validates them against the World they accompany and hands the game one
+complete World. A handshake snapshot without wildlife is a protocol failure.
+
 Snapshots arrive as gzip binary frames and are inflated asynchronously. Text
 packets are handled synchronously while nothing is queued, and queued behind the
 inflation otherwise, so server order is preserved. A snapshot still waiting behind

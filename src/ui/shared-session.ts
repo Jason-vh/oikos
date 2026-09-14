@@ -1,6 +1,7 @@
 import type { AuthorityRequest } from '../server/authority';
 import type { ClientRequest, PublicSession, RejectCode } from '../server/protocol';
-import { copySession, highWatermark, parsePacket, parsePending, validWire, type PendingEnvelope, type ReceiptResult, type SharedSnapshot } from './shared-session-protocol';
+import type { Animal } from '../sim/types';
+import { copySession, highWatermark, parsePacket, parsePending, validWire, type PendingEnvelope, type ReceiptResult, type SharedSnapshot, type SnapshotPacket } from './shared-session-protocol';
 
 export type { SharedSnapshot } from './shared-session-protocol';
 
@@ -79,6 +80,7 @@ export class SharedSession {
   private realmId: string | null = null;
   private streamId: string | null = null;
   private serial = 0;
+  private wildlife: Animal[] = [];
   private session: PublicSession | null = null;
   private cityIds = new Set<number>();
   private pending: PendingEnvelope | null = null;
@@ -256,8 +258,9 @@ export class SharedSession {
     this.notify();
   }
 
-  private onSnapshot(snapshot: SharedSnapshot): void {
-    const { realmId, streamId, serial, session, world } = snapshot;
+  private onSnapshot(packet: SnapshotPacket): void {
+    const { realmId, streamId, serial, session } = packet;
+    if (!this.handshake && packet.wildlife === null) { this.protocolFailure(); return; }
     const realmChanged = this.realmId !== null && this.realmId !== realmId;
     const streamChanged = this.streamId !== null && this.streamId !== streamId;
     const bindingChanged = this.session !== null && this.session.binding !== session.binding;
@@ -271,6 +274,8 @@ export class SharedSession {
     this.streamId = streamId;
     this.serial = serial;
     this.session = copySession(session);
+    if (packet.wildlife !== null) this.wildlife = packet.wildlife;
+    const world = { ...packet.world, wildlife: this.wildlife };
     this.cityIds = new Set(world.cities.map((city) => city.id));
     if (realmChanged || bindingChanged) {
       this.awaitingReconcile = false;

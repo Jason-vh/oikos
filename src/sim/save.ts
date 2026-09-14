@@ -329,6 +329,25 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
   return world;
 }
 
+export function deserializeWildlife(world: World, raw: unknown): Animal[] | null {
+  if (!Array.isArray(raw)) return null;
+  const atlas = islandFor(world.seed);
+  const used = new Set<number>();
+  for (const city of world.cities) {
+    used.add(city.harbour.id);
+    for (const building of city.buildings) used.add(building.id);
+    for (const walker of city.walkers) used.add(walker.id);
+  }
+  const wildlife: Animal[] = [];
+  for (const entry of raw) {
+    const animal = validateAnimal(atlas, entry);
+    if (!animal || used.has(animal.id) || animal.id >= world.nextId) return null;
+    used.add(animal.id);
+    wildlife.push(animal);
+  }
+  return wildlife;
+}
+
 export function parseStores(raw: unknown): Stores | null {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
   const stores: Stores = {};

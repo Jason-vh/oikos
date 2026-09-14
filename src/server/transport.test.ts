@@ -3,7 +3,7 @@ import { claimFor } from './authority-fixtures.test';
 import { Authority } from './authority';
 import { deserializeSharedWorld } from '../sim/save';
 import { harbourApron } from '../sim/founding';
-import { connect, fixture } from './transport-fixtures.test';
+import { connect, fixture, withoutWildlife } from './transport-fixtures.test';
 
 const cleanups: Array<() => unknown> = [];
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup(); });
@@ -23,8 +23,8 @@ test('joins only from the configured origin, keeps credentials solely in the sec
   const admitted = await f.cookie('Kleio');
   expect((await fetch(`${f.base}/api/world`, { headers: { Origin: 'https://foreign.example', Cookie: admitted, Upgrade: 'websocket' } })).status).toBe(403);
   const { snapshot } = await connect(cleanups, f, admitted);
-  expect(Object.keys(snapshot).sort()).toEqual(['protocol', 'realmId', 'serial', 'session', 'streamId', 'type', 'world']);
-  expect(snapshot.protocol).toBe(3);
+  expect(Object.keys(snapshot).sort()).toEqual(['protocol', 'realmId', 'serial', 'session', 'streamId', 'type', 'wildlife', 'world']);
+  expect(snapshot.protocol).toBe(4);
   expect(snapshot.session.binding).toMatch(/^[a-f0-9]{64}$/);
   expect(snapshot.session).toEqual({ binding: snapshot.session.binding, ownedCityIds: [], nextSeq: 1, receiptWatermark: 0 });
   expect(deserializeSharedWorld(JSON.stringify(snapshot.world))).toEqual(snapshot.world);
@@ -68,6 +68,7 @@ test('two authenticated actors claim and found distinct cities; snapshots surviv
   const reopened = Authority.open(f.path);
   try {
     expect(reopened.realmId).toBe(founded.realmId);
-    expect(reopened.snapshot()).toEqual(founded.world);
+    expect(withoutWildlife(reopened.snapshot())).toEqual(withoutWildlife(founded.world));
+    expect(reopened.snapshot().wildlife).toHaveLength(founded.world.wildlife.length);
   } finally { reopened.close(); }
 });

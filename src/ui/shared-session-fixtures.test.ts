@@ -8,7 +8,9 @@ export const STREAM = '22222222-2222-4222-8222-222222222222';
 export const OTHER = '33333333-3333-4333-8333-333333333333';
 export const BINDING = 'a'.repeat(64);
 export const KEY = 'oikos.shared.pending.v1';
-const WORLD = JSON.parse(serializeWorld(createWorld(1, 0)));
+const SAVED = JSON.parse(serializeWorld(createWorld(1, 0)));
+const WORLD = { ...SAVED, wildlife: [] };
+const WILDLIFE = SAVED.wildlife;
 
 export class FakeSocket extends EventTarget {
   readyState: number = WebSocket.CONNECTING;
@@ -55,7 +57,7 @@ export function snapshotPacket(overrides: Record<string, unknown> = {}) {
   return {
     type: 'snapshot', protocol: PROTOCOL, realmId: REALM, streamId: STREAM, serial: 1,
     session: { binding: BINDING, ownedCityIds: [1], nextSeq: 2, receiptWatermark: 0 },
-    world: structuredClone(WORLD), ...overrides,
+    world: structuredClone(WORLD), wildlife: structuredClone(WILDLIFE), ...overrides,
   };
 }
 

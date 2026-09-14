@@ -127,3 +127,31 @@ test('definitely failed persistence is unsent and blocks further writes', async 
   expect(h.session.statusReason).not.toBe('');
   h.session.close();
 });
+
+test('wildlife rides its own stream: it is retained between updates and required on handshake', () => {
+  const h = harness();
+  const socket = h.connect();
+  const animals = h.snapshots[0].world.wildlife;
+  expect(animals.length).toBeGreaterThan(0);
+  socket.message(snapshotPacket({ serial: 2, wildlife: null }));
+  expect(h.snapshots[1].world.wildlife).toBe(animals);
+  const moved = animals.map((animal, index) => (index === 0 ? { ...animal, x: animal.x + .5 } : animal));
+  socket.message(snapshotPacket({ serial: 3, wildlife: moved }));
+  expect(h.snapshots[2].world.wildlife[0].x).toBeCloseTo(animals[0].x + .5);
+  h.session.close();
+  const late = harness();
+  late.sockets[0].open();
+  late.sockets[0].message(snapshotPacket({ wildlife: null }));
+  expect(late.snapshots).toHaveLength(0);
+  expect(late.session.currentStatus).toBe('protocol-error');
+  late.session.close();
+});
+
+test('wildlife is validated against the world it accompanies', () => {
+  const h = harness();
+  h.sockets[0].open();
+  h.sockets[0].message(snapshotPacket({ wildlife: [{ id: 1, kind: 'dragon', x: 1, z: 1, homeX: 1, homeZ: 1, heading: 0, phase: 0, respawn: 0, cornered: false }] }));
+  expect(h.snapshots).toHaveLength(0);
+  expect(h.session.currentStatus).toBe('protocol-error');
+  h.session.close();
+});

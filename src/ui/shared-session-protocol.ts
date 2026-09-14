@@ -1,6 +1,6 @@
 import { MAX_REQUEST_BYTES, PROTOCOL, parseRequest, type PublicSession, type RejectCode } from '../server/protocol';
-import { deserializeSharedWorld } from '../sim/save';
-import type { World } from '../sim/types';
+import { deserializeSharedWorld, deserializeWildlife } from '../sim/save';
+import type { Animal, World } from '../sim/types';
 
 export interface SharedSnapshot {
   world: World;
@@ -8,6 +8,12 @@ export interface SharedSnapshot {
   realmId: string;
   streamId: string;
   serial: number;
+}
+
+export interface SnapshotPacket extends SharedSnapshot {
+  type: 'snapshot';
+  protocol: 4;
+  wildlife: Animal[] | null;
 }
 
 export interface PendingEnvelope {
@@ -26,7 +32,7 @@ export interface ReceiptResult {
 }
 
 type Packet =
-  | (SharedSnapshot & { type: 'snapshot'; protocol: 3 })
+  | SnapshotPacket
   | { type: 'receipt'; requestId: string; seq: number; result: ReceiptResult }
   | { type: 'reject'; code: RejectCode; session: PublicSession };
 
@@ -92,11 +98,15 @@ export function parsePacket(raw: unknown): Packet | null {
     const value: unknown = JSON.parse(raw);
     if (!record(value)) return null;
     if (value.type === 'snapshot') {
-      if (!keys(value, ['type', 'protocol', 'realmId', 'streamId', 'serial', 'session', 'world'])) return null;
+      if (!keys(value, ['type', 'protocol', 'realmId', 'streamId', 'serial', 'session', 'world', 'wildlife'])) return null;
       if (value.protocol !== PROTOCOL || !uuid(value.realmId) || !uuid(value.streamId) || !positive(value.serial) || !validSession(value.session)) return null;
       const world = deserializeSharedWorld(JSON.stringify(value.world));
-      if (!world || !value.session.ownedCityIds.every((id) => world.cities.some((city) => city.id === id))) return null;
-      return { ...value, world } as Packet;
+      if (!world || world.wildlife.length > 0) return null;
+      if (!value.session.ownedCityIds.every((id) => world.cities.some((city) => city.id === id))) return null;
+      if (value.wildlife === null) return { ...value, world, wildlife: null } as Packet;
+      const wildlife = deserializeWildlife(world, value.wildlife);
+      if (!wildlife) return null;
+      return { ...value, world, wildlife } as Packet;
     }
     if (value.type === 'reject') {
       if (!keys(value, ['type', 'code', 'session']) || !REJECT_CODES.has(value.code) || !validSession(value.session)) return null;

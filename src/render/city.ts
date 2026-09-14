@@ -22,6 +22,8 @@ interface AnimalEntry { kind: AnimalKind; position: T.Vector3; from: T.Vector3; 
 
 const SIGHT_MARGIN = 1.3;
 const TELEPORT = 4;
+const ANIMAL_SPAN = .25;
+const ANIMAL_SPAN_LIMIT = 2;
 const REVEAL_SHARE = .9;
 
 const TURN_RATE = 14;
@@ -100,6 +102,9 @@ export class CityScene {
   private focus: T.Vector3 | null = null;
   private sight = 60;
   private lastWorld: World | null = null;
+  private syncedWildlife: readonly Animal[] | null = null;
+  private wildlifeAge = 0;
+  private animalSpan = ANIMAL_SPAN;
   private readonly logistics: LogisticsOverlay;
   private readonly validMaterial = new T.MeshBasicMaterial({ color: 0x79b58b, transparent: true, opacity: .38, depthWrite: false });
   private readonly invalidMaterial = new T.MeshBasicMaterial({ color: 0xd3664e, transparent: true, opacity: .45, depthWrite: false });
@@ -235,14 +240,18 @@ export class CityScene {
       const stairs = this.stairsByCity.get(city.id) ?? new Map<number, Stair>();
       for (const walker of city.walkers) this.syncWalker(walker, stairs);
     }
-    const animalIds = new Set(world.wildlife.map((animal) => animal.id));
-    for (const id of [...this.animals.keys()]) {
-      if (animalIds.has(id)) continue;
-      this.wildlife.remove(id);
-      this.animals.delete(id);
+    if (world.wildlife !== this.syncedWildlife) {
+      this.syncedWildlife = world.wildlife;
+      this.animalSpan = Math.min(Math.max(this.wildlifeAge, ANIMAL_SPAN), ANIMAL_SPAN_LIMIT);
+      this.wildlifeAge = 0;
+      const animalIds = new Set(world.wildlife.map((animal) => animal.id));
+      for (const id of [...this.animals.keys()]) {
+        if (animalIds.has(id)) continue;
+        this.wildlife.remove(id);
+        this.animals.delete(id);
+      }
+      for (const animal of world.wildlife) this.syncAnimal(animal);
     }
-
-    for (const animal of world.wildlife) this.syncAnimal(animal);
     this.stage.invalidate();
   }
 
@@ -266,7 +275,7 @@ export class CityScene {
         facing: -animal.heading + Math.PI / 2,
         roll: 0,
         phase: 0,
-        elapsed: .25,
+        elapsed: this.animalSpan,
         moving: false,
         dying: 0,
         visible: animal.respawn === 0,
@@ -287,7 +296,7 @@ export class CityScene {
     entry.from.copy(entry.position);
     entry.target.copy(target);
     entry.heading = animal.heading;
-    entry.elapsed = jumped ? .25 : 0;
+    entry.elapsed = jumped ? this.animalSpan : 0;
     entry.moving = !jumped && entry.from.distanceToSquared(target) > 1e-5;
   }
 
@@ -472,9 +481,10 @@ export class CityScene {
       }
       this.groundCompanions(walker);
     }
+    this.wildlifeAge += delta * speed;
     for (const [id, animal] of this.animals) {
       animal.elapsed += delta * speed;
-      animal.position.lerpVectors(animal.from, animal.target, Math.min(1, animal.elapsed / .25));
+      animal.position.lerpVectors(animal.from, animal.target, Math.min(1, animal.elapsed / this.animalSpan));
       animal.facing = turnToward(animal.facing, -animal.heading + Math.PI / 2, delta * speed);
 
       if (animal.dying > 0) {

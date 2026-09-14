@@ -97,6 +97,13 @@ alone does not release the client's next write, so the reconciling snapshot must
 not wait for the loop. Its cost is bounded by the sender's own request budget, and
 it resets that socket's interval. Rejects, peers and ticks keep the four-Hz cap.
 
+Wildlife travels on the same packet at its own once-a-second cadence, as
+`wildlife: Animal[] | null`; the World beside it always carries an empty wildlife
+array. Null means unchanged, and a client keeps the animals it holds. A handshake
+snapshot must carry them, so a connection never starts without a complete World.
+This is what keeps an action's frame small: the cities, roads, buildings and
+walkers of a fresh archipelago gzip to 133 bytes, its 2,344 animals to 93 KB.
+
 permessage-deflate is off. Bun drops compressed browser-to-server frames, so
 negotiating it silently loses every request; application gzip replaces it. A
 backpressured socket skips snapshots until writable; there is no application

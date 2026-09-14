@@ -23,11 +23,13 @@ interface SocketData {
   actorId: number;
   snapshotDue: boolean;
   lastSnapshot: number;
+  lastWildlife: number;
 }
 interface Bucket { tokens: number; at: number }
 export const AGENT_PRESENCE_MS = 30_000;
 const BEARER = /^Bearer ([a-f0-9]{64})$/;
 const SNAPSHOT_INTERVAL_MS = 250;
+const WILDLIFE_INTERVAL_MS = 1000;
 const clockDefault: RuntimeClock = {
   now: () => performance.now(),
   schedule(callback, milliseconds) {
@@ -135,13 +137,18 @@ export function startServer(options: RuntimeOptions) {
     const ready = [...sockets].filter((ws) => ws.readyState === 1 && ws.data.snapshotDue && due(ws) && ws.getBufferedAmount() === 0);
     if (!ready.length) return;
     if (serial >= Number.MAX_SAFE_INTEGER) throw new Error('Snapshot serial exhausted.');
-    const world = JSON.stringify(authority.snapshot());
+    const current = authority.snapshot();
+    const world = JSON.stringify({ ...current, wildlife: [] });
+    const owed = (ws: ServerWebSocket<SocketData>) => now - ws.data.lastWildlife >= WILDLIFE_INTERVAL_MS;
+    const wildlife = ready.some(owed) ? JSON.stringify(current.wildlife) : 'null';
     const header = { type: 'snapshot', protocol: PROTOCOL, realmId: authority.realmId, streamId, serial: ++serial };
     for (const ws of ready) {
       const prefix = JSON.stringify({ ...header, session: session(ws) });
-      const sent = ws.send(Bun.gzipSync(`${prefix.slice(0, -1)},"world":${world}}`));
+      const carries = owed(ws);
+      const sent = ws.send(Bun.gzipSync(`${prefix.slice(0, -1)},"world":${world},"wildlife":${carries ? wildlife : 'null'}}`));
       ws.data.snapshotDue = false;
       ws.data.lastSnapshot = now;
+      if (carries) ws.data.lastWildlife = now;
       if (sent === 0) ws.terminate();
     }
   }
@@ -246,7 +253,7 @@ export function startServer(options: RuntimeOptions) {
           if (!authenticated) return response(401, 'unauthenticated');
           if (slots.size >= 64 || [...slots].filter((slot) => slot.actorId === authenticated.actorId).length >= 8) return response(429, 'socket-limit');
           const binding = createHash('sha256').update(`oikos:session-binding:v1\0${authority.realmId}\0${credential}`).digest('hex');
-          const data: SocketData = { credential, binding, actorId: authenticated.actorId, snapshotDue: true, lastSnapshot: -Infinity };
+          const data: SocketData = { credential, binding, actorId: authenticated.actorId, snapshotDue: true, lastSnapshot: -Infinity, lastWildlife: -Infinity };
           slots.add(data);
           if (listener.upgrade(request, { data })) return;
           slots.delete(data);

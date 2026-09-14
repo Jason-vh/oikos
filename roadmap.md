@@ -241,15 +241,13 @@ new shipping network to supply these sanctuaries.”
 - Deployed at <https://oikos.vhtm.eu>: Caddy serves the built client and proxies
   the authority over the same origin.
 - Still ahead, in rough order:
-  - **Snapshot cost.** A snapshot is the whole World, four times a second, and a
-    browser spends most of a second receiving, validating and syncing one. It shows
-    as a few seconds of lag after an action. Measured on a fresh world: 396,714
-    bytes, of which wildlife is 396,570 — 2,358 animals against two bytes of cities.
-    Serialising costs 0.3 ms, so the second is transfer and parse. Wildlife is
-    therefore the whole problem: sending only what is near a viewer, or on its own
-    slower stream, cuts the payload about a hundredfold and lets a claim appear at
-    once. Agents are unaffected — in-process, they read the object graph and never
-    serialise a World.
+  - **Snapshot cost.** Wildlife now rides its own once-a-second stream, so an
+    action's frame is the cities alone: 133 gzipped bytes against 93 KB of animals,
+    and a snapshot released by a receipt arrives at once. A client's steady traffic
+    fell from 375 KB/s to 94 KB/s, still almost entirely wildlife. Next: send only
+    the animals near the viewer, and deltas rather than whole cities once walkers
+    outgrow a frame. Agents are unaffected — in-process, they read the object graph
+    and never serialise a World.
   - **A pause of one's own.** Shared time never stops, so a solo player cannot
     pause. A menu pause for a world nobody else is playing.
   - **A minimap**, now that the island picker is gone and the sea is the map.
