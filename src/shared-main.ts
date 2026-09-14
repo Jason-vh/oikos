@@ -1,5 +1,6 @@
 import { boot, type BootHandles } from './main';
 import { NAME_LIMIT } from './server/protocol';
+import { debugEnabled, delaySends, latencyMillis, observe } from './ui/debug';
 import { SharedSession, type SharedRequestOutcome, type SharedSessionStatus, type SharedSessionStorage } from './ui/shared-session';
 import './ui/style.css';
 
@@ -14,6 +15,14 @@ function safeStorage(): SharedSessionStorage {
 function wsUrl(): string {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${protocol}//${location.host}/api/world`;
+}
+
+function connect(): WebSocket {
+  const socket = new WebSocket(wsUrl());
+  if (!debugEnabled(location.search)) return socket;
+  observe(socket);
+  delaySends(socket, latencyMillis(location.search));
+  return socket;
 }
 
 function buildOverlay(): {
@@ -120,7 +129,7 @@ function boot_(): void {
     try {
       session = new SharedSession(
         {
-          connect: () => new WebSocket(wsUrl()),
+          connect,
           storage: safeStorage(),
         },
         {

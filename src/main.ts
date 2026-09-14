@@ -5,7 +5,7 @@ import { CityScene } from './render/city';
 import { ConstructionOverlay } from './render/construction';
 import { BUILDINGS } from './sim/catalog';
 import { demolitionPreview, footprintTileIssues, harbourRoute, suitableFarmGround } from './sim/construction';
-import { CELL_SIZE, islandFor, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
+import { CELL_SIZE, groundHeight, islandFor, terrainOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
 import { buildingStatus, getSummary, placement, roadPathPlacement, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
 import { animalName, animalStatus } from './sim/wildlife';
 import type { Building, City, Placement, Rotation, Tile, Tool, Walker, World } from './sim/types';
@@ -16,6 +16,7 @@ import { harbourPlacement } from './sim/founding';
 import type { AuthorityRequest } from './server/authority';
 import { parseCommand, type CityCommand } from './sim/commands';
 import { activeCity, canWrite, contextForOwnedCity, reconcileContext, resolveCity, viewedCity, withViewed } from './ui/city-context';
+import { debugEnabled, protocolLog } from './ui/debug';
 import { SharedSession, type SendOutcome, type SharedRequestOutcome, type SharedSessionStatus, type SharedSnapshot } from './ui/shared-session';
 import { SharedIntent } from './ui/shared-intent';
 import { PredictedWorld } from './ui/predicted-world';
@@ -273,6 +274,9 @@ export function boot(source: SharedBootSource): BootHandles {
   });
 
   function applySharedOutcome(outcome: SendOutcome, announce = true): void {
+    const resolveSeam = seamOutcome;
+    seamOutcome = null;
+    resolveSeam?.(outcome);
     const uncertain = outcome.status === 'indeterminate';
     if (outcome.reason.length > 0) hud.notify(outcome.reason, !outcome.ok && !uncertain);
     if (!outcome.ok && !uncertain) sound.play('error');
@@ -653,11 +657,108 @@ export function boot(source: SharedBootSource): BootHandles {
       updatePreview();
     }
     flushBufferedRequest();
+    releaseSeamWaiters();
   }
 
   function onOutcomeUpdate(result: SharedRequestOutcome): void {
     sharedIntent.outcome(result);
   }
+
+  let seamOutcome: ((outcome: SendOutcome) => void) | null = null;
+  const seamWaiters = new Set<() => void>();
+
+  function seamReady(): boolean {
+    return source.session.canSend() && !sharedIntent.busy;
+  }
+
+  function releaseSeamWaiters(): void {
+    if (!seamReady()) return;
+    for (const waiter of [...seamWaiters]) waiter();
+    seamWaiters.clear();
+  }
+
+  function seamSettled(): Promise<void> {
+    if (seamReady()) return Promise.resolve();
+    return new Promise((resolve) => seamWaiters.add(resolve));
+  }
+
+  async function seamSubmit(request: AuthorityRequest): Promise<SendOutcome> {
+    await seamSettled();
+    return new Promise<SendOutcome>((resolve) => {
+      seamOutcome = resolve;
+      submitShared(request);
+    });
+  }
+
+  function seamCommand(command: CityCommand): Promise<SendOutcome> {
+    if (context.activeId === null) return Promise.resolve({ ok: false, reason: 'No city of your own yet.', status: 'unsent' });
+    return seamSubmit({ kind: 'command', cityId: context.activeId, command });
+  }
+
+  function installDebugSeam(): void {
+    Reflect.set(window, 'oikos', {
+      get state() { return structuredClone(world); },
+      get map() {
+        const island = map();
+        return { width: island.width, depth: island.depth, home: island.home, entry: island.entry, islands: island.islands, terrain: island.terrain, level: Array.from(island.level) };
+      },
+      get status() {
+        return {
+          status: source.session.currentStatus,
+          reason: source.session.statusReason,
+          ready: seamReady(),
+          busy: sharedIntent.busy,
+          writable: writable(),
+          siting: siting(),
+        };
+      },
+      get session() {
+        return { ...source.session.currentSession, realmId, activeCityId: context.activeId, viewedCityId: context.viewedId };
+      },
+      get log() { return protocolLog.all; },
+      clearLog: () => protocolLog.clear(),
+      get frames() { return stage.frames; },
+      get drawCalls() { return stage.renderer.info.render.calls; },
+      get triangles() { return stage.renderer.info.render.triangles; },
+      get camera() { return [...stage.camera.position.toArray(), ...stage.controls.target.toArray(), stage.camera.zoom]; },
+      settled: seamSettled,
+      claim: (x: number, z: number, turn: Rotation = 0) => seamSubmit({ kind: 'claim', x, z, rotation: turn }),
+      build: (kind: Exclude<Tool, 'inspect' | 'demolish' | 'road'>, x: number, z: number, turn: Rotation = 0) => seamCommand({ type: 'build', tool: kind, x, z, rotation: turn }),
+      road: (tiles: Tile[]) => seamCommand({ type: 'roadPath', tiles }),
+      demolish: (x: number, z: number) => seamCommand({ type: 'demolish', x, z }),
+      vendor: (id: number, enabled: boolean) => seamCommand({ type: 'vendor', id, enabled }),
+      checkClaim: (x: number, z: number, turn: Rotation = 0) => harbourPlacement(world, x, z, turn),
+      checkBuild: (kind: Exclude<Tool, 'inspect' | 'demolish'>, x: number, z: number, turn: Rotation = 0) => {
+        const home = activeCity(world, context);
+        if (!home) return { ok: false, reason: 'No city of your own yet.', cost: 0, tiles: [] };
+        return placement(world, home, kind, x, z, turn);
+      },
+      select: (x: number, z: number) => {
+        const point = projectTile(x, z);
+        const picked = city.pick(point.x, point.y);
+        selectedId = picked.walker ?? picked.animal ?? picked.building;
+        refresh();
+        return selectedId;
+      },
+      setTool: (next: Tool) => selectTool(next),
+      toggleGrid: () => setGrid(!showGrid),
+      focusTile: (x: number, z: number) => {
+        const point = worldPositionOn(map(), x + .5, z + .5);
+        stage.focus(point.x, point.z, true);
+      },
+      home: focusVillage,
+      visit: viewCity,
+      projectTile,
+      terrainAt: (x: number, z: number) => terrainOn(map(), x, z),
+    });
+  }
+
+  function projectTile(x: number, z: number): { x: number; y: number } {
+    const point = worldPositionOn(map(), x + .5, z + .5);
+    return stage.project(point.x, groundHeight(map(), x, z), point.z);
+  }
+
+  if (debugEnabled(location.search)) installDebugSeam();
 
   return {
     onSnapshot: onSnapshotUpdate,
