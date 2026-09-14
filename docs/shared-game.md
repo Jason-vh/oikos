@@ -27,3 +27,9 @@ presentation path.
 
 Menus do not pause shared time. Browser storage failures still allow
 read-only snapshots. Startup failure retains a visible error and closes the socket.
+
+Your own command is shown before the authority has seen it: the client folds it
+over the last snapshot with the same simulation the server runs, so the building,
+its cost and the previews that follow are immediate. The prediction is one command
+deep, never persists, never advances time, and is dropped the moment the
+authoritative world that resolves it arrives, or at once if it is refused.

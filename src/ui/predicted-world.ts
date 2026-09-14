@@ -13,7 +13,7 @@ function copyBesideWildlife(world: World): World {
 }
 
 export class PredictedWorld {
-  private pending: LocalCommand[] = [];
+  private pending: LocalCommand | null = null;
   private view: World;
 
   constructor(private authoritative: World) {
@@ -25,7 +25,7 @@ export class PredictedWorld {
   }
 
   get predicting(): boolean {
-    return this.pending.length > 0;
+    return this.pending !== null;
   }
 
   sync(world: World): void {
@@ -33,28 +33,26 @@ export class PredictedWorld {
     this.rebuild();
   }
 
-  predict(cityId: number, command: CityCommand): void {
-    this.pending.push({ cityId, command });
-    this.rebuild();
-  }
-
-  settled(): void {
-    this.pending.shift();
-    this.rebuild();
+  predict(cityId: number, command: CityCommand): boolean {
+    this.pending = { cityId, command };
+    if (this.rebuild()) return true;
+    this.discard();
+    return false;
   }
 
   discard(): void {
-    this.pending = [];
+    this.pending = null;
     this.rebuild();
   }
 
-  private rebuild(): void {
-    if (this.pending.length === 0) {
+  private rebuild(): boolean {
+    if (!this.pending) {
       this.view = this.authoritative;
-      return;
+      return true;
     }
     const world = copyBesideWildlife(this.authoritative);
-    for (const entry of this.pending) applyCommand(world, entry.cityId, entry.command);
+    const applied = applyCommand(world, this.pending.cityId, this.pending.command).ok;
     this.view = world;
+    return applied;
   }
 }

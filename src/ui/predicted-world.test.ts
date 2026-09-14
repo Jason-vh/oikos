@@ -38,7 +38,7 @@ test('wildlife is shared with the authoritative world rather than copied', () =>
   expect(predicted.world.wildlife).toBe(world.wildlife);
 });
 
-test('a newer snapshot keeps an unresolved prediction and settling drops it', () => {
+test('a newer snapshot keeps an unresolved prediction until it is discarded', () => {
   const { world, cityId, spot } = fixture();
   const predicted = new PredictedWorld(world);
   predicted.predict(cityId, { type: 'build', tool: 'house', x: spot.x, z: spot.z, rotation: 0 });
@@ -47,7 +47,7 @@ test('a newer snapshot keeps an unresolved prediction and settling drops it', ()
   predicted.sync(advanced);
   expect(predicted.world.time).toBe(advanced.time);
   expect(predicted.world.cities[0].buildings).toHaveLength(1);
-  predicted.settled();
+  predicted.discard();
   expect(predicted.world).toBe(advanced);
 });
 
@@ -59,6 +59,14 @@ test('a prediction the world has outgrown leaves the authoritative state alone',
   predicted.sync(taken);
   expect(predicted.world.cities[0].buildings).toHaveLength(1);
   expect(predicted.world.cities[0].money).toBe(taken.cities[0].money);
+});
+
+test('a command that fails here is not predicted at all', () => {
+  const { world, cityId } = fixture();
+  const predicted = new PredictedWorld(world);
+  expect(predicted.predict(cityId, { type: 'build', tool: 'house', x: 0, z: 0, rotation: 0 })).toBe(false);
+  expect(predicted.predicting).toBe(false);
+  expect(predicted.world).toBe(world);
 });
 
 test('discarding returns the view to the authority', () => {

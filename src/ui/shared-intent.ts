@@ -23,15 +23,16 @@ export class SharedIntent {
 
   reset(): void { this.current = null; }
 
-  send(operation: AuthorityRequest): void {
+  send(operation: AuthorityRequest): boolean {
     const cursor = this.session.currentSession;
-    if (this.busy || !this.session.canSend() || !cursor || cursor.nextSeq === null) return;
+    if (this.busy || !this.session.canSend() || !cursor || cursor.nextSeq === null) return false;
     const intent: Intent = {
       realm: this.realm(), binding: cursor.binding, seq: cursor.nextSeq,
       requestId: null, kind: operation.kind, phase: 'waiting',
     };
     this.current = intent;
     void this.session.send(operation).then((outcome) => this.settle(intent, outcome));
+    return true;
   }
 
   outcome(result: SharedRequestOutcome): void {
