@@ -13,6 +13,7 @@ import { createHud, type CityScope } from './ui/hud';
 import { createSound } from './ui/sound';
 import { celebration, cityMilestones, NO_MILESTONES, rememberMilestones } from './ui/celebrations';
 import { harbourPlacement } from './sim/founding';
+import type { AuthorityRequest } from './server/authority';
 import type { CityCommand } from './sim/commands';
 import { activeCity, canWrite, contextForOwnedCity, reconcileContext, resolveCity, viewedCity, withViewed } from './ui/city-context';
 import { SharedSession, type SendOutcome, type SharedRequestOutcome, type SharedSessionStatus, type SharedSnapshot } from './ui/shared-session';
@@ -22,6 +23,12 @@ import './ui/style.css';
 export interface SharedBootSource {
   session: SharedSession;
   initialSnapshot: SharedSnapshot;
+}
+
+const CONNECTION_NOTICE_DELAY = 900;
+
+function isSettling(status: SharedSessionStatus): boolean {
+  return status === 'pending' || status === 'reconciling';
 }
 
 export interface BootHandles {
@@ -121,18 +128,22 @@ export function boot(source: SharedBootSource): BootHandles {
     return target ? { city: target, summary: getSummary(target) } : null;
   }
 
+  function settling(): boolean {
+    return isSettling(source.session.currentStatus);
+  }
+
   function writable(): boolean {
-    return canWrite(world, context) && source.session.canSend();
+    return canWrite(world, context) && (source.session.canSend() || settling());
   }
 
   function siting(): boolean {
-    return context.activeId === null && source.session.canSend() && !sharedIntent.busy;
+    return context.activeId === null && (source.session.canSend() || settling() || sharedIntent.busy);
   }
 
   function connectionHint(): string {
+    if (!source.session.canSend() && !settling()) return connectionMessage(source.session.currentStatus);
     if (context.activeId === null) return 'You have no city of your own here.';
     if (context.viewedId !== context.activeId) return 'Visiting another city · read-only. H returns home.';
-    if (!source.session.canSend()) return 'Not ready to send actions right now · the world stays visible while this resolves.';
     return 'Viewing another city grants no writes.';
   }
 
@@ -266,9 +277,28 @@ export function boot(source: SharedBootSource): BootHandles {
     else if (outcome.ok) sound.play('build');
   }
 
+  let bufferedRequest: AuthorityRequest | null = null;
+
+  function submitShared(request: AuthorityRequest): void {
+    if (source.session.canSend() && !sharedIntent.busy) {
+      sharedIntent.send(request);
+      return;
+    }
+    bufferedRequest = settling() ? request : null;
+  }
+
+  function flushBufferedRequest(): void {
+    const request = bufferedRequest;
+    bufferedRequest = null;
+    if (!request || !source.session.canSend() || sharedIntent.busy) return;
+    if (request.kind === 'claim' && context.activeId !== null) return;
+    if (request.kind === 'command' && request.cityId !== context.activeId) return;
+    sharedIntent.send(request);
+  }
+
   function dispatchShared(command: CityCommand): void {
     if (!writable()) { applySharedOutcome({ ok: false, reason: 'Viewing another city grants no writes.', status: 'unsent' }); return; }
-    sharedIntent.send({ kind: 'command', cityId: context.activeId!, command });
+    submitShared({ kind: 'command', cityId: context.activeId!, command });
   }
 
   function atPointer(event: PointerEvent): Tile | null {
@@ -405,7 +435,7 @@ export function boot(source: SharedBootSource): BootHandles {
       const gestureStillValid = drag.gestureWritable && drag.gestureGeneration === stateGeneration;
       const home = gestureStillValid && writable() ? activeCity(world, context) : null;
       if (gestureStillValid && siting()) {
-        sharedIntent.send({ kind: 'claim', x: hover.x, z: hover.z, rotation });
+        submitShared({ kind: 'claim', x: hover.x, z: hover.z, rotation });
       } else if (!home || tool === 'inspect') {
         const picked = city.pick(event.clientX, event.clientY);
         selectedId = picked.walker ?? picked.animal ?? picked.building;
@@ -506,7 +536,11 @@ export function boot(source: SharedBootSource): BootHandles {
       hud.setSiting(false, '');
       return;
     }
-    hud.setSiting(true, source.session.canSend()
+    if (sharedIntent.busy || bufferedRequest !== null) {
+      hud.setSiting(true, 'Founding your city…');
+      return;
+    }
+    hud.setSiting(true, source.session.canSend() || settling()
       ? 'Choose a shore and place your harbour: two rows of land, three of water.'
       : 'Waiting for the world before you can settle…');
   }
@@ -541,7 +575,10 @@ export function boot(source: SharedBootSource): BootHandles {
       cameraMemory.set(previousContext.viewedId, stage.getView());
     }
     const contextChanged = previousContext.activeId !== context.activeId || previousContext.viewedId !== context.viewedId;
-    if (realmChanged || bindingChanged) sharedIntent.reset();
+    if (realmChanged || bindingChanged) {
+      sharedIntent.reset();
+      bufferedRequest = null;
+    }
     if (realmChanged || bindingChanged || contextChanged) {
       if (realmChanged) cameraMemory.clear();
       const active = activeCity(world, context);
@@ -561,8 +598,30 @@ export function boot(source: SharedBootSource): BootHandles {
     }
   }
 
+  let connectionNotice = 0;
+  let connectionNoticeArmed = false;
+
+  function presentConnection(status: SharedSessionStatus, reason: string): void {
+    if (isSettling(status) && connectionNoticeArmed) return;
+    window.clearTimeout(connectionNotice);
+    connectionNoticeArmed = false;
+    if (status === 'ready') {
+      hud.setConnection(false, '');
+      return;
+    }
+    if (!isSettling(status)) {
+      hud.setConnection(true, reason.length > 0 ? reason : connectionMessage(status));
+      return;
+    }
+    connectionNoticeArmed = true;
+    connectionNotice = window.setTimeout(() => {
+      const current = source.session.currentStatus;
+      hud.setConnection(true, source.session.statusReason || connectionMessage(current));
+    }, CONNECTION_NOTICE_DELAY);
+  }
+
   function onStatusUpdate(status: SharedSessionStatus, reason: string): void {
-    hud.setConnection(status !== 'ready', reason.length > 0 ? reason : connectionMessage(status));
+    presentConnection(status, reason);
     hud.setDiscardAvailable(status === 'indeterminate' || status === 'storage-error');
     updateSiting();
     const nowWritable = writable();
@@ -570,9 +629,11 @@ export function boot(source: SharedBootSource): BootHandles {
       if (tool !== 'inspect') selectTool('inspect');
       else drag = null;
     }
-    if (nowWritable === renderedWritable) return;
-    refresh();
-    updatePreview();
+    if (nowWritable !== renderedWritable) {
+      refresh();
+      updatePreview();
+    }
+    flushBufferedRequest();
   }
 
   function onOutcomeUpdate(result: SharedRequestOutcome): void {
