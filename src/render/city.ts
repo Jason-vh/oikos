@@ -654,15 +654,8 @@ export class CityScene {
     this.selection.position.set(position.x, position.y - .015, position.z);
   }
 
-  private pointerRay(clientX: number, clientY: number): T.Raycaster {
-    const bounds = this.stage.canvas.getBoundingClientRect();
-    const ray = new T.Raycaster();
-    ray.setFromCamera(new T.Vector2((clientX - bounds.left) / bounds.width * 2 - 1, -(clientY - bounds.top) / bounds.height * 2 + 1), this.stage.camera);
-    return ray;
-  }
-
   tileAtPointer(clientX: number, clientY: number): Tile | null {
-    const ray = this.pointerRay(clientX, clientY);
+    const ray = this.stage.pointerRay(clientX, clientY);
     const hit = ray.intersectObjects(this.stairMeshes, false)[0];
     let stairTile: Tile | null = null;
     if (hit?.face) {
@@ -711,7 +704,7 @@ export class CityScene {
   }
 
   pick(clientX: number, clientY: number): { building: number | null; walker: number | null; animal: number | null } {
-    const ray = this.pointerRay(clientX, clientY);
+    const ray = this.stage.pointerRay(clientX, clientY);
     let nearest: { id: number; distance: number } | null = null;
     const centre = new T.Vector3();
     for (const [id, entry] of this.walkers) {
@@ -768,7 +761,7 @@ export class CityScene {
   }
 
   probe(clientX: number, clientY: number): { color: string; y: number; name: string }[] {
-    const ray = this.pointerRay(clientX, clientY);
+    const ray = this.stage.pointerRay(clientX, clientY);
     return ray.intersectObjects(this.stage.scene.children, true).filter((hit) => hit.object instanceof T.Mesh).slice(0, 4).map((hit) => { const material = (hit.object as T.Mesh).material as T.MeshStandardMaterial; return { color: material.color.getHexString(), y: hit.point.y, name: `${material.type} t=${material.transparent} o=${material.opacity} side=${material.side} vis=${hit.object.visible} normals=${!!(hit.object as T.Mesh).geometry.getAttribute('normal')} n=${Array.from((hit.object as T.Mesh).geometry.getAttribute('normal').array.slice(0, 3)).map((v) => v.toFixed(2))}` }; });
   }
 }

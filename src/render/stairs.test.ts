@@ -22,15 +22,20 @@ function fixture(dx = 1, dz = 0) {
   camera.position.set(-10, 11, 4);
   camera.lookAt(0, GROUND_Y + .8, 0);
   camera.updateMatrixWorld(true);
-  const ray = new T.Raycaster();
   const renders = { shadows: 0 };
+  const pointerRay = (x: number, y: number) => {
+    const ray = new T.Raycaster();
+    ray.setFromCamera(new T.Vector2(x / 400 - 1, 1 - y / 400), camera);
+    ray.ray.origin.addScaledVector(ray.ray.direction, camera.near);
+    return ray;
+  };
   const stage = {
     scene, camera,
     canvas: { getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 800 }) },
     shadows() { renders.shadows++; }, shadowsFromMotion() {}, invalidate() {},
+    pointerRay,
     pick(x: number, y: number, height: number) {
-      ray.setFromCamera(new T.Vector2(x / 400 - 1, 1 - y / 400), camera);
-      return ray.ray.intersectPlane(new T.Plane(new T.Vector3(0, 1, 0), -height), new T.Vector3());
+      return pointerRay(x, y).ray.intersectPlane(new T.Plane(new T.Vector3(0, 1, 0), -height), new T.Vector3());
     },
   } as unknown as Stage;
   const world = createWorld(map.seed);

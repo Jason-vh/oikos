@@ -15,7 +15,7 @@ const SUN_SNAP = 4;
 
 export class Stage {
   readonly scene = new T.Scene();
-  readonly camera = new T.OrthographicCamera(-30, 30, 20, -20, .1, 350);
+  readonly camera = new T.OrthographicCamera(-30, 30, 20, -20, -350, 350);
   readonly renderer = new T.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
   readonly controls: OrbitControls;
   readonly canvas: HTMLCanvasElement;
@@ -23,7 +23,6 @@ export class Stage {
   private readonly ao: GTAOPass;
   private readonly ambient = new T.HemisphereLight(0xe7f1ee, 0xb4a075, 2.1);
   private readonly sun = new T.DirectionalLight(0xffe6bd, 3.5);
-  private readonly ray = new T.Raycaster();
   private size = 44;
   private request = 0;
   private lost = false;
@@ -125,9 +124,10 @@ export class Stage {
 
   private depth(): void {
     const span = this.viewSpan();
-    const far = this.camera.position.distanceTo(this.controls.target) + span * 1.5;
-    if (Math.abs(this.camera.far - far) < 1) return;
-    this.camera.far = far;
+    const reach = this.camera.position.distanceTo(this.controls.target) + span * 1.5;
+    if (Math.abs(this.camera.far - reach) < 1) return;
+    this.camera.near = -reach;
+    this.camera.far = reach;
     this.camera.updateProjectionMatrix();
   }
 
@@ -266,10 +266,16 @@ export class Stage {
     this.shadows();
   }
 
-  pick(clientX: number, clientY: number, y: number): T.Vector3 | null {
+  pointerRay(clientX: number, clientY: number): T.Raycaster {
     const rect = this.canvas.getBoundingClientRect();
-    this.ray.setFromCamera(new T.Vector2((clientX - rect.left) / rect.width * 2 - 1, -(clientY - rect.top) / rect.height * 2 + 1), this.camera);
-    return this.ray.ray.intersectPlane(new T.Plane(new T.Vector3(0, 1, 0), -y), new T.Vector3());
+    const ray = new T.Raycaster();
+    ray.setFromCamera(new T.Vector2((clientX - rect.left) / rect.width * 2 - 1, -(clientY - rect.top) / rect.height * 2 + 1), this.camera);
+    ray.ray.origin.addScaledVector(ray.ray.direction, this.camera.near);
+    return ray;
+  }
+
+  pick(clientX: number, clientY: number, y: number): T.Vector3 | null {
+    return this.pointerRay(clientX, clientY).ray.intersectPlane(new T.Plane(UP, -y), new T.Vector3());
   }
 
   project(x: number, y: number, z: number): { x: number; y: number } {
