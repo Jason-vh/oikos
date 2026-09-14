@@ -28,6 +28,13 @@ interface SocketData {
 interface Bucket { tokens: number; at: number }
 export const AGENT_PRESENCE_MS = 30_000;
 const BEARER = /^Bearer ([a-f0-9]{64})$/;
+const VERBOSE = process.env.OIKOS_LOG === '1';
+
+function trace(event: string, detail: Record<string, unknown> = {}): void {
+  if (!VERBOSE) return;
+  const fields = Object.entries(detail).map(([key, value]) => `${key}=${String(value)}`).join(' ');
+  console.log(`[oikos] ${event}${fields.length > 0 ? ` ${fields}` : ''}`);
+}
 const SNAPSHOT_INTERVAL_MS = 250;
 const WILDLIFE_INTERVAL_MS = 1000;
 const clockDefault: RuntimeClock = {
@@ -104,7 +111,8 @@ export function startServer(options: RuntimeOptions) {
     if (elapsed > 0 && elapsed <= 5000) authority.advance(elapsed / 1000);
   }
 
-  function fatal(): void {
+  function fatal(error?: unknown): void {
+    if (error !== undefined) console.error('[oikos] fatal', error);
     if (!healthy) return;
     healthy = false;
     signalFailure();
@@ -113,7 +121,7 @@ export function startServer(options: RuntimeOptions) {
 
   function guarded(run: () => void): void {
     if (stopped) return;
-    try { run(); } catch { fatal(); }
+    try { run(); } catch (error) { fatal(error); }
   }
 
   function session(ws: ServerWebSocket<SocketData>) {
@@ -123,11 +131,17 @@ export function startServer(options: RuntimeOptions) {
   }
 
   function control(ws: ServerWebSocket<SocketData>, packet: unknown): void {
-    if (ws.readyState !== 1) return;
-    if (ws.send(JSON.stringify(packet)) === 0) ws.terminate();
+    if (ws.readyState !== 1) {
+      trace('control-skipped', { actor: ws.data.actorId, readyState: ws.readyState });
+      return;
+    }
+    const sent = ws.send(JSON.stringify(packet));
+    trace('control-sent', { actor: ws.data.actorId, sent, buffered: ws.getBufferedAmount() });
+    if (sent === 0) ws.terminate();
   }
 
   function reject(ws: ServerWebSocket<SocketData>, code: RejectCode): void {
+    trace('reject', { actor: ws.data.actorId, code });
     control(ws, { type: 'reject', code, session: session(ws) });
   }
 
@@ -150,7 +164,10 @@ export function startServer(options: RuntimeOptions) {
       ws.data.snapshotDue = false;
       if (!early) ws.data.lastSnapshot = now;
       if (carries) ws.data.lastWildlife = now;
-      if (sent === 0) ws.terminate();
+      if (sent === 0) {
+        trace('snapshot-dropped', { actor: ws.data.actorId, buffered: ws.getBufferedAmount() });
+        ws.terminate();
+      }
     }
   }
 
@@ -272,6 +289,7 @@ export function startServer(options: RuntimeOptions) {
         closeOnBackpressureLimit: true,
         idleTimeout: 60,
         open(ws) {
+          trace('socket-open', { actor: ws.data.actorId });
           if (stopped) { slots.delete(ws.data); ws.terminate(); return; }
           guarded(() => {
             beginPlaying();
@@ -287,6 +305,7 @@ export function startServer(options: RuntimeOptions) {
             if (!request) { reject(ws, 'invalid-request'); return; }
             if (request.binding !== ws.data.binding) { reject(ws, 'session-mismatch'); return; }
             const result = authority.submit(ws.data.credential, request.seq, request.requestId, request.operation);
+            trace('request', { actor: ws.data.actorId, seq: request.seq, kind: request.operation.kind, status: result.status, buffered: ws.getBufferedAmount() });
             let author: ServerWebSocket<SocketData> | null = null;
             if (result.status === 'processed' || result.status === 'replayed') {
               control(ws, { type: 'receipt', requestId: request.requestId, seq: request.seq, result });
@@ -298,6 +317,7 @@ export function startServer(options: RuntimeOptions) {
         },
         drain() {},
         close(ws) {
+          trace('socket-close', { actor: ws.data.actorId });
           slots.delete(ws.data);
           guarded(() => {
             sockets.delete(ws);
