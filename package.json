@@ -12,6 +12,7 @@
     "test": "bun test --timeout 20000 ./src",
     "smoke:construction": "node scripts/construction-smoke.mjs",
     "smoke:foam": "node scripts/foam-smoke.mjs",
+    "smoke:play": "node scripts/play-smoke.mjs",
     "art:check": "bun test --timeout 20000 ./src/art",
     "art:capture": "node scripts/art-capture.mjs",
     "art:diff": "node scripts/capture-diff.mjs",
