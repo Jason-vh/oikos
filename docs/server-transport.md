@@ -94,8 +94,11 @@ must keep packet order. Control packets stay text.
 
 A consumed sequence snapshots its author immediately, past that cap: the receipt
 alone does not release the client's next write, so the reconciling snapshot must
-not wait for the loop. Its cost is bounded by the sender's own request budget, and
-it resets that socket's interval. Rejects, peers and ticks keep the four-Hz cap.
+not wait for the loop. Its cost is bounded by the sender's own request budget.
+It rides beside the steady rhythm rather than displacing it: an early frame leaves
+the socket's interval where it was, so the next tick still lands on time and a
+client keeps interpolating walkers against an even cadence. Rejects, peers and
+ticks keep the four-Hz cap.
 
 Wildlife travels on the same packet at its own once-a-second cadence, as
 `wildlife: Animal[] | null`; the World beside it always carries an empty wildlife

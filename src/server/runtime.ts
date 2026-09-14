@@ -145,9 +145,10 @@ export function startServer(options: RuntimeOptions) {
     for (const ws of ready) {
       const prefix = JSON.stringify({ ...header, session: session(ws) });
       const carries = owed(ws);
+      const early = now - ws.data.lastSnapshot < SNAPSHOT_INTERVAL_MS;
       const sent = ws.send(Bun.gzipSync(`${prefix.slice(0, -1)},"world":${world},"wildlife":${carries ? wildlife : 'null'}}`));
       ws.data.snapshotDue = false;
-      ws.data.lastSnapshot = now;
+      if (!early) ws.data.lastSnapshot = now;
       if (carries) ws.data.lastWildlife = now;
       if (sent === 0) ws.terminate();
     }

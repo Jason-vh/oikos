@@ -17,11 +17,17 @@ import { WildlifeField } from './wildlife';
 
 interface BuildingEntry { key: string; tier: number; model: T.Group; intro: number; from: number; construction: BuildingConstruction | null; }
 interface Departure { model: T.Group; elapsed: number; }
-interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; from: T.Vector3; target: T.Vector3; elapsed: number; moving: boolean; working: boolean; heading: number; stepped: boolean; stairs: ReadonlyMap<number, Stair>; }
-interface AnimalEntry { kind: AnimalKind; position: T.Vector3; from: T.Vector3; target: T.Vector3; heading: number; facing: number; roll: number; phase: number; elapsed: number; moving: boolean; dying: number; visible: boolean; drawn: boolean; }
+interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; from: T.Vector3; target: T.Vector3; elapsed: number; span: number; moving: boolean; working: boolean; heading: number; stepped: boolean; stairs: ReadonlyMap<number, Stair>; }
+interface AnimalEntry { kind: AnimalKind; position: T.Vector3; from: T.Vector3; target: T.Vector3; heading: number; facing: number; roll: number; phase: number; elapsed: number; span: number; moving: boolean; dying: number; visible: boolean; drawn: boolean; }
+
+function spanOf(elapsed: number, shortest: number, longest: number): number {
+  return Math.min(Math.max(elapsed, shortest), longest);
+}
 
 const SIGHT_MARGIN = 1.3;
 const TELEPORT = 4;
+const WALKER_SPAN = .25;
+const WALKER_SPAN_LIMIT = .5;
 const ANIMAL_SPAN = .25;
 const ANIMAL_SPAN_LIMIT = 2;
 const REVEAL_SHARE = .9;
@@ -103,8 +109,6 @@ export class CityScene {
   private sight = 60;
   private lastWorld: World | null = null;
   private syncedWildlife: readonly Animal[] | null = null;
-  private wildlifeAge = 0;
-  private animalSpan = ANIMAL_SPAN;
   private readonly logistics: LogisticsOverlay;
   private readonly validMaterial = new T.MeshBasicMaterial({ color: 0x79b58b, transparent: true, opacity: .38, depthWrite: false });
   private readonly invalidMaterial = new T.MeshBasicMaterial({ color: 0xd3664e, transparent: true, opacity: .45, depthWrite: false });
@@ -242,8 +246,6 @@ export class CityScene {
     }
     if (world.wildlife !== this.syncedWildlife) {
       this.syncedWildlife = world.wildlife;
-      this.animalSpan = Math.min(Math.max(this.wildlifeAge, ANIMAL_SPAN), ANIMAL_SPAN_LIMIT);
-      this.wildlifeAge = 0;
       const animalIds = new Set(world.wildlife.map((animal) => animal.id));
       for (const id of [...this.animals.keys()]) {
         if (animalIds.has(id)) continue;
@@ -275,7 +277,8 @@ export class CityScene {
         facing: -animal.heading + Math.PI / 2,
         roll: 0,
         phase: 0,
-        elapsed: this.animalSpan,
+        elapsed: ANIMAL_SPAN,
+        span: ANIMAL_SPAN,
         moving: false,
         dying: 0,
         visible: animal.respawn === 0,
@@ -291,12 +294,14 @@ export class CityScene {
       entry.roll = 0;
       entry.dying = 0;
     }
+    if (entry.target.distanceToSquared(target) <= 1e-9 && entry.heading === animal.heading) return;
     const jumped = entry.position.distanceToSquared(target) > TELEPORT * TELEPORT;
     if (jumped) entry.position.copy(target);
     entry.from.copy(entry.position);
     entry.target.copy(target);
     entry.heading = animal.heading;
-    entry.elapsed = jumped ? this.animalSpan : 0;
+    entry.span = spanOf(entry.elapsed, ANIMAL_SPAN, ANIMAL_SPAN_LIMIT);
+    entry.elapsed = jumped ? entry.span : 0;
     entry.moving = !jumped && entry.from.distanceToSquared(target) > 1e-5;
   }
 
@@ -421,14 +426,15 @@ export class CityScene {
       const model = this.walkerModel(walker.kind, load);
       model.position.copy(target);
       this.stage.scene.add(model);
-      entry = { key, kind: walker.kind, model, from: target.clone(), target, elapsed: .25, moving: false, working: false, heading: 0, stepped, stairs };
+      entry = { key, kind: walker.kind, model, from: target.clone(), target, elapsed: WALKER_SPAN, span: WALKER_SPAN, moving: false, working: false, heading: 0, stepped, stairs };
       this.walkers.set(walker.id, entry);
-    } else {
+    } else if (entry.target.distanceToSquared(target) > 1e-9) {
       const jumped = entry.model.position.distanceToSquared(target) > TELEPORT * TELEPORT;
       if (jumped) entry.model.position.copy(target);
       entry.from.copy(entry.model.position);
       entry.target.copy(target);
-      entry.elapsed = jumped ? .25 : 0;
+      entry.span = spanOf(entry.elapsed, WALKER_SPAN, WALKER_SPAN_LIMIT);
+      entry.elapsed = jumped ? entry.span : 0;
       entry.moving = !jumped && entry.from.distanceToSquared(target) > 1e-6;
     }
     entry.stepped = stepped;
@@ -466,7 +472,9 @@ export class CityScene {
     this.scenery.update(time, this.focus);
     for (const [id, walker] of this.walkers) {
       walker.elapsed += delta * speed;
-      walker.model.position.lerpVectors(walker.from, walker.target, Math.min(1, walker.elapsed / .25));
+      const journey = Math.min(1, walker.elapsed / walker.span);
+      walker.model.position.lerpVectors(walker.from, walker.target, journey);
+      if (journey >= 1) walker.moving = false;
       if (walker.stepped) {
         const position = walker.model.position;
         position.y = roadHeight(this.map, walker.stairs, position.x / CELL_SIZE + this.map.width / 2, position.z / CELL_SIZE + this.map.depth / 2) + .08;
@@ -481,10 +489,11 @@ export class CityScene {
       }
       this.groundCompanions(walker);
     }
-    this.wildlifeAge += delta * speed;
     for (const [id, animal] of this.animals) {
       animal.elapsed += delta * speed;
-      animal.position.lerpVectors(animal.from, animal.target, Math.min(1, animal.elapsed / this.animalSpan));
+      const wander = Math.min(1, animal.elapsed / animal.span);
+      animal.position.lerpVectors(animal.from, animal.target, wander);
+      if (wander >= 1) animal.moving = false;
       animal.facing = turnToward(animal.facing, -animal.heading + Math.PI / 2, delta * speed);
 
       if (animal.dying > 0) {

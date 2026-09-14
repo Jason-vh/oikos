@@ -110,3 +110,17 @@ test('wildlife rides a slower stream than the world it belongs to', async () => 
   expect(refreshed.wildlife).toHaveLength(snapshot.wildlife!.length);
   expect(refreshed.wildlife).not.toEqual(snapshot.wildlife!);
 });
+
+test('an immediate snapshot rides beside the steady rhythm rather than displacing it', async () => {
+  let actor!: ReturnType<typeof foundedActor>;
+  const f = await fixture(cleanups, (authority) => { actor = foundedActor(authority, 0); });
+  const { peer } = await connect(cleanups, f, `__Host-oikos=${actor.credential}`);
+  f.clock.step();
+  expect(await peer.next('snapshot')).toBeDefined();
+  f.clock.time += 100;
+  peer.send(3, claimFor(1));
+  expect(await peer.next(['receipt', 'snapshot'])).toMatchObject({ type: 'receipt', seq: 3 });
+  expect(await peer.next(['receipt', 'snapshot'])).toMatchObject({ type: 'snapshot' });
+  f.clock.step(150);
+  expect((await peer.next('snapshot')).world.time).toBeGreaterThan(0);
+});
