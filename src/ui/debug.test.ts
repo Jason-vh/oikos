@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { ProtocolLog, debugEnabled, delaySends, latencyMillis, observe } from './debug';
+import { ProtocolLog, SnapshotLog, cadence, debugEnabled, delaySends, latencyMillis, observe } from './debug';
 
 class FakeSocket extends EventTarget {
   readyState: number = WebSocket.OPEN;
@@ -75,4 +75,37 @@ test('a send delayed past closing is dropped rather than thrown', async () => {
   ws.readyState = WebSocket.CLOSED;
   await new Promise((resolve) => setTimeout(resolve, 60));
   expect(ws.sent).toEqual([]);
+});
+
+test('snapshot timings carry the gap in arrival and in world time', () => {
+  const log = new SnapshotLog();
+  log.record(1, 10);
+  log.record(2, 10.25);
+  const entries = log.all;
+  expect(entries[0].arrival).toBe(0);
+  expect(entries[0].advance).toBe(0);
+  expect(entries[1].advance).toBeCloseTo(.25, 10);
+  expect(entries[1].arrival).toBeGreaterThanOrEqual(0);
+});
+
+test('cadence ignores the first snapshot, which has nothing to be measured against', () => {
+  const entries = [
+    { at: 0, serial: 1, time: 0, arrival: 0, advance: 0 },
+    { at: 250, serial: 2, time: .25, arrival: 250, advance: .25 },
+    { at: 500, serial: 3, time: .5, arrival: 250, advance: .25 },
+  ];
+  const measured = cadence(entries);
+  expect(measured.count).toBe(3);
+  expect(measured.arrival).toEqual({ min: 250, max: 250, mean: 250 });
+  expect(measured.advance.mean).toBeCloseTo(.25, 10);
+  expect(measured.drift).toBeCloseTo(1, 10);
+});
+
+test('a world running slower than the wall clock shows as drift below one', () => {
+  const entries = [
+    { at: 0, serial: 1, time: 0, arrival: 0, advance: 0 },
+    { at: 1000, serial: 2, time: .5, arrival: 1000, advance: .5 },
+  ];
+  expect(cadence(entries).drift).toBeCloseTo(.5, 10);
+  expect(cadence([]).drift).toBe(0);
 });

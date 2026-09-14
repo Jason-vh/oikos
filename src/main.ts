@@ -16,7 +16,7 @@ import { harbourPlacement } from './sim/founding';
 import type { AuthorityRequest } from './server/authority';
 import { parseCommand, type CityCommand } from './sim/commands';
 import { activeCity, canWrite, contextForOwnedCity, reconcileContext, resolveCity, viewedCity, withViewed } from './ui/city-context';
-import { debugEnabled, protocolLog } from './ui/debug';
+import { cadence, debugEnabled, protocolLog, snapshotLog } from './ui/debug';
 import { SharedSession, type SendOutcome, type SharedRequestOutcome, type SharedSessionStatus, type SharedSnapshot } from './ui/shared-session';
 import { SharedIntent } from './ui/shared-intent';
 import { PredictedWorld } from './ui/predicted-world';
@@ -41,6 +41,7 @@ export interface BootHandles {
 }
 
 export function boot(source: SharedBootSource): BootHandles {
+  const scripting = debugEnabled(location.search);
   const predicted = new PredictedWorld(source.initialSnapshot.world);
   let world: World = predicted.world;
   let realmId: string = source.initialSnapshot.realmId;
@@ -584,6 +585,7 @@ export function boot(source: SharedBootSource): BootHandles {
   }
 
   function onSnapshotUpdate(snapshot: SharedSnapshot): void {
+    if (scripting) snapshotLog.record(snapshot.serial, snapshot.world.time);
     const realmChanged = realmId !== null && realmId !== snapshot.realmId;
     const bindingChanged = bindingId !== null && bindingId !== snapshot.session.binding;
     if (realmChanged || bindingChanged) stateGeneration += 1;
@@ -716,7 +718,9 @@ export function boot(source: SharedBootSource): BootHandles {
         return { ...source.session.currentSession, realmId, activeCityId: context.activeId, viewedCityId: context.viewedId };
       },
       get log() { return protocolLog.all; },
-      clearLog: () => protocolLog.clear(),
+      get snapshots() { return snapshotLog.all; },
+      get cadence() { return cadence(snapshotLog.all); },
+      clearLog: () => { protocolLog.clear(); snapshotLog.clear(); },
       get frames() { return stage.frames; },
       get drawCalls() { return stage.renderer.info.render.calls; },
       get triangles() { return stage.renderer.info.render.triangles; },
@@ -758,7 +762,7 @@ export function boot(source: SharedBootSource): BootHandles {
     return stage.project(point.x, groundHeight(map(), x, z), point.z);
   }
 
-  if (debugEnabled(location.search)) installDebugSeam();
+  if (scripting) installDebugSeam();
 
   return {
     onSnapshot: onSnapshotUpdate,

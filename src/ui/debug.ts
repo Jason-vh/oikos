@@ -26,6 +26,71 @@ export class ProtocolLog {
 
 export const protocolLog = new ProtocolLog();
 
+export interface SnapshotTiming {
+  at: number;
+  serial: number;
+  time: number;
+  arrival: number;
+  advance: number;
+}
+
+export class SnapshotLog {
+  private readonly entries: SnapshotTiming[] = [];
+
+  record(serial: number, time: number): void {
+    const at = Math.round(performance.now());
+    const previous = this.entries[this.entries.length - 1];
+    this.entries.push({
+      at,
+      serial,
+      time,
+      arrival: previous ? at - previous.at : 0,
+      advance: previous ? time - previous.time : 0,
+    });
+    if (this.entries.length > LOG_LIMIT) this.entries.splice(0, this.entries.length - LOG_LIMIT);
+  }
+
+  get all(): SnapshotTiming[] {
+    return this.entries.map((entry) => ({ ...entry }));
+  }
+
+  clear(): void {
+    this.entries.length = 0;
+  }
+}
+
+export const snapshotLog = new SnapshotLog();
+
+export interface Spread {
+  min: number;
+  max: number;
+  mean: number;
+}
+
+export interface Cadence {
+  count: number;
+  arrival: Spread;
+  advance: Spread;
+  drift: number;
+}
+
+const NO_SPREAD: Spread = { min: 0, max: 0, mean: 0 };
+
+function spread(values: number[]): Spread {
+  if (values.length === 0) return { ...NO_SPREAD };
+  const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+  return { min: Math.min(...values), max: Math.max(...values), mean };
+}
+
+export function cadence(entries: SnapshotTiming[]): Cadence {
+  const measured = entries.slice(1);
+  const arrival = spread(measured.map((entry) => entry.arrival));
+  const advance = spread(measured.map((entry) => entry.advance));
+  const wall = measured.reduce((sum, entry) => sum + entry.arrival, 0);
+  const simulated = measured.reduce((sum, entry) => sum + entry.advance, 0) * 1000;
+  return { count: entries.length, arrival, advance, drift: wall === 0 ? 0 : simulated / wall };
+}
+
 export function debugEnabled(search: string): boolean {
   return new URLSearchParams(search).has('debug');
 }
