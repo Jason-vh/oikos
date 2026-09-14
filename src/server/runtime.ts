@@ -83,6 +83,7 @@ export function startServer(options: RuntimeOptions) {
   let anchor: number | null = null;
   let agentsPresentUntil = -Infinity;
   let checkpointAt = clock.now();
+  let lastTick = clock.now();
   let serial = 0;
   let cancel = () => {};
   let stopPromise: Promise<void> | undefined;
@@ -148,7 +149,15 @@ export function startServer(options: RuntimeOptions) {
   function snapshots(author: ServerWebSocket<SocketData> | null = null): void {
     const now = clock.now();
     const due = (ws: ServerWebSocket<SocketData>) => ws === author || now - ws.data.lastSnapshot >= SNAPSHOT_INTERVAL_MS;
-    const ready = [...sockets].filter((ws) => ws.readyState === 1 && ws.data.snapshotDue && due(ws) && ws.getBufferedAmount() === 0);
+    if (VERBOSE) for (const ws of sockets) {
+      if (ws.readyState === 1 && ws.data.snapshotDue && !due(ws)) trace('snapshot-not-due', { since: (now - ws.data.lastSnapshot).toFixed(2) });
+    }
+    const eligible = [...sockets].filter((ws) => ws.readyState === 1 && ws.data.snapshotDue && due(ws));
+    const ready = eligible.filter((ws) => ws.getBufferedAmount() === 0);
+    if (VERBOSE) for (const ws of eligible) {
+      const buffered = ws.getBufferedAmount();
+      if (buffered !== 0) trace('snapshot-skipped', { actor: ws.data.actorId, buffered });
+    }
     if (!ready.length) return;
     if (serial >= Number.MAX_SAFE_INTEGER) throw new Error('Snapshot serial exhausted.');
     const current = authority.snapshot();
@@ -173,6 +182,11 @@ export function startServer(options: RuntimeOptions) {
 
   function tick(): void {
     guarded(() => {
+      if (VERBOSE) {
+        const now = clock.now();
+        if (now - lastTick > SNAPSHOT_INTERVAL_MS * 1.5) trace('tick-late', { since: Math.round(now - lastTick) });
+        lastTick = now;
+      }
       if (!anyonePlaying()) {
         if (anchor === null) return;
         settle();
