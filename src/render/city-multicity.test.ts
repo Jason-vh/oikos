@@ -103,7 +103,7 @@ test('a walker belonging to a second city is rendered, not just the first city\'
       returning: false,
       overland: [],
       quarry: null,
-      working: 0,
+      task: null,
     });
     city.sync(world);
     expect(city.moverPoint(city2.walkers[0].id)).not.toBeNull();
@@ -127,7 +127,7 @@ function stationaryWalkerHeight(city: CityScene, world: World, owner: City, tile
     returning: false,
     overland: [],
     quarry: null,
-    working: 0,
+    task: null,
   };
   owner.walkers.push(walker);
   city.sync(world);

@@ -1,4 +1,4 @@
-import type { ActionResult, Building, BuildTool, City, Food, Placement, Resource, Rotation, Stores, Summary, Tile, Walker, WalkerKind, World } from './types';
+import type { ActionResult, Building, BuildTool, City, Food, Placement, Resource, Rotation, Stores, Summary, TaskKind, Tile, Walker, WalkerKind, World } from './types';
 import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, STARTING_MONEY, VENDOR_COST, footprint, isFood } from './catalog';
 import { retireRespawned, wildlifeRoster } from './wildlife';
 import { gatherArrival, gatherFinished, regrowForest, updateGatherer } from './gathering';
@@ -65,7 +65,7 @@ export function createWorld(seed = DEFAULT_SEED, home?: number, name = 'Kalliste
     walkers: [],
   };
   const world: World = {
-    version: 13,
+    version: 14,
     island: 'kalliste',
     seed,
     time: 0,
@@ -85,7 +85,7 @@ export function createWorld(seed = DEFAULT_SEED, home?: number, name = 'Kalliste
 
 export function createSharedWorld(seed = DEFAULT_SEED): World {
   const world: World = {
-    version: 13,
+    version: 14,
     island: 'kalliste',
     seed,
     time: 0,
@@ -366,7 +366,7 @@ function releaseRetiredQuarries(world: World, retired: Walker[]): void {
   if (quarries.size === 0) return;
   for (const city of world.cities) {
     for (const walker of city.walkers) {
-      if (walker.kind === 'hunter' && walker.quarry !== null && walker.working > 0 && !walker.returning) quarries.delete(walker.quarry);
+      if (walker.kind === 'hunter' && walker.quarry !== null && busy(world, walker) && !walker.returning) quarries.delete(walker.quarry);
     }
   }
   for (const animal of world.wildlife) {
@@ -500,10 +500,10 @@ export function hasActiveWalker(city: City, homeId: number, kind: WalkerKind): b
   return city.walkers.some((walker) => walker.homeId === homeId && walker.kind === kind);
 }
 
-type WalkerSeed = Omit<Walker, 'id' | 'overland' | 'quarry' | 'working' | 'departedAt'> & Partial<Pick<Walker, 'overland' | 'quarry' | 'working'>>;
+type WalkerSeed = Omit<Walker, 'id' | 'overland' | 'quarry' | 'task' | 'departedAt'> & Partial<Pick<Walker, 'overland' | 'quarry' | 'task'>>;
 
 export function spawnWalker(world: World, city: City, partial: WalkerSeed): Walker {
-  const walker: Walker = { id: world.nextId++, overland: [], quarry: null, working: 0, departedAt: world.time, ...partial };
+  const walker: Walker = { id: world.nextId++, overland: [], quarry: null, task: null, departedAt: world.time, ...partial };
   city.walkers.push(walker);
   return walker;
 }
@@ -513,6 +513,14 @@ export function departOn(world: World, walker: Walker, path: number[]): void {
   walker.departedAt = world.time;
   walker.step = 0;
   walker.progress = 0;
+}
+
+export function busy(world: World, walker: Walker): boolean {
+  return walker.task !== null && world.time < walker.task.until;
+}
+
+export function setTask(world: World, walker: Walker, kind: TaskKind, seconds: number): void {
+  walker.task = { kind, since: world.time, until: world.time + seconds };
 }
 
 export function tilesTravelled(world: World, walker: Walker): number {
@@ -739,16 +747,15 @@ function onFinalArrival(world: World, city: City, walker: Walker): boolean {
   return true;
 }
 
-function moveWalkers(world: World, city: City, dt: number): void {
+function moveWalkers(world: World, city: City): void {
   const map = mapOf(world, city);
   const roads = new Set(city.roads);
   const stairs = stairLayout(map, roads);
   const alive: Walker[] = [];
   for (const walker of city.walkers) {
     if (!walkerPathValid(map, roads, stairs, walker)) continue;
-    if (walker.working > 0) {
-      walker.working = Math.max(0, walker.working - dt);
-      if (walker.working > 0 || !gatherFinished(world, city, walker)) alive.push(walker);
+    if (walker.task !== null) {
+      if (busy(world, walker) || !gatherFinished(world, city, walker)) alive.push(walker);
       continue;
     }
     if (walker.path.length === 1) {
@@ -884,7 +891,7 @@ function simulationStep(world: World, dt: number): void {
       else if (building.kind === 'maintenance') updateCircuitDispatch(world, city, building, 'maintenance');
     }
     updateHarbour(world, city, dt);
-    moveWalkers(world, city, dt);
+    moveWalkers(world, city);
   }
   retireRespawned(world);
   regrowForest(world, dt);

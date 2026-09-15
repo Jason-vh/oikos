@@ -16,6 +16,11 @@ harbour, walker movement, housing, finances) all take an explicit City. The
 engine has no remaining primary-city defaults outside the constructor, the
 single-city save loader, local UI/test wrappers, and single-city checkpoint undo.
 
+A walker's activities carry absolute times: `departedAt` for the journey, `task`
+with `since` and `until` for work at the end of it. Never state a duration that
+counts down, and never say "now": both are read by clients rendering other moments.
+Flavour — an idle glance, a fidget — belongs to the client and never to the World.
+
 A walker's `departedAt` is the moment it set out and nothing else. Never re-anchor
 it to say "this walker is exactly here, now": a client renders behind the world it
 has, and an anchor tells it the walker is still short of where it stopped, so it

@@ -30,7 +30,7 @@ function fixture() {
     returning: false,
     overland: [],
     quarry: null,
-    working: 0,
+    task: null,
   };
   owner.walkers.push(walker);
   city.setWorldTime(0);
@@ -129,4 +129,72 @@ test('a snapshot from further ahead than the clock does not drag a walker with i
   expect(at().distanceTo(drawn)).toBe(0);
   city.animate(0, 1 / 60, 1);
   expect(at().distanceTo(drawn)).toBe(0);
+});
+
+test('an axe falls at the same moment on every screen, and stops when the task does', () => {
+  const world = createWorld();
+  const stage = { scene: new T.Scene(), shadows() {}, shadowsFromMotion() {}, invalidate() {} } as Stage;
+  const city = new CityScene(stage, islandFor(world.seed), true);
+  const owner = primaryCity(world);
+  const spur = roadSpur(world, 4).map((tile) => tileIndexOn(mapOf(world, owner), tile.x, tile.z));
+  const cutter: Walker = {
+    id: world.nextId++, kind: 'woodcutter', homeId: owner.harbour.id, targetId: null,
+    path: spur, departedAt: 0, step: 0, progress: 0, food: null, cargo: 0, returning: false,
+    overland: [], quarry: null, task: { kind: 'chop', since: 10, until: 14 },
+  };
+  owner.walkers.push(cutter);
+  city.setWorldTime(11);
+  city.sync(world);
+  city.animate(0, 1 / 60, 1);
+  const swinging = armAngles(stage.scene, cutter.id);
+  city.setWorldTime(11);
+  city.animate(99, 1 / 60, 1);
+  expect(armAngles(stage.scene, cutter.id)).toEqual(swinging);
+  city.setWorldTime(15);
+  city.animate(0, 1 / 60, 1);
+  expect(armAngles(stage.scene, cutter.id)).not.toEqual(swinging);
+  city.dispose();
+});
+
+function armAngles(scene: T.Scene, id: number): number[] {
+  const model = scene.children.find((child) => child.userData.walkerId === id)!;
+  const angles: number[] = [];
+  model.traverse((object) => angles.push(Number(object.rotation.x.toFixed(6))));
+  return angles;
+}
+
+test('a walker kept waiting looks about, of its own accord', () => {
+  const world = createWorld();
+  const stage = { scene: new T.Scene(), shadows() {}, shadowsFromMotion() {}, invalidate() {} } as Stage;
+  const city = new CityScene(stage, islandFor(world.seed), true);
+  const owner = primaryCity(world);
+  const spur = roadSpur(world, 3).map((tile) => tileIndexOn(mapOf(world, owner), tile.x, tile.z));
+  const idlers = [0, 1].map(() => {
+    const walker: Walker = {
+      id: world.nextId++, kind: 'porter', homeId: owner.harbour.id, targetId: null,
+      path: spur, departedAt: -100, step: spur.length - 1, progress: 0, food: null, cargo: 0,
+      returning: false, overland: [], quarry: null, task: null,
+    };
+    owner.walkers.push(walker);
+    return walker;
+  });
+  city.setWorldTime(0);
+  city.sync(world);
+  const facing = () => idlers.map((walker) => {
+    const model = stage.scene.children.find((child) => child.userData.walkerId === walker.id);
+    return model ? Number(model.rotation.y.toFixed(4)) : 0;
+  });
+  for (let frame = 0; frame < 60; frame++) {
+    city.setWorldTime(frame / 30);
+    city.animate(0, 1 / 30, 1);
+  }
+  const settled = facing();
+  for (let frame = 0; frame < 300; frame++) {
+    city.setWorldTime(2 + frame / 30);
+    city.animate(0, 1 / 30, 1);
+  }
+  const looked = facing();
+  expect(looked).not.toEqual(settled);
+  expect(looked[0]).not.toBe(looked[1]);
+  city.dispose();
 });

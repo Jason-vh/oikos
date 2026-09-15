@@ -8,7 +8,7 @@ import { alive, animalAt, animalStride, wildlifeObstacles } from '../sim/wildlif
 import { STAIR_WIDTH } from '../art/stairs';
 import { roadHeight, stairLayout, STAIR_STEPS, type Stair } from '../sim/stairs';
 import { addRoadMark } from './road-marks';
-import type { Animal, Building, BuildTool, City, Placement, Resource, Rotation, Tile, Walker, WalkerKind, World } from '../sim/types';
+import type { Animal, Building, BuildTool, City, Placement, Resource, Rotation, Tile, Walker, WalkerKind, WalkerTask, World } from '../sim/types';
 import type { Stage } from './stage';
 import { IslandScenery } from './island';
 import { LogisticsOverlay, syncDisconnectedMark, syncHouseSupplies } from './logistics';
@@ -18,11 +18,14 @@ import { WildlifeField } from './wildlife';
 
 interface BuildingEntry { key: string; tier: number; model: T.Group; intro: number; from: number; construction: BuildingConstruction | null; }
 interface Departure { model: T.Group; elapsed: number; }
-interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; path: number[]; departedAt: number; quarry: number | null; moving: boolean; working: boolean; heading: number; stepped: boolean; stairs: ReadonlyMap<number, Stair>; }
+interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; path: number[]; departedAt: number; quarry: number | null; task: WalkerTask | null; moving: boolean; working: boolean; waitingSince: number; heading: number; stepped: boolean; stairs: ReadonlyMap<number, Stair>; }
 interface AnimalEntry { animal: Animal; position: T.Vector3; facing: number; roll: number; phase: number; moving: boolean; stride: number; dying: number; visible: boolean; drawn: boolean; }
 
 const SIGHT_MARGIN = 1.3;
 const ANIMAL_FACING_LOOK = .35;
+const IDLE_SETTLE = 1.2;
+const IDLE_GLANCE = 3.4;
+const IDLE_SWEEP = 1.8;
 const REVEAL_SHARE = .9;
 
 const TURN_RATE = 14;
@@ -406,6 +409,7 @@ export class CityScene {
     let entry = this.walkers.get(walker.id);
     if (entry && entry.key !== key) {
       const replacement = this.walkerModel(walker.kind, load);
+      replacement.userData.walkerId = walker.id;
       replacement.position.copy(entry.model.position);
       replacement.rotation.copy(entry.model.rotation);
       entry.model.removeFromParent();
@@ -416,15 +420,16 @@ export class CityScene {
     const fresh = !entry;
     if (!entry) {
       const model = this.walkerModel(walker.kind, load);
+      model.userData.walkerId = walker.id;
       this.stage.scene.add(model);
-      entry = { key, kind: walker.kind, model, path: walker.path, departedAt: walker.departedAt, quarry: walker.quarry, moving: false, working: false, heading: 0, stepped: false, stairs };
+      entry = { key, kind: walker.kind, model, path: walker.path, departedAt: walker.departedAt, quarry: walker.quarry, task: walker.task, moving: false, working: false, waitingSince: walker.departedAt, heading: 0, stepped: false, stairs };
       this.walkers.set(walker.id, entry);
     }
     entry.path = walker.path;
     entry.departedAt = walker.departedAt;
     entry.quarry = walker.quarry;
     entry.stairs = stairs;
-    entry.working = walker.working > 0;
+    entry.task = walker.task;
     this.placeWalker(entry);
     if (fresh) {
       entry.model.rotation.y = entry.heading;
@@ -445,7 +450,9 @@ export class CityScene {
     let y = rampHeight(groundHeight(this.map, current.x, current.z), groundHeight(this.map, next.x, next.z), fraction);
     if (entry.stepped) y = roadHeight(this.map, entry.stairs, T.MathUtils.lerp(current.x, next.x, fraction) + .5, T.MathUtils.lerp(current.z, next.z, fraction) + .5);
     entry.model.position.set(T.MathUtils.lerp(a.x, b.x, fraction), y + .08, T.MathUtils.lerp(a.z, b.z, fraction));
+    entry.working = entry.task !== null && this.worldTime >= entry.task.since && this.worldTime < entry.task.until;
     entry.moving = !entry.working && travelled < last;
+    if (entry.moving || entry.working) entry.waitingSince = this.worldTime;
     let facing: number | null = null;
     if (entry.working && entry.quarry !== null) {
       const quarry = entry.kind === 'hunter' ? this.animals.get(entry.quarry)?.position : null;
@@ -455,6 +462,14 @@ export class CityScene {
     }
     if (facing !== null) entry.heading = facing;
     else if (a.x !== b.x || a.z !== b.z) entry.heading = Math.atan2(b.x - a.x, b.z - a.z);
+  }
+
+  private glance(id: number, walker: WalkerEntry): number {
+    const waited = this.worldTime - walker.waitingSince;
+    if (waited < IDLE_SETTLE) return 0;
+    const spell = Math.floor((waited - IDLE_SETTLE) / IDLE_GLANCE);
+    const drawn = Math.sin(id * 12.9898 + spell * 78.233) * 43758.5453;
+    return ((drawn - Math.floor(drawn)) - .5) * IDLE_SWEEP;
   }
 
   private groundCompanions(walker: WalkerEntry): void {
@@ -476,10 +491,11 @@ export class CityScene {
     this.turnedAt = this.worldTime;
     for (const [id, walker] of this.walkers) {
       this.placeWalker(walker);
-      walker.model.rotation.y = turnToward(walker.model.rotation.y, walker.heading, turning);
+      const aim = walker.moving || walker.working ? walker.heading : walker.heading + this.glance(id, walker);
+      walker.model.rotation.y = turnToward(walker.model.rotation.y, aim, turning);
       const stride = walker.moving ? .55 : 0;
       const phase = this.worldTime * 9 * Math.max(1, speed) + id;
-      if (walker.working) animateWork(walker.model, this.worldTime * Math.max(1, speed) + id, walker.kind === 'hunter' ? 'thrust' : 'chop');
+      if (walker.working && walker.task) animateWork(walker.model, (this.worldTime - walker.task.since) * Math.max(1, speed) + id, walker.task.kind === 'hunt' ? 'thrust' : 'chop');
       else animateFigure(walker.model, phase, stride);
       for (const companion of walker.model.children.slice(5)) {
         if (companion.children.length >= 5) animateFigure(companion, phase + 1.3, stride);

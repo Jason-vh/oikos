@@ -18,7 +18,7 @@ function activeHunt() {
   expect(connect(world, city.buildings[1]).ok).toBe(true);
   for (let step = 0; step < 1600; step++) {
     advance(world, .25);
-    const hunter = city.walkers.find((walker) => walker.kind === 'hunter' && walker.working > 0);
+    const hunter = city.walkers.find((walker) => walker.kind === 'hunter' && walker.task !== null);
     if (!hunter) continue;
     const prey = world.wildlife.find((animal) => animal.id === hunter.quarry)!;
     expect(prey.cornered).toBe(true);
@@ -79,7 +79,7 @@ test('retirement preserves prey held by a hunter in another canonical city', () 
   expect(prey.cornered).toBe(false);
 });
 
-test.each([{ working: 0, returning: false }, { working: 5, returning: true }])('a hunter not actively holding prey cannot keep it trapped: %j', (state) => {
+test.each([{ task: null, returning: false }, { task: { kind: 'hunt' as const, since: 0, until: 5 }, returning: true }])('a hunter not actively holding prey cannot keep it trapped: %j', (state) => {
   const hunt = activeHunt();
   const other = anotherHunter(hunt);
   Object.assign(other.hunter, state);

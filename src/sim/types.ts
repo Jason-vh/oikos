@@ -55,7 +55,13 @@ export interface Walker {
   returning: boolean;
   overland: number[];
   quarry: number | null;
-  working: number;
+  task: WalkerTask | null;
+}
+export type TaskKind = 'chop' | 'hunt';
+export interface WalkerTask {
+  kind: TaskKind;
+  since: number;
+  until: number;
 }
 export interface City {
   id: number;
@@ -70,7 +76,7 @@ export interface City {
   walkers: Walker[];
 }
 export interface World {
-  version: 13;
+  version: 14;
   island: 'kalliste';
   seed: number;
   time: number;

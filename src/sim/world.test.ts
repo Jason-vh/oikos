@@ -1016,7 +1016,7 @@ function bareWalker(map: IslandMap, from: Tile, to: Tile, progress: number): Wal
     id: 1, kind: 'maintenance', homeId: 1, targetId: null,
     path: [tileIndexOn(map, from.x, from.z), tileIndexOn(map, to.x, to.z)],
     departedAt: 0,
-    step: 0, progress, food: null, cargo: 0, returning: false, overland: [], quarry: null, working: 0,
+    step: 0, progress, food: null, cargo: 0, returning: false, overland: [], quarry: null, task: null,
   };
 }
 
@@ -1038,7 +1038,7 @@ describe('in-flight walkers when a stair changes underfoot', () => {
     expect(build(world, primaryCity(world), 'road', tile.x, tile.z).ok).toBe(true);
     const walker = bareWalker(map, tile, tile, 0);
     walker.path = [tileIndexOn(map, tile.x, tile.z)];
-    walker.working = 3;
+    walker.task = { kind: 'chop', since: 0, until: 3 };
     primaryCity(world).walkers.push(walker);
 
     expect(build(world, primaryCity(world), 'road', down.x, down.z).ok).toBe(true);

@@ -118,8 +118,8 @@ describe('working at the site', () => {
     let working: number | null = null;
     for (let t = 0; t < 1600 && working === null; t++) {
       advance(world, .25);
-      const cutter = primaryCity(world).walkers.find((walker) => walker.kind === 'woodcutter' && walker.working > 0);
-      if (cutter) working = cutter.working;
+      const cutter = primaryCity(world).walkers.find((walker) => walker.kind === 'woodcutter' && walker.task !== null);
+      if (cutter) working = cutter.task!.until - world.time;
     }
     expect(working).not.toBeNull();
     expect(world.felled.length).toBe(0);

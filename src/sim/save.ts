@@ -1,4 +1,4 @@
-import type { Animal, Building, BuildingKind, City, Resource, Rotation, Stores, Walker, WalkerKind, World } from './types';
+import type { Animal, Building, BuildingKind, City, Resource, Rotation, Stores, Walker, WalkerKind, WalkerTask, World } from './types';
 
 
 import { BUILDINGS, HOUSE_CAPACITY, RESOURCES } from './catalog';
@@ -10,7 +10,7 @@ import { cityName } from './claims';
 import { footprintTiles, neighbours } from './grid';
 import { dropInvalidWalkers, recomputeConnectivity } from './world';
 import { harbourAt, validateHarbourProgress } from './harbour';
-export const CURRENT_VERSION = 13 as const;
+export const CURRENT_VERSION = 14 as const;
 
 export interface AnimalFate {
   id: number;
@@ -22,10 +22,32 @@ function fated(animal: Animal): boolean {
   return animal.respawnAt !== null || animal.cornered;
 }
 
+function countdownsScheduled(parsed: Record<string, unknown>): Record<string, unknown> {
+  const time = isNonNegativeFinite(parsed.time) ? parsed.time : 0;
+  const cities = Array.isArray(parsed.cities) ? parsed.cities : [];
+  return {
+    ...parsed,
+    version: CURRENT_VERSION,
+    cities: cities.map((city) => {
+      if (!isPlainObject(city) || !Array.isArray(city.walkers)) return city;
+      return {
+        ...city,
+        walkers: city.walkers.map((entry) => {
+          if (!isPlainObject(entry)) return entry;
+          const { working, ...rest } = entry;
+          const left = isFiniteNumber(working) ? working : 0;
+          const kind = rest.kind === 'hunter' ? 'hunt' : 'chop';
+          return { ...rest, task: left > 0 ? { kind, since: time, until: time + left } : null };
+        }),
+      };
+    }),
+  };
+}
+
 function rosterForgotten(parsed: Record<string, unknown>): Record<string, unknown> {
   const wildlife = Array.isArray(parsed.wildlife) ? parsed.wildlife : [];
   const kept = wildlife.filter((entry) => isPlainObject(entry) && (entry.respawnAt !== null || entry.cornered === true));
-  return { ...parsed, version: CURRENT_VERSION, wildlife: kept };
+  return { ...parsed, version: CURRENT_VERSION - 1, wildlife: kept };
 }
 
 export function wildlifeFates(world: World): AnimalFate[] {
@@ -181,8 +203,9 @@ function pathIsAdjacent(map: IslandMap, path: number[], roads: Set<number>, over
 
 function validateWalker(map: IslandMap, time: number, raw: unknown, roads: Set<number>, buildingIds: Set<number>): Walker | null {
   if (!isPlainObject(raw)) return null;
-  const { id, kind, homeId, targetId, path, departedAt, step, progress, food, cargo, returning, overland, quarry, working } = raw;
-  if (!isNonNegativeFinite(working)) return null;
+  const { id, kind, homeId, targetId, path, departedAt, step, progress, food, cargo, returning, overland, quarry, task: rawTask } = raw;
+  const task = validateTask(rawTask);
+  if (task === undefined) return null;
   const parsedOverland = Array.isArray(overland) && overland.every((tile) => tileInBounds(map, tile)) ? (overland as number[]) : null;
   if (!parsedOverland) return null;
   if (quarry !== null && !isInteger(quarry)) return null;
@@ -212,7 +235,7 @@ function validateWalker(map: IslandMap, time: number, raw: unknown, roads: Set<n
     food: food as Resource | null,
     overland: parsedOverland,
     quarry: quarry === null ? null : (quarry as number),
-    working: working as number,
+    task,
     cargo: cargo as number,
     returning: returning as boolean,
   };
@@ -234,9 +257,10 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
     return null;
   }
   if (!isPlainObject(parsed)) return null;
-  if (parsed.version === CURRENT_VERSION - 1) parsed = rosterForgotten(parsed);
-  if (!isPlainObject(parsed)) return null;
-  const { version, island, seed, time, remainder, nextId, nextCityId, wildlife: rawWildlife, felled: rawFelled, regrowth, cities: rawCities } = parsed;
+  let raised: Record<string, unknown> = parsed;
+  if (raised.version === CURRENT_VERSION - 2) raised = rosterForgotten(raised);
+  if (raised.version === CURRENT_VERSION - 1) raised = countdownsScheduled(raised);
+  const { version, island, seed, time, remainder, nextId, nextCityId, wildlife: rawWildlife, felled: rawFelled, regrowth, cities: rawCities } = raised;
 
   if (version !== CURRENT_VERSION) return null;
   if (island !== 'kalliste') return null;
@@ -387,6 +411,15 @@ export function parseStores(raw: unknown): Stores | null {
     if ((amount as number) > 0) stores[food as Resource] = amount as number;
   }
   return stores;
+}
+
+function validateTask(raw: unknown): WalkerTask | null | undefined {
+  if (raw === null || raw === undefined) return null;
+  if (!isPlainObject(raw)) return undefined;
+  const { kind, since, until } = raw;
+  if (kind !== 'chop' && kind !== 'hunt') return undefined;
+  if (!isNonNegativeFinite(since) || !isNonNegativeFinite(until) || (until as number) < (since as number)) return undefined;
+  return { kind, since: since as number, until: until as number };
 }
 
 function validateFate(raw: unknown): AnimalFate | null {

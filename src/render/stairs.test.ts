@@ -98,7 +98,7 @@ test('actual treads, risers and cut walls are pickable from every side', () => {
 test('walkers follow the full-cell profile in both directions, including interpolated frames', () => {
   const { city, map, world, scene, stairs, renders } = fixture();
   const before = new Set(scene.children);
-  const walker: Walker = { id: 9876, kind: 'immigrant', homeId: primaryCity(world).harbour.id, targetId: null, path: [11, 12, 13], departedAt: 0, step: 0, progress: 0, food: null, cargo: 0, returning: false, overland: [], quarry: null, working: 0 };
+  const walker: Walker = { id: 9876, kind: 'immigrant', homeId: primaryCity(world).harbour.id, targetId: null, path: [11, 12, 13], departedAt: 0, step: 0, progress: 0, food: null, cargo: 0, returning: false, overland: [], quarry: null, task: null };
   primaryCity(world).walkers.push(walker);
   city.sync(world);
   const model = scene.children.find((child) => !before.has(child))!;

@@ -316,6 +316,14 @@ fishers to come. Animals can be inspected like people.
 
 ## People
 
+What a person is doing is a scheduled activity, not a countdown: a task carries the
+moment it began and the moment it ends, so the axe falls at the same instant on
+every screen and stops on time without waiting to be told. Where someone is and
+what work they perform is the authority's; what it looks like to be idle is the
+client's alone. A walker kept waiting turns to look about, chosen from its own id
+and the moment its wait began — the same everywhere it matters and nowhere on the
+wire.
+
 Every walker can be inspected: `walkerName(walker)` gives a stable name from its id,
 `WALKER_ROLES` its role, and `walkerStatus(city, walker)` one line on what it is
 doing and carrying. The renderer shows cargo on the model: a carter's cart is heaped

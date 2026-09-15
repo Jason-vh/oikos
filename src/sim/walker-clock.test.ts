@@ -7,6 +7,7 @@ import { buildStarterNeighbourhood } from './scenario';
 import { tileIndexOn } from './island';
 import { mapOf } from './grid';
 import type { Walker, World } from './types';
+import { HUNT_SECONDS } from './gathering';
 
 function fixture(): { world: World; walker: Walker } {
   const world = createWorld();
@@ -100,4 +101,34 @@ test('a hunter turning for home departs now, not when it first set out', () => {
     expect(tilesTravelled(world, hunter)).toBeLessThan(hunter.path.length - 1);
   }
   expect(turned).toBe(true);
+});
+
+test('work is scheduled, not counted down: it says when it began and when it ends', () => {
+  const world = createWorld(1, 0);
+  buildStarterNeighbourhood(world, primaryCity(world));
+  const lodge = spotFor(world, 'lodge')!;
+  expect(build(world, primaryCity(world), 'lodge', lodge.x, lodge.z).ok).toBe(true);
+  connect(world, primaryCity(world).buildings.at(-1)!);
+  let task = null as Walker['task'];
+  let began = 0;
+  for (let beat = 0; beat < 4000 && task === null; beat++) {
+    advance(world, STEP);
+    const working = primaryCity(world).walkers.find((walker) => walker.task !== null);
+    if (working) {
+      task = working.task;
+      began = world.time;
+    }
+  }
+  expect(task).not.toBeNull();
+  expect(task!.kind).toBe('hunt');
+  expect(task!.since).toBeLessThanOrEqual(began);
+  expect(task!.until - task!.since).toBeCloseTo(HUNT_SECONDS, 9);
+
+  const seen = new Set<number>();
+  for (let beat = 0; beat < 40; beat++) {
+    advance(world, STEP);
+    const working = primaryCity(world).walkers.find((walker) => walker.task !== null);
+    if (working) seen.add(working.task!.until);
+  }
+  expect(seen.size).toBeLessThanOrEqual(2);
 });

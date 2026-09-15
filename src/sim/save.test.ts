@@ -91,7 +91,7 @@ describe('gathering saves', () => {
     let working = false;
     for (let t = 0; t < 1600 && !working; t++) {
       advance(world, .25);
-      working = primaryCity(world).walkers.some((walker) => walker.kind === 'hunter' && walker.working > 0);
+      working = primaryCity(world).walkers.some((walker) => walker.kind === 'hunter' && walker.task !== null);
     }
     expect(working).toBe(true);
     const restored = deserializeWorld(serializeWorld(world));
@@ -273,7 +273,7 @@ function ambiguousStairFixture() {
 function bareWalker(overrides: Partial<Walker> & Pick<Walker, 'id' | 'homeId' | 'path'>): Walker {
   return {
     kind: 'maintenance', targetId: null, departedAt: 0, step: 0, progress: 0, food: null, cargo: 0,
-    returning: false, overland: [], quarry: null, working: 0, ...overrides,
+    returning: false, overland: [], quarry: null, task: null, ...overrides,
   };
 }
 
@@ -342,7 +342,7 @@ describe('legacy topology quarantine', () => {
     boar.cornered = true;
 
     const strandedHunter = bareWalker({
-      id: world.nextId++, kind: 'hunter', homeId: lodge.id, path: [northDownIndex, ambiguousIndex], quarry: boar.id, working: 1,
+      id: world.nextId++, kind: 'hunter', homeId: lodge.id, path: [northDownIndex, ambiguousIndex], quarry: boar.id, task: { kind: 'hunt', since: 0, until: 1 },
     });
     primaryCity(world).walkers.push(strandedHunter);
 

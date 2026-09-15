@@ -2,7 +2,7 @@ import type { Animal, Building, City, Walker, World } from './types';
 import { footprint } from './catalog';
 import { buildable, islandFor, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import { accessTiles, footprintTiles, mapOf } from './grid';
-import { addStore, departOn, hasActiveWalker, sendCart, spawnWalker, totalStock } from './world';
+import { addStore, departOn, hasActiveWalker, sendCart, setTask, spawnWalker, totalStock } from './world';
 import { alive, animalAt, killAnimal, wildlifeObstacles } from './wildlife';
 import { mixedEdgeAllowed, stairLayout } from './stairs';
 
@@ -149,11 +149,11 @@ export function gatherArrival(world: World, city: City, walker: Walker): boolean
     const prey = world.wildlife.find((animal) => animal.id === walker.quarry);
     if (prey && huntable(world, prey) && withinReach(world, map, walker, prey)) {
       prey.cornered = true;
-      walker.working = HUNT_SECONDS;
+      setTask(world, walker, 'hunt', HUNT_SECONDS);
       return false;
     }
   } else if (walker.quarry !== null && standingForest(world, map, walker.quarry)) {
-    walker.working = FELL_SECONDS;
+    setTask(world, walker, 'chop', FELL_SECONDS);
     return false;
   }
   turnHome(world, walker);
@@ -188,6 +188,7 @@ function withinReach(world: World, map: IslandMap, walker: Walker, prey: Animal)
 
 function turnHome(world: World, walker: Walker): void {
   departOn(world, walker, [...walker.path].reverse());
+  walker.task = null;
   walker.returning = true;
   walker.quarry = null;
 }
