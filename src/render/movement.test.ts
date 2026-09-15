@@ -72,3 +72,25 @@ test('a beat that never arrives costs the walker nothing', () => {
   skipped.city.animate(0, .5, 1);
   expect(skipped.at().distanceTo(even.at())).toBeCloseTo(0, 9);
 });
+
+test('animals are given the simulated interval their update covered', () => {
+  const world = createWorld();
+  const stage = { scene: new T.Scene(), shadows() {}, shadowsFromMotion() {}, invalidate() {} } as Stage;
+  const city = new CityScene(stage, islandFor(world.seed), true);
+  const animal = world.wildlife[0];
+  city.setWorldTime(0);
+  city.sync(world);
+  world.time = 1;
+  world.wildlife = world.wildlife.map((entry) => (entry.id === animal.id ? { ...entry, x: entry.x + .4 } : entry));
+  city.setWorldTime(1);
+  city.sync(world);
+  const moved = city.moverPoint(animal.id)!.clone();
+  city.animate(0, .25, 1);
+  const quarter = city.moverPoint(animal.id)!.clone();
+  expect(quarter.distanceTo(moved)).toBeGreaterThan(0);
+  city.animate(0, .75, 1);
+  const whole = city.moverPoint(animal.id)!.clone();
+  city.animate(0, .5, 1);
+  expect(city.moverPoint(animal.id)!.distanceTo(whole)).toBe(0);
+  city.dispose();
+});

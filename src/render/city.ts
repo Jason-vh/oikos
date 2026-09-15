@@ -107,6 +107,8 @@ export class CityScene {
   private sight = 60;
   private lastWorld: World | null = null;
   private syncedWildlife: readonly Animal[] | null = null;
+  private syncedWildlifeAt = 0;
+  private animalSpan = ANIMAL_SPAN;
   private worldTime = 0;
   private readonly logistics: LogisticsOverlay;
   private readonly validMaterial = new T.MeshBasicMaterial({ color: 0x79b58b, transparent: true, opacity: .38, depthWrite: false });
@@ -249,7 +251,9 @@ export class CityScene {
       for (const walker of city.walkers) this.syncWalker(walker, stairs);
     }
     if (world.wildlife !== this.syncedWildlife) {
+      this.animalSpan = spanOf(world.time - this.syncedWildlifeAt, ANIMAL_SPAN, ANIMAL_SPAN_LIMIT);
       this.syncedWildlife = world.wildlife;
+      this.syncedWildlifeAt = world.time;
       const animalIds = new Set(world.wildlife.map((animal) => animal.id));
       for (const id of [...this.animals.keys()]) {
         if (animalIds.has(id)) continue;
@@ -304,7 +308,7 @@ export class CityScene {
     entry.from.copy(entry.position);
     entry.target.copy(target);
     entry.heading = animal.heading;
-    entry.span = spanOf(entry.elapsed, ANIMAL_SPAN, ANIMAL_SPAN_LIMIT);
+    entry.span = this.animalSpan;
     entry.elapsed = jumped ? entry.span : 0;
     entry.moving = !jumped && entry.from.distanceToSquared(target) > 1e-5;
   }
