@@ -35,6 +35,13 @@ An authenticated browser cannot join again. Unusable names and a full realm fail
 normally. Joins allow five attempts/minute/IP, burst five, and the realm holds at
 most 1024 actors.
 
+GET `/api/world/preview` answers before admission, so the page can raise the
+world behind its join modal. It is gzipped `{"known":<cookie recognised>,"world":…}`,
+takes no request body, never advances the clock, and allows eight requests/IP,
+refilling two a second. Being read without a cookie, it carries only world state
+every player already sees, and no session. Its Origin is checked when the browser
+sends one; a same-origin GET sends none.
+
 GET `/api/world` upgrades only with that exact Origin and an authenticated cookie.
 A client sends:
 

@@ -13,6 +13,8 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 
 try {
   await page.goto(new URL('/?debug', base).href, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('[data-testid="join-form"]:visible');
+  assert.equal(await page.evaluate(() => document.querySelectorAll('canvas').length), 1, 'The world was not rendered behind the join modal');
   await page.getByRole('textbox').fill(`Smoke ${Date.now() % 1000000}`);
   await page.getByRole('button', { name: 'Join' }).click();
   await page.waitForFunction(() => document.body.dataset.ready === 'true' || document.body.dataset.error === 'true');
@@ -91,6 +93,11 @@ try {
   assert.equal(log.some((entry) => entry.direction === 'sent' && entry.kind === 'request'), true, 'No request left the client');
   assert.equal(log.some((entry) => entry.direction === 'received' && entry.kind === 'receipt'), true, 'No receipt reached the client');
   assert.equal(log.some((entry) => entry.direction === 'received' && entry.kind === 'snapshot'), true, 'No snapshot reached the client');
+
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => 'oikos' in window);
+  assert.equal(await page.locator('[data-testid="join-form"]').count(), 0, 'A known player was asked to join again');
+  assert.equal(await page.evaluate(() => document.querySelectorAll('canvas').length), 1, 'The reloaded game left a stray canvas');
 
   assert.deepEqual(errors, []);
   console.log(`Play loop passed: claimed ${site.x},${site.z}, built at ${plot.x},${plot.z}. Captures: ${output}`);

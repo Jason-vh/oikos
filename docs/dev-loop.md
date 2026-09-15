@@ -22,11 +22,12 @@ for the bug. `--agent "<name>"` prints an MCP credential before the server takes
 its exclusive lock on the database, which is the only moment one can be issued.
 
 `npm run dev` alone serves the pages but has no authority behind it, so `/` will
-sit at *Connecting…* forever. That is a missing server, not a broken client.
+sit at *Cannot reach the world* forever. That is a missing server, not a broken
+client.
 
-A page load before joining always attempts a socket and is refused, so one
-`ws proxy socket error` from Vite and one 401 in the console are normal on every
-first load. They stop once the join sets a cookie.
+A page load fetches `/api/world/preview` first: it carries the world and whether
+the cookie is known. An unknown visitor gets that world rendered behind the join
+modal and no socket is attempted until the join sets a cookie.
 
 ## Scripting the shared game
 

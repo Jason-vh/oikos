@@ -242,9 +242,34 @@ body[data-error] #status { background: #fbe9e2; color: var(--terracotta-deep); }
 .hud-connection button { padding: 6px 12px; font-size: 12px; border: 1px solid var(--line); background: var(--terracotta); color: #fffaf0; align-self: flex-start; }
 .hud-claim-available { padding: 10px 16px; font-size: 13px; background: var(--terracotta); color: #fffaf0; align-self: flex-start; }
 
-.shared-boot-overlay { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: rgba(41, 75, 74, .55); }
-.shared-boot-panel { display: flex; flex-direction: column; gap: 14px; padding: 28px 32px; background: var(--cream-glass); backdrop-filter: blur(14px); border-radius: var(--radius); box-shadow: var(--shadow); min-width: 280px; font-family: 'Avenir Next', Avenir, 'Segoe UI', system-ui, sans-serif; color: var(--ink); }
-.shared-boot-panel form { display: flex; flex-direction: column; gap: 10px; }
-.shared-boot-panel input { padding: 8px 10px; font-size: 14px; border: 1px solid var(--line); border-radius: 8px; }
-.shared-boot-panel button { padding: 8px 14px; background: var(--terracotta); color: #fffaf0; border-radius: 8px; }
-.shared-boot-panel [data-field="join-error"] { color: var(--terracotta-deep); font-size: 12.5px; }
+body[data-boot='join'] #app { filter: blur(7px) saturate(1.05); transform: scale(1.05); pointer-events: none; }
+body[data-boot] #ui { display: none; }
+
+.boot { position: fixed; inset: 0; z-index: 20; font-family: 'Avenir Next', Avenir, 'Segoe UI', system-ui, sans-serif; color: var(--ink); }
+.boot [hidden] { display: none; }
+
+.boot-veil { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; background: linear-gradient(180deg, #d5e7e1, #b1d2cd 58%, #cfdfd4); }
+.boot-veil h1 { margin: 0; font-family: Georgia, 'Times New Roman', serif; font-size: 46px; font-weight: 400; letter-spacing: 5px; color: var(--sage-deep); }
+.boot-veil p { margin: 0; font-size: 14px; letter-spacing: .3px; color: var(--ink-soft); }
+.boot-progress { width: 180px; height: 3px; border-radius: 2px; background: rgba(41, 75, 74, .14); overflow: hidden; }
+.boot-progress span { display: block; width: 40%; height: 100%; border-radius: 2px; background: var(--terracotta); animation: boot-sweep 1.7s ease-in-out infinite; }
+@keyframes boot-sweep { 0% { transform: translateX(-110%); } 100% { transform: translateX(360%); } }
+body[data-error] .boot-veil { background: linear-gradient(180deg, #f4ded4, #ecd2c6); }
+body[data-error] .boot-veil p { color: var(--terracotta-deep); }
+body[data-error] .boot-progress { display: none; }
+
+.boot-scrim { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(41, 75, 74, .28); }
+.boot-card { display: flex; flex-direction: column; gap: 12px; width: min(360px, 100%); padding: 28px 32px; background: var(--cream-glass); backdrop-filter: blur(14px); border-radius: var(--radius); box-shadow: var(--shadow); }
+.boot-card h2 { margin: 0; font-family: Georgia, 'Times New Roman', serif; font-size: 21px; font-weight: 400; }
+.boot-card p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--ink-soft); }
+.boot-card label { display: grid; gap: 6px; margin-top: 6px; font-size: 12px; letter-spacing: .6px; text-transform: uppercase; color: var(--ink-soft); }
+.boot-card input { padding: 9px 11px; font: inherit; font-size: 15px; letter-spacing: normal; text-transform: none; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; background: rgba(255, 255, 255, .7); }
+.boot-card input:focus-visible { outline: 2px solid var(--sage); outline-offset: 1px; }
+.boot-card button { padding: 10px 16px; font-size: 13.5px; background: var(--terracotta); color: #fffaf0; border-radius: 8px; }
+.boot-card button:hover:not(:disabled) { background: var(--terracotta-deep); }
+.boot-card button:disabled { opacity: .6; }
+.boot-card [data-field="join-error"] { color: var(--terracotta-deep); }
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-progress span { animation: none; width: 100%; opacity: .45; }
+}

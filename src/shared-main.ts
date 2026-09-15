@@ -1,5 +1,9 @@
 import { boot, type BootHandles } from './main';
 import { NAME_LIMIT } from './server/protocol';
+import { deserializeSharedWorld } from './sim/save';
+import type { World } from './sim/types';
+import { showBackdrop, type Backdrop } from './ui/backdrop';
+import { createBootOverlay } from './ui/boot-overlay';
 import { debugEnabled, delaySends, latencyMillis, observe } from './ui/debug';
 import { SharedSession, type SharedRequestOutcome, type SharedSessionStatus, type SharedSessionStorage } from './ui/shared-session';
 import './ui/style.css';
@@ -25,93 +29,68 @@ function connect(): WebSocket {
   return socket;
 }
 
-function buildOverlay(): {
-  setStatus(message: string): void;
-  showJoinForm(onSubmit: (name: string) => void): void;
-  setJoinError(message: string): void;
-  setJoinBusy(busy: boolean): void;
-  remove(): void;
-} {
-  const root = document.createElement('div');
-  root.className = 'shared-boot-overlay';
-  root.innerHTML = `
-    <div class="shared-boot-panel">
-      <p data-field="shared-status" role="status">Connecting\u2026</p>
-      <form data-testid="join-form">
-        <label>Your name
-          <input type="text" name="name" maxlength="${NAME_LIMIT}" autocomplete="nickname" spellcheck="false" required />
-        </label>
-        <button type="submit">Join</button>
-      </form>
-      <p data-field="join-error" role="alert" hidden></p>
-    </div>
-  `;
-  document.body.appendChild(root);
-  const statusField = root.querySelector<HTMLElement>('[data-field="shared-status"]')!;
-  const form = root.querySelector<HTMLFormElement>('[data-testid="join-form"]')!;
-  const input = form.querySelector<HTMLInputElement>('input[name="name"]')!;
-  const submitButton = form.querySelector<HTMLButtonElement>('button')!;
-  const errorField = root.querySelector<HTMLElement>('[data-field="join-error"]')!;
-  return {
-    setStatus(message) {
-      if (!root.isConnected) document.body.appendChild(root);
-      statusField.textContent = message;
-    },
-    showJoinForm(onSubmit) {
-      form.addEventListener('submit', (event) => {
-        event.preventDefault();
-        const name = input.value.trim();
-        if (name.length === 0) return;
-        onSubmit(name);
-      });
-    },
-    setJoinError(message) {
-      errorField.textContent = message;
-      errorField.hidden = message.length === 0;
-    },
-    setJoinBusy(busy) {
-      input.disabled = busy;
-      submitButton.disabled = busy;
-    },
-    remove() { root.remove(); },
-  };
+interface Preview {
+  known: boolean;
+  world: World;
 }
 
-async function join(name: string): Promise<{ ok: boolean; reason: string }> {
+async function preview(): Promise<Preview | null> {
+  try {
+    const response = await fetch('/api/world/preview', { cache: 'no-store' });
+    if (!response.ok) return null;
+    const payload = await response.json() as { known?: unknown; world?: unknown };
+    const world = deserializeSharedWorld(JSON.stringify(payload.world));
+    if (typeof payload.known !== 'boolean' || !world) return null;
+    return { known: payload.known, world };
+  } catch {
+    return null;
+  }
+}
+
+async function join(name: string): Promise<string> {
   try {
     const response = await fetch('/api/session/join', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name }),
     });
-    if (response.ok) return { ok: true, reason: '' };
-    if (response.status === 409) return { ok: false, reason: 'Already joined. Reload the page to reconnect.' };
-    if (response.status === 429) return { ok: false, reason: 'Too many attempts. Wait a moment and try again.' };
-    if (response.status === 400) return { ok: false, reason: `Choose a name of up to ${NAME_LIMIT} characters.` };
-    return { ok: false, reason: 'The world could not admit you. Try again.' };
+    if (response.ok) return '';
+    if (response.status === 409) return 'Already joined. Reload the page to reconnect.';
+    if (response.status === 429) return 'Too many attempts. Wait a moment and try again.';
+    if (response.status === 400) return `Choose a name of up to ${NAME_LIMIT} characters.`;
+    return 'The world could not admit you. Try again.';
   } catch {
-    return { ok: false, reason: 'Could not reach the server. Check your connection and try again.' };
+    return 'Could not reach the server. Check your connection and try again.';
   }
 }
 
 const UNKNOWN_ATTEMPTS = 2;
-const UNKNOWN_HERE = 'This world does not know you. Join under a name to begin.';
+const RETRY_DELAYS = [1000, 2000, 4000, 8000];
+const RAISING = 'Raising the archipelago\u2026';
+const ARRIVING = 'Sailing you in\u2026';
 const UNREACHED = 'Cannot reach the world. Trying again\u2026';
 
 function statusMessage(status: SharedSessionStatus): string {
   switch (status) {
     case 'connecting': return 'Connecting\u2026';
     case 'open': return 'Connected. Waiting for the world\u2026';
-    default: return 'Loading your city\u2026';
+    default: return ARRIVING;
   }
 }
 
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => { setTimeout(resolve, milliseconds); });
+}
+
 function boot_(): void {
-  const overlay = buildOverlay();
+  const overlay = createBootOverlay();
+  const app = document.querySelector<HTMLElement>('#app')!;
   let session: SharedSession | null = null;
   let handles: BootHandles | null = null;
+  let backdrop: Backdrop | null = null;
   let firstSnapshotSeen = false;
   let unreachedHandshakes = 0;
+  let recheckInFlight = false;
   let epoch = 0;
   let bufferedOutcomes: SharedRequestOutcome[] = [];
 
@@ -119,21 +98,44 @@ function boot_(): void {
     epoch += 1;
     session?.close();
     session = null;
-    overlay.setJoinBusy(true);
-    overlay.setStatus('The shared game could not open. Reload to try again.');
-    document.body.dataset.error = 'true';
+    backdrop?.dispose();
+    backdrop = null;
+    overlay.fail('The shared game could not open. Reload to try again.');
     console.error(error);
   }
 
-  async function explainSilence(forEpoch: number): Promise<void> {
-    let serving = false;
-    try {
-      serving = (await fetch('/healthz', { cache: 'no-store' })).ok;
-    } catch {
-      serving = false;
+  async function reachWorld(): Promise<Preview> {
+    for (let attempt = 0; ; attempt++) {
+      const seen = await preview();
+      if (seen) return seen;
+      overlay.showLoading(UNREACHED);
+      await delay(RETRY_DELAYS[Math.min(attempt, RETRY_DELAYS.length - 1)]);
     }
+  }
+
+  async function admit(seen: Preview): Promise<void> {
+    if (!seen.known) {
+      backdrop = await showBackdrop(seen.world, app);
+      await overlay.askToJoin(join);
+      backdrop.dispose();
+      backdrop = null;
+    }
+    overlay.showLoading(ARRIVING);
+  }
+
+  async function recheckAdmission(forEpoch: number): Promise<void> {
+    if (recheckInFlight) return;
+    recheckInFlight = true;
+    const seen = await preview();
+    recheckInFlight = false;
     if (forEpoch !== epoch || firstSnapshotSeen) return;
-    overlay.setStatus(serving ? UNKNOWN_HERE : UNREACHED);
+    if (!seen) { overlay.showLoading(UNREACHED); return; }
+    if (seen.known) { overlay.showLoading(statusMessage('connecting')); return; }
+    epoch += 1;
+    session?.close();
+    session = null;
+    await admit(seen);
+    startSession();
   }
 
   function startSession(): void {
@@ -173,8 +175,8 @@ function boot_(): void {
             handles?.onStatus(status, reason);
             if (firstSnapshotSeen) return;
             if (status === 'offline' || status === 'closed') unreachedHandshakes += 1;
-            if (unreachedHandshakes >= UNKNOWN_ATTEMPTS) void explainSilence(myEpoch);
-            else overlay.setStatus(reason.length > 0 ? reason : statusMessage(status));
+            if (unreachedHandshakes >= UNKNOWN_ATTEMPTS) void recheckAdmission(myEpoch).catch(fatal);
+            else overlay.showLoading(reason.length > 0 ? reason : statusMessage(status));
           },
           outcome: (result) => {
             if (myEpoch !== epoch) return;
@@ -188,37 +190,20 @@ function boot_(): void {
     }
   }
 
-  overlay.showJoinForm((name) => {
-    if (firstSnapshotSeen) return;
-    const submittedAt = epoch;
-    overlay.setJoinBusy(true);
-    overlay.setJoinError('');
-    void join(name)
-      .then((result) => {
-        if (submittedAt !== epoch || firstSnapshotSeen) return;
-        overlay.setJoinBusy(false);
-        if (!result.ok) {
-          overlay.setJoinError(result.reason);
-          return;
-        }
-        session?.close();
-        session = null;
-        startSession();
-      })
-      .catch((error) => {
-        if (submittedAt !== epoch || firstSnapshotSeen) return;
-        overlay.setJoinBusy(false);
-        overlay.setJoinError('Something went wrong joining. Try again.');
-        console.error(error);
-      });
-  });
-
-  startSession();
+  overlay.showLoading(RAISING);
+  reachWorld()
+    .then(async (seen) => {
+      await admit(seen);
+      startSession();
+    })
+    .catch(fatal);
 }
 
 try { boot_(); }
 catch (error) {
   document.body.dataset.error = 'true';
-  document.querySelector<HTMLElement>('#status')!.textContent = 'The shared game could not open. WebGL 2 and hardware acceleration are required.';
+  const status = document.querySelector<HTMLElement>('#status')!;
+  status.hidden = false;
+  status.textContent = 'The shared game could not open. WebGL 2 and hardware acceleration are required.';
   console.error(error);
 }

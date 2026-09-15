@@ -254,11 +254,25 @@ export function startServer(options: RuntimeOptions) {
         if (path === '/mcp') {
           return serveAgent(request).catch(() => { fatal(); return response(503, 'unavailable'); });
         }
-        if (path !== '/api/session/join' && path !== '/api/world') return response(404, 'not-found');
-        if (request.headers.get('origin') !== options.publicOrigin) return response(403, 'origin-denied');
+        if (path !== '/api/session/join' && path !== '/api/world' && path !== '/api/world/preview') return response(404, 'not-found');
+        const browserOrigin = request.headers.get('origin');
+        const previewing = path === '/api/world/preview';
+        if (previewing && browserOrigin !== null && browserOrigin !== options.publicOrigin) return response(403, 'origin-denied');
+        if (!previewing && browserOrigin !== options.publicOrigin) return response(403, 'origin-denied');
         try {
           const credential = credentialFrom(request);
           const authenticated = credential ? authority.authenticate(credential) : null;
+          if (previewing) {
+            if (request.method !== 'GET') return response(405, 'method-not-allowed');
+            const ip = listener.requestIP(request)?.address;
+            if (!ip || !take(requests, ip, clock.now(), 8, 2)) return response(429, 'rate-limited');
+            const body = `{"known":${authenticated !== null},"world":${serializeWorld(authority.snapshot())}}`;
+            return new Response(Bun.gzipSync(body), { headers: {
+              'Content-Type': 'application/json',
+              'Content-Encoding': 'gzip',
+              'Cache-Control': 'no-store',
+            } });
+          }
           if (path === '/api/session/join') {
             if (request.method !== 'POST') return response(405, 'method-not-allowed');
             if (authenticated) return response(409, 'already-authenticated');

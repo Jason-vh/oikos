@@ -33,6 +33,24 @@ test('joins only from the configured origin, keeps credentials solely in the sec
   expect(f.runtime.healthy).toBe(true);
 });
 
+test('previews the world before admission and reports whether the visitor is known', async () => {
+  const f = await fixture(cleanups);
+  expect((await fetch(`${f.base}/api/world/preview`, { headers: { Origin: 'https://foreign.example' } })).status).toBe(403);
+  expect((await fetch(`${f.base}/api/world/preview`, { method: 'POST', headers: { Origin: f.origin } })).status).toBe(405);
+  const anonymous = await fetch(`${f.base}/api/world/preview`);
+  expect(anonymous.status).toBe(200);
+  expect(anonymous.headers.get('cache-control')).toBe('no-store');
+  const stranger = await anonymous.json() as { known: boolean; world: unknown };
+  expect(stranger.known).toBe(false);
+  expect(deserializeSharedWorld(JSON.stringify(stranger.world))).not.toBeNull();
+  const cookie = await f.cookie('Tycho');
+  const response = await fetch(`${f.base}/api/world/preview`, { headers: { Origin: f.origin, Cookie: cookie } });
+  const admitted = await response.json() as { known: boolean; world: unknown };
+  expect(admitted.known).toBe(true);
+  expect(JSON.stringify(admitted)).not.toContain(cookie.slice('__Host-oikos='.length));
+  expect(f.runtime.healthy).toBe(true);
+});
+
 test('two authenticated actors claim and found distinct cities; snapshots survive shared loading and restart', async () => {
   const f = await fixture(cleanups);
   const cookieA = await f.cookie('Tycho');
