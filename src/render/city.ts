@@ -179,7 +179,6 @@ export class CityScene {
 
   sync(world: World): void {
     this.lastWorld = world;
-    this.worldTime = Math.max(this.worldTime, world.time);
     this.roadModels(world);
     const buildings = visibleBuildings(world);
     const ids = new Set(buildings.map((building) => building.id));

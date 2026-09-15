@@ -118,3 +118,15 @@ function drawn(scene: T.Scene): number[] {
   });
   return matrices;
 }
+
+test('a snapshot from further ahead than the clock does not drag a walker with it', () => {
+  const { city, world, at } = fixture();
+  city.setWorldTime(.2);
+  city.animate(0, 1 / 60, 1);
+  const drawn = at();
+  world.time = 1.4;
+  city.sync(world);
+  expect(at().distanceTo(drawn)).toBe(0);
+  city.animate(0, 1 / 60, 1);
+  expect(at().distanceTo(drawn)).toBe(0);
+});
