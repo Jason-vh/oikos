@@ -91,28 +91,41 @@ function restingPlace(animal: Animal, species: SpeciesDefinition, index: number)
   return loopAt(animal, species, index * step / (species.range * .72) * wobble);
 }
 
-function wanderOffset(animal: Animal, time: number): AnimalPlace {
+interface Gait {
+  offset: AnimalPlace;
+  stride: number;
+}
+
+function wanderGait(animal: Animal, time: number): Gait {
   const species = SPECIES[animal.kind];
   const cycle = WALKING_SECONDS / (1 - species.rest);
   const phase = time / cycle + animal.drift;
   const index = Math.floor(phase);
   const within = phase - index;
   const settled = restingPlace(animal, species, index);
-  if (within <= species.rest) return settled;
+  if (within <= species.rest) return { offset: settled, stride: 0 };
   const next = restingPlace(animal, species, index + 1);
   const share = (within - species.rest) / (1 - species.rest);
   const eased = species.rest > 0 ? share * share * (3 - 2 * share) : share;
   return {
-    x: settled.x + (next.x - settled.x) * eased,
-    z: settled.z + (next.z - settled.z) * eased,
+    offset: {
+      x: settled.x + (next.x - settled.x) * eased,
+      z: settled.z + (next.z - settled.z) * eased,
+    },
+    stride: eased,
   };
+}
+
+export function animalStride(animal: Animal, time: number): number {
+  if (animal.respawnAt !== null || animal.cornered) return 0;
+  return wanderGait(animal, time).stride;
 }
 
 export function animalAt(map: IslandMap, occupied: ReadonlySet<number>, animal: Animal, time: number): AnimalPlace {
   const home = { x: animal.homeX, z: animal.homeZ };
   if (animal.respawnAt !== null || animal.cornered) return home;
   const level = levelOn(map, Math.floor(animal.homeX), Math.floor(animal.homeZ));
-  const offset = wanderOffset(animal, time);
+  const { offset } = wanderGait(animal, time);
   let allowed = 0;
   for (let attempt = WANDER_STEPS; attempt >= 1; attempt--) {
     const share = attempt / WANDER_STEPS;

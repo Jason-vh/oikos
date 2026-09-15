@@ -87,7 +87,9 @@ export function animalModel(kind: AnimalKind): T.Group {
   }
 }
 
-export function animateAnimal(model: T.Object3D, kind: AnimalKind, phase: number, moving: boolean): void {
+const RABBIT_HOPS = 3;
+
+export function animateAnimal(model: T.Object3D, kind: AnimalKind, phase: number, moving: boolean, stride = 0): void {
   if (kind === 'gull') {
     const [, left, right] = model.children;
     const flap = Math.sin(phase * 6) * .55;
@@ -103,8 +105,17 @@ export function animateAnimal(model: T.Object3D, kind: AnimalKind, phase: number
     return;
   }
   const [body, ...legs] = model.children;
-  const stride = moving ? (kind === 'rabbit' ? .9 : .5) : 0;
-  legs.forEach((leg, index) => { leg.rotation.x = Math.sin(phase * (kind === 'rabbit' ? 11 : 8) + (index % 2) * Math.PI) * stride; });
-  body.position.y = moving ? Math.abs(Math.sin(phase * (kind === 'rabbit' ? 11 : 8))) * (kind === 'rabbit' ? .09 : .03) : 0;
+  if (kind === 'rabbit') {
+    const hop = moving ? stride * RABBIT_HOPS * Math.PI : 0;
+    const lift = Math.abs(Math.sin(hop));
+    model.position.y += lift * .2;
+    body.rotation.x = Math.cos(hop * 2) * .18 * (moving ? 1 : 0);
+    body.position.y = lift * .02;
+    legs.forEach((leg, index) => { leg.rotation.x = lift * (index < 2 ? -1.1 : .9); });
+    return;
+  }
+  const swing = moving ? .5 : 0;
+  legs.forEach((leg, index) => { leg.rotation.x = Math.sin(phase * 8 + (index % 2) * Math.PI) * swing; });
+  body.position.y = moving ? Math.abs(Math.sin(phase * 8)) * .03 : 0;
 }
 

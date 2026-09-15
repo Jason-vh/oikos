@@ -4,7 +4,7 @@ import { footprint } from '../sim/catalog';
 import { AGORA_SLOTS, GRANARY_SLOTS, WALKER_SPEED } from '../sim/balance';
 import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, groundHeight, insideMapOn, tileAtOn, tileIndexOn, worldPositionOn, type IslandMap } from '../sim/island';
 import { buildRoads } from '../art/roads';
-import { alive, animalAt, wildlifeObstacles } from '../sim/wildlife';
+import { alive, animalAt, animalStride, wildlifeObstacles } from '../sim/wildlife';
 import { STAIR_WIDTH } from '../art/stairs';
 import { roadHeight, stairLayout, STAIR_STEPS, type Stair } from '../sim/stairs';
 import { addRoadMark } from './road-marks';
@@ -19,7 +19,7 @@ import { WildlifeField } from './wildlife';
 interface BuildingEntry { key: string; tier: number; model: T.Group; intro: number; from: number; construction: BuildingConstruction | null; }
 interface Departure { model: T.Group; elapsed: number; }
 interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; path: number[]; departedAt: number; quarry: number | null; moving: boolean; working: boolean; heading: number; stepped: boolean; stairs: ReadonlyMap<number, Stair>; }
-interface AnimalEntry { animal: Animal; position: T.Vector3; facing: number; roll: number; phase: number; moving: boolean; dying: number; visible: boolean; drawn: boolean; }
+interface AnimalEntry { animal: Animal; position: T.Vector3; facing: number; roll: number; phase: number; moving: boolean; stride: number; dying: number; visible: boolean; drawn: boolean; }
 
 const SIGHT_MARGIN = 1.3;
 const ANIMAL_FACING_LOOK = .35;
@@ -276,6 +276,7 @@ export class CityScene {
         roll: 0,
         phase: 0,
         moving: true,
+        stride: 0,
         dying: 0,
         visible: alive(animal, this.worldTime),
         drawn: false,
@@ -299,6 +300,7 @@ export class CityScene {
     const ahead = this.animalPosition(entry, this.worldTime + ANIMAL_FACING_LOOK);
     entry.position.copy(this.animalPosition(entry, this.worldTime));
     const towards = Math.atan2(ahead.x - entry.position.x, ahead.z - entry.position.z);
+    entry.stride = animalStride(entry.animal, this.worldTime);
     entry.moving = ahead.distanceToSquared(entry.position) > 1e-6;
     if (entry.moving) entry.facing = turnToward(entry.facing, towards, delta);
   }
@@ -327,7 +329,7 @@ export class CityScene {
       this.wildlife.conceal(id);
       return true;
     }
-    this.wildlife.pose(id, entry.animal.kind, { position: entry.position, facing: entry.facing, roll: entry.roll, phase: entry.phase, moving: entry.moving });
+    this.wildlife.pose(id, entry.animal.kind, { position: entry.position, facing: entry.facing, roll: entry.roll, phase: entry.phase, moving: entry.moving, stride: entry.stride });
     return true;
   }
 

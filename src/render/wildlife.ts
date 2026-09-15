@@ -11,6 +11,7 @@ export interface AnimalPose {
   roll: number;
   phase: number;
   moving: boolean;
+  stride: number;
 }
 
 interface Species {
@@ -66,7 +67,7 @@ export class WildlifeField {
     const species = this.speciesFor(kind);
     species.model.position.copy(pose.position);
     species.model.rotation.set(0, pose.facing, pose.roll);
-    animateAnimal(species.model, kind, pose.phase, pose.moving);
+    animateAnimal(species.model, kind, pose.phase, pose.moving, pose.stride);
     species.model.updateWorldMatrix(false, true);
     species.meshes.forEach((mesh, index) => write(slots[index], mesh.matrixWorld));
   }

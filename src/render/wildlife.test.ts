@@ -34,7 +34,7 @@ test('posing an animal places every part of its model', () => {
   const field = new WildlifeField(scene);
   try {
     field.add(7, 'boar');
-    field.pose(7, 'boar', { position: new T.Vector3(4, 1, -2), facing: .5, roll: 0, phase: 3, moving: true });
+    field.pose(7, 'boar', { position: new T.Vector3(4, 1, -2), facing: .5, roll: 0, phase: 3, moving: true, stride: .5 });
     const placed = batches(field).flatMap((mesh) => {
       const matrices: T.Matrix4[] = [];
       for (let index = 0; index < mesh.count; index++) {
@@ -60,7 +60,7 @@ test('concealed and removed animals leave nothing drawn', () => {
   try {
     for (const [index, kind] of KINDS.entries()) {
       field.add(index + 1, kind);
-      field.pose(index + 1, kind, { position: new T.Vector3(index, 0, 0), facing: 0, roll: 0, phase: 1, moving: false });
+      field.pose(index + 1, kind, { position: new T.Vector3(index, 0, 0), facing: 0, roll: 0, phase: 1, moving: false, stride: .5 });
     }
     field.conceal(1);
     field.remove(2);
