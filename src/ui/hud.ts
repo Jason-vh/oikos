@@ -47,7 +47,7 @@ interface ToolDef {
   key: string;
 }
 
-const HARBOUR_DEF: ToolDef = { tool: 'harbour', label: 'Harbour', cost: 'free', price: 0, key: '1' };
+const HARBOUR_DEF: ToolDef = { tool: 'harbour', label: 'Harbour', cost: '', price: 0, key: '1' };
 
 const TOOL_DEFS: ToolDef[] = [
   { tool: 'road', label: 'Road', cost: `${ROAD_COST} / tile`, price: ROAD_COST, key: '1' },
@@ -233,15 +233,19 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     button.className = 'hud-tool';
     button.dataset.tool = def.tool;
     button.setAttribute('aria-pressed', 'false');
-    button.setAttribute('aria-label', `${def.label}, ${def.cost}, shortcut ${def.key}`);
+    const described = def.cost.length > 0 ? `${def.label}, ${def.cost}` : def.label;
+    button.setAttribute('aria-label', `${described}, shortcut ${def.key}`);
     button.title = `${def.label} \u00b7 ${def.key}`;
     const label = document.createElement('span');
     label.className = 'hud-tool-label';
     label.textContent = def.label;
-    const cost = document.createElement('span');
-    cost.className = 'hud-tool-cost';
-    cost.textContent = def.cost;
-    button.append(toolIcon(def.tool), label, cost);
+    button.append(toolIcon(def.tool), label);
+    if (def.cost.length > 0) {
+      const cost = document.createElement('span');
+      cost.className = 'hud-tool-cost';
+      cost.textContent = def.cost;
+      button.append(cost);
+    }
     button.addEventListener('click', () => actions.tool(def.tool));
     toolbar.appendChild(button);
     toolButtons.set(def.tool, button);
