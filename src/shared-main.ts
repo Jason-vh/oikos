@@ -94,6 +94,10 @@ async function join(name: string): Promise<{ ok: boolean; reason: string }> {
   }
 }
 
+const UNKNOWN_ATTEMPTS = 2;
+const UNKNOWN_HERE = 'This world does not know you. Join under a name to begin.';
+const UNREACHED = 'Cannot reach the world. Trying again\u2026';
+
 function statusMessage(status: SharedSessionStatus): string {
   switch (status) {
     case 'connecting': return 'Connecting\u2026';
@@ -107,6 +111,7 @@ function boot_(): void {
   let session: SharedSession | null = null;
   let handles: BootHandles | null = null;
   let firstSnapshotSeen = false;
+  let unreachedHandshakes = 0;
   let epoch = 0;
   let bufferedOutcomes: SharedRequestOutcome[] = [];
 
@@ -120,10 +125,22 @@ function boot_(): void {
     console.error(error);
   }
 
+  async function explainSilence(forEpoch: number): Promise<void> {
+    let serving = false;
+    try {
+      serving = (await fetch('/healthz', { cache: 'no-store' })).ok;
+    } catch {
+      serving = false;
+    }
+    if (forEpoch !== epoch || firstSnapshotSeen) return;
+    overlay.setStatus(serving ? UNKNOWN_HERE : UNREACHED);
+  }
+
   function startSession(): void {
     epoch += 1;
     const myEpoch = epoch;
     firstSnapshotSeen = false;
+    unreachedHandshakes = 0;
     handles = null;
     bufferedOutcomes = [];
     try {
@@ -154,7 +171,10 @@ function boot_(): void {
           status: (status, reason) => {
             if (myEpoch !== epoch) return;
             handles?.onStatus(status, reason);
-            if (!firstSnapshotSeen) overlay.setStatus(reason.length > 0 ? reason : statusMessage(status));
+            if (firstSnapshotSeen) return;
+            if (status === 'offline' || status === 'closed') unreachedHandshakes += 1;
+            if (unreachedHandshakes >= UNKNOWN_ATTEMPTS) void explainSilence(myEpoch);
+            else overlay.setStatus(reason.length > 0 ? reason : statusMessage(status));
           },
           outcome: (result) => {
             if (myEpoch !== epoch) return;
