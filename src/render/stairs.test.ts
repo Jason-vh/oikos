@@ -5,6 +5,7 @@ import { STAIR_WIDTH } from '../art/stairs';
 import { roadHeight, stairLayout } from '../sim/stairs';
 import { createWorld } from '../sim/world';
 import { primaryCity } from '../sim/city';
+import { WALKER_SPEED } from '../sim/balance';
 import type { Walker } from '../sim/types';
 import { CityScene } from './city';
 import type { Stage } from './stage';
@@ -106,9 +107,8 @@ test('walkers follow the full-cell profile in both directions, including interpo
     for (const path of [[11, 12, 13], [13, 12, 11]]) {
       walker.path = path;
       for (let step = 0; step < 2; step++) {
-        walker.step = step;
         for (let progress = 0; progress < 1; progress += .08) {
-          walker.progress = progress;
+          walker.departedAt = -(step + progress) / WALKER_SPEED;
           city.sync(world);
           for (const delta of [.1, .15]) {
             city.animate(0, delta, 1);
@@ -125,8 +125,7 @@ test('walkers follow the full-cell profile in both directions, including interpo
       }
     }
     walker.path = [11, 12, 13];
-    walker.step = 1;
-    walker.progress = .25;
+    walker.departedAt = -1.25 / WALKER_SPEED;
     const shadows = renders.shadows;
     city.reload(world);
     expect(renders.shadows).toBeGreaterThan(shadows);

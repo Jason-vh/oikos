@@ -5,7 +5,11 @@ import type { Stage } from './stage';
 import { islandFor } from '../sim/island';
 import { createWorld } from '../sim/world';
 import { primaryCity } from '../sim/city';
-import type { Walker, World } from '../sim/types';
+import { roadSpur } from '../sim/testing';
+import { mapOf } from '../sim/grid';
+import { tileIndexOn } from '../sim/island';
+import { WALKER_SPEED } from '../sim/balance';
+import type { Walker } from '../sim/types';
 
 function fixture() {
   const world = createWorld();
@@ -17,7 +21,7 @@ function fixture() {
     kind: 'porter',
     homeId: owner.harbour.id,
     targetId: null,
-    path: [owner.roads[0], owner.roads[1], owner.roads[2]],
+    path: roadSpur(world, 4).map((tile) => tileIndexOn(mapOf(world, owner), tile.x, tile.z)),
     departedAt: 0,
     step: 0,
     progress: 0,
@@ -29,46 +33,42 @@ function fixture() {
     working: 0,
   };
   owner.walkers.push(walker);
+  city.setWorldTime(0);
   city.sync(world);
   return { city, world, walker, at: () => city.moverPoint(walker.id)!.clone() };
 }
 
-function step(world: World, walker: Walker, progress: number): World {
-  walker.progress = progress;
-  return world;
-}
-
-test('a repeated sync of an unchanged walker never interrupts its journey', () => {
-  const { city, world, walker, at } = fixture();
-  try {
-    city.sync(step(world, walker, .5));
-    city.animate(0, .12, 1);
-    for (let repeat = 0; repeat < 3; repeat++) city.sync(world);
-    city.animate(0, .13, 1);
-    const arrived = at();
-    city.animate(0, .25, 1);
-    expect(at().distanceTo(arrived)).toBe(0);
-  } finally {
-    city.dispose();
-  }
+test('a walker stands where the world clock puts it, not where a tween left it', () => {
+  const { city, at } = fixture();
+  const start = at();
+  city.setWorldTime(1 / WALKER_SPEED);
+  city.animate(0, 1 / 60, 1);
+  const afterOneTile = at();
+  expect(afterOneTile.distanceTo(start)).toBeGreaterThan(0);
+  city.setWorldTime(2 / WALKER_SPEED);
+  city.animate(0, 1 / 60, 1);
+  expect(at().distanceTo(afterOneTile)).toBeCloseTo(afterOneTile.distanceTo(start), 6);
 });
 
-test('a journey is spread over the interval its updates actually arrive in', () => {
-  const { city, world, walker, at } = fixture();
-  try {
-    city.sync(step(world, walker, .5));
-    city.animate(0, .5, 1);
-    const target = at();
-    city.sync(step(world, walker, 1));
-    city.animate(0, .25, 1);
-    const halfway = at();
-    expect(halfway.distanceTo(target)).toBeGreaterThan(0);
-    city.animate(0, .25, 1);
-    const arrived = at();
-    expect(arrived.distanceTo(halfway)).toBeGreaterThan(0);
-    city.animate(0, .25, 1);
-    expect(at().distanceTo(arrived)).toBe(0);
-  } finally {
-    city.dispose();
+test('a repeated sync at the same instant moves nothing', () => {
+  const { city, world, at } = fixture();
+  city.setWorldTime(.5 / WALKER_SPEED);
+  city.animate(0, 1 / 60, 1);
+  const placed = at();
+  for (let repeat = 0; repeat < 3; repeat++) city.sync(world);
+  expect(at().distanceTo(placed)).toBe(0);
+});
+
+test('a beat that never arrives costs the walker nothing', () => {
+  const even = fixture();
+  const skipped = fixture();
+  for (let beat = 1; beat <= 4; beat++) {
+    even.city.setWorldTime(beat * .25);
+    even.city.animate(0, .25, 1);
   }
+  skipped.city.setWorldTime(.5);
+  skipped.city.animate(0, .5, 1);
+  skipped.city.setWorldTime(1);
+  skipped.city.animate(0, .5, 1);
+  expect(skipped.at().distanceTo(even.at())).toBeCloseTo(0, 9);
 });

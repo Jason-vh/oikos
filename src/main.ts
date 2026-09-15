@@ -20,6 +20,7 @@ import { cadence, debugEnabled, protocolLog, snapshotLog } from './ui/debug';
 import { SharedSession, type SendOutcome, type SharedRequestOutcome, type SharedSessionStatus, type SharedSnapshot } from './ui/shared-session';
 import { SharedIntent } from './ui/shared-intent';
 import { PredictedWorld } from './ui/predicted-world';
+import { WorldClock } from './ui/world-clock';
 import './ui/style.css';
 
 export interface SharedBootSource {
@@ -43,6 +44,7 @@ export interface BootHandles {
 export function boot(source: SharedBootSource): BootHandles {
   const scripting = debugEnabled(location.search);
   const predicted = new PredictedWorld(source.initialSnapshot.world);
+  const clock = new WorldClock(source.initialSnapshot.world.time);
   let world: World = predicted.world;
   let realmId: string = source.initialSnapshot.realmId;
   let bindingId: string = source.initialSnapshot.session.binding;
@@ -82,6 +84,7 @@ export function boot(source: SharedBootSource): BootHandles {
     stage.bounds(seaBounds(world.seed));
     const home = activeCity(world, context);
     city = new CityScene(stage, mapFor(home), !reducedMotion);
+    city.setWorldTime(clock.now);
     city.watch(stage.controls.target, stage.viewSpan());
     overlay.dispose();
     overlay = new ConstructionOverlay(stage, mapFor(home));
@@ -525,6 +528,8 @@ export function boot(source: SharedBootSource): BootHandles {
     panVelocity.forward += (Math.sign(forward) - panVelocity.forward) * ease;
     if (Math.abs(panVelocity.right) < .002) panVelocity.right = 0;
     if (Math.abs(panVelocity.forward) < .002) panVelocity.forward = 0;
+    clock.advance(delta);
+    city.setWorldTime(clock.now);
     stage.pan(panVelocity.right * delta * .9, panVelocity.forward * delta * .9);
     stage.update(delta);
     city.watch(stage.controls.target, stage.viewSpan());
@@ -597,6 +602,8 @@ export function boot(source: SharedBootSource): BootHandles {
     predicted.sync(snapshot.world);
     if (!sharedIntent.busy) predicted.discard();
     world = predicted.world;
+    clock.observe(snapshot.world.time);
+    city.setWorldTime(clock.now);
     realmId = snapshot.realmId;
     bindingId = snapshot.session.binding;
     context = reconcileContext(world, context, snapshot.session.ownedCityIds, realmChanged, bindingChanged);

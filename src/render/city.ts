@@ -1,7 +1,7 @@
 import * as T from 'three';
 import { animateFigure, animateWork, bake, box, bundle, bundleKey, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, lump, post, type ModelStage } from '../art';
 import { footprint } from '../sim/catalog';
-import { AGORA_SLOTS, GRANARY_SLOTS } from '../sim/balance';
+import { AGORA_SLOTS, GRANARY_SLOTS, WALKER_SPEED } from '../sim/balance';
 import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, groundHeight, insideMapOn, tileAtOn, tileIndexOn, worldPositionOn, type IslandMap } from '../sim/island';
 import { buildRoads } from '../art/roads';
 import { STAIR_WIDTH } from '../art/stairs';
@@ -17,7 +17,7 @@ import { WildlifeField } from './wildlife';
 
 interface BuildingEntry { key: string; tier: number; model: T.Group; intro: number; from: number; construction: BuildingConstruction | null; }
 interface Departure { model: T.Group; elapsed: number; }
-interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; from: T.Vector3; target: T.Vector3; elapsed: number; span: number; moving: boolean; working: boolean; heading: number; stepped: boolean; stairs: ReadonlyMap<number, Stair>; }
+interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; path: number[]; departedAt: number; quarry: number | null; moving: boolean; working: boolean; heading: number; stepped: boolean; stairs: ReadonlyMap<number, Stair>; }
 interface AnimalEntry { kind: AnimalKind; position: T.Vector3; from: T.Vector3; target: T.Vector3; heading: number; facing: number; roll: number; phase: number; elapsed: number; span: number; moving: boolean; dying: number; visible: boolean; drawn: boolean; }
 
 function spanOf(elapsed: number, shortest: number, longest: number): number {
@@ -26,8 +26,6 @@ function spanOf(elapsed: number, shortest: number, longest: number): number {
 
 const SIGHT_MARGIN = 1.3;
 const TELEPORT = 4;
-const WALKER_SPAN = .25;
-const WALKER_SPAN_LIMIT = .5;
 const ANIMAL_SPAN = .25;
 const ANIMAL_SPAN_LIMIT = 2;
 const REVEAL_SHARE = .9;
@@ -109,6 +107,7 @@ export class CityScene {
   private sight = 60;
   private lastWorld: World | null = null;
   private syncedWildlife: readonly Animal[] | null = null;
+  private worldTime = 0;
   private readonly logistics: LogisticsOverlay;
   private readonly validMaterial = new T.MeshBasicMaterial({ color: 0x79b58b, transparent: true, opacity: .38, depthWrite: false });
   private readonly invalidMaterial = new T.MeshBasicMaterial({ color: 0xd3664e, transparent: true, opacity: .45, depthWrite: false });
@@ -177,8 +176,13 @@ export class CityScene {
     this.stage.shadows();
   }
 
+  setWorldTime(time: number): void {
+    this.worldTime = time;
+  }
+
   sync(world: World): void {
     this.lastWorld = world;
+    this.worldTime = Math.max(this.worldTime, world.time);
     this.roadModels(world);
     const buildings = visibleBuildings(world);
     const ids = new Set(buildings.map((building) => building.id));
@@ -401,14 +405,6 @@ export class CityScene {
   }
 
   private syncWalker(walker: Walker, stairs: ReadonlyMap<number, Stair>): void {
-    const current = tileAtOn(this.map, walker.path[Math.min(walker.step, walker.path.length - 1)]);
-    const next = tileAtOn(this.map, walker.path[Math.min(walker.step + 1, walker.path.length - 1)]);
-    const a = worldPositionOn(this.map, current.x + .5, current.z + .5);
-    const b = worldPositionOn(this.map, next.x + .5, next.z + .5);
-    const stepped = stairs.has(tileIndexOn(this.map, current.x, current.z)) || stairs.has(tileIndexOn(this.map, next.x, next.z));
-    let y = rampHeight(groundHeight(this.map, current.x, current.z), groundHeight(this.map, next.x, next.z), walker.progress);
-    if (stepped) y = roadHeight(this.map, stairs, T.MathUtils.lerp(current.x, next.x, walker.progress) + .5, T.MathUtils.lerp(current.z, next.z, walker.progress) + .5);
-    const target = new T.Vector3(T.MathUtils.lerp(a.x, b.x, walker.progress), y + .08, T.MathUtils.lerp(a.z, b.z, walker.progress));
     const load: Resource | null = walker.cargo > 0 ? walker.food : null;
     const key = `${walker.kind}:${load ?? ''}`;
     let entry = this.walkers.get(walker.id);
@@ -424,35 +420,45 @@ export class CityScene {
     const fresh = !entry;
     if (!entry) {
       const model = this.walkerModel(walker.kind, load);
-      model.position.copy(target);
       this.stage.scene.add(model);
-      entry = { key, kind: walker.kind, model, from: target.clone(), target, elapsed: WALKER_SPAN, span: WALKER_SPAN, moving: false, working: false, heading: 0, stepped, stairs };
+      entry = { key, kind: walker.kind, model, path: walker.path, departedAt: walker.departedAt, quarry: walker.quarry, moving: false, working: false, heading: 0, stepped: false, stairs };
       this.walkers.set(walker.id, entry);
-    } else if (entry.target.distanceToSquared(target) > 1e-9) {
-      const jumped = entry.model.position.distanceToSquared(target) > TELEPORT * TELEPORT;
-      if (jumped) entry.model.position.copy(target);
-      entry.from.copy(entry.model.position);
-      entry.target.copy(target);
-      entry.span = spanOf(entry.elapsed, WALKER_SPAN, WALKER_SPAN_LIMIT);
-      entry.elapsed = jumped ? entry.span : 0;
-      entry.moving = !jumped && entry.from.distanceToSquared(target) > 1e-6;
     }
-    entry.stepped = stepped;
+    entry.path = walker.path;
+    entry.departedAt = walker.departedAt;
+    entry.quarry = walker.quarry;
     entry.stairs = stairs;
     entry.working = walker.working > 0;
-    let facing: number | null = null;
-    if (entry.working && walker.quarry !== null) {
-      const quarry = walker.kind === 'hunter' ? this.animals.get(walker.quarry)?.position : null;
-      const tile = walker.kind === 'woodcutter' ? tileAtOn(this.map, walker.quarry) : null;
-      const goal = quarry ?? (tile ? new T.Vector3(worldPositionOn(this.map, tile.x + .5, tile.z + .5).x, 0, worldPositionOn(this.map, tile.x + .5, tile.z + .5).z) : null);
-      if (goal) facing = Math.atan2(goal.x - target.x, goal.z - target.z);
-    }
-    if (facing !== null) entry.heading = facing;
-    else if (a.x !== b.x || a.z !== b.z) entry.heading = Math.atan2(b.x - a.x, b.z - a.z);
+    this.placeWalker(entry);
     if (fresh) {
       entry.model.rotation.y = entry.heading;
       this.groundCompanions(entry);
     }
+  }
+
+  private placeWalker(entry: WalkerEntry): void {
+    const last = entry.path.length - 1;
+    const travelled = Math.min(Math.max(WALKER_SPEED * (this.worldTime - entry.departedAt), 0), last);
+    const index = Math.min(Math.floor(travelled), Math.max(0, last - 1));
+    const fraction = travelled - index;
+    const current = tileAtOn(this.map, entry.path[index]);
+    const next = tileAtOn(this.map, entry.path[Math.min(index + 1, last)]);
+    const a = worldPositionOn(this.map, current.x + .5, current.z + .5);
+    const b = worldPositionOn(this.map, next.x + .5, next.z + .5);
+    entry.stepped = entry.stairs.has(tileIndexOn(this.map, current.x, current.z)) || entry.stairs.has(tileIndexOn(this.map, next.x, next.z));
+    let y = rampHeight(groundHeight(this.map, current.x, current.z), groundHeight(this.map, next.x, next.z), fraction);
+    if (entry.stepped) y = roadHeight(this.map, entry.stairs, T.MathUtils.lerp(current.x, next.x, fraction) + .5, T.MathUtils.lerp(current.z, next.z, fraction) + .5);
+    entry.model.position.set(T.MathUtils.lerp(a.x, b.x, fraction), y + .08, T.MathUtils.lerp(a.z, b.z, fraction));
+    entry.moving = !entry.working && travelled < last;
+    let facing: number | null = null;
+    if (entry.working && entry.quarry !== null) {
+      const quarry = entry.kind === 'hunter' ? this.animals.get(entry.quarry)?.position : null;
+      const tile = entry.kind === 'woodcutter' ? tileAtOn(this.map, entry.quarry) : null;
+      const goal = quarry ?? (tile ? worldPositionOn(this.map, tile.x + .5, tile.z + .5) : null);
+      if (goal) facing = Math.atan2(goal.x - entry.model.position.x, goal.z - entry.model.position.z);
+    }
+    if (facing !== null) entry.heading = facing;
+    else if (a.x !== b.x || a.z !== b.z) entry.heading = Math.atan2(b.x - a.x, b.z - a.z);
   }
 
   private groundCompanions(walker: WalkerEntry): void {
@@ -471,14 +477,7 @@ export class CityScene {
   animate(time: number, delta: number, speed: number): void {
     this.scenery.update(time, this.focus);
     for (const [id, walker] of this.walkers) {
-      walker.elapsed += delta * speed;
-      const journey = Math.min(1, walker.elapsed / walker.span);
-      walker.model.position.lerpVectors(walker.from, walker.target, journey);
-      if (journey >= 1) walker.moving = false;
-      if (walker.stepped) {
-        const position = walker.model.position;
-        position.y = roadHeight(this.map, walker.stairs, position.x / CELL_SIZE + this.map.width / 2, position.z / CELL_SIZE + this.map.depth / 2) + .08;
-      }
+      this.placeWalker(walker);
       walker.model.rotation.y = turnToward(walker.model.rotation.y, walker.heading, delta * speed);
       const stride = walker.moving ? .55 : 0;
       const phase = time * 9 * Math.max(1, speed) + id;
