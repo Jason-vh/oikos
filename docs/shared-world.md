@@ -16,6 +16,13 @@ harbour, walker movement, housing, finances) all take an explicit City. The
 engine has no remaining primary-city defaults outside the constructor, the
 single-city save loader, local UI/test wrappers, and single-city checkpoint undo.
 
+A walker's `departedAt` is the moment it set out and nothing else. Never re-anchor
+it to say "this walker is exactly here, now": a client renders behind the world it
+has, and an anchor tells it the walker is still short of where it stopped, so it
+slides backwards every beat. A walker that halts simply runs past the end of its
+path, and the clamp holds it there for any clock at all. Replacing a path means
+`departOn`, which stamps the new departure.
+
 City-specific engine functions must take `(world, city, …)` explicitly. Resolve
 city IDs against the canonical World at command boundaries; never accept an
 untrusted City object. Do not use optional primary-city defaults inside the

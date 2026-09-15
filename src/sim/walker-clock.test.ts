@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
-import { advance, createWorld, spawnWalker, tilesTravelled } from './world';
+import { advance, build, createWorld, spawnWalker, tilesTravelled } from './world';
 import { primaryCity } from './city';
 import { WALKER_SPEED, STEP } from './balance';
-import { roadSpur } from './testing';
+import { connect, roadSpur, spotFor } from './testing';
 import { buildStarterNeighbourhood } from './scenario';
 import { tileIndexOn } from './island';
 import { mapOf } from './grid';
@@ -57,4 +57,47 @@ test('every walker in a working city stands where its own clock says', () => {
     }
   }
   expect(seen).toBeGreaterThan(100);
+});
+
+test('a walker that has stopped is not redrawn as one still walking', () => {
+  const world = createWorld(1, 0);
+  buildStarterNeighbourhood(world, primaryCity(world));
+  const lodge = spotFor(world, 'lodge');
+  expect(lodge).not.toBeNull();
+  expect(build(world, primaryCity(world), 'lodge', lodge!.x, lodge!.z).ok).toBe(true);
+  connect(world, primaryCity(world).buildings.at(-1)!);
+  const behind = new Map<number, { plan: string; travelled: number }>();
+  let backwards = 0;
+  for (let beat = 0; beat < 900; beat++) {
+    advance(world, STEP);
+    for (let frame = 0; frame < 15; frame++) {
+      const seen = world.time - .43 + frame / 60;
+      for (const walker of primaryCity(world).walkers) {
+        const travelled = Math.min(Math.max(WALKER_SPEED * (seen - walker.departedAt), 0), walker.path.length - 1);
+        const plan = walker.path.join(',');
+        const was = behind.get(walker.id);
+        if (was && was.plan === plan && travelled < was.travelled - 1e-9) backwards += 1;
+        behind.set(walker.id, { plan, travelled });
+      }
+    }
+  }
+  expect(backwards).toBe(0);
+});
+
+test('a hunter turning for home departs now, not when it first set out', () => {
+  const world = createWorld(1, 0);
+  buildStarterNeighbourhood(world, primaryCity(world));
+  const lodge = spotFor(world, 'lodge')!;
+  expect(build(world, primaryCity(world), 'lodge', lodge.x, lodge.z).ok).toBe(true);
+  connect(world, primaryCity(world).buildings.at(-1)!);
+  let turned = false;
+  for (let beat = 0; beat < 4000 && !turned; beat++) {
+    advance(world, STEP);
+    const hunter = primaryCity(world).walkers.find((walker) => walker.kind === 'hunter' && walker.returning);
+    if (!hunter) continue;
+    turned = true;
+    expect(world.time - hunter.departedAt).toBeLessThan(1);
+    expect(tilesTravelled(world, hunter)).toBeLessThan(hunter.path.length - 1);
+  }
+  expect(turned).toBe(true);
 });

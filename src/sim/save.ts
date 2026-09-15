@@ -181,7 +181,7 @@ function pathIsAdjacent(map: IslandMap, path: number[], roads: Set<number>, over
 
 function validateWalker(map: IslandMap, time: number, raw: unknown, roads: Set<number>, buildingIds: Set<number>): Walker | null {
   if (!isPlainObject(raw)) return null;
-  const { id, kind, homeId, targetId, path, step, progress, food, cargo, returning, overland, quarry, working } = raw;
+  const { id, kind, homeId, targetId, path, departedAt, step, progress, food, cargo, returning, overland, quarry, working } = raw;
   if (!isNonNegativeFinite(working)) return null;
   const parsedOverland = Array.isArray(overland) && overland.every((tile) => tileInBounds(map, tile)) ? (overland as number[]) : null;
   if (!parsedOverland) return null;
@@ -206,7 +206,7 @@ function validateWalker(map: IslandMap, time: number, raw: unknown, roads: Set<n
     homeId: homeId as number,
     targetId: targetId as number | null,
     path: path as number[],
-    departedAt: time - ((step as number) + (progress as number)) / WALKER_SPEED,
+    departedAt: isFiniteNumber(departedAt) ? departedAt : time - ((step as number) + (progress as number)) / WALKER_SPEED,
     step: step as number,
     progress: progress as number,
     food: food as Resource | null,

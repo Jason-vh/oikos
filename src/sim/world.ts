@@ -519,10 +519,6 @@ export function tilesTravelled(world: World, walker: Walker): number {
   return Math.min(WALKER_SPEED * (world.time - walker.departedAt), walker.path.length - 1);
 }
 
-function anchorWhereStanding(world: World, walker: Walker): void {
-  walker.departedAt = world.time - (walker.step + walker.progress) / WALKER_SPEED;
-}
-
 function updateStaffing(city: City): void {
   const buildings = city.buildings;
   const workplaces = buildings.filter((building) => building.kind !== 'house');
@@ -752,7 +748,6 @@ function moveWalkers(world: World, city: City, dt: number): void {
     if (!walkerPathValid(map, roads, stairs, walker)) continue;
     if (walker.working > 0) {
       walker.working = Math.max(0, walker.working - dt);
-      anchorWhereStanding(world, walker);
       if (walker.working > 0 || !gatherFinished(world, city, walker)) alive.push(walker);
       continue;
     }
@@ -772,7 +767,6 @@ function moveWalkers(world: World, city: City, dt: number): void {
       walker.progress = 0;
       serviceTileVisit(world, city, walker);
       if (walker.step >= walker.path.length - 1) {
-        anchorWhereStanding(world, walker);
         done = onFinalArrival(world, city, walker);
         break;
       }

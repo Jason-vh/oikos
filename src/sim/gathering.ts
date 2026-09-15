@@ -2,7 +2,7 @@ import type { Animal, Building, City, Walker, World } from './types';
 import { footprint } from './catalog';
 import { buildable, islandFor, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import { accessTiles, footprintTiles, mapOf } from './grid';
-import { addStore, hasActiveWalker, sendCart, spawnWalker, totalStock } from './world';
+import { addStore, departOn, hasActiveWalker, sendCart, spawnWalker, totalStock } from './world';
 import { alive, animalAt, killAnimal, wildlifeObstacles } from './wildlife';
 import { mixedEdgeAllowed, stairLayout } from './stairs';
 
@@ -156,7 +156,7 @@ export function gatherArrival(world: World, city: City, walker: Walker): boolean
     walker.working = FELL_SECONDS;
     return false;
   }
-  turnHome(walker);
+  turnHome(world, walker);
   return false;
 }
 
@@ -176,7 +176,7 @@ export function gatherFinished(world: World, city: City, walker: Walker): boolea
     walker.food = 'lumber';
     city.produced += walker.cargo;
   }
-  turnHome(walker);
+  turnHome(world, walker);
   return false;
 }
 
@@ -186,10 +186,8 @@ function withinReach(world: World, map: IslandMap, walker: Walker, prey: Animal)
   return Math.hypot(place.x - here.x - .5, place.z - here.z - .5) < CATCH_RADIUS;
 }
 
-function turnHome(walker: Walker): void {
-  walker.path = [...walker.path].reverse();
-  walker.step = 0;
-  walker.progress = 0;
+function turnHome(world: World, walker: Walker): void {
+  departOn(world, walker, [...walker.path].reverse());
   walker.returning = true;
   walker.quarry = null;
 }
