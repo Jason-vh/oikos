@@ -8,11 +8,14 @@ export interface InstanceSlot {
   index: number;
 }
 
+
+
 class InstanceBatch {
   mesh: T.InstancedMesh;
   private capacity = INITIAL_CAPACITY;
   private used = 0;
-  private readonly released: number[] = [];
+  private readonly holders: Array<InstanceSlot | null> = [];
+  private readonly moved = new T.Matrix4();
 
   constructor(private readonly root: T.Object3D, private readonly geometry: T.BufferGeometry, private readonly material: T.Material, private readonly confinement: T.Sphere | null) {
     this.mesh = this.create(this.capacity);
@@ -26,6 +29,7 @@ class InstanceBatch {
     mesh.frustumCulled = this.confinement !== null;
     if (this.confinement) mesh.boundingSphere = this.confinement;
     for (let index = 0; index < capacity; index++) mesh.setMatrixAt(index, HIDDEN);
+    mesh.count = this.used;
     return mesh;
   }
 
@@ -41,16 +45,27 @@ class InstanceBatch {
     this.root.add(replacement);
   }
 
-  acquire(): number {
-    const reused = this.released.pop();
-    if (reused !== undefined) return reused;
+  acquire(slot: InstanceSlot): number {
     if (this.used === this.capacity) this.grow();
-    return this.used++;
+    const index = this.used++;
+    this.holders[index] = slot;
+    this.mesh.count = this.used;
+    this.hide(index);
+    return index;
   }
 
-  release(index: number): void {
-    this.hide(index);
-    this.released.push(index);
+  release(slot: InstanceSlot): void {
+    const last = this.used - 1;
+    if (slot.index !== last) {
+      const tenant = this.holders[last];
+      this.mesh.getMatrixAt(last, this.moved);
+      this.write(slot.index, this.moved);
+      this.holders[slot.index] = tenant;
+      if (tenant) tenant.index = slot.index;
+    }
+    this.holders[last] = null;
+    this.used = last;
+    this.mesh.count = this.used;
   }
 
   write(index: number, matrix: T.Matrix4): void {
@@ -84,7 +99,9 @@ export class InstanceField {
       batch = new InstanceBatch(this.root, geometry, material, this.confinement);
       this.batches.set(key, batch);
     }
-    return { batch, index: batch.acquire() };
+    const slot: InstanceSlot = { batch, index: 0 };
+    slot.index = batch.acquire(slot);
+    return slot;
   }
 
   dispose(): void {
@@ -104,7 +121,7 @@ export function hide(slot: InstanceSlot): void {
 }
 
 export function release(slot: InstanceSlot): void {
-  slot.batch.release(slot.index);
+  slot.batch.release(slot);
 }
 
 export function instanceableMeshes(source: T.Object3D): T.Mesh[] {
