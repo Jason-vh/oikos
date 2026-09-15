@@ -147,9 +147,9 @@ export function startServer(options: RuntimeOptions) {
     control(ws, { type: 'reject', code, session: session(ws) });
   }
 
-  function snapshots(author: ServerWebSocket<SocketData> | null = null): void {
+  function snapshots(author: ServerWebSocket<SocketData> | null = null, beat = false): void {
     const now = clock.now();
-    const due = (ws: ServerWebSocket<SocketData>) => ws === author || now - ws.data.lastSnapshot >= SNAPSHOT_INTERVAL_MS;
+    const due = (ws: ServerWebSocket<SocketData>) => beat || ws === author || now - ws.data.lastSnapshot >= SNAPSHOT_INTERVAL_MS;
     if (VERBOSE) for (const ws of sockets) {
       if (ws.readyState === 1 && ws.data.snapshotDue && !due(ws)) trace('snapshot-not-due', { since: (now - ws.data.lastSnapshot).toFixed(2) });
     }
@@ -173,7 +173,7 @@ export function startServer(options: RuntimeOptions) {
     for (const ws of ready) {
       const prefix = JSON.stringify({ ...header, session: session(ws) });
       const carries = owed(ws);
-      const early = now - ws.data.lastSnapshot < SNAPSHOT_INTERVAL_MS;
+      const early = !beat && now - ws.data.lastSnapshot < SNAPSHOT_INTERVAL_MS;
       const sent = ws.send(Bun.gzipSync(`${prefix.slice(0, -1)},"world":${world},"wildlife":${carries ? wildlife : 'null'}}`));
       ws.data.snapshotDue = false;
       if (!early) ws.data.lastSnapshot = now;
@@ -206,7 +206,7 @@ export function startServer(options: RuntimeOptions) {
         checkpointAt = now;
       }
       for (const ws of sockets) ws.data.snapshotDue = true;
-      snapshots();
+      snapshots(null, true);
     });
   }
 

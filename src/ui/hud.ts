@@ -3,16 +3,16 @@ import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, VENDO
 import { FOOD_CONSUMPTION_PER_RESIDENT, WATER_DECAY_PER_SECOND } from '../sim/balance';
 import { toolIcon } from './icons';
 
+export type HudTool = Tool | 'harbour';
+
 export interface HudActions {
-  tool(tool: Tool): void;
+  tool(tool: HudTool): void;
   rotate(): void;
   vendor(id: number, enabled: boolean): void;
   focus(x: number, z: number): void;
   grid(enabled: boolean): void;
   menu(open: boolean): void;
-  home(): void;
   sound(enabled: boolean): void;
-  visit(id: number): void;
   discardPending(): void;
 }
 
@@ -27,20 +27,29 @@ export type Selection =
 
 export interface Hud {
   update(world: World, viewed: CityScope | null, active: CityScope | null, selected: Selection | null, writable: boolean): void;
-  setTool(tool: Tool, rotation: Rotation): void;
+  setTool(tool: HudTool, rotation: Rotation): void;
   notify(message: string, error?: boolean): void;
   setHint(message: string): void;
   setGrid(enabled: boolean): void;
   setSound(enabled: boolean): void;
-  setCities(cities: { id: number; label: string }[], viewedId: number | null, activeId?: number | null): void;
   setConnection(blocked: boolean, message: string): void;
-  setSiting(siting: boolean, message: string): void;
+  setFounding(founding: boolean, ready: boolean): void;
   setDiscardAvailable(available: boolean): void;
   toggleMenu(): boolean;
   dispose(): void;
 }
 
-const TOOL_DEFS: Array<{ tool: Tool; label: string; cost: string; price: number; key: string }> = [
+interface ToolDef {
+  tool: HudTool;
+  label: string;
+  cost: string;
+  price: number;
+  key: string;
+}
+
+const HARBOUR_DEF: ToolDef = { tool: 'harbour', label: 'Harbour', cost: 'free', price: 0, key: '1' };
+
+const TOOL_DEFS: ToolDef[] = [
   { tool: 'road', label: 'Road', cost: `${ROAD_COST} / tile`, price: ROAD_COST, key: '1' },
   { tool: 'house', label: BUILDINGS.house.name, cost: String(BUILDINGS.house.cost), price: BUILDINGS.house.cost, key: '2' },
   { tool: 'farm', label: BUILDINGS.farm.name, cost: String(BUILDINGS.farm.cost), price: BUILDINGS.farm.cost, key: '3' },
@@ -124,16 +133,13 @@ const SKELETON = `
       </dl>
       <div class="hud-clock">
         <time data-field="time">1 Jan 421 BC</time>
-        <button type="button" class="hud-menu-button" data-action="home" aria-label="Return to village, shortcut H">Village</button>
         <button type="button" class="hud-menu-button" data-action="menu" aria-label="Menu, shortcut Escape" data-testid="menu">Menu</button>
       </div>
     </header>
-    <div class="hud-panel hud-cities" role="group" aria-label="Visit a city" data-testid="cities" hidden></div>
     <div class="hud-panel hud-connection" role="status" data-testid="connection" hidden>
       <p data-field="connection"></p>
       <button type="button" data-action="discard-pending" data-testid="discard-pending" hidden>Discard unresolved action</button>
     </div>
-    <p class="hud-panel hud-siting" data-field="siting" data-testid="siting" role="status" hidden></p>
   </div>
   <details class="hud-panel hud-guide" data-testid="guide" open>
     <summary>Guide</summary>
@@ -220,8 +226,8 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
   const timeField = field(root, 'time');
 
   const toolbar = root.querySelector<HTMLElement>('.hud-toolbar')!;
-  const toolButtons = new Map<Tool, HTMLButtonElement>();
-  for (const def of TOOL_DEFS) {
+  const toolButtons = new Map<HudTool, HTMLButtonElement>();
+  function addToolButton(def: ToolDef): HTMLButtonElement {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'hud-tool';
@@ -239,7 +245,11 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     button.addEventListener('click', () => actions.tool(def.tool));
     toolbar.appendChild(button);
     toolButtons.set(def.tool, button);
+    return button;
   }
+  const harbourButton = addToolButton(HARBOUR_DEF);
+  harbourButton.hidden = true;
+  for (const def of TOOL_DEFS) addToolButton(def);
 
   action(root, 'discard-pending').addEventListener('click', () => {
     if (window.confirm('This may abandon an action that already applied to the shared city. Discard the unresolved request?')) actions.discardPending();
@@ -251,7 +261,6 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     actions.menu(true);
     menu.showModal();
   }
-  action(root, 'home').addEventListener('click', actions.home);
   action(root, 'sound').addEventListener('click', () => actions.sound(action(root, 'sound').getAttribute('aria-pressed') !== 'true'));
   action(root, 'menu').addEventListener('click', openMenu);
   menu.addEventListener('close', () => {
@@ -261,38 +270,6 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     if (choice === 'grid') actions.grid(gridButton.getAttribute('aria-pressed') !== 'true');
   });
 
-
-  const citiesPanel = root.querySelector<HTMLElement>('.hud-cities')!;
-  const cityButtons = new Map<number, HTMLButtonElement>();
-  let cityButtonIds = '';
-  function setCities(cities: { id: number; label: string }[], viewedId: number | null, activeId = viewedId): void {
-    citiesPanel.hidden = cities.length === 0 || (cities.length === 1 && cities[0].id === activeId);
-    if (citiesPanel.hidden) {
-      citiesPanel.replaceChildren();
-      cityButtons.clear();
-      cityButtonIds = '';
-      return;
-    }
-    const ids = cities.map((entry) => entry.id).join(',');
-    if (ids !== cityButtonIds) {
-      cityButtonIds = ids;
-      citiesPanel.replaceChildren();
-      cityButtons.clear();
-      for (const entry of cities) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.addEventListener('click', () => actions.visit(entry.id));
-        citiesPanel.appendChild(button);
-        cityButtons.set(entry.id, button);
-      }
-    }
-    for (const entry of cities) {
-      const button = cityButtons.get(entry.id);
-      if (!button) continue;
-      if (button.textContent !== entry.label) button.textContent = entry.label;
-      button.setAttribute('aria-pressed', String(entry.id === viewedId));
-    }
-  }
 
   const guidePanel = root.querySelector<HTMLDetailsElement>('.hud-guide')!;
   const inspectorPanel = root.querySelector<HTMLDetailsElement>('.hud-inspector')!;
@@ -417,7 +394,7 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     guidePanel.querySelector<HTMLElement>('.hud-milestones')!.hidden = !active;
     if (!active) {
       guidePanel.querySelector('summary')!.textContent = 'No city yet';
-      guidePanel.querySelector('.hud-guide-note')!.textContent = 'Find a shore and place your harbour: the quay on land, its pier over the water.';
+      guidePanel.querySelector('.hud-guide-note')!.textContent = 'Choose the harbour below, then a shore to set it on: the quay on land, its pier over the water.';
       return;
     }
     const summary = active.summary;
@@ -462,7 +439,7 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     updateInspector(selected);
   }
 
-  function setTool(tool: Tool, rotation: Rotation): void {
+  function setTool(tool: HudTool, rotation: Rotation): void {
     for (const [key, button] of toolButtons) button.setAttribute('aria-pressed', String(key === tool));
     toolbar.dataset.rotation = String(rotation);
   }
@@ -521,10 +498,10 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     connectionText.textContent = message;
   }
 
-  const sitingPanel = field(root, 'siting');
-  function setSiting(siting: boolean, message: string): void {
-    sitingPanel.hidden = !siting;
-    sitingPanel.textContent = message;
+  function setFounding(founding: boolean, ready: boolean): void {
+    harbourButton.hidden = !founding;
+    harbourButton.disabled = !ready;
+    for (const def of TOOL_DEFS) toolButtons.get(def.tool)!.hidden = founding;
   }
 
   function setDiscardAvailable(available: boolean): void {
@@ -532,7 +509,7 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
   }
 
   return {
-    update, setTool, notify, setHint, setGrid, setSound, setCities, toggleMenu, dispose,
-    setConnection, setSiting, setDiscardAvailable,
+    update, setTool, notify, setHint, setGrid, setSound, toggleMenu, dispose,
+    setConnection, setFounding, setDiscardAvailable,
   };
 }

@@ -123,3 +123,13 @@ test('an immediate snapshot rides beside the steady rhythm rather than displacin
   f.clock.step(150);
   expect((await peer.next('snapshot')).world.time).toBeGreaterThan(0);
 });
+
+test('a beat is the cadence, not a request against the throttle between beats', async () => {
+  let actor!: ReturnType<typeof foundedActor>;
+  const f = await fixture(cleanups, (authority) => { actor = foundedActor(authority, 0); });
+  const { peer } = await connect(cleanups, f, `__Host-oikos=${actor.credential}`);
+  for (let beat = 1; beat <= 6; beat++) {
+    f.clock.step(249);
+    expect((await peer.next('snapshot')).serial).toBe(beat + 1);
+  }
+});

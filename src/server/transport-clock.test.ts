@@ -42,6 +42,7 @@ test('one remaining socket advances both cities; tick checkpoints, last close, r
   f.clock.step(150);
   const both = await first.peer.next('snapshot');
   expect(both.world.time).toBeCloseTo(0.25);
+  expect((await second.peer.next('snapshot')).world.time).toBeCloseTo(0.25);
   expect(durable(f.path)).toEqual(initial);
   await first.peer.close();
   f.clock.step(250);

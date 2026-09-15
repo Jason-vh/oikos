@@ -9,7 +9,7 @@ import { CELL_SIZE, groundHeight, islandFor, terrainOn, tileIndexOn, worldPositi
 import { buildingStatus, getSummary, placement, roadPathPlacement, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
 import { animalName, animalStatus } from './sim/wildlife';
 import type { Building, City, Placement, Rotation, Tile, Tool, Walker, World } from './sim/types';
-import { createHud, type CityScope } from './ui/hud';
+import { createHud, type CityScope, type HudTool } from './ui/hud';
 import { createSound } from './ui/sound';
 import { celebration, cityMilestones, NO_MILESTONES, rememberMilestones } from './ui/celebrations';
 import { harbourPlacement } from './sim/founding';
@@ -97,6 +97,7 @@ export function boot(source: SharedBootSource): BootHandles {
     stage.shadows();
   }
   let tool: Tool = 'inspect';
+  let harbourArmed = false;
   let rotation: Rotation = 0;
   let selectedId: number | null = null;
   let hover: Tile | null = null;
@@ -149,7 +150,8 @@ export function boot(source: SharedBootSource): BootHandles {
 
   function connectionHint(): string {
     if (!source.session.canSend() && !settling()) return connectionMessage(source.session.currentStatus);
-    if (context.activeId === null) return 'You have no city of your own here.';
+    if (harbourArmed) return 'Choose a shore: two rows of land, three of water \u00b7 R turns the harbour';
+    if (context.activeId === null) return 'Choose the harbour to found your city.';
     if (context.viewedId !== context.activeId) return 'Visiting another city · read-only. H returns home.';
     return 'Viewing another city grants no writes.';
   }
@@ -172,7 +174,6 @@ export function boot(source: SharedBootSource): BootHandles {
     else if (animal) hud.update(world, viewedScope, activeScope, { kind: 'person', name: animalName(animal), role: 'Wildlife', status: animalStatus(animal) }, canEdit);
     else if (found) hud.update(world, viewedScope, activeScope, { kind: 'building', building: found.building, status: buildingStatus(found.city, found.building), editable: canEdit && found.city.id === active?.id }, canEdit);
     else hud.update(world, viewedScope, activeScope, null, canEdit);
-    hud.setCities(world.cities.map((candidate) => ({ id: candidate.id, label: candidate.id === active?.id ? 'Your city' : `City ${candidate.id}` })), context.viewedId, context.activeId);
     const debt = (active?.money ?? 0) < 0;
     if (debt && !inDebt) hud.notify('The treasury is in debt: upkeep outweighs income.', true);
     inDebt = debt;
@@ -187,16 +188,19 @@ export function boot(source: SharedBootSource): BootHandles {
     }
   }
 
-  function selectTool(next: Tool): void {
-    if (next !== 'inspect') {
+  function selectTool(next: HudTool): void {
+    if (next === 'harbour') {
+      if (!siting()) { hud.notify('You cannot found a city here.', true); return; }
+    } else if (next !== 'inspect') {
       if (!writable()) { hud.notify('Viewing another city grants no writes.', true); return; }
       const home = activeCity(world, context);
       if (!home) { hud.notify('Place your harbour first.', true); return; }
     }
-    tool = next;
+    harbourArmed = next === 'harbour';
+    tool = next === 'harbour' ? 'inspect' : next;
     drag = null;
-    hud.setTool(tool, rotation);
-    stage.controls.touches.ONE = tool === 'inspect' ? T.TOUCH.ROTATE : null;
+    hud.setTool(next, rotation);
+    stage.controls.touches.ONE = next === 'inspect' ? T.TOUCH.ROTATE : null;
     const home = activeCity(world, context);
     city.scenery.grid.visible = !home || showGrid || tool !== 'inspect';
     updatePreview();
@@ -256,7 +260,6 @@ export function boot(source: SharedBootSource): BootHandles {
     vendor: (id, enabled) => dispatchShared({ type: 'vendor', id, enabled }),
     focus: (x, z) => { const point = worldPositionOn(map(), x + .5, z + .5); stage.focus(point.x, point.z); },
     grid: setGrid,
-    home: focusVillage,
     menu: (open) => {
       if (!open) return;
       held.clear();
@@ -265,7 +268,6 @@ export function boot(source: SharedBootSource): BootHandles {
       drag = null;
     },
     sound: (enabled) => { sound.setEnabled(enabled); hud.setSound(enabled); },
-    visit: viewCity,
     discardPending: () => {
       if (source.session.discardPending()) sharedIntent.reset();
     },
@@ -273,7 +275,7 @@ export function boot(source: SharedBootSource): BootHandles {
 
   const sharedIntent = new SharedIntent(source.session, () => realmId, (outcome, kind) => {
     applySharedOutcome(outcome, kind !== 'command');
-    if (kind === 'claim') updateSiting();
+    if (kind === 'claim') updateFounding();
     onStatusUpdate(source.session.currentStatus, source.session.statusReason);
   });
 
@@ -372,7 +374,7 @@ export function boot(source: SharedBootSource): BootHandles {
   }
 
   function updatePreview(pointer: { x: number; y: number } | null = null): void {
-    if (siting() && hover) {
+    if (harbourArmed && siting() && hover) {
       previewHarbourSite(hover);
       return;
     }
@@ -459,7 +461,7 @@ export function boot(source: SharedBootSource): BootHandles {
     if (hover && (tool === 'road' || moved < 9)) {
       const gestureStillValid = drag.gestureWritable && drag.gestureGeneration === stateGeneration;
       const home = gestureStillValid && writable() ? activeCity(world, context) : null;
-      if (gestureStillValid && siting()) {
+      if (gestureStillValid && harbourArmed && siting()) {
         submitShared({ kind: 'claim', x: hover.x, z: hover.z, rotation });
       } else if (!home || tool === 'inspect') {
         const picked = city.pick(event.clientX, event.clientY);
@@ -494,9 +496,10 @@ export function boot(source: SharedBootSource): BootHandles {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     const keys: Record<string, Tool> = { '1': 'road', '2': 'house', '3': 'farm', '4': 'granary', '5': 'agora', '6': 'fountain', '7': 'maintenance', '8': 'lodge', '9': 'woodcutter', '0': 'stockpile', x: 'demolish' };
     if (event.key === 'Escape') {
-      escapeOpensMenu = tool === 'inspect';
+      escapeOpensMenu = tool === 'inspect' && !harbourArmed;
       if (!escapeOpensMenu) selectTool('inspect');
-    } else if (keys[event.key]) selectTool(keys[event.key]);
+    } else if (event.key === '1' && context.activeId === null) selectTool('harbour');
+    else if (keys[event.key]) selectTool(keys[event.key]);
     else if (event.key.toLowerCase() === 'g') setGrid(!showGrid);
     else if (event.key.toLowerCase() === 'r') { rotation = ((rotation + 1) % 4) as Rotation; hud.setTool(tool, rotation); updatePreview(); }
     else if (event.key.toLowerCase() === 'q') stage.rotate();
@@ -551,25 +554,17 @@ export function boot(source: SharedBootSource): BootHandles {
   document.addEventListener('visibilitychange', () => { previous = 0; if (!document.hidden) stage.invalidate(); });
   selectTool('inspect');
   hud.setSound(sound.enabled);
-  updateSiting();
+  updateFounding();
   refresh();
   if (reducedMotion) city.animate(0, .25, 1);
   city.watch(stage.controls.target, stage.viewSpan());
   stage.shadows();
   requestAnimationFrame(frame);
 
-  function updateSiting(): void {
-    if (context.activeId !== null) {
-      hud.setSiting(false, '');
-      return;
-    }
-    if (sharedIntent.busy || bufferedRequest !== null) {
-      hud.setSiting(true, 'Founding your city…');
-      return;
-    }
-    hud.setSiting(true, source.session.canSend() || settling()
-      ? 'Choose a shore and place your harbour: two rows of land, three of water.'
-      : 'Waiting for the world before you can settle…');
+  function updateFounding(): void {
+    const founding = context.activeId === null;
+    const ready = founding && siting() && !sharedIntent.busy && bufferedRequest === null;
+    hud.setFounding(founding, ready);
   }
 
 
@@ -621,7 +616,7 @@ export function boot(source: SharedBootSource): BootHandles {
       rebuildScene(!realmChanged && previousContext.viewedId === context.viewedId);
       selectTool('inspect');
     }
-    updateSiting();
+    updateFounding();
     refresh();
     if (tool !== 'inspect' || hover !== null) updatePreview();
     if (reducedMotion) {
@@ -655,7 +650,7 @@ export function boot(source: SharedBootSource): BootHandles {
   function onStatusUpdate(status: SharedSessionStatus, reason: string): void {
     presentConnection(status, reason);
     hud.setDiscardAvailable(status === 'indeterminate' || status === 'storage-error');
-    updateSiting();
+    updateFounding();
     const nowWritable = writable();
     if (!nowWritable) {
       if (tool !== 'inspect') selectTool('inspect');

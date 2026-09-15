@@ -1,6 +1,9 @@
 import type { Tool } from '../sim/types';
 
-const ICONS: Partial<Record<Tool, string>> = {
+export type ToolIconName = Tool | 'harbour';
+
+const ICONS: Partial<Record<ToolIconName, string>> = {
+  harbour: '<path d="M4 14h24" /><path d="M9 14v8M16 14v8M23 14v8" /><path d="M10 14V9l4-3 4 3v5" class="fill" /><path d="M4 26c3-2 5 2 8 0s5 2 8 0 5 2 8 0" />',
   road: '<path d="M9 21 14 3M23 3l5 18" /><path d="M16 5v3M16 12v3M16 19v2" class="dash" />',
   house: '<path d="M6 15 16 6l10 9" /><path d="M9 14v10h14V14" /><path d="M14 24v-6h4v6" class="fill" />',
   farm: '<path d="M5 25h22" /><path d="M9 25V13M16 25V10M23 25V13" /><path d="M9 13c-2-1-3-3-3-5 2 0 3 2 3 5Zm0-4c0-2 1-4 3-5 0 2-1 4-3 5Z" /><path d="M16 10c-2-1-3-3-3-5 2 0 3 2 3 5Zm0-4c0-2 1-4 3-5 0 2-1 4-3 5Z" /><path d="M23 13c-2-1-3-3-3-5 2 0 3 2 3 5Zm0-4c0-2 1-4 3-5 0 2-1 4-3 5Z" />',
@@ -14,7 +17,7 @@ const ICONS: Partial<Record<Tool, string>> = {
   demolish: '<path d="M8 12h16l-2 13H10Z" /><path d="M6 12h20M13 12V9h6v3" /><path d="M13 16v6M19 16v6" />',
 };
 
-export function toolIcon(tool: Tool): SVGSVGElement {
+export function toolIcon(tool: ToolIconName): SVGSVGElement {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 32 32');
   svg.setAttribute('aria-hidden', 'true');

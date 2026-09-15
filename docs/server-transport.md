@@ -89,9 +89,16 @@ Successful mutations already persist current World; replay and logical failure
 do not clear dirty tick state. Checkpoint fences and exhaustion fail closed.
 
 Requests allow 64 KiB, eight/second/actor with burst 16. Limits are 64 sockets
-total and eight/actor. Snapshots are gzip binary frames, at most four/second per
-socket, with one shared serialized World per broadcast; clients inflate them and
-must keep packet order. Control packets stay text.
+total and eight/actor. Snapshots are gzip binary frames, one per beat of the
+250 ms loop plus an author's own frame within its request budget, with one shared
+serialized World per broadcast; clients inflate them and must keep packet order.
+Control packets stay text.
+
+The loop is the cadence, so a beat is exempt from the interval gate: that gate
+throttles the sends *between* beats, which any client's request can provoke on
+every socket. Measuring a beat against the gate loses one in fourteen, because
+setInterval fires a fraction early and 249.9 is not 250 — and a lost beat is
+delivered late carrying two quanta of simulated time.
 
 A consumed sequence snapshots its author immediately, past that cap: the receipt
 alone does not release the client's next write, so the reconciling snapshot must
