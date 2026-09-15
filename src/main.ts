@@ -627,23 +627,30 @@ export function boot(source: SharedBootSource): BootHandles {
 
   let connectionNotice = 0;
   let connectionNoticeArmed = false;
+  let troubleTold = false;
+
+  function awaitsDecision(status: SharedSessionStatus): boolean {
+    return status === 'indeterminate' || status === 'storage-error';
+  }
 
   function presentConnection(status: SharedSessionStatus, reason: string): void {
-    if (isSettling(status) && connectionNoticeArmed) return;
+    const decide = awaitsDecision(status);
+    hud.setConnection(decide, decide ? reason || connectionMessage(status) : '');
+    if (decide) return;
+    if (connectionNoticeArmed && status !== 'ready') return;
     window.clearTimeout(connectionNotice);
     connectionNoticeArmed = false;
     if (status === 'ready') {
-      hud.setConnection(false, '');
-      return;
-    }
-    if (!isSettling(status)) {
-      hud.setConnection(true, reason.length > 0 ? reason : connectionMessage(status));
+      if (troubleTold) hud.notify('Connected again.');
+      troubleTold = false;
       return;
     }
     connectionNoticeArmed = true;
     connectionNotice = window.setTimeout(() => {
       const current = source.session.currentStatus;
-      hud.setConnection(true, source.session.statusReason || connectionMessage(current));
+      if (current === 'ready' || awaitsDecision(current)) return;
+      troubleTold = true;
+      hud.notify(source.session.statusReason || connectionMessage(current), true);
     }, CONNECTION_NOTICE_DELAY);
   }
 

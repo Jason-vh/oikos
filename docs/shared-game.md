@@ -24,6 +24,11 @@ Read-only visits and camera controls remain available. A login change preserves 
 still-valid viewed city and camera, while H returns to the newly owned city.
 A realm change resets presentation.
 
+Losing the connection is a toast, not a sign over the world: one line when it goes,
+one when it returns. The panel is kept for the one case that needs an answer rather
+than a notice — an uncertain action, or storage that must be resolved — because it
+carries the control for deciding.
+
 An uncertain action may already have applied. Cancel the claim dialog to access
 recovery controls. Discard asks for confirmation and abandons only recovery, never
 rolls back the world. Cancelling confirmation preserves pending bytes. No action is
