@@ -1015,6 +1015,7 @@ function bareWalker(map: IslandMap, from: Tile, to: Tile, progress: number): Wal
   return {
     id: 1, kind: 'maintenance', homeId: 1, targetId: null,
     path: [tileIndexOn(map, from.x, from.z), tileIndexOn(map, to.x, to.z)],
+    departedAt: 0,
     step: 0, progress, food: null, cargo: 0, returning: false, overland: [], quarry: null, working: 0,
   };
 }

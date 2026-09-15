@@ -3,6 +3,7 @@ import type { Animal, AnimalKind, Building, BuildingKind, City, Resource, Rotati
 const ANIMAL_KINDS: AnimalKind[] = ['boar', 'rabbit', 'fish', 'gull'];
 
 import { BUILDINGS, HOUSE_CAPACITY, RESOURCES } from './catalog';
+import { WALKER_SPEED } from './balance';
 import { islandFor, insideMapOn, ISLAND_COUNT, type IslandMap } from './island';
 import { harbourIslandAt } from './founding';
 import { cityName } from './claims';
@@ -156,7 +157,7 @@ function pathIsAdjacent(map: IslandMap, path: number[], roads: Set<number>, over
   return true;
 }
 
-function validateWalker(map: IslandMap, raw: unknown, roads: Set<number>, buildingIds: Set<number>): Walker | null {
+function validateWalker(map: IslandMap, time: number, raw: unknown, roads: Set<number>, buildingIds: Set<number>): Walker | null {
   if (!isPlainObject(raw)) return null;
   const { id, kind, homeId, targetId, path, step, progress, food, cargo, returning, overland, quarry, working } = raw;
   if (!isNonNegativeFinite(working)) return null;
@@ -183,6 +184,7 @@ function validateWalker(map: IslandMap, raw: unknown, roads: Set<number>, buildi
     homeId: homeId as number,
     targetId: targetId as number | null,
     path: path as number[],
+    departedAt: time - ((step as number) + (progress as number)) / WALKER_SPEED,
     step: step as number,
     progress: progress as number,
     food: food as Resource | null,
@@ -288,7 +290,7 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
     const buildingIds = new Set(buildings.map((building) => building.id));
     const walkers: Walker[] = [];
     for (const entry of rawWalkers) {
-      const walker = validateWalker(map, entry, roadSet, buildingIds);
+      const walker = validateWalker(map, time as number, entry, roadSet, buildingIds);
       if (!walker) return null;
       if (usedEntityIds.has(walker.id) || walker.id >= (nextId as number)) return null;
       usedEntityIds.add(walker.id);

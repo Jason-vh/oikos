@@ -379,10 +379,7 @@ function removeBuilding(world: World, city: City, id: number): void {
   releaseRetiredQuarries(world, retired);
   for (const walker of city.walkers) {
     if (walker.targetId !== id) continue;
-    const travelled = walker.path.slice(0, walker.step + 1).reverse();
-    walker.path = travelled;
-    walker.step = 0;
-    walker.progress = 0;
+    departOn(world, walker, walker.path.slice(0, walker.step + 1).reverse());
     walker.returning = true;
     walker.targetId = null;
   }
@@ -501,12 +498,27 @@ export function hasActiveWalker(city: City, homeId: number, kind: WalkerKind): b
   return city.walkers.some((walker) => walker.homeId === homeId && walker.kind === kind);
 }
 
-type WalkerSeed = Omit<Walker, 'id' | 'overland' | 'quarry' | 'working'> & Partial<Pick<Walker, 'overland' | 'quarry' | 'working'>>;
+type WalkerSeed = Omit<Walker, 'id' | 'overland' | 'quarry' | 'working' | 'departedAt'> & Partial<Pick<Walker, 'overland' | 'quarry' | 'working'>>;
 
 export function spawnWalker(world: World, city: City, partial: WalkerSeed): Walker {
-  const walker: Walker = { id: world.nextId++, overland: [], quarry: null, working: 0, ...partial };
+  const walker: Walker = { id: world.nextId++, overland: [], quarry: null, working: 0, departedAt: world.time, ...partial };
   city.walkers.push(walker);
   return walker;
+}
+
+export function departOn(world: World, walker: Walker, path: number[]): void {
+  walker.path = path;
+  walker.departedAt = world.time;
+  walker.step = 0;
+  walker.progress = 0;
+}
+
+export function tilesTravelled(world: World, walker: Walker): number {
+  return Math.min(WALKER_SPEED * (world.time - walker.departedAt), walker.path.length - 1);
+}
+
+function anchorWhereStanding(world: World, walker: Walker): void {
+  walker.departedAt = world.time - (walker.step + walker.progress) / WALKER_SPEED;
 }
 
 function updateStaffing(city: City): void {
@@ -652,10 +664,8 @@ function buildingsAdjacentToTile(world: World, city: City, tile: number): Buildi
   return city.buildings.filter((building) => accessDoors(map, roads, building).includes(tile));
 }
 
-function reverseForReturn(walker: Walker): void {
-  walker.path = [...walker.path].reverse();
-  walker.step = 0;
-  walker.progress = 0;
+function reverseForReturn(world: World, walker: Walker): void {
+  departOn(world, walker, [...walker.path].reverse());
   walker.returning = true;
 }
 
@@ -698,7 +708,7 @@ function onFinalArrival(world: World, city: City, walker: Walker): boolean {
       addStore(store, walker.food, deliver);
       walker.cargo -= deliver;
     }
-    reverseForReturn(walker);
+    reverseForReturn(world, walker);
     return false;
   }
   if (walker.kind === 'buyer') {
@@ -709,7 +719,7 @@ function onFinalArrival(world: World, city: City, walker: Walker): boolean {
       addStore(agora, walker.food, deliver);
       walker.cargo -= deliver;
     }
-    reverseForReturn(walker);
+    reverseForReturn(world, walker);
     return false;
   }
   if (walker.kind === 'porter') {
@@ -720,7 +730,7 @@ function onFinalArrival(world: World, city: City, walker: Walker): boolean {
       addStore(harbour, walker.food, deliver);
       walker.cargo -= deliver;
     }
-    reverseForReturn(walker);
+    reverseForReturn(world, walker);
     return false;
   }
   if (walker.kind === 'vendor' && walker.cargo > 0) {
@@ -740,6 +750,7 @@ function moveWalkers(world: World, city: City, dt: number): void {
     if (!walkerPathValid(map, roads, stairs, walker)) continue;
     if (walker.working > 0) {
       walker.working = Math.max(0, walker.working - dt);
+      anchorWhereStanding(world, walker);
       if (walker.working > 0 || !gatherFinished(world, city, walker)) alive.push(walker);
       continue;
     }
@@ -748,20 +759,18 @@ function moveWalkers(world: World, city: City, dt: number): void {
       continue;
     }
 
-    let travel = WALKER_SPEED * dt;
+    const travelled = tilesTravelled(world, walker);
     let done = false;
-    while (travel > 0 && walker.step < walker.path.length - 1) {
-      const toNext = 1 - walker.progress;
-      if (travel < toNext) {
-        walker.progress += travel;
-        travel = 0;
+    while (walker.step < walker.path.length - 1) {
+      if (travelled < walker.step + 1) {
+        walker.progress = travelled - walker.step;
         break;
       }
-      travel -= toNext;
       walker.step += 1;
       walker.progress = 0;
       serviceTileVisit(world, city, walker);
       if (walker.step >= walker.path.length - 1) {
+        anchorWhereStanding(world, walker);
         done = onFinalArrival(world, city, walker);
         break;
       }

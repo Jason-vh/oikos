@@ -46,6 +46,7 @@ export interface Walker {
   homeId: number;
   targetId: number | null;
   path: number[];
+  departedAt: number;
   step: number;
   progress: number;
   food: Resource | null;

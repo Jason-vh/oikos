@@ -272,7 +272,7 @@ function ambiguousStairFixture() {
 
 function bareWalker(overrides: Partial<Walker> & Pick<Walker, 'id' | 'homeId' | 'path'>): Walker {
   return {
-    kind: 'maintenance', targetId: null, step: 0, progress: 0, food: null, cargo: 0,
+    kind: 'maintenance', targetId: null, departedAt: 0, step: 0, progress: 0, food: null, cargo: 0,
     returning: false, overland: [], quarry: null, working: 0, ...overrides,
   };
 }

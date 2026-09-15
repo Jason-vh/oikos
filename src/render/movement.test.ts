@@ -18,6 +18,7 @@ function fixture() {
     homeId: owner.harbour.id,
     targetId: null,
     path: [owner.roads[0], owner.roads[1], owner.roads[2]],
+    departedAt: 0,
     step: 0,
     progress: 0,
     food: null,
