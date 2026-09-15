@@ -27,16 +27,17 @@ export interface Building extends Tile {
   upgradeTimer: number;
 }
 export type AnimalKind = 'boar' | 'rabbit' | 'fish' | 'gull';
+export interface AnimalPlace {
+  x: number;
+  z: number;
+}
 export interface Animal {
   id: number;
   kind: AnimalKind;
-  x: number;
-  z: number;
   homeX: number;
   homeZ: number;
-  heading: number;
-  phase: number;
-  respawn: number;
+  drift: number;
+  respawnAt: number | null;
   cornered: boolean;
 }
 export type WalkerKind = 'cart' | 'buyer' | 'vendor' | 'water' | 'maintenance' | 'immigrant' | 'hunter' | 'woodcutter' | 'porter';
@@ -69,7 +70,7 @@ export interface City {
   walkers: Walker[];
 }
 export interface World {
-  version: 11;
+  version: 12;
   island: 'kalliste';
   seed: number;
   time: number;

@@ -31,7 +31,7 @@ Preserve the existing single-city order while adding cities:
 
 1. Advance shared time once.
 2. For each founded city: staffing, workplaces, service dispatch, harbour, walkers.
-3. Step wildlife once.
+3. Retire wildlife whose respawn has come round; their wandering is a law, not a step.
 4. Step forest regrowth once.
 5. For each founded city: housing and finances.
 
@@ -41,6 +41,8 @@ infrastructure. Do not turn local road routing into a shared-road graph.
 
 Wildlife currently excludes harbour footprints from its obstacle set. Changing
 that rule is a deliberate behaviour change, not part of a neutral field move.
+An animal's position is never stored: it follows from its home, its drift and the
+time, so it must never be integrated, accumulated or corrected tick by tick.
 
 ## Founding and compatibility
 

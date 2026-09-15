@@ -1,6 +1,6 @@
 import type { ActionResult, Building, BuildTool, City, Food, Placement, Resource, Rotation, Stores, Summary, Tile, Walker, WalkerKind, World } from './types';
 import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, STARTING_MONEY, VENDOR_COST, footprint, isFood } from './catalog';
-import { spawnWildlife, stepWildlife } from './wildlife';
+import { retireRespawned, spawnWildlife } from './wildlife';
 import { gatherArrival, gatherFinished, regrowForest, updateGatherer } from './gathering';
 import { findHarbourSite, harbourApron } from './founding';
 import { freshHarbour, HARBOUR_DOCK_CAP, harbourStatus, harbourTiles, setHarbourTrade, updateHarbour } from './harbour';
@@ -65,7 +65,7 @@ export function createWorld(seed = DEFAULT_SEED, home?: number, name = 'Kalliste
     walkers: [],
   };
   const world: World = {
-    version: 11,
+    version: 12,
     island: 'kalliste',
     seed,
     time: 0,
@@ -84,7 +84,7 @@ export function createWorld(seed = DEFAULT_SEED, home?: number, name = 'Kalliste
 
 export function createSharedWorld(seed = DEFAULT_SEED): World {
   const world: World = {
-    version: 11,
+    version: 12,
     island: 'kalliste',
     seed,
     time: 0,
@@ -890,7 +890,7 @@ function simulationStep(world: World, dt: number): void {
     updateHarbour(world, city, dt);
     moveWalkers(world, city, dt);
   }
-  stepWildlife(world, dt);
+  retireRespawned(world);
   regrowForest(world, dt);
   for (const city of world.cities) {
     for (const building of city.buildings) {

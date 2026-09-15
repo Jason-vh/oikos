@@ -10,7 +10,29 @@ import { cityName } from './claims';
 import { footprintTiles, neighbours } from './grid';
 import { dropInvalidWalkers, recomputeConnectivity } from './world';
 import { harbourAt, validateHarbourProgress } from './harbour';
-export const CURRENT_VERSION = 11 as const;
+export const CURRENT_VERSION = 12 as const;
+
+function wildlifeWithoutTracks(parsed: Record<string, unknown>): Record<string, unknown> {
+  const time = isNonNegativeFinite(parsed.time) ? parsed.time : 0;
+  const wildlife = Array.isArray(parsed.wildlife) ? parsed.wildlife : [];
+  return {
+    ...parsed,
+    version: CURRENT_VERSION,
+    wildlife: wildlife.map((entry) => {
+      if (!isPlainObject(entry)) return entry;
+      const { id, kind, homeX, homeZ, heading, respawn, cornered } = entry;
+      return {
+        id,
+        kind,
+        homeX,
+        homeZ,
+        drift: isFiniteNumber(heading) ? heading : 0,
+        respawnAt: isFiniteNumber(respawn) && respawn > 0 ? time + respawn : null,
+        cornered,
+      };
+    }),
+  };
+}
 
 export function serializeWorld(world: World): string {
   return JSON.stringify(world);
@@ -212,6 +234,8 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
     return null;
   }
   if (!isPlainObject(parsed)) return null;
+  if (parsed.version === CURRENT_VERSION - 1) parsed = wildlifeWithoutTracks(parsed);
+  if (!isPlainObject(parsed)) return null;
   const { version, island, seed, time, remainder, nextId, nextCityId, wildlife: rawWildlife, felled: rawFelled, regrowth, cities: rawCities } = parsed;
 
   if (version !== CURRENT_VERSION) return null;
@@ -362,11 +386,21 @@ export function parseStores(raw: unknown): Stores | null {
 
 function validateAnimal(map: IslandMap, raw: unknown): Animal | null {
   if (!isPlainObject(raw)) return null;
-  const { id, kind, x, z, homeX, homeZ, heading, phase, respawn, cornered } = raw;
+  const { id, kind, homeX, homeZ, drift, respawnAt, cornered } = raw;
   if (!isSafeInteger(id) || id <= 0) return null;
   if (typeof kind !== 'string' || !ANIMAL_KINDS.includes(kind as AnimalKind)) return null;
-  for (const value of [x, homeX]) if (!isFiniteNumber(value) || value < 0 || value > map.width) return null;
-  for (const value of [z, homeZ]) if (!isFiniteNumber(value) || value < 0 || value > map.depth) return null;
-  if (!isFiniteNumber(heading) || !isFiniteNumber(phase) || !isNonNegativeFinite(respawn) || typeof cornered !== 'boolean') return null;
-  return { id, kind: kind as AnimalKind, x: x as number, z: z as number, homeX: homeX as number, homeZ: homeZ as number, heading: heading as number, phase: phase as number, respawn: respawn as number, cornered };
+  if (!isFiniteNumber(homeX) || homeX < 0 || homeX > map.width) return null;
+  if (!isFiniteNumber(homeZ) || homeZ < 0 || homeZ > map.depth) return null;
+  if (!isFiniteNumber(drift)) return null;
+  if (respawnAt !== null && !isNonNegativeFinite(respawnAt)) return null;
+  if (typeof cornered !== 'boolean') return null;
+  return {
+    id,
+    kind: kind as AnimalKind,
+    homeX: homeX as number,
+    homeZ: homeZ as number,
+    drift: drift as number,
+    respawnAt: respawnAt === null ? null : (respawnAt as number),
+    cornered,
+  };
 }

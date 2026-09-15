@@ -4,10 +4,11 @@ import { footprint } from '../sim/catalog';
 import { AGORA_SLOTS, GRANARY_SLOTS, WALKER_SPEED } from '../sim/balance';
 import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, groundHeight, insideMapOn, tileAtOn, tileIndexOn, worldPositionOn, type IslandMap } from '../sim/island';
 import { buildRoads } from '../art/roads';
+import { alive, animalAt, wildlifeObstacles } from '../sim/wildlife';
 import { STAIR_WIDTH } from '../art/stairs';
 import { roadHeight, stairLayout, STAIR_STEPS, type Stair } from '../sim/stairs';
 import { addRoadMark } from './road-marks';
-import type { Animal, AnimalKind, Building, BuildTool, City, Placement, Resource, Rotation, Tile, Walker, WalkerKind, World } from '../sim/types';
+import type { Animal, Building, BuildTool, City, Placement, Resource, Rotation, Tile, Walker, WalkerKind, World } from '../sim/types';
 import type { Stage } from './stage';
 import { IslandScenery } from './island';
 import { LogisticsOverlay, syncDisconnectedMark, syncHouseSupplies } from './logistics';
@@ -18,16 +19,10 @@ import { WildlifeField } from './wildlife';
 interface BuildingEntry { key: string; tier: number; model: T.Group; intro: number; from: number; construction: BuildingConstruction | null; }
 interface Departure { model: T.Group; elapsed: number; }
 interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; path: number[]; departedAt: number; quarry: number | null; moving: boolean; working: boolean; heading: number; stepped: boolean; stairs: ReadonlyMap<number, Stair>; }
-interface AnimalEntry { kind: AnimalKind; position: T.Vector3; from: T.Vector3; target: T.Vector3; heading: number; facing: number; roll: number; phase: number; elapsed: number; span: number; moving: boolean; dying: number; visible: boolean; drawn: boolean; }
-
-function spanOf(elapsed: number, shortest: number, longest: number): number {
-  return Math.min(Math.max(elapsed, shortest), longest);
-}
+interface AnimalEntry { animal: Animal; position: T.Vector3; facing: number; roll: number; phase: number; moving: boolean; dying: number; visible: boolean; drawn: boolean; }
 
 const SIGHT_MARGIN = 1.3;
-const TELEPORT = 4;
-const ANIMAL_SPAN = .25;
-const ANIMAL_SPAN_LIMIT = 2;
+const ANIMAL_FACING_LOOK = .35;
 const REVEAL_SHARE = .9;
 
 const TURN_RATE = 14;
@@ -107,8 +102,7 @@ export class CityScene {
   private sight = 60;
   private lastWorld: World | null = null;
   private syncedWildlife: readonly Animal[] | null = null;
-  private syncedWildlifeAt = 0;
-  private animalSpan = ANIMAL_SPAN;
+  private wildlifeObstacles: ReadonlySet<number> = new Set();
   private worldTime = 0;
   private readonly logistics: LogisticsOverlay;
   private readonly validMaterial = new T.MeshBasicMaterial({ color: 0x79b58b, transparent: true, opacity: .38, depthWrite: false });
@@ -250,10 +244,9 @@ export class CityScene {
       const stairs = this.stairsByCity.get(city.id) ?? new Map<number, Stair>();
       for (const walker of city.walkers) this.syncWalker(walker, stairs);
     }
+    this.wildlifeObstacles = wildlifeObstacles(world);
     if (world.wildlife !== this.syncedWildlife) {
-      this.animalSpan = spanOf(world.time - this.syncedWildlifeAt, ANIMAL_SPAN, ANIMAL_SPAN_LIMIT);
       this.syncedWildlife = world.wildlife;
-      this.syncedWildlifeAt = world.time;
       const animalIds = new Set(world.wildlife.map((animal) => animal.id));
       for (const id of [...this.animals.keys()]) {
         if (animalIds.has(id)) continue;
@@ -265,52 +258,49 @@ export class CityScene {
     this.stage.invalidate();
   }
 
-  private animalPosition(animal: Animal): T.Vector3 {
-    const point = worldPositionOn(this.map, animal.x, animal.z);
-    if (animal.kind === 'fish') return new T.Vector3(point.x, -.03, point.z);
-    if (animal.kind === 'gull') return new T.Vector3(point.x, 7.5 + Math.sin(animal.phase * .8) * .6, point.z);
-    return new T.Vector3(point.x, groundHeight(this.map, Math.floor(animal.x), Math.floor(animal.z)), point.z);
+  private animalPosition(entry: AnimalEntry, at: number): T.Vector3 {
+    const place = animalAt(this.map, this.wildlifeObstacles, entry.animal, at);
+    const point = worldPositionOn(this.map, place.x, place.z);
+    if (entry.animal.kind === 'fish') return new T.Vector3(point.x, -.03, point.z);
+    if (entry.animal.kind === 'gull') return new T.Vector3(point.x, 7.5 + Math.sin(at * .8 + entry.animal.drift) * .6, point.z);
+    return new T.Vector3(point.x, groundHeight(this.map, Math.floor(place.x), Math.floor(place.z)), point.z);
   }
 
   private syncAnimal(animal: Animal): void {
-    const target = this.animalPosition(animal);
     const entry = this.animals.get(animal.id);
     if (!entry) {
       const fresh: AnimalEntry = {
-        kind: animal.kind,
-        position: target.clone(),
-        from: target.clone(),
-        target,
-        heading: animal.heading,
-        facing: -animal.heading + Math.PI / 2,
+        animal,
+        position: new T.Vector3(),
+        facing: 0,
         roll: 0,
         phase: 0,
-        elapsed: ANIMAL_SPAN,
-        span: ANIMAL_SPAN,
-        moving: false,
+        moving: true,
         dying: 0,
-        visible: animal.respawn === 0,
+        visible: alive(animal, this.worldTime),
         drawn: false,
       };
+      fresh.position.copy(this.animalPosition(fresh, this.worldTime));
       this.animals.set(animal.id, fresh);
       this.writeAnimal(animal.id, fresh);
       return;
     }
-    if (animal.respawn > 0 && entry.visible && entry.dying === 0) entry.dying = .01;
-    if (animal.respawn === 0 && !entry.visible) {
+    entry.animal = animal;
+    const living = alive(animal, this.worldTime);
+    if (!living && entry.visible && entry.dying === 0) entry.dying = .01;
+    if (living && !entry.visible) {
       entry.visible = true;
       entry.roll = 0;
       entry.dying = 0;
     }
-    if (entry.target.distanceToSquared(target) <= 1e-9 && entry.heading === animal.heading) return;
-    const jumped = entry.position.distanceToSquared(target) > TELEPORT * TELEPORT;
-    if (jumped) entry.position.copy(target);
-    entry.from.copy(entry.position);
-    entry.target.copy(target);
-    entry.heading = animal.heading;
-    entry.span = this.animalSpan;
-    entry.elapsed = jumped ? entry.span : 0;
-    entry.moving = !jumped && entry.from.distanceToSquared(target) > 1e-5;
+  }
+
+  private placeAnimal(entry: AnimalEntry, delta: number): void {
+    const ahead = this.animalPosition(entry, this.worldTime + ANIMAL_FACING_LOOK);
+    entry.position.copy(this.animalPosition(entry, this.worldTime));
+    const towards = Math.atan2(ahead.x - entry.position.x, ahead.z - entry.position.z);
+    entry.moving = ahead.distanceToSquared(entry.position) > 1e-6;
+    if (entry.moving) entry.facing = turnToward(entry.facing, towards, delta);
   }
 
   private withinSight(entry: AnimalEntry): boolean {
@@ -330,14 +320,14 @@ export class CityScene {
       return true;
     }
     if (!entry.drawn) {
-      this.wildlife.add(id, entry.kind);
+      this.wildlife.add(id, entry.animal.kind);
       entry.drawn = true;
     }
     if (!entry.visible) {
       this.wildlife.conceal(id);
       return true;
     }
-    this.wildlife.pose(id, entry.kind, { position: entry.position, facing: entry.facing, roll: entry.roll, phase: entry.phase, moving: entry.moving });
+    this.wildlife.pose(id, entry.animal.kind, { position: entry.position, facing: entry.facing, roll: entry.roll, phase: entry.phase, moving: entry.moving });
     return true;
   }
 
@@ -493,17 +483,13 @@ export class CityScene {
       this.groundCompanions(walker);
     }
     for (const [id, animal] of this.animals) {
-      animal.elapsed += delta * speed;
-      const wander = Math.min(1, animal.elapsed / animal.span);
-      animal.position.lerpVectors(animal.from, animal.target, wander);
-      if (wander >= 1) animal.moving = false;
-      animal.facing = turnToward(animal.facing, -animal.heading + Math.PI / 2, delta * speed);
+      this.placeAnimal(animal, delta * speed);
 
       if (animal.dying > 0) {
         animal.dying += delta * speed;
         const t = Math.min(1, animal.dying / .9);
         animal.roll = t * Math.PI / 2;
-        animal.position.y = animal.target.y + Math.sin(t * Math.PI) * .12;
+        animal.position.y += Math.sin(t * Math.PI) * .12;
         animal.moving = false;
         if (t >= 1) {
           animal.visible = false;

@@ -42,7 +42,7 @@ test('demolishing a working hunter’s lodge releases its living prey before sav
   expect(demolish(world, city, lodge.x, lodge.z).ok).toBe(true);
   expect(city.walkers.some((walker) => walker.id === hunter.id)).toBe(false);
   expect(prey.cornered).toBe(false);
-  expect(prey.respawn).toBe(0);
+  expect(prey.respawnAt).toBeNull();
   expect(deserializeWorld(serializeWorld(world))).toEqual(world);
 });
 

@@ -301,11 +301,15 @@ side walls. Removing roads recomputes the cuts and restores unused cliff surface
 
 `src/sim/wildlife.ts` seeds animals from the map at `createWorld`: boar in forest,
 rabbits in scrub, shoals of fish in coastal shallows, gulls over sand and shore.
-Each animal (`world.wildlife`) wanders deterministically around a home tile within
-its species' range, staying on terrain it can roam and off roads and buildings;
-they are saved with the world. Road and building obstacles are indexed once per
-step, rather than scanned separately for every animal. The index is rebuilt each
-step so construction and demolition cannot leave stale obstacles.
+An animal holds only a home tile, a drift of its own, and what a hunt has done to
+it. Where it actually stands is a law, not a stored position: `animalAt(map,
+occupied, animal, time)` is a pure function of the time you ask about, so the
+server, every client and any test can evaluate it without stepping anything, and
+motion is smooth at any frame rate. The wander loops around home within the
+species' range and is pulled back along its own radius wherever terrain, roads or
+buildings will not hold it, so raising a house moves the animals it displaces and
+nothing else. A cornered or killed animal stands at home until its hour comes
+round.
 `SPECIES` declares each animal's `food` and `yield`
 (boar 40 meat, rabbit 8 meat, a shoal 30 fish, gulls nothing) for the hunters and
 fishers to come. Animals can be inspected like people.

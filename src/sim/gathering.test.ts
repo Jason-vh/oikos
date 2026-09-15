@@ -3,6 +3,7 @@ import { advance, build, createWorld } from './world';
 import { islandFor, terrainOn, tileAtOn, tileIndexOn } from './island';
 import { connect, homeTiles, onHomeIsland, spotFor } from './testing';
 import { GATHER_RANGE, overlandPath } from './gathering';
+import { alive, animalAt, wildlifeObstacles } from './wildlife';
 import { primaryCity } from './city';
 import type { Building, City, Tile, World } from './types';
 
@@ -35,7 +36,7 @@ describe('hunting', () => {
       hunted = primaryCity(world).walkers.some((walker) => walker.kind === 'hunter' && walker.returning && walker.cargo > 0);
     }
     expect(hunted).toBe(true);
-    const killed = world.wildlife.filter((animal) => animal.respawn > 0);
+    const killed = world.wildlife.filter((animal) => animal.respawnAt !== null);
     expect(killed.length).toBeGreaterThan(0);
     let stored = false;
     for (let t = 0; t < 400 && !stored; t++) {
@@ -49,11 +50,12 @@ describe('hunting', () => {
   test('killed game respawns at home later', () => {
     const world = createWorld(1);
     const boar = world.wildlife.find((animal) => animal.kind === 'boar' && onHomeIsland(world, Math.floor(animal.homeX), Math.floor(animal.homeZ)))!;
-    boar.respawn = 1;
-    boar.x = boar.homeX + 2;
+    boar.respawnAt = world.time + 1;
+    expect(alive(boar, world.time)).toBe(false);
     advance(world, 1);
-    expect(boar.respawn).toBe(0);
-    expect(Math.abs(boar.x - boar.homeX)).toBeLessThan(.5);
+    expect(boar.respawnAt).toBeNull();
+    const back = animalAt(islandFor(world.seed), wildlifeObstacles(world), boar, world.time);
+    expect(Math.abs(back.x - boar.homeX)).toBeLessThan(1.5);
   });
 });
 
@@ -128,13 +130,12 @@ describe('working at the site', () => {
   test('a cornered animal stops wandering until the hunt ends', () => {
     const world = createWorld(1);
     const boar = world.wildlife.find((animal) => animal.kind === 'boar' && onHomeIsland(world, Math.floor(animal.homeX), Math.floor(animal.homeZ)))!;
+    const at = (time: number) => animalAt(islandFor(world.seed), wildlifeObstacles(world), boar, time);
     boar.cornered = true;
-    const before = [boar.x, boar.z];
-    advance(world, 5);
-    expect([boar.x, boar.z]).toEqual(before);
+    const before = at(0);
+    expect(at(5)).toEqual(before);
     boar.cornered = false;
-    advance(world, 20);
-    expect(Math.hypot(boar.x - before[0], boar.z - before[1])).toBeGreaterThan(0);
+    expect(Math.hypot(at(20).x - before.x, at(20).z - before.z)).toBeGreaterThan(0);
   });
 });
 

@@ -4,6 +4,7 @@ import { createWorld } from './world';
 import { bfsReachable } from './grid';
 import { homeIsland } from './testing';
 import { primaryCity } from './city';
+import { animalAt, wildlifeObstacles } from './wildlife';
 
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8];
 
@@ -99,8 +100,10 @@ test('wildlife spawns on every island, on ground each species can hold', () => {
   const populated = new Set(ashore.map((animal) => map.islands.indexOf(islandAt(map, Math.floor(animal.homeX), Math.floor(animal.homeZ))!)));
   expect(populated).not.toContain(-1);
   expect(populated.size).toBe(ISLAND_COUNT);
+  const occupied = wildlifeObstacles(world);
   for (const animal of world.wildlife) {
-    const terrain = terrainOn(map, Math.floor(animal.x), Math.floor(animal.z));
+    const place = animalAt(map, occupied, animal, 17);
+    const terrain = terrainOn(map, Math.floor(place.x), Math.floor(place.z));
     if (animal.kind === 'fish') expect(terrain).toBe('water');
     if (animal.kind === 'boar') expect(terrain).not.toBe('water');
   }

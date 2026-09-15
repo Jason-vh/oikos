@@ -135,9 +135,9 @@ test('wildlife rides its own stream: it is retained between updates and required
   expect(animals.length).toBeGreaterThan(0);
   socket.message(snapshotPacket({ serial: 2, wildlife: null }));
   expect(h.snapshots[1].world.wildlife).toBe(animals);
-  const moved = animals.map((animal, index) => (index === 0 ? { ...animal, x: animal.x + .5 } : animal));
+  const moved = animals.map((animal, index) => (index === 0 ? { ...animal, cornered: true } : animal));
   socket.message(snapshotPacket({ serial: 3, wildlife: moved }));
-  expect(h.snapshots[2].world.wildlife[0].x).toBeCloseTo(animals[0].x + .5);
+  expect(h.snapshots[2].world.wildlife[0].cornered).toBe(true);
   h.session.close();
   const late = harness();
   late.sockets[0].open();

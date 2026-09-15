@@ -23,7 +23,7 @@ interface SocketData {
   actorId: number;
   snapshotDue: boolean;
   lastSnapshot: number;
-  lastWildlife: number;
+  wildlifeRevision: number;
 }
 interface Bucket { tokens: number; at: number }
 export const AGENT_PRESENCE_MS = 30_000;
@@ -36,7 +36,6 @@ function trace(event: string, detail: Record<string, unknown> = {}): void {
   console.log(`[oikos] ${event}${fields.length > 0 ? ` ${fields}` : ''}`);
 }
 const SNAPSHOT_INTERVAL_MS = 250;
-const WILDLIFE_INTERVAL_MS = 1000;
 const clockDefault: RuntimeClock = {
   now: () => performance.now(),
   schedule(callback, milliseconds) {
@@ -85,6 +84,8 @@ export function startServer(options: RuntimeOptions) {
   let checkpointAt = clock.now();
   let lastTick = clock.now();
   let serial = 0;
+  let wildlife = '';
+  let wildlifeRevision = 0;
   let cancel = () => {};
   let stopPromise: Promise<void> | undefined;
   let signalFailure!: () => void;
@@ -162,8 +163,12 @@ export function startServer(options: RuntimeOptions) {
     if (serial >= Number.MAX_SAFE_INTEGER) throw new Error('Snapshot serial exhausted.');
     const current = authority.snapshot();
     const world = JSON.stringify({ ...current, wildlife: [] });
-    const owed = (ws: ServerWebSocket<SocketData>) => now - ws.data.lastWildlife >= WILDLIFE_INTERVAL_MS;
-    const wildlife = ready.some(owed) ? JSON.stringify(current.wildlife) : 'null';
+    const encoded = JSON.stringify(current.wildlife);
+    if (encoded !== wildlife) {
+      wildlife = encoded;
+      wildlifeRevision += 1;
+    }
+    const owed = (ws: ServerWebSocket<SocketData>) => ws.data.wildlifeRevision !== wildlifeRevision;
     const header = { type: 'snapshot', protocol: PROTOCOL, realmId: authority.realmId, streamId, serial: ++serial };
     for (const ws of ready) {
       const prefix = JSON.stringify({ ...header, session: session(ws) });
@@ -172,7 +177,7 @@ export function startServer(options: RuntimeOptions) {
       const sent = ws.send(Bun.gzipSync(`${prefix.slice(0, -1)},"world":${world},"wildlife":${carries ? wildlife : 'null'}}`));
       ws.data.snapshotDue = false;
       if (!early) ws.data.lastSnapshot = now;
-      if (carries) ws.data.lastWildlife = now;
+      if (carries) ws.data.wildlifeRevision = wildlifeRevision;
       if (sent === 0) {
         trace('snapshot-dropped', { actor: ws.data.actorId, buffered: ws.getBufferedAmount() });
         ws.terminate();
@@ -285,7 +290,7 @@ export function startServer(options: RuntimeOptions) {
           if (!authenticated) return response(401, 'unauthenticated');
           if (slots.size >= 64 || [...slots].filter((slot) => slot.actorId === authenticated.actorId).length >= 8) return response(429, 'socket-limit');
           const binding = createHash('sha256').update(`oikos:session-binding:v1\0${authority.realmId}\0${credential}`).digest('hex');
-          const data: SocketData = { credential, binding, actorId: authenticated.actorId, snapshotDue: true, lastSnapshot: -Infinity, lastWildlife: -Infinity };
+          const data: SocketData = { credential, binding, actorId: authenticated.actorId, snapshotDue: true, lastSnapshot: -Infinity, wildlifeRevision: -1 };
           slots.add(data);
           if (listener.upgrade(request, { data })) return;
           slots.delete(data);

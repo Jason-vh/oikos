@@ -1,4 +1,4 @@
-import type { Animal, AnimalKind, Food, World } from './types';
+import type { Animal, AnimalKind, AnimalPlace, Food, World } from './types';
 import { footprintTiles } from './grid';
 import { buildable, islandFor, levelOn, terrainOn, type IslandMap } from './island';
 import { hash } from './island';
@@ -38,19 +38,13 @@ export function spawnWildlife(world: World): Animal[] {
         const roll = hash(x, z, world.seed * 31 + kind.length * 977);
         if (roll > species.density) continue;
         for (let member = 0; member < species.flock; member++) {
-          const angle = hash(x + member * 13, z + member * 7, world.seed + 5) * Math.PI * 2;
-          const drift = { x: x + .5 + Math.cos(angle) * .35 * member, z: z + .5 + Math.sin(angle) * .35 * member };
-          const spread = canRoam(map, kind, drift.x, drift.z, levelOn(map, x, z)) ? drift : { x: x + .5, z: z + .5 };
           animals.push({
             id: world.nextId++,
             kind,
-            x: Math.min(map.width - .05, Math.max(.05, spread.x)),
-            z: Math.min(map.depth - .05, Math.max(.05, spread.z)),
             homeX: x + .5,
             homeZ: z + .5,
-            heading: angle,
-            phase: hash(x, z, world.seed + member + 11) * 100,
-            respawn: 0,
+            drift: hash(x + member * 13, z + member * 7, world.seed + 5) * Math.PI * 2,
+            respawnAt: null,
             cornered: false,
           });
         }
@@ -71,45 +65,43 @@ function canRoam(map: IslandMap, kind: AnimalKind, x: number, z: number, level: 
   return terrain === 'forest' || terrain === 'scrub' || buildable(terrain);
 }
 
-export function stepWildlife(world: World, dt: number): void {
-  const map = islandFor(world.seed);
-  const obstacles = wildlifeObstacles(world);
-  for (const animal of world.wildlife) {
-    const species = SPECIES[animal.kind];
-    if (animal.respawn > 0) {
-      animal.respawn = Math.max(0, animal.respawn - dt);
-      if (animal.respawn === 0) {
-        animal.x = animal.homeX;
-        animal.z = animal.homeZ;
-      }
-      continue;
-    }
-    animal.phase += dt;
-    if (animal.cornered) continue;
-    const wander = Math.sin(animal.phase * .7 + animal.id) * .9 + Math.sin(animal.phase * .23 + animal.id * 2) * .6;
-    const toHomeX = animal.homeX - animal.x;
-    const toHomeZ = animal.homeZ - animal.z;
-    const distance = Math.hypot(toHomeX, toHomeZ);
-    const pull = distance > species.range ? Math.atan2(toHomeZ, toHomeX) : null;
-    if (pull === null) animal.heading += wander * dt;
-    else {
-      let turn = pull - animal.heading;
-      while (turn > Math.PI) turn -= Math.PI * 2;
-      while (turn < -Math.PI) turn += Math.PI * 2;
-      animal.heading += turn * Math.min(1, dt * 4);
-    }
-    const resting = animal.kind !== 'gull' && animal.kind !== 'fish' && Math.sin(animal.phase * .35 + animal.id) < -.3;
-    if (resting) continue;
-    const nextX = animal.x + Math.cos(animal.heading) * species.speed * dt;
-    const nextZ = animal.z + Math.sin(animal.heading) * species.speed * dt;
-    const level = levelOn(map, Math.floor(animal.homeX), Math.floor(animal.homeZ));
-    if (canRoam(map, animal.kind, nextX, nextZ, level) && !obstacles.has(Math.floor(nextZ) * map.width + Math.floor(nextX))) {
-      animal.x = nextX;
-      animal.z = nextZ;
-    } else {
-      animal.heading += Math.PI * .75;
-    }
+const WANDER_STEPS = 6;
+
+function wanderOffset(animal: Animal, time: number): AnimalPlace {
+  const species = SPECIES[animal.kind];
+  const turn = species.speed / Math.max(species.range, .5);
+  const slow = time * turn * .38 + animal.drift;
+  const fast = time * turn * .93 + animal.drift * 2.3;
+  const reach = species.range * .72;
+  return {
+    x: (Math.cos(slow) * .68 + Math.cos(fast) * .32) * reach,
+    z: (Math.sin(slow) * .68 + Math.sin(fast * .87) * .32) * reach,
+  };
+}
+
+export function animalAt(map: IslandMap, occupied: ReadonlySet<number>, animal: Animal, time: number): AnimalPlace {
+  const home = { x: animal.homeX, z: animal.homeZ };
+  if (animal.respawnAt !== null || animal.cornered) return home;
+  const level = levelOn(map, Math.floor(animal.homeX), Math.floor(animal.homeZ));
+  const offset = wanderOffset(animal, time);
+  let allowed = 0;
+  for (let attempt = WANDER_STEPS; attempt >= 1; attempt--) {
+    const share = attempt / WANDER_STEPS;
+    const x = home.x + offset.x * share;
+    const z = home.z + offset.z * share;
+    if (!canRoam(map, animal.kind, x, z, level)) continue;
+    if (animal.kind !== 'gull' && animal.kind !== 'fish' && occupied.has(Math.floor(z) * map.width + Math.floor(x))) continue;
+    allowed = share;
+    break;
   }
+  return {
+    x: Math.min(map.width - .05, Math.max(.05, home.x + offset.x * allowed)),
+    z: Math.min(map.depth - .05, Math.max(.05, home.z + offset.z * allowed)),
+  };
+}
+
+export function animalPlace(world: World, animal: Animal, occupied: ReadonlySet<number>): AnimalPlace {
+  return animalAt(islandFor(world.seed), occupied, animal, world.time);
 }
 
 export function wildlifeObstacles(world: World): ReadonlySet<number> {
@@ -137,12 +129,19 @@ export function animalStatus(animal: Animal): string[] {
 
 export const RESPAWN_SECONDS = 240;
 
-export function alive(animal: Animal): boolean {
-  return animal.respawn === 0;
+export function alive(animal: Animal, time: number): boolean {
+  return animal.respawnAt === null || time >= animal.respawnAt;
 }
 
-export function killAnimal(animal: Animal): number {
+export function retireRespawned(world: World): void {
+  for (const animal of world.wildlife) {
+    if (animal.respawnAt !== null && world.time >= animal.respawnAt) animal.respawnAt = null;
+  }
+}
+
+export function killAnimal(world: World, animal: Animal): number {
   const amount = SPECIES[animal.kind].yield;
-  animal.respawn = RESPAWN_SECONDS;
+  animal.respawnAt = world.time + RESPAWN_SECONDS;
+  animal.cornered = false;
   return amount;
 }

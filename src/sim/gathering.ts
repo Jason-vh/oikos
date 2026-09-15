@@ -3,7 +3,7 @@ import { footprint } from './catalog';
 import { buildable, islandFor, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import { accessTiles, footprintTiles, mapOf } from './grid';
 import { addStore, hasActiveWalker, sendCart, spawnWalker, totalStock } from './world';
-import { alive, killAnimal } from './wildlife';
+import { alive, animalAt, killAnimal, wildlifeObstacles } from './wildlife';
 import { mixedEdgeAllowed, stairLayout } from './stairs';
 
 export const GATHER_RANGE = 14;
@@ -60,12 +60,13 @@ export function overlandPath(world: World, city: City, start: number, isGoal: (t
   return null;
 }
 
-function animalTile(map: IslandMap, animal: Animal): number {
-  return tileIndexOn(map, Math.floor(animal.x), Math.floor(animal.z));
+function animalTile(world: World, map: IslandMap, occupied: ReadonlySet<number>, animal: Animal): number {
+  const place = animalAt(map, occupied, animal, world.time);
+  return tileIndexOn(map, Math.floor(place.x), Math.floor(place.z));
 }
 
-function huntable(animal: Animal): boolean {
-  return alive(animal) && (animal.kind === 'boar' || animal.kind === 'rabbit');
+function huntable(world: World, animal: Animal): boolean {
+  return alive(animal, world.time) && (animal.kind === 'boar' || animal.kind === 'rabbit');
 }
 
 function standingForest(world: World, map: IslandMap, index: number): boolean {
@@ -93,14 +94,15 @@ export function updateGatherer(world: World, city: City, building: Building): vo
   const doors = accessTiles(world, city, building);
   if (doors.length === 0) return;
   const start = doors[0];
+  const occupied = wildlifeObstacles(world);
   const path = kind === 'hunter'
-    ? overlandPath(world, city, start, (tile) => world.wildlife.some((animal) => huntable(animal) && animalTile(map, animal) === tile), GATHER_RANGE)
+    ? overlandPath(world, city, start, (tile) => world.wildlife.some((animal) => huntable(world, animal) && animalTile(world, map, occupied, animal) === tile), GATHER_RANGE)
     : overlandPath(world, city, start, (tile) => !new Set(footprintTiles(map, building)).has(tile) && nearestAdjacentToForest(world, map, tile), GATHER_RANGE);
   if (!path) return;
   let quarry: number | null = null;
   if (kind === 'hunter') {
     const goal = path[path.length - 1];
-    quarry = world.wildlife.find((animal) => huntable(animal) && animalTile(map, animal) === goal)?.id ?? null;
+    quarry = world.wildlife.find((animal) => huntable(world, animal) && animalTile(world, map, occupied, animal) === goal)?.id ?? null;
   } else {
     const goal = tileAtOn(map, path[path.length - 1]);
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
@@ -136,7 +138,7 @@ export function gatherArrival(world: World, city: City, walker: Walker): boolean
   const map = mapOf(world, city);
   if (walker.kind === 'hunter') {
     const prey = world.wildlife.find((animal) => animal.id === walker.quarry);
-    if (prey && huntable(prey) && withinReach(map, walker, prey)) {
+    if (prey && huntable(world, prey) && withinReach(world, map, walker, prey)) {
       prey.cornered = true;
       walker.working = HUNT_SECONDS;
       return false;
@@ -153,8 +155,8 @@ export function gatherFinished(world: World, city: City, walker: Walker): boolea
   const map = mapOf(world, city);
   if (walker.kind === 'hunter') {
     const prey = world.wildlife.find((animal) => animal.id === walker.quarry);
-    if (prey && huntable(prey) && withinReach(map, walker, prey)) {
-      walker.cargo = killAnimal(prey);
+    if (prey && huntable(world, prey) && withinReach(world, map, walker, prey)) {
+      walker.cargo = killAnimal(world, prey);
       walker.food = 'meat';
       city.produced += walker.cargo;
     }
@@ -169,9 +171,10 @@ export function gatherFinished(world: World, city: City, walker: Walker): boolea
   return false;
 }
 
-function withinReach(map: IslandMap, walker: Walker, prey: Animal): boolean {
+function withinReach(world: World, map: IslandMap, walker: Walker, prey: Animal): boolean {
   const here = tileAtOn(map, walker.path[walker.path.length - 1]);
-  return Math.hypot(prey.x - here.x - .5, prey.z - here.z - .5) < CATCH_RADIUS;
+  const place = animalAt(map, wildlifeObstacles(world), prey, world.time);
+  return Math.hypot(place.x - here.x - .5, place.z - here.z - .5) < CATCH_RADIUS;
 }
 
 function turnHome(walker: Walker): void {

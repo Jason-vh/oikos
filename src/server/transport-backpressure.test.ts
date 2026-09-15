@@ -96,19 +96,18 @@ test('shutdown completes with an OPEN paused reader and checkpoints the last liv
   try { expect(reopened.snapshot()).toEqual(world); } finally { reopened.close(); }
 });
 
-test('wildlife rides a slower stream than the world it belongs to', async () => {
+test('wildlife is sent to a newcomer and then only when it changes', async () => {
   let actor!: ReturnType<typeof foundedActor>;
   const f = await fixture(cleanups, (authority) => { actor = foundedActor(authority, 0); });
-  const { peer, snapshot } = await connect(cleanups, f, `__Host-oikos=${actor.credential}`);
+  const cookie = `__Host-oikos=${actor.credential}`;
+  const { peer, snapshot } = await connect(cleanups, f, cookie);
   expect(snapshot.wildlife!.length).toBeGreaterThan(0);
-  for (let elapsed = 250; elapsed < 1000; elapsed += 250) {
+  for (let beat = 0; beat < 8; beat++) {
     f.clock.step();
     expect((await peer.next('snapshot')).wildlife).toBeNull();
   }
-  f.clock.step();
-  const refreshed = await peer.next('snapshot');
-  expect(refreshed.wildlife).toHaveLength(snapshot.wildlife!.length);
-  expect(refreshed.wildlife).not.toEqual(snapshot.wildlife!);
+  const second = await connect(cleanups, f, cookie);
+  expect(second.snapshot.wildlife).toEqual(snapshot.wildlife!);
 });
 
 test('an immediate snapshot rides beside the steady rhythm rather than displacing it', async () => {
