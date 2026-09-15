@@ -25,9 +25,9 @@ const coastalWater = (map: IslandMap, x: number, z: number): boolean => {
 
 export const SPECIES: Record<AnimalKind, SpeciesDefinition> = {
   boar: { name: 'Wild boar', food: 'meat', yield: 40, speed: .35, range: 4, rest: .72, move: 2.6, hop: false, habitat: (map, x, z) => terrainOn(map, x, z) === 'forest', density: .07, flock: 1 },
-  rabbit: { name: 'Rabbit', food: 'meat', yield: 8, speed: 1.8, range: 2.5, rest: .82, move: .45, hop: true, habitat: (map, x, z) => terrainOn(map, x, z) === 'scrub', density: .12, flock: 2 },
-  fish: { name: 'Fish', food: 'fish', yield: 30, speed: .5, range: 3, rest: .45, move: 2.6, hop: false, habitat: coastalWater, density: .06, flock: 4 },
-  gull: { name: 'Gull', food: null, yield: 0, speed: 1.6, range: 9, rest: 0, move: 2.6, hop: false, habitat: (map, x, z) => terrainOn(map, x, z) === 'sand' || coastalWater(map, x, z), density: .03, flock: 1 },
+  rabbit: { name: 'Rabbit', food: 'meat', yield: 8, speed: 1.5, range: 2.5, rest: .9, move: .5, hop: true, habitat: (map, x, z) => terrainOn(map, x, z) === 'scrub', density: .12, flock: 2 },
+  fish: { name: 'Fish', food: 'fish', yield: 30, speed: .5, range: 3, rest: .45, move: 1.6, hop: false, habitat: coastalWater, density: .06, flock: 4 },
+  gull: { name: 'Gull', food: null, yield: 0, speed: 1.6, range: 9, rest: 0, move: .8, hop: false, habitat: (map, x, z) => terrainOn(map, x, z) === 'sand' || coastalWater(map, x, z), density: .03, flock: 1 },
 };
 
 export function spawnWildlife(world: World): Animal[] {
@@ -75,40 +75,93 @@ function scatter(animal: Animal, index: number): number {
   return value - Math.floor(value);
 }
 
-function loopAt(animal: Animal, species: SpeciesDefinition, turns: number): AnimalPlace {
-  const reach = species.range * .72;
-  const slow = animal.drift + turns;
-  const fast = animal.drift * 2.3 + turns * 2.4;
-  return {
-    x: (Math.cos(slow) * .68 + Math.cos(fast) * .32) * reach,
-    z: (Math.sin(slow) * .68 + Math.sin(fast * .87) * .32) * reach,
-  };
+const SWAY = .18;
+const ORBIT_STEPS = 8;
+const ORBIT_SAMPLES = 16;
+const orbits = new WeakMap<IslandMap, Map<number, number>>();
+
+function orbitFits(map: IslandMap, animal: Animal, level: number, radius: number): boolean {
+  for (let sample = 0; sample < ORBIT_SAMPLES; sample++) {
+    const angle = sample / ORBIT_SAMPLES * Math.PI * 2;
+    for (const reach of [radius * (1 + SWAY), radius * (1 - SWAY)]) {
+      const x = animal.homeX + Math.cos(angle) * reach;
+      const z = animal.homeZ + Math.sin(angle) * reach;
+      if (!canRoam(map, animal.kind, x, z, level)) return false;
+    }
+  }
+  return true;
 }
 
-function restingPlace(animal: Animal, species: SpeciesDefinition, index: number): AnimalPlace {
+function orbitOf(map: IslandMap, animal: Animal, level: number): number {
+  let known = orbits.get(map);
+  if (!known) {
+    known = new Map();
+    orbits.set(map, known);
+  }
+  const cached = known.get(animal.id);
+  if (cached !== undefined) return cached;
+  const wanted = SPECIES[animal.kind].range * (.3 + scatter(animal, 0) * .45);
+  let radius = 0;
+  for (let attempt = ORBIT_STEPS; attempt >= 1; attempt--) {
+    const candidate = wanted * attempt / ORBIT_STEPS;
+    if (orbitFits(map, animal, level, candidate)) {
+      radius = candidate;
+      break;
+    }
+  }
+  known.set(animal.id, radius);
+  return radius;
+}
+
+function restingPlace(map: IslandMap, animal: Animal, level: number, index: number): AnimalPlace {
+  const species = SPECIES[animal.kind];
+  const orbit = orbitOf(map, animal, level);
+  if (orbit === 0) return { x: 0, z: 0 };
+  const radius = orbit * (1 + Math.sin(index * .37 + animal.drift * 3) * SWAY);
   const step = species.speed * species.move;
-  const wobble = scatter(animal, index) * .3 + .85;
-  return loopAt(animal, species, index * step / (species.range * .72) * wobble);
+  const angle = animal.drift * 2 + index * Math.min(step / orbit, .6);
+  return { x: Math.cos(angle) * radius, z: Math.sin(angle) * radius };
 }
 
 interface Gait {
-  offset: AnimalPlace;
+  place: AnimalPlace;
   stride: number;
 }
 
-function wanderGait(animal: Animal, time: number): Gait {
+function holds(map: IslandMap, occupied: ReadonlySet<number>, animal: Animal, level: number, place: AnimalPlace): boolean {
+  if (!canRoam(map, animal.kind, place.x, place.z, level)) return false;
+  if (animal.kind === 'gull' || animal.kind === 'fish') return true;
+  return !occupied.has(Math.floor(place.z) * map.width + Math.floor(place.x));
+}
+
+function settledPlace(map: IslandMap, occupied: ReadonlySet<number>, animal: Animal, level: number, index: number): AnimalPlace {
+  const offset = restingPlace(map, animal, level, index);
+  for (let attempt = WANDER_STEPS; attempt >= 1; attempt--) {
+    const share = attempt / WANDER_STEPS;
+    const place = { x: animal.homeX + offset.x * share, z: animal.homeZ + offset.z * share };
+    if (holds(map, occupied, animal, level, place)) return place;
+  }
+  return { x: animal.homeX, z: animal.homeZ };
+}
+
+function gaitAt(map: IslandMap, occupied: ReadonlySet<number>, animal: Animal, time: number): Gait {
+  const home = { x: animal.homeX, z: animal.homeZ };
+  if (animal.respawnAt !== null || animal.cornered) return { place: home, stride: 0 };
   const species = SPECIES[animal.kind];
+  const level = levelOn(map, Math.floor(animal.homeX), Math.floor(animal.homeZ));
   const cycle = species.move / (1 - species.rest);
   const phase = time / cycle + animal.drift;
   const index = Math.floor(phase);
   const within = phase - index;
-  const settled = restingPlace(animal, species, index);
-  if (within <= species.rest) return { offset: settled, stride: 0 };
-  const next = restingPlace(animal, species, index + 1);
-  const share = (within - species.rest) / (1 - species.rest);
+  const settled = settledPlace(map, occupied, animal, level, index);
+  const next = settledPlace(map, occupied, animal, level, index + 1);
+  const crossing = Math.min(Math.hypot(next.x - settled.x, next.z - settled.z) / species.speed, cycle) / cycle;
+  const settles = 1 - crossing;
+  if (within <= settles) return { place: settled, stride: 0 };
+  const share = (within - settles) / crossing;
   const eased = species.rest > 0 && !species.hop ? share * share * (3 - 2 * share) : share;
   return {
-    offset: {
+    place: {
       x: settled.x + (next.x - settled.x) * eased,
       z: settled.z + (next.z - settled.z) * eased,
     },
@@ -116,29 +169,15 @@ function wanderGait(animal: Animal, time: number): Gait {
   };
 }
 
-export function animalStride(animal: Animal, time: number): number {
-  if (animal.respawnAt !== null || animal.cornered) return 0;
-  return wanderGait(animal, time).stride;
+export function animalStride(map: IslandMap, occupied: ReadonlySet<number>, animal: Animal, time: number): number {
+  return gaitAt(map, occupied, animal, time).stride;
 }
 
 export function animalAt(map: IslandMap, occupied: ReadonlySet<number>, animal: Animal, time: number): AnimalPlace {
-  const home = { x: animal.homeX, z: animal.homeZ };
-  if (animal.respawnAt !== null || animal.cornered) return home;
-  const level = levelOn(map, Math.floor(animal.homeX), Math.floor(animal.homeZ));
-  const { offset } = wanderGait(animal, time);
-  let allowed = 0;
-  for (let attempt = WANDER_STEPS; attempt >= 1; attempt--) {
-    const share = attempt / WANDER_STEPS;
-    const x = home.x + offset.x * share;
-    const z = home.z + offset.z * share;
-    if (!canRoam(map, animal.kind, x, z, level)) continue;
-    if (animal.kind !== 'gull' && animal.kind !== 'fish' && occupied.has(Math.floor(z) * map.width + Math.floor(x))) continue;
-    allowed = share;
-    break;
-  }
+  const { place } = gaitAt(map, occupied, animal, time);
   return {
-    x: Math.min(map.width - .05, Math.max(.05, home.x + offset.x * allowed)),
-    z: Math.min(map.depth - .05, Math.max(.05, home.z + offset.z * allowed)),
+    x: Math.min(map.width - .05, Math.max(.05, place.x)),
+    z: Math.min(map.depth - .05, Math.max(.05, place.z)),
   };
 }
 

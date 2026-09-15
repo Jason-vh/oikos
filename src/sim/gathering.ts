@@ -69,6 +69,16 @@ function huntable(world: World, animal: Animal): boolean {
   return alive(animal, world.time) && (animal.kind === 'boar' || animal.kind === 'rabbit');
 }
 
+function preyByTile(world: World, map: IslandMap): Map<number, number> {
+  const occupied = wildlifeObstacles(world);
+  const grazing = new Map<number, number>();
+  for (const animal of world.wildlife) {
+    if (!huntable(world, animal)) continue;
+    grazing.set(animalTile(world, map, occupied, animal), animal.id);
+  }
+  return grazing;
+}
+
 function standingForest(world: World, map: IslandMap, index: number): boolean {
   const { x, z } = tileAtOn(map, index);
   return terrainOn(map, x, z) === 'forest' && !world.felled.includes(index);
@@ -94,15 +104,14 @@ export function updateGatherer(world: World, city: City, building: Building): vo
   const doors = accessTiles(world, city, building);
   if (doors.length === 0) return;
   const start = doors[0];
-  const occupied = wildlifeObstacles(world);
+  const grazing = kind === 'hunter' ? preyByTile(world, map) : new Map<number, number>();
   const path = kind === 'hunter'
-    ? overlandPath(world, city, start, (tile) => world.wildlife.some((animal) => huntable(world, animal) && animalTile(world, map, occupied, animal) === tile), GATHER_RANGE)
+    ? overlandPath(world, city, start, (tile) => grazing.has(tile), GATHER_RANGE)
     : overlandPath(world, city, start, (tile) => !new Set(footprintTiles(map, building)).has(tile) && nearestAdjacentToForest(world, map, tile), GATHER_RANGE);
   if (!path) return;
   let quarry: number | null = null;
   if (kind === 'hunter') {
-    const goal = path[path.length - 1];
-    quarry = world.wildlife.find((animal) => huntable(world, animal) && animalTile(world, map, occupied, animal) === goal)?.id ?? null;
+    quarry = grazing.get(path[path.length - 1]) ?? null;
   } else {
     const goal = tileAtOn(map, path[path.length - 1]);
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {

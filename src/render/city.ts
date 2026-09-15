@@ -300,7 +300,7 @@ export class CityScene {
     const ahead = this.animalPosition(entry, this.worldTime + ANIMAL_FACING_LOOK);
     entry.position.copy(this.animalPosition(entry, this.worldTime));
     const towards = Math.atan2(ahead.x - entry.position.x, ahead.z - entry.position.z);
-    entry.stride = animalStride(entry.animal, this.worldTime);
+    entry.stride = animalStride(this.map, this.wildlifeObstacles, entry.animal, this.worldTime);
     entry.moving = ahead.distanceToSquared(entry.position) > 1e-6;
     if (entry.moving) entry.facing = turnToward(entry.facing, towards, delta);
   }

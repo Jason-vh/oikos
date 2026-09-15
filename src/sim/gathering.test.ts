@@ -3,7 +3,7 @@ import { advance, build, createWorld } from './world';
 import { islandFor, terrainOn, tileAtOn, tileIndexOn } from './island';
 import { connect, homeTiles, onHomeIsland, spotFor } from './testing';
 import { GATHER_RANGE, overlandPath } from './gathering';
-import { alive, animalAt, wildlifeObstacles } from './wildlife';
+import { alive, animalAt, SPECIES, wildlifeObstacles } from './wildlife';
 import { primaryCity } from './city';
 import type { Building, City, Tile, World } from './types';
 
@@ -55,7 +55,7 @@ describe('hunting', () => {
     advance(world, 1);
     expect(boar.respawnAt).toBeNull();
     const back = animalAt(islandFor(world.seed), wildlifeObstacles(world), boar, world.time);
-    expect(Math.abs(back.x - boar.homeX)).toBeLessThan(1.5);
+    expect(Math.hypot(back.x - boar.homeX, back.z - boar.homeZ)).toBeLessThan(SPECIES.boar.range);
   });
 });
 

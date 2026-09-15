@@ -139,3 +139,43 @@ describe('rest', () => {
     }
   });
 });
+
+describe('pace', () => {
+  test('no animal ever crosses ground faster than its own speed', () => {
+    const world = createWorld(1);
+    const map = islandFor(world.seed);
+    const occupied = wildlifeObstacles(world);
+    for (const kind of ['boar', 'rabbit', 'fish', 'gull'] as const) {
+      const species = SPECIES[kind];
+      for (const animal of world.wildlife.filter((candidate) => candidate.kind === kind).slice(0, 40)) {
+        let previous = animalAt(map, occupied, animal, 0);
+        for (let at = .02; at < 30; at += .02) {
+          const now = animalAt(map, occupied, animal, at);
+          const pace = Math.hypot(now.x - previous.x, now.z - previous.z) / .02;
+          expect(pace).toBeLessThan(species.speed * 1.6);
+          previous = now;
+        }
+      }
+    }
+  });
+
+  test('a rabbit crosses in one bound and then sits for seconds', () => {
+    const world = createWorld(1);
+    const map = islandFor(world.seed);
+    const occupied = wildlifeObstacles(world);
+    const cycle = SPECIES.rabbit.move / (1 - SPECIES.rabbit.rest);
+    expect(cycle).toBeGreaterThan(3);
+    const rabbit = world.wildlife.find((animal) => animal.kind === 'rabbit')!;
+    let bounds = 0;
+    let moving = false;
+    for (let at = 0; at < cycle * 4; at += .02) {
+      const pace = Math.hypot(
+        animalAt(map, occupied, rabbit, at + .02).x - animalAt(map, occupied, rabbit, at).x,
+        animalAt(map, occupied, rabbit, at + .02).z - animalAt(map, occupied, rabbit, at).z,
+      ) / .02;
+      if (pace > .02 && !moving) bounds += 1;
+      moving = pace > .02;
+    }
+    expect(bounds).toBe(4);
+  });
+});
