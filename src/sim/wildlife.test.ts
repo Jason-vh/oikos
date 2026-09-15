@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { advance, build, createWorld } from './world';
 import { islandFor, terrainOn } from './island';
-import { SPECIES, alive, animalAt, animalStatus, killAnimal, spawnWildlife, wildlifeObstacles, RESPAWN_SECONDS } from './wildlife';
+import { SPECIES, alive, animalAt, animalStatus, killAnimal, wildlifeRoster, wildlifeObstacles, RESPAWN_SECONDS } from './wildlife';
 import { spotFor } from './testing';
 import { primaryCity } from './city';
 import type { Animal, World } from './types';
@@ -19,7 +19,7 @@ describe('wildlife', () => {
     for (const animal of world.wildlife) {
       expect(SPECIES[animal.kind].habitat(map, Math.floor(animal.homeX), Math.floor(animal.homeZ))).toBe(true);
     }
-    expect(spawnWildlife(createWorld(1)).map((animal) => [animal.kind, animal.homeX, animal.homeZ])).toEqual(world.wildlife.map((animal) => [animal.kind, animal.homeX, animal.homeZ]));
+    expect(wildlifeRoster(1).map((animal) => [animal.kind, animal.homeX, animal.homeZ])).toEqual(world.wildlife.map((animal) => [animal.kind, animal.homeX, animal.homeZ]));
   });
 
   test('an animal is wherever the time says, without the world having stepped', () => {

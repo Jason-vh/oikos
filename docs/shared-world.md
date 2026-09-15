@@ -42,7 +42,10 @@ infrastructure. Do not turn local road routing into a shared-road graph.
 Wildlife currently excludes harbour footprints from its obstacle set. Changing
 that rule is a deliberate behaviour change, not part of a neutral field move.
 An animal's position is never stored: it follows from its home, its drift and the
-time, so it must never be integrated, accumulated or corrected tick by tick.
+time, so it must never be integrated, accumulated or corrected tick by tick. Nor is
+the roster: `wildlifeRoster(seed)` yields it, ids one to N in spawn order, and the
+save and the wire carry only the fates a hunt decided. Entity ids above it come
+from `nextId`, which must always exceed the roster.
 
 ## Founding and compatibility
 

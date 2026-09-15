@@ -152,9 +152,9 @@ describe('global id validation across cities', () => {
     expect(deserializeSharedWorld(JSON.stringify(raw))).toBeNull();
   });
 
-  test('rejects a wildlife id colliding with another city\'s building id', () => {
+  test('rejects a building id colliding with the derived wildlife roster', () => {
     const { raw } = twoCityRaw();
-    raw.wildlife[0].id = raw.cities[0].buildings[0].id;
+    raw.cities[0].buildings[0].id = 1;
     expect(deserializeSharedWorld(JSON.stringify(raw))).toBeNull();
   });
 

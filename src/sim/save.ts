@@ -1,41 +1,41 @@
-import type { Animal, AnimalKind, Building, BuildingKind, City, Resource, Rotation, Stores, Walker, WalkerKind, World } from './types';
+import type { Animal, Building, BuildingKind, City, Resource, Rotation, Stores, Walker, WalkerKind, World } from './types';
 
-const ANIMAL_KINDS: AnimalKind[] = ['boar', 'rabbit', 'fish', 'gull'];
 
 import { BUILDINGS, HOUSE_CAPACITY, RESOURCES } from './catalog';
 import { WALKER_SPEED } from './balance';
+import { wildlifeRoster } from './wildlife';
 import { islandFor, insideMapOn, ISLAND_COUNT, type IslandMap } from './island';
 import { harbourIslandAt } from './founding';
 import { cityName } from './claims';
 import { footprintTiles, neighbours } from './grid';
 import { dropInvalidWalkers, recomputeConnectivity } from './world';
 import { harbourAt, validateHarbourProgress } from './harbour';
-export const CURRENT_VERSION = 12 as const;
+export const CURRENT_VERSION = 13 as const;
 
-function wildlifeWithoutTracks(parsed: Record<string, unknown>): Record<string, unknown> {
-  const time = isNonNegativeFinite(parsed.time) ? parsed.time : 0;
+export interface AnimalFate {
+  id: number;
+  respawnAt: number | null;
+  cornered: boolean;
+}
+
+function fated(animal: Animal): boolean {
+  return animal.respawnAt !== null || animal.cornered;
+}
+
+function rosterForgotten(parsed: Record<string, unknown>): Record<string, unknown> {
   const wildlife = Array.isArray(parsed.wildlife) ? parsed.wildlife : [];
-  return {
-    ...parsed,
-    version: CURRENT_VERSION,
-    wildlife: wildlife.map((entry) => {
-      if (!isPlainObject(entry)) return entry;
-      const { id, kind, homeX, homeZ, heading, respawn, cornered } = entry;
-      return {
-        id,
-        kind,
-        homeX,
-        homeZ,
-        drift: isFiniteNumber(heading) ? heading : 0,
-        respawnAt: isFiniteNumber(respawn) && respawn > 0 ? time + respawn : null,
-        cornered,
-      };
-    }),
-  };
+  const kept = wildlife.filter((entry) => isPlainObject(entry) && (entry.respawnAt !== null || entry.cornered === true));
+  return { ...parsed, version: CURRENT_VERSION, wildlife: kept };
+}
+
+export function wildlifeFates(world: World): AnimalFate[] {
+  return world.wildlife
+    .filter(fated)
+    .map((animal) => ({ id: animal.id, respawnAt: animal.respawnAt, cornered: animal.cornered }));
 }
 
 export function serializeWorld(world: World): string {
-  return JSON.stringify(world);
+  return JSON.stringify({ ...world, wildlife: wildlifeFates(world) });
 }
 
 const BUILDING_KINDS: BuildingKind[] = ['house', 'farm', 'granary', 'agora', 'fountain', 'maintenance', 'lodge', 'woodcutter', 'stockpile', 'harbour'];
@@ -234,7 +234,7 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
     return null;
   }
   if (!isPlainObject(parsed)) return null;
-  if (parsed.version === CURRENT_VERSION - 1) parsed = wildlifeWithoutTracks(parsed);
+  if (parsed.version === CURRENT_VERSION - 1) parsed = rosterForgotten(parsed);
   if (!isPlainObject(parsed)) return null;
   const { version, island, seed, time, remainder, nextId, nextCityId, wildlife: rawWildlife, felled: rawFelled, regrowth, cities: rawCities } = parsed;
 
@@ -325,15 +325,8 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
     cities.push(city);
   }
 
-  if (!Array.isArray(rawWildlife)) return null;
-  const wildlife: Animal[] = [];
-  for (const entry of rawWildlife) {
-    const animal = validateAnimal(atlas, entry);
-    if (!animal) return null;
-    if (usedEntityIds.has(animal.id) || animal.id >= (nextId as number)) return null;
-    usedEntityIds.add(animal.id);
-    wildlife.push(animal);
-  }
+  const wildlife = rosterWithFates(seed as number, nextId as number, usedEntityIds, rawWildlife);
+  if (!wildlife) return null;
 
   const world: World = {
     version: CURRENT_VERSION,
@@ -355,23 +348,35 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
   return world;
 }
 
-export function deserializeWildlife(world: World, raw: unknown): Animal[] | null {
+function rosterWithFates(seed: number, nextId: number, used: Set<number>, raw: unknown): Animal[] | null {
   if (!Array.isArray(raw)) return null;
-  const atlas = islandFor(world.seed);
+  const wildlife = wildlifeRoster(seed);
+  if (wildlife.length >= nextId) return null;
+  const byId = new Map<number, Animal>();
+  for (const animal of wildlife) {
+    if (used.has(animal.id)) return null;
+    used.add(animal.id);
+    byId.set(animal.id, animal);
+  }
+  for (const entry of raw) {
+    const fate = validateFate(entry);
+    if (!fate) return null;
+    const animal = byId.get(fate.id);
+    if (!animal) return null;
+    animal.respawnAt = fate.respawnAt;
+    animal.cornered = fate.cornered;
+  }
+  return wildlife;
+}
+
+export function deserializeWildlife(world: World, raw: unknown): Animal[] | null {
   const used = new Set<number>();
   for (const city of world.cities) {
     used.add(city.harbour.id);
     for (const building of city.buildings) used.add(building.id);
     for (const walker of city.walkers) used.add(walker.id);
   }
-  const wildlife: Animal[] = [];
-  for (const entry of raw) {
-    const animal = validateAnimal(atlas, entry);
-    if (!animal || used.has(animal.id) || animal.id >= world.nextId) return null;
-    used.add(animal.id);
-    wildlife.push(animal);
-  }
-  return wildlife;
+  return rosterWithFates(world.seed, world.nextId, used, raw);
 }
 
 export function parseStores(raw: unknown): Stores | null {
@@ -384,23 +389,12 @@ export function parseStores(raw: unknown): Stores | null {
   return stores;
 }
 
-function validateAnimal(map: IslandMap, raw: unknown): Animal | null {
+function validateFate(raw: unknown): AnimalFate | null {
   if (!isPlainObject(raw)) return null;
-  const { id, kind, homeX, homeZ, drift, respawnAt, cornered } = raw;
+  const { id, respawnAt, cornered } = raw;
   if (!isSafeInteger(id) || id <= 0) return null;
-  if (typeof kind !== 'string' || !ANIMAL_KINDS.includes(kind as AnimalKind)) return null;
-  if (!isFiniteNumber(homeX) || homeX < 0 || homeX > map.width) return null;
-  if (!isFiniteNumber(homeZ) || homeZ < 0 || homeZ > map.depth) return null;
-  if (!isFiniteNumber(drift)) return null;
   if (respawnAt !== null && !isNonNegativeFinite(respawnAt)) return null;
   if (typeof cornered !== 'boolean') return null;
-  return {
-    id,
-    kind: kind as AnimalKind,
-    homeX: homeX as number,
-    homeZ: homeZ as number,
-    drift: drift as number,
-    respawnAt: respawnAt === null ? null : (respawnAt as number),
-    cornered,
-  };
+  if (respawnAt === null && cornered === false) return null;
+  return { id, respawnAt: respawnAt === null ? null : (respawnAt as number), cornered };
 }

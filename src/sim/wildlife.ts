@@ -30,23 +30,23 @@ export const SPECIES: Record<AnimalKind, SpeciesDefinition> = {
   gull: { name: 'Gull', food: null, yield: 0, speed: 1.6, range: 9, rest: 0, move: .8, hop: false, habitat: (map, x, z) => terrainOn(map, x, z) === 'sand' || coastalWater(map, x, z), density: .03, flock: 1 },
 };
 
-export function spawnWildlife(world: World): Animal[] {
-  const map = islandFor(world.seed);
+export function wildlifeRoster(seed: number): Animal[] {
+  const map = islandFor(seed);
   const animals: Animal[] = [];
   for (const kind of Object.keys(SPECIES) as AnimalKind[]) {
     const species = SPECIES[kind];
     for (let z = 0; z < map.depth; z++) {
       for (let x = 0; x < map.width; x++) {
         if (!species.habitat(map, x, z)) continue;
-        const roll = hash(x, z, world.seed * 31 + kind.length * 977);
+        const roll = hash(x, z, seed * 31 + kind.length * 977);
         if (roll > species.density) continue;
         for (let member = 0; member < species.flock; member++) {
           animals.push({
-            id: world.nextId++,
+            id: animals.length + 1,
             kind,
             homeX: x + .5,
             homeZ: z + .5,
-            drift: hash(x + member * 13, z + member * 7, world.seed + 5) * Math.PI * 2,
+            drift: hash(x + member * 13, z + member * 7, seed + 5) * Math.PI * 2,
             respawnAt: null,
             cornered: false,
           });

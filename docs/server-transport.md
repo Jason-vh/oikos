@@ -108,18 +108,11 @@ the socket's interval where it was, so the next tick still lands on time and a
 client keeps interpolating walkers against an even cadence. Rejects, peers and
 ticks keep the four-Hz cap.
 
-Wildlife travels on the same packet as `wildlife: Animal[] | null`, and the World
-beside it always carries an empty wildlife array. An animal now holds only what
-the authority decides — where it lives, whether it is cornered, when it returns
-from being hunted — because its wandering is a law both sides evaluate rather than
-state anyone transmits. So wildlife is sent when it changes, not on a clock: once
-to a newcomer, then only when a hunt corners, kills or returns an animal. Null
-means unchanged. A handshake snapshot must carry the roster, so a connection never
-starts without a complete World.
-
-This is what keeps the stream small: the cities, roads, buildings and walkers of a
-fresh archipelago gzip to 133 bytes a beat, 532 bytes a second, and its 2,344
-animals to a single 40 KB roster on joining.
+Wildlife is not on the wire at all. The roster follows from the seed, so both sides
+derive it with `wildlifeRoster`, and an animal's wandering is a law both evaluate;
+only what a hunt decided — cornered, killed, when it returns — travels, inside the
+World as a handful of fates. A fresh archipelago is therefore 146 bytes whole,
+133 gzipped, whether it carries two thousand animals or none.
 
 permessage-deflate is off. Bun drops compressed browser-to-server frames, so
 negotiating it silently loses every request; application gzip replaces it. A

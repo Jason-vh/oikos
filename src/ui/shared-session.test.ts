@@ -128,29 +128,26 @@ test('definitely failed persistence is unsent and blocks further writes', async 
   h.session.close();
 });
 
-test('wildlife rides its own stream: it is retained between updates and required on handshake', () => {
+test('the wildlife a client draws is derived, not delivered', () => {
   const h = harness();
   const socket = h.connect();
   const animals = h.snapshots[0].world.wildlife;
   expect(animals.length).toBeGreaterThan(0);
-  socket.message(snapshotPacket({ serial: 2, wildlife: null }));
-  expect(h.snapshots[1].world.wildlife).toBe(animals);
-  const moved = animals.map((animal, index) => (index === 0 ? { ...animal, cornered: true } : animal));
-  socket.message(snapshotPacket({ serial: 3, wildlife: moved }));
-  expect(h.snapshots[2].world.wildlife[0].cornered).toBe(true);
+  expect(animals.every((animal) => animal.respawnAt === null && !animal.cornered)).toBe(true);
+  const hunted = { ...snapshotPacket({ serial: 2 }) };
+  hunted.world = { ...hunted.world, wildlife: [{ id: animals[3].id, respawnAt: 99, cornered: false }] };
+  socket.message(hunted);
+  expect(h.snapshots[1].world.wildlife[3].respawnAt).toBe(99);
+  expect(h.snapshots[1].world.wildlife.length).toBe(animals.length);
   h.session.close();
-  const late = harness();
-  late.sockets[0].open();
-  late.sockets[0].message(snapshotPacket({ wildlife: null }));
-  expect(late.snapshots).toHaveLength(0);
-  expect(late.session.currentStatus).toBe('protocol-error');
-  late.session.close();
 });
 
-test('wildlife is validated against the world it accompanies', () => {
+test('a fate for an animal that does not exist is a protocol failure', () => {
   const h = harness();
   h.sockets[0].open();
-  h.sockets[0].message(snapshotPacket({ wildlife: [{ id: 1, kind: 'dragon', x: 1, z: 1, homeX: 1, homeZ: 1, heading: 0, phase: 0, respawn: 0, cornered: false }] }));
+  const packet = snapshotPacket();
+  packet.world = { ...packet.world, wildlife: [{ id: 999_999, respawnAt: null, cornered: true }] };
+  h.sockets[0].message(packet);
   expect(h.snapshots).toHaveLength(0);
   expect(h.session.currentStatus).toBe('protocol-error');
   h.session.close();

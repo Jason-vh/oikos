@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from 'bun:test';
 import { claimFor } from './authority-fixtures.test';
 import { Authority } from './authority';
-import { deserializeSharedWorld } from '../sim/save';
+import { deserializeSharedWorld, serializeWorld } from '../sim/save';
 import { harbourApron } from '../sim/founding';
 import { connect, fixture, withoutWildlife } from './transport-fixtures.test';
 
@@ -23,11 +23,11 @@ test('joins only from the configured origin, keeps credentials solely in the sec
   const admitted = await f.cookie('Kleio');
   expect((await fetch(`${f.base}/api/world`, { headers: { Origin: 'https://foreign.example', Cookie: admitted, Upgrade: 'websocket' } })).status).toBe(403);
   const { snapshot } = await connect(cleanups, f, admitted);
-  expect(Object.keys(snapshot).sort()).toEqual(['protocol', 'realmId', 'serial', 'session', 'streamId', 'type', 'wildlife', 'world']);
-  expect(snapshot.protocol).toBe(4);
+  expect(Object.keys(snapshot).sort()).toEqual(['protocol', 'realmId', 'serial', 'session', 'streamId', 'type', 'world']);
+  expect(snapshot.protocol).toBe(5);
   expect(snapshot.session.binding).toMatch(/^[a-f0-9]{64}$/);
   expect(snapshot.session).toEqual({ binding: snapshot.session.binding, ownedCityIds: [], nextSeq: 1, receiptWatermark: 0 });
-  expect(deserializeSharedWorld(JSON.stringify(snapshot.world))).toEqual(snapshot.world);
+  expect(deserializeSharedWorld(serializeWorld(snapshot.world))).toEqual(snapshot.world);
   expect(JSON.stringify(snapshot)).not.toContain('actorId');
   expect(JSON.stringify(snapshot)).not.toContain(admitted.slice('__Host-oikos='.length));
   expect(f.runtime.healthy).toBe(true);
@@ -61,7 +61,7 @@ test('two authenticated actors claim and found distinct cities; snapshots surviv
   expect(founded.world.time).toBeGreaterThan(0);
   expect(founded.session.ownedCityIds).toEqual([founded.world.cities[0].id]);
   expect(founded.serial).toBeGreaterThan(claimSnapshot.serial);
-  expect(deserializeSharedWorld(JSON.stringify(founded.world))).toEqual(founded.world);
+  expect(deserializeSharedWorld(serializeWorld(founded.world))).toEqual(founded.world);
   await a.peer.close();
   await b.peer.close();
   await f.runtime.stop();

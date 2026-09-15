@@ -46,7 +46,8 @@ export function selectAll<T>(db: Database, sql: string, ...params: SQLQueryBindi
 }
 
 function applyPragmas(db: Database): void {
-  db.run('PRAGMA journal_mode = DELETE;');
+  db.run('PRAGMA journal_mode = WAL;');
+  db.run('PRAGMA synchronous = NORMAL;');
   db.run('PRAGMA locking_mode = EXCLUSIVE;');
   db.run('PRAGMA busy_timeout = 0;');
   db.run('PRAGMA foreign_keys = ON;');

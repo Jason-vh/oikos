@@ -1,7 +1,7 @@
 import type { AuthorityRequest, RequestOutcome, RequestStatus, Session } from './authority';
-import type { Animal, World } from '../sim/types';
+import type { World } from '../sim/types';
 
-export const PROTOCOL = 4;
+export const PROTOCOL = 5;
 export const MAX_REQUEST_BYTES = 64 * 1024;
 export const COOKIE = '__Host-oikos';
 export const NAME_LIMIT = 24;
@@ -23,7 +23,7 @@ export interface ClientRequest {
 }
 export type RejectCode = Exclude<RequestStatus, 'processed' | 'replayed'> | 'rate-limited' | 'session-mismatch';
 export type ServerPacket =
-  | { type: 'snapshot'; protocol: 4; realmId: string; streamId: string; serial: number; session: PublicSession; world: World; wildlife: Animal[] | null }
+  | { type: 'snapshot'; protocol: 5; realmId: string; streamId: string; serial: number; session: PublicSession; world: World }
   | { type: 'receipt'; requestId: string; seq: number; result: RequestOutcome }
   | { type: 'reject'; code: RejectCode; session: PublicSession };
 

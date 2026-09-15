@@ -1,12 +1,12 @@
 import { afterEach, expect, test } from 'bun:test';
-import { copyFileSync, rmSync } from 'node:fs';
+import { copyFileSync, existsSync, rmSync } from 'node:fs';
 import { Database } from 'bun:sqlite';
 import { Authority } from './authority';
 import { claimFor, foundedActor, rawDb, rid } from './authority-fixtures.test';
 import { connect, fixture, withoutWildlife } from './transport-fixtures.test';
 import { startServer } from './runtime';
 import { readWorldRow } from './store';
-import { deserializeSharedWorld } from '../sim/save';
+import { deserializeSharedWorld, serializeWorld } from '../sim/save';
 import { planStarterNeighbourhood } from '../sim/scenario';
 import { islandFor, tileAtOn } from '../sim/island';
 
@@ -16,8 +16,14 @@ afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) awai
 function durable(path: string) {
   const copy = `${path}.inspection`;
   copyFileSync(path, copy);
-  const db = new Database(copy, { readonly: true });
-  try { return readWorldRow(db); } finally { db.close(); rmSync(copy); }
+  if (existsSync(`${path}-wal`)) copyFileSync(`${path}-wal`, `${copy}-wal`);
+  const db = new Database(copy);
+  try { return readWorldRow(db); } finally {
+    db.close();
+    rmSync(copy);
+    rmSync(`${copy}-wal`, { force: true });
+    rmSync(`${copy}-shm`, { force: true });
+  }
 }
 
 test('one remaining socket advances both cities; tick checkpoints, last close, restart and empty time never catch up', async () => {
@@ -71,7 +77,7 @@ test('one remaining socket advances both cities; tick checkpoints, last close, r
   expect(withoutWildlife(third.snapshot.world)).toEqual(withoutWildlife(settled.world));
   expect(third.snapshot.world.wildlife).toEqual(durable(f.path).world.wildlife);
   expect(third.snapshot.streamId).toBe(first.snapshot.streamId);
-  expect(deserializeSharedWorld(JSON.stringify(third.snapshot.world))).toEqual(third.snapshot.world);
+  expect(deserializeSharedWorld(serializeWorld(third.snapshot.world))).toEqual(third.snapshot.world);
   await third.peer.close();
   await f.runtime.stop();
   f.clock.time += 1000;

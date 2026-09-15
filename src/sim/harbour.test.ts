@@ -186,7 +186,7 @@ describe('save and load', () => {
     const raw = serializeWorld(world);
     const reloaded = deserializeWorld(raw);
     expect(reloaded).not.toBeNull();
-    expect(reloaded).toEqual(JSON.parse(raw));
+    expect(reloaded).toEqual(world);
 
     let upgraded = false;
     for (let t = 0; t < 600 && !upgraded; t++) {

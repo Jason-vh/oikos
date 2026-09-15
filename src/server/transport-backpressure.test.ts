@@ -96,18 +96,16 @@ test('shutdown completes with an OPEN paused reader and checkpoints the last liv
   try { expect(reopened.snapshot()).toEqual(world); } finally { reopened.close(); }
 });
 
-test('wildlife is sent to a newcomer and then only when it changes', async () => {
+test('a snapshot carries the whole world in a frame small enough to be read at a glance', async () => {
   let actor!: ReturnType<typeof foundedActor>;
   const f = await fixture(cleanups, (authority) => { actor = foundedActor(authority, 0); });
-  const cookie = `__Host-oikos=${actor.credential}`;
-  const { peer, snapshot } = await connect(cleanups, f, cookie);
-  expect(snapshot.wildlife!.length).toBeGreaterThan(0);
-  for (let beat = 0; beat < 8; beat++) {
-    f.clock.step();
-    expect((await peer.next('snapshot')).wildlife).toBeNull();
-  }
-  const second = await connect(cleanups, f, cookie);
-  expect(second.snapshot.wildlife).toEqual(snapshot.wildlife!);
+  const { peer, snapshot } = await connect(cleanups, f, `__Host-oikos=${actor.credential}`);
+  expect(snapshot.world.wildlife.length).toBeGreaterThan(2000);
+  expect(JSON.stringify(snapshot.world.wildlife.map((animal) => animal.id)).length).toBeGreaterThan(9000);
+  f.clock.step();
+  const next = await peer.next('snapshot');
+  expect(next.world.wildlife).toEqual(snapshot.world.wildlife);
+  expect(JSON.stringify({ ...next.world, wildlife: [] }).length).toBeLessThan(2000);
 });
 
 test('an immediate snapshot rides beside the steady rhythm rather than displacing it', async () => {

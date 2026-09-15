@@ -73,6 +73,12 @@ The credential is printed once and cannot be recovered; issue another if it is
 lost. An agent request keeps the world running for thirty seconds, exactly as an
 open browser socket does. See [playing as an agent](../docs/agent-play.md).
 
+The store is WAL with `synchronous = NORMAL`: one fsync per checkpoint rather than
+three per commit, and a power cut can lose the last few transactions — receipt and
+world together, which the client resolves as indeterminate rather than as a lie.
+A clean stop checkpoints the WAL away, so a backup taken with the authority stopped
+is one file. Copying a running world needs `world.db-wal` beside it.
+
 Back up before risky changes, with the authority stopped so the file is quiet:
 
 ```bash

@@ -4,7 +4,8 @@ import { Authority } from './authority';
 import { freshAuthority, rid } from './authority-fixtures.test';
 import type { AuthorityRequest } from './authority';
 import type { ServerPacket } from './protocol';
-import type { Animal, World } from '../sim/types';
+import type { World } from '../sim/types';
+import { deserializeSharedWorld } from '../sim/save';
 
 export function withoutWildlife(world: World): World {
   return { ...world, wildlife: [] };
@@ -57,7 +58,6 @@ export class Peer {
   readonly packets: ServerPacket[] = [];
   private listeners = new Set<() => void>();
   private binding = '';
-  private wildlife: Animal[] = [];
   readonly closed: Promise<CloseEvent>;
   constructor(base: string, origin: string, cookie: string) {
     const BunWebSocket = WebSocket as unknown as { new(url: string, options: Bun.WebSocketOptions): WebSocket };
@@ -67,8 +67,7 @@ export class Peer {
       const packet = JSON.parse(decodeFrame(event.data)) as ServerPacket;
       if (packet.type === 'snapshot') {
         this.binding = packet.session.binding;
-        if (packet.wildlife) this.wildlife = packet.wildlife;
-        packet.world = { ...packet.world, wildlife: this.wildlife };
+        packet.world = deserializeSharedWorld(JSON.stringify(packet.world)) ?? packet.world;
       }
       this.packets.push(packet);
       for (const notify of this.listeners) notify();

@@ -1,6 +1,6 @@
 import type { ActionResult, Building, BuildTool, City, Food, Placement, Resource, Rotation, Stores, Summary, Tile, Walker, WalkerKind, World } from './types';
 import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, STARTING_MONEY, VENDOR_COST, footprint, isFood } from './catalog';
-import { retireRespawned, spawnWildlife } from './wildlife';
+import { retireRespawned, wildlifeRoster } from './wildlife';
 import { gatherArrival, gatherFinished, regrowForest, updateGatherer } from './gathering';
 import { findHarbourSite, harbourApron } from './founding';
 import { freshHarbour, HARBOUR_DOCK_CAP, harbourStatus, harbourTiles, setHarbourTrade, updateHarbour } from './harbour';
@@ -65,7 +65,7 @@ export function createWorld(seed = DEFAULT_SEED, home?: number, name = 'Kalliste
     walkers: [],
   };
   const world: World = {
-    version: 12,
+    version: 13,
     island: 'kalliste',
     seed,
     time: 0,
@@ -77,14 +77,15 @@ export function createWorld(seed = DEFAULT_SEED, home?: number, name = 'Kalliste
     regrowth: 0,
     cities: [city],
   };
-  world.wildlife = spawnWildlife(world);
+  world.wildlife = wildlifeRoster(seed);
+  world.nextId = world.wildlife.length + 1;
   recomputeConnectivity(world, city);
   return world;
 }
 
 export function createSharedWorld(seed = DEFAULT_SEED): World {
   const world: World = {
-    version: 12,
+    version: 13,
     island: 'kalliste',
     seed,
     time: 0,
@@ -96,7 +97,8 @@ export function createSharedWorld(seed = DEFAULT_SEED): World {
     regrowth: 0,
     cities: [],
   };
-  world.wildlife = spawnWildlife(world);
+  world.wildlife = wildlifeRoster(seed);
+  world.nextId = world.wildlife.length + 1;
   return world;
 }
 

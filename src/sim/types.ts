@@ -70,7 +70,7 @@ export interface City {
   walkers: Walker[];
 }
 export interface World {
-  version: 12;
+  version: 13;
   island: 'kalliste';
   seed: number;
   time: number;

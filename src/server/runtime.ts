@@ -5,6 +5,7 @@ import { AuthorityGame } from '../agent/authority-game';
 import { createServer } from '../agent/mcp';
 import { Authority } from './authority';
 import { COOKIE, MAX_REQUEST_BYTES, PROTOCOL, credentialFrom, parseJoinName, parseRequest, publicSession, type RejectCode } from './protocol';
+import { serializeWorld } from '../sim/save';
 
 export interface RuntimeClock {
   now(): number;
@@ -23,7 +24,6 @@ interface SocketData {
   actorId: number;
   snapshotDue: boolean;
   lastSnapshot: number;
-  wildlifeRevision: number;
 }
 interface Bucket { tokens: number; at: number }
 export const AGENT_PRESENCE_MS = 30_000;
@@ -84,8 +84,6 @@ export function startServer(options: RuntimeOptions) {
   let checkpointAt = clock.now();
   let lastTick = clock.now();
   let serial = 0;
-  let wildlife = '';
-  let wildlifeRevision = 0;
   let cancel = () => {};
   let stopPromise: Promise<void> | undefined;
   let signalFailure!: () => void;
@@ -161,23 +159,14 @@ export function startServer(options: RuntimeOptions) {
     }
     if (!ready.length) return;
     if (serial >= Number.MAX_SAFE_INTEGER) throw new Error('Snapshot serial exhausted.');
-    const current = authority.snapshot();
-    const world = JSON.stringify({ ...current, wildlife: [] });
-    const encoded = JSON.stringify(current.wildlife);
-    if (encoded !== wildlife) {
-      wildlife = encoded;
-      wildlifeRevision += 1;
-    }
-    const owed = (ws: ServerWebSocket<SocketData>) => ws.data.wildlifeRevision !== wildlifeRevision;
+    const world = serializeWorld(authority.snapshot());
     const header = { type: 'snapshot', protocol: PROTOCOL, realmId: authority.realmId, streamId, serial: ++serial };
     for (const ws of ready) {
       const prefix = JSON.stringify({ ...header, session: session(ws) });
-      const carries = owed(ws);
       const early = !beat && now - ws.data.lastSnapshot < SNAPSHOT_INTERVAL_MS;
-      const sent = ws.send(Bun.gzipSync(`${prefix.slice(0, -1)},"world":${world},"wildlife":${carries ? wildlife : 'null'}}`));
+      const sent = ws.send(Bun.gzipSync(`${prefix.slice(0, -1)},"world":${world}}`));
       ws.data.snapshotDue = false;
       if (!early) ws.data.lastSnapshot = now;
-      if (carries) ws.data.wildlifeRevision = wildlifeRevision;
       if (sent === 0) {
         trace('snapshot-dropped', { actor: ws.data.actorId, buffered: ws.getBufferedAmount() });
         ws.terminate();
@@ -290,7 +279,7 @@ export function startServer(options: RuntimeOptions) {
           if (!authenticated) return response(401, 'unauthenticated');
           if (slots.size >= 64 || [...slots].filter((slot) => slot.actorId === authenticated.actorId).length >= 8) return response(429, 'socket-limit');
           const binding = createHash('sha256').update(`oikos:session-binding:v1\0${authority.realmId}\0${credential}`).digest('hex');
-          const data: SocketData = { credential, binding, actorId: authenticated.actorId, snapshotDue: true, lastSnapshot: -Infinity, wildlifeRevision: -1 };
+          const data: SocketData = { credential, binding, actorId: authenticated.actorId, snapshotDue: true, lastSnapshot: -Infinity };
           slots.add(data);
           if (listener.upgrade(request, { data })) return;
           slots.delete(data);
