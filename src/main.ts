@@ -728,6 +728,7 @@ export function boot(source: SharedBootSource): BootHandles {
       get snapshots() { return snapshotLog.all; },
       get cadence() { return cadence(snapshotLog.all); },
       clearLog: () => { protocolLog.clear(); snapshotLog.clear(); },
+      get clock() { return clock.now; },
       get frames() { return stage.frames; },
       get drawCalls() { return stage.renderer.info.render.calls; },
       get triangles() { return stage.renderer.info.render.triangles; },
