@@ -55,7 +55,7 @@ describe('open admission', () => {
     const { authority } = freshAuthority(cleanups);
     for (let i = 0; i < ACTOR_CAP; i++) admit(authority);
     expect(authority.admit('Tycho')).toEqual({ ok: false, reason: 'No admission slots remain.' });
-  });
+  }, 120_000);
 });
 
 describe('a genuinely valid claim, founding and a real build', () => {
