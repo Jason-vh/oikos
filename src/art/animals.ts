@@ -88,6 +88,7 @@ export function animalModel(kind: AnimalKind): T.Group {
 }
 
 const RABBIT_HOPS = 1;
+const GRAZE_PITCH = .2;
 
 export function animateAnimal(model: T.Object3D, kind: AnimalKind, phase: number, moving: boolean, stride = 0): void {
   if (kind === 'gull') {
@@ -114,8 +115,15 @@ export function animateAnimal(model: T.Object3D, kind: AnimalKind, phase: number
     legs.forEach((leg, index) => { leg.rotation.x = lift * (index < 2 ? -1.1 : .9); });
     return;
   }
-  const swing = moving ? .5 : 0;
-  legs.forEach((leg, index) => { leg.rotation.x = Math.sin(phase * 8 + (index % 2) * Math.PI) * swing; });
-  body.position.y = moving ? Math.abs(Math.sin(phase * 8)) * .03 : 0;
+  if (!moving) {
+    const graze = .5 + Math.sin(phase * .5) * .5;
+    body.rotation.x = graze * GRAZE_PITCH;
+    body.position.y = -graze * .01;
+    legs.forEach((leg) => { leg.rotation.x = 0; });
+    return;
+  }
+  body.rotation.x = 0;
+  legs.forEach((leg, index) => { leg.rotation.x = Math.sin(phase * 8 + (index % 2) * Math.PI) * .5; });
+  body.position.y = Math.abs(Math.sin(phase * 8)) * .03;
 }
 

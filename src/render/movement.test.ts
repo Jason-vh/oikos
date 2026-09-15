@@ -198,3 +198,40 @@ test('a walker kept waiting looks about, of its own accord', () => {
   expect(looked[0]).not.toBe(looked[1]);
   city.dispose();
 });
+
+test('two people left standing together eventually turn to face one another', () => {
+  const world = createWorld();
+  const stage = { scene: new T.Scene(), shadows() {}, shadowsFromMotion() {}, invalidate() {} } as Stage;
+  const city = new CityScene(stage, islandFor(world.seed), true);
+  const owner = primaryCity(world);
+  const spur = roadSpur(world, 4).map((tile) => tileIndexOn(mapOf(world, owner), tile.x, tile.z));
+  const pair = [spur.slice(0, 2), spur.slice(1, 3)].map((path) => {
+    const walker: Walker = {
+      id: world.nextId++, kind: 'porter', homeId: owner.harbour.id, targetId: null,
+      path, departedAt: -100, step: path.length - 1, progress: 0, food: null, cargo: 0,
+      returning: false, overland: [], quarry: null, task: null,
+    };
+    owner.walkers.push(walker);
+    return walker;
+  });
+  city.setWorldTime(0);
+  city.sync(world);
+  const place = (walker: Walker) => city.moverPoint(walker.id)!;
+  const facingEachOther = () => {
+    const models = pair.map((walker) => stage.scene.children.find((child) => child.userData.walkerId === walker.id)!);
+    return models.every((model, index) => {
+      const towards = place(pair[1 - index]).clone().sub(place(pair[index]));
+      const wanted = Math.atan2(towards.x, towards.z);
+      const off = Math.abs(Math.atan2(Math.sin(model.rotation.y - wanted), Math.cos(model.rotation.y - wanted)));
+      return off < .25;
+    });
+  };
+  let met = false;
+  for (let frame = 0; frame < 3000 && !met; frame++) {
+    city.setWorldTime(frame / 30);
+    city.animate(0, 1 / 30, 1);
+    met = facingEachOther();
+  }
+  expect(met).toBe(true);
+  city.dispose();
+});

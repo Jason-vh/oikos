@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { animateFigure, animateWork, bake, box, bundle, bundleKey, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, lump, post, type ModelStage } from '../art';
+import { animateFigure, animateIdle, animateWork, bake, box, bundle, bundleKey, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, lump, post, type Idle, type ModelStage } from '../art';
 import { footprint } from '../sim/catalog';
 import { AGORA_SLOTS, GRANARY_SLOTS, WALKER_SPEED } from '../sim/balance';
 import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, groundHeight, insideMapOn, tileAtOn, tileIndexOn, worldPositionOn, type IslandMap } from '../sim/island';
@@ -18,14 +18,20 @@ import { WildlifeField } from './wildlife';
 
 interface BuildingEntry { key: string; tier: number; model: T.Group; intro: number; from: number; construction: BuildingConstruction | null; }
 interface Departure { model: T.Group; elapsed: number; }
-interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; path: number[]; departedAt: number; quarry: number | null; task: WalkerTask | null; moving: boolean; working: boolean; waitingSince: number; heading: number; stepped: boolean; stairs: ReadonlyMap<number, Stair>; }
+interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; path: number[]; departedAt: number; quarry: number | null; task: WalkerTask | null; moving: boolean; working: boolean; waitingSince: number; spell: number; mood: Idle; aim: number; heading: number; stepped: boolean; stairs: ReadonlyMap<number, Stair>; }
 interface AnimalEntry { animal: Animal; position: T.Vector3; facing: number; roll: number; phase: number; moving: boolean; stride: number; dying: number; visible: boolean; drawn: boolean; }
 
 const SIGHT_MARGIN = 1.3;
 const ANIMAL_FACING_LOOK = .35;
 const IDLE_SETTLE = 1.2;
-const IDLE_GLANCE = 3.4;
+const IDLE_SPELL = 3.4;
 const IDLE_SWEEP = 1.8;
+const NEIGHBOUR_REACH = 3.2;
+
+function scatterOf(id: number, spell: number): number {
+  const drawn = Math.sin(id * 12.9898 + spell * 78.233) * 43758.5453;
+  return drawn - Math.floor(drawn);
+}
 const REVEAL_SHARE = .9;
 
 const TURN_RATE = 14;
@@ -422,7 +428,7 @@ export class CityScene {
       const model = this.walkerModel(walker.kind, load);
       model.userData.walkerId = walker.id;
       this.stage.scene.add(model);
-      entry = { key, kind: walker.kind, model, path: walker.path, departedAt: walker.departedAt, quarry: walker.quarry, task: walker.task, moving: false, working: false, waitingSince: walker.departedAt, heading: 0, stepped: false, stairs };
+      entry = { key, kind: walker.kind, model, path: walker.path, departedAt: walker.departedAt, quarry: walker.quarry, task: walker.task, moving: false, working: false, waitingSince: walker.departedAt, spell: -1, mood: 'breathe', aim: 0, heading: 0, stepped: false, stairs };
       this.walkers.set(walker.id, entry);
     }
     entry.path = walker.path;
@@ -464,12 +470,38 @@ export class CityScene {
     else if (a.x !== b.x || a.z !== b.z) entry.heading = Math.atan2(b.x - a.x, b.z - a.z);
   }
 
-  private glance(id: number, walker: WalkerEntry): number {
+  private idling(id: number, walker: WalkerEntry): void {
     const waited = this.worldTime - walker.waitingSince;
-    if (waited < IDLE_SETTLE) return 0;
-    const spell = Math.floor((waited - IDLE_SETTLE) / IDLE_GLANCE);
-    const drawn = Math.sin(id * 12.9898 + spell * 78.233) * 43758.5453;
-    return ((drawn - Math.floor(drawn)) - .5) * IDLE_SWEEP;
+    if (waited < IDLE_SETTLE) {
+      walker.spell = -1;
+      walker.mood = 'breathe';
+      walker.aim = walker.heading;
+      return;
+    }
+    const spell = Math.floor((waited - IDLE_SETTLE) / IDLE_SPELL);
+    if (spell === walker.spell) return;
+    walker.spell = spell;
+    const humour = scatterOf(id, spell);
+    walker.mood = humour < .18 ? 'stretch' : humour < .5 ? 'shift' : 'breathe';
+    const neighbour = scatterOf(id, spell + .5) < .45 ? this.neighbourOf(id, walker) : null;
+    if (neighbour) {
+      walker.aim = Math.atan2(neighbour.x - walker.model.position.x, neighbour.z - walker.model.position.z);
+      return;
+    }
+    walker.aim = walker.heading + (scatterOf(id, spell + .25) - .5) * IDLE_SWEEP;
+  }
+
+  private neighbourOf(id: number, walker: WalkerEntry): T.Vector3 | null {
+    let nearest: T.Vector3 | null = null;
+    let closest = NEIGHBOUR_REACH * NEIGHBOUR_REACH;
+    for (const [other, entry] of this.walkers) {
+      if (other === id || entry.moving || entry.working) continue;
+      const gap = entry.model.position.distanceToSquared(walker.model.position);
+      if (gap >= closest || gap < 1e-6) continue;
+      closest = gap;
+      nearest = entry.model.position;
+    }
+    return nearest;
   }
 
   private groundCompanions(walker: WalkerEntry): void {
@@ -491,12 +523,14 @@ export class CityScene {
     this.turnedAt = this.worldTime;
     for (const [id, walker] of this.walkers) {
       this.placeWalker(walker);
-      const aim = walker.moving || walker.working ? walker.heading : walker.heading + this.glance(id, walker);
-      walker.model.rotation.y = turnToward(walker.model.rotation.y, aim, turning);
+      const idle = !walker.moving && !walker.working;
+      if (idle) this.idling(id, walker);
+      walker.model.rotation.y = turnToward(walker.model.rotation.y, idle ? walker.aim : walker.heading, turning);
       const stride = walker.moving ? .55 : 0;
       const phase = this.worldTime * 9 * Math.max(1, speed) + id;
       if (walker.working && walker.task) animateWork(walker.model, (this.worldTime - walker.task.since) * Math.max(1, speed) + id, walker.task.kind === 'hunt' ? 'thrust' : 'chop');
-      else animateFigure(walker.model, phase, stride);
+      else if (walker.moving) animateFigure(walker.model, phase, stride);
+      else animateIdle(walker.model, (this.worldTime - walker.waitingSince) * Math.max(1, speed) + id, walker.mood);
       for (const companion of walker.model.children.slice(5)) {
         if (companion.children.length >= 5) animateFigure(companion, phase + 1.3, stride);
       }

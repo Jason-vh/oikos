@@ -32,3 +32,16 @@ test('a boar keeps its walk, without hopping', () => {
   for (const phase of [0, .4, 1.1, 2.7]) animateAnimal(model, 'boar', phase, true, .5);
   expect(model.position.y).toBe(0);
 });
+
+test('a settled boar puts its head down, and lifts it again when it walks', () => {
+  const model = animalModel('boar');
+  const [body] = model.children;
+  animateAnimal(model, 'boar', 0, false, 0);
+  const low = body.rotation.x;
+  animateAnimal(model, 'boar', 3.2, false, 0);
+  const lower = body.rotation.x;
+  expect(low).not.toBe(lower);
+  expect(Math.max(low, lower)).toBeGreaterThan(.05);
+  animateAnimal(model, 'boar', 3.2, true, .4);
+  expect(body.rotation.x).toBe(0);
+});

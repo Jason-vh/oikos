@@ -4,7 +4,7 @@ export {
 } from './primitives';
 export { tree } from './vegetation';
 export { houseSupplies } from './houses';
-export { citizen, figure, animateFigure, animateWork, type Load } from './people';
+export { citizen, figure, animateFigure, animateIdle, animateWork, type Idle, type Load } from './people';
 export { boat } from './ships';
 export { stall } from './stall';
 export { getBuildingModel, getBuildingAssembly, type ModelStage, type ModelState } from './buildings';

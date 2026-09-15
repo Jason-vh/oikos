@@ -73,3 +73,34 @@ export function animateWork(model: T.Object3D, phase: number, kind: 'chop' | 'th
   const tool = model.children[5];
   if (tool) tool.rotation.x = rightArm.rotation.x + .3;
 }
+
+export type Idle = 'breathe' | 'shift' | 'stretch';
+
+export function animateIdle(model: T.Object3D, spent: number, mood: Idle): void {
+  const [body, leftLeg, leftArm, rightLeg, rightArm] = model.children;
+  const breath = Math.sin(spent * 1.6) * .012;
+  body.rotation.x = 0;
+  body.rotation.z = 0;
+  body.position.y = breath;
+  leftLeg.rotation.x = 0;
+  rightLeg.rotation.x = 0;
+  leftArm.rotation.x = 0;
+  rightArm.rotation.x = 0;
+  if (mood === 'shift') {
+    const lean = Math.sin(spent * .9);
+    body.rotation.z = lean * .07;
+    body.position.y = breath - Math.abs(lean) * .012;
+    leftLeg.rotation.x = lean * .1;
+    rightLeg.rotation.x = -lean * .1;
+    leftArm.rotation.x = -lean * .12;
+    rightArm.rotation.x = lean * .12;
+  } else if (mood === 'stretch') {
+    const reach = Math.max(0, Math.sin(spent * 1.4));
+    body.rotation.x = -reach * .22;
+    body.position.y = breath + reach * .03;
+    leftArm.rotation.x = -reach * 2.1;
+    rightArm.rotation.x = -reach * 2.1;
+  }
+  const tool = model.children[5];
+  if (tool) tool.rotation.x = rightArm.rotation.x + .3;
+}

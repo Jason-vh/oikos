@@ -124,3 +124,16 @@ A model is done when, in the game at the default zoom:
 4. it does not introduce a new colour or material;
 5. `npm run art:check` and `npm run art:capture` pass, and the captures in
    `artifacts/art/` look right beside the previous ones.
+
+## Idleness
+
+A person with nothing to do is not a statue. They breathe, shift their weight,
+stretch now and then, and turn to look about — at the sea, at whoever is standing
+nearby. None of it is authored per person or sent by the server: the client picks
+from the walker's own id and the moment its wait began, so two people idling side
+by side behave differently and every screen may differ without anything being wrong.
+Keep these small. At city zoom a person is a few pixels tall, and the reading is
+"someone is alive there", not a performance.
+
+A grazing animal is the same idea: a settled boar dips its head rather than
+standing to attention.
