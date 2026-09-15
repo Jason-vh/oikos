@@ -99,3 +99,43 @@ describe('wildlife', () => {
     expect(animalStatus(boar)[0]).toContain('meat');
   });
 });
+
+describe('rest', () => {
+  test('land animals spend most of their time standing still, and walk at their own pace when they move', () => {
+    const world = createWorld(1);
+    const map = islandFor(world.seed);
+    const occupied = wildlifeObstacles(world);
+    for (const kind of ['boar', 'rabbit'] as const) {
+      const animals = world.wildlife.filter((animal) => animal.kind === kind).slice(0, 60);
+      let still = 0;
+      let samples = 0;
+      let travelled = 0;
+      for (const animal of animals) {
+        let previous = animalAt(map, occupied, animal, 0);
+        for (let at = .1; at < 90; at += .1) {
+          const now = animalAt(map, occupied, animal, at);
+          const pace = Math.hypot(now.x - previous.x, now.z - previous.z) / .1;
+          samples += 1;
+          if (pace < .02) still += 1;
+          else travelled += pace;
+          previous = now;
+        }
+      }
+      expect(still / samples).toBeGreaterThan(.6);
+      expect(travelled / (samples - still)).toBeLessThan(SPECIES[kind].speed * 1.6);
+    }
+  });
+
+  test('gulls never stop, because they are flying', () => {
+    const world = createWorld(1);
+    const map = islandFor(world.seed);
+    const occupied = wildlifeObstacles(world);
+    const gull = world.wildlife.find((animal) => animal.kind === 'gull')!;
+    let previous = animalAt(map, occupied, gull, 0);
+    for (let at = .1; at < 30; at += .1) {
+      const now = animalAt(map, occupied, gull, at);
+      expect(Math.hypot(now.x - previous.x, now.z - previous.z)).toBeGreaterThan(0);
+      previous = now;
+    }
+  });
+});

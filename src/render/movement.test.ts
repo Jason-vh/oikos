@@ -77,7 +77,7 @@ test('an animal is drawn wherever the clock puts it, with no update to wait for'
   const world = createWorld();
   const stage = { scene: new T.Scene(), shadows() {}, shadowsFromMotion() {}, invalidate() {} } as Stage;
   const city = new CityScene(stage, islandFor(world.seed), true);
-  const animal = world.wildlife.find((candidate) => candidate.kind === 'boar')!;
+  const animal = world.wildlife.find((candidate) => candidate.kind === 'gull')!;
   city.setWorldTime(0);
   city.sync(world);
   const start = city.moverPoint(animal.id)!.clone();
