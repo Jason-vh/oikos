@@ -8,12 +8,13 @@ function heights(stride: number): number {
   return model.position.y;
 }
 
-test('a hopping rabbit leaves the ground and lands on it again', () => {
+test('a rabbit crosses to the next spot in a single hop', () => {
   expect(heights(0)).toBeCloseTo(0, 9);
   expect(heights(1)).toBeCloseTo(0, 9);
-  expect(heights(1 / 6)).toBeGreaterThan(.1);
-  expect(heights(1 / 3)).toBeCloseTo(0, 9);
-  expect(heights(.5)).toBeGreaterThan(.1);
+  expect(heights(.5)).toBeGreaterThan(.15);
+  expect(heights(.25)).toBeGreaterThan(0);
+  expect(heights(.25)).toBeLessThan(heights(.5));
+  expect(heights(.75)).toBeCloseTo(heights(.25), 9);
 });
 
 test('a rabbit at rest sits still on the ground', () => {

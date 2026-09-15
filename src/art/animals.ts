@@ -87,7 +87,7 @@ export function animalModel(kind: AnimalKind): T.Group {
   }
 }
 
-const RABBIT_HOPS = 3;
+const RABBIT_HOPS = 1;
 
 export function animateAnimal(model: T.Object3D, kind: AnimalKind, phase: number, moving: boolean, stride = 0): void {
   if (kind === 'gull') {

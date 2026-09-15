@@ -10,6 +10,8 @@ export interface SpeciesDefinition {
   speed: number;
   range: number;
   rest: number;
+  move: number;
+  hop: boolean;
   habitat: (map: IslandMap, x: number, z: number) => boolean;
   density: number;
   flock: number;
@@ -22,10 +24,10 @@ const coastalWater = (map: IslandMap, x: number, z: number): boolean => {
 };
 
 export const SPECIES: Record<AnimalKind, SpeciesDefinition> = {
-  boar: { name: 'Wild boar', food: 'meat', yield: 40, speed: .35, range: 4, rest: .72, habitat: (map, x, z) => terrainOn(map, x, z) === 'forest', density: .07, flock: 1 },
-  rabbit: { name: 'Rabbit', food: 'meat', yield: 8, speed: .6, range: 2.5, rest: .8, habitat: (map, x, z) => terrainOn(map, x, z) === 'scrub', density: .12, flock: 2 },
-  fish: { name: 'Fish', food: 'fish', yield: 30, speed: .5, range: 3, rest: .45, habitat: coastalWater, density: .06, flock: 4 },
-  gull: { name: 'Gull', food: null, yield: 0, speed: 1.6, range: 9, rest: 0, habitat: (map, x, z) => terrainOn(map, x, z) === 'sand' || coastalWater(map, x, z), density: .03, flock: 1 },
+  boar: { name: 'Wild boar', food: 'meat', yield: 40, speed: .35, range: 4, rest: .72, move: 2.6, hop: false, habitat: (map, x, z) => terrainOn(map, x, z) === 'forest', density: .07, flock: 1 },
+  rabbit: { name: 'Rabbit', food: 'meat', yield: 8, speed: 1.8, range: 2.5, rest: .82, move: .45, hop: true, habitat: (map, x, z) => terrainOn(map, x, z) === 'scrub', density: .12, flock: 2 },
+  fish: { name: 'Fish', food: 'fish', yield: 30, speed: .5, range: 3, rest: .45, move: 2.6, hop: false, habitat: coastalWater, density: .06, flock: 4 },
+  gull: { name: 'Gull', food: null, yield: 0, speed: 1.6, range: 9, rest: 0, move: 2.6, hop: false, habitat: (map, x, z) => terrainOn(map, x, z) === 'sand' || coastalWater(map, x, z), density: .03, flock: 1 },
 };
 
 export function spawnWildlife(world: World): Animal[] {
@@ -73,8 +75,6 @@ function scatter(animal: Animal, index: number): number {
   return value - Math.floor(value);
 }
 
-const WALKING_SECONDS = 2.6;
-
 function loopAt(animal: Animal, species: SpeciesDefinition, turns: number): AnimalPlace {
   const reach = species.range * .72;
   const slow = animal.drift + turns;
@@ -86,7 +86,7 @@ function loopAt(animal: Animal, species: SpeciesDefinition, turns: number): Anim
 }
 
 function restingPlace(animal: Animal, species: SpeciesDefinition, index: number): AnimalPlace {
-  const step = species.speed * WALKING_SECONDS;
+  const step = species.speed * species.move;
   const wobble = scatter(animal, index) * .3 + .85;
   return loopAt(animal, species, index * step / (species.range * .72) * wobble);
 }
@@ -98,7 +98,7 @@ interface Gait {
 
 function wanderGait(animal: Animal, time: number): Gait {
   const species = SPECIES[animal.kind];
-  const cycle = WALKING_SECONDS / (1 - species.rest);
+  const cycle = species.move / (1 - species.rest);
   const phase = time / cycle + animal.drift;
   const index = Math.floor(phase);
   const within = phase - index;
@@ -106,7 +106,7 @@ function wanderGait(animal: Animal, time: number): Gait {
   if (within <= species.rest) return { offset: settled, stride: 0 };
   const next = restingPlace(animal, species, index + 1);
   const share = (within - species.rest) / (1 - species.rest);
-  const eased = species.rest > 0 ? share * share * (3 - 2 * share) : share;
+  const eased = species.rest > 0 && !species.hop ? share * share * (3 - 2 * share) : share;
   return {
     offset: {
       x: settled.x + (next.x - settled.x) * eased,
