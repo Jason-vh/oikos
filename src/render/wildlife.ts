@@ -27,6 +27,7 @@ export class WildlifeField {
 
   constructor(scene: T.Object3D) {
     this.root = this.field.root;
+    this.root.name = 'wildlife';
     scene.add(this.root);
   }
 

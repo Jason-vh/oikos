@@ -104,6 +104,7 @@ export class CityScene {
   private syncedWildlife: readonly Animal[] | null = null;
   private wildlifeObstacles: ReadonlySet<number> = new Set();
   private worldTime = 0;
+  private turnedAt = 0;
   private readonly logistics: LogisticsOverlay;
   private readonly validMaterial = new T.MeshBasicMaterial({ color: 0x79b58b, transparent: true, opacity: .38, depthWrite: false });
   private readonly invalidMaterial = new T.MeshBasicMaterial({ color: 0xd3664e, transparent: true, opacity: .45, depthWrite: false });
@@ -472,12 +473,14 @@ export class CityScene {
 
   animate(time: number, delta: number, speed: number): void {
     this.scenery.update(time, this.focus);
+    const turning = Math.max(0, this.worldTime - this.turnedAt) * Math.max(1, speed);
+    this.turnedAt = this.worldTime;
     for (const [id, walker] of this.walkers) {
       this.placeWalker(walker);
-      walker.model.rotation.y = turnToward(walker.model.rotation.y, walker.heading, delta * speed);
+      walker.model.rotation.y = turnToward(walker.model.rotation.y, walker.heading, turning);
       const stride = walker.moving ? .55 : 0;
-      const phase = time * 9 * Math.max(1, speed) + id;
-      if (walker.working) animateWork(walker.model, time * Math.max(1, speed) + id, walker.kind === 'hunter' ? 'thrust' : 'chop');
+      const phase = this.worldTime * 9 * Math.max(1, speed) + id;
+      if (walker.working) animateWork(walker.model, this.worldTime * Math.max(1, speed) + id, walker.kind === 'hunter' ? 'thrust' : 'chop');
       else animateFigure(walker.model, phase, stride);
       for (const companion of walker.model.children.slice(5)) {
         if (companion.children.length >= 5) animateFigure(companion, phase + 1.3, stride);
@@ -485,7 +488,7 @@ export class CityScene {
       this.groundCompanions(walker);
     }
     for (const [id, animal] of this.animals) {
-      this.placeAnimal(animal, delta * speed);
+      this.placeAnimal(animal, turning);
 
       if (animal.dying > 0) {
         animal.dying += delta * speed;
@@ -500,7 +503,7 @@ export class CityScene {
         this.writeAnimal(id, animal);
         continue;
       }
-      animal.phase = time * Math.max(1, speed) + id;
+      animal.phase = this.worldTime * Math.max(1, speed) + id;
       this.writeAnimal(id, animal);
     }
     if (this.scenery.animateFalls(delta * speed)) this.stage.shadowsFromMotion();

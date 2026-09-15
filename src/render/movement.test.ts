@@ -90,3 +90,31 @@ test('an animal is drawn wherever the clock puts it, with no update to wait for'
   expect(city.moverPoint(animal.id)!.distanceTo(start)).toBeCloseTo(0, 9);
   city.dispose();
 });
+
+test('nothing alive stirs while the world stands still, and does once it moves', () => {
+  const world = createWorld();
+  const stage = { scene: new T.Scene(), shadows() {}, shadowsFromMotion() {}, invalidate() {} } as Stage;
+  const city = new CityScene(stage, islandFor(world.seed), true);
+  const gull = world.wildlife.find((animal) => animal.kind === 'gull')!;
+  city.setWorldTime(12);
+  city.sync(world);
+  city.watch(city.moverPoint(gull.id)!.clone(), 80);
+  city.animate(0, 1 / 60, 1);
+  const held = drawn(stage.scene);
+  expect(held.length).toBeGreaterThan(0);
+  for (let frame = 1; frame <= 30; frame++) city.animate(frame / 60, 1 / 60, 1);
+  expect(drawn(stage.scene)).toEqual(held);
+  city.setWorldTime(12.4);
+  city.animate(.6, 1 / 60, 1);
+  expect(drawn(stage.scene)).not.toEqual(held);
+  city.dispose();
+});
+
+function drawn(scene: T.Scene): number[] {
+  const matrices: number[] = [];
+  scene.getObjectByName('wildlife')!.traverse((object) => {
+    const instanced = object as T.InstancedMesh;
+    if (instanced.isInstancedMesh) matrices.push(...instanced.instanceMatrix.array);
+  });
+  return matrices;
+}
