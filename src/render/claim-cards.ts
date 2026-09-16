@@ -12,8 +12,8 @@ const DOT_RADIUS = 4.5;
 const DOT_GAP = 9;
 const SHADOW_ROOM = 14;
 const TEXTURE_SCALE = 3;
-const PLATE = 'rgba(250, 248, 240, .86)';
-const RIM = 'rgba(255, 255, 255, .7)';
+const PLATE = 'rgba(255, 253, 246, .96)';
+const RIM = 'rgba(255, 255, 255, .9)';
 const INK = '#294b4a';
 
 interface Card {
@@ -116,7 +116,7 @@ export class ClaimCards {
     const centreZ = island.z + island.depth / 2;
     const point = worldPositionOn(this.map, centreX, centreZ);
     const { texture, width, height } = cardTexture(city);
-    const sprite = new T.Sprite(new T.SpriteMaterial({ map: texture, transparent: true, depthWrite: false, opacity: this.strength }));
+    const sprite = new T.Sprite(new T.SpriteMaterial({ map: texture, transparent: true, depthWrite: false, fog: false, opacity: this.strength }));
     sprite.center.set(.5, 0);
     sprite.position.set(point.x, groundHeight(this.map, Math.floor(centreX), Math.floor(centreZ)) + HEIGHT_ABOVE_LAND, point.z);
     this.group.add(sprite);
