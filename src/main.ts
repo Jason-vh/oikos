@@ -28,6 +28,7 @@ import './ui/style.css';
 export interface SharedBootSource {
   session: SharedSession;
   initialSnapshot: SharedSnapshot;
+  canReset?: boolean;
 }
 
 const CONNECTION_NOTICE_DELAY = 900;
@@ -298,7 +299,18 @@ export function boot(source: SharedBootSource): BootHandles {
     discardPending: () => {
       if (source.session.discardPending()) sharedIntent.reset();
     },
-  });
+    resetWorld: () => { void resetWorld(); },
+  }, { canReset: source.canReset === true });
+
+  async function resetWorld(): Promise<void> {
+    hud.notify('Resetting the world\u2026');
+    try {
+      const response = await fetch('/api/world/reset', { method: 'POST' });
+      if (!response.ok) hud.notify('The world could not be reset.', true);
+    } catch {
+      hud.notify('The world could not be reset.', true);
+    }
+  }
 
   const sharedIntent = new SharedIntent(source.session, () => realmId, (outcome, kind) => {
     applySharedOutcome(outcome, false);

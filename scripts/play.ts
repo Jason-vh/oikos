@@ -38,7 +38,7 @@ if (agentNames.length > 0) {
 
 let runtime: ReturnType<typeof startServer>;
 try {
-  runtime = startServer({ path: dbPath, publicOrigin, port: authorityPort });
+  runtime = startServer({ path: dbPath, publicOrigin, port: authorityPort, allowReset: true });
 } catch (error) {
   console.error(`Authority could not start on ${dbPath}.`);
   console.error(error instanceof Error ? error.message : error);

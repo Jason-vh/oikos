@@ -17,6 +17,7 @@ export interface RuntimeOptions {
   hostname?: string;
   port?: number;
   clock?: RuntimeClock;
+  allowReset?: boolean;
 }
 interface SocketData {
   credential: string;
@@ -254,7 +255,8 @@ export function startServer(options: RuntimeOptions) {
         if (path === '/mcp') {
           return serveAgent(request).catch(() => { fatal(); return response(503, 'unavailable'); });
         }
-        if (path !== '/api/session/join' && path !== '/api/world' && path !== '/api/world/preview') return response(404, 'not-found');
+        if (path !== '/api/session/join' && path !== '/api/world' && path !== '/api/world/preview' && path !== '/api/world/reset') return response(404, 'not-found');
+        if (path === '/api/world/reset' && !options.allowReset) return response(404, 'not-found');
         const browserOrigin = request.headers.get('origin');
         const previewing = path === '/api/world/preview';
         if (previewing && browserOrigin !== null && browserOrigin !== options.publicOrigin) return response(403, 'origin-denied');
@@ -266,12 +268,22 @@ export function startServer(options: RuntimeOptions) {
             if (request.method !== 'GET') return response(405, 'method-not-allowed');
             const ip = listener.requestIP(request)?.address;
             if (!ip || !take(requests, ip, clock.now(), 8, 2)) return response(429, 'rate-limited');
-            const body = `{"known":${authenticated !== null},"world":${serializeWorld(authority.snapshot())}}`;
+            const body = `{"known":${authenticated !== null},"canReset":${options.allowReset === true},"world":${serializeWorld(authority.snapshot())}}`;
             return new Response(Bun.gzipSync(body), { headers: {
               'Content-Type': 'application/json',
               'Content-Encoding': 'gzip',
               'Cache-Control': 'no-store',
             } });
+          }
+          if (path === '/api/world/reset') {
+            if (request.method !== 'POST') return response(405, 'method-not-allowed');
+            if (!authenticated) return response(401, 'unauthenticated');
+            if (!take(requests, authenticated.actorId, clock.now(), 4, 1)) return response(429, 'rate-limited');
+            settle();
+            authority.reset();
+            anchor = null;
+            for (const ws of sockets) ws.terminate();
+            return Response.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
           }
           if (path === '/api/session/join') {
             if (request.method !== 'POST') return response(405, 'method-not-allowed');

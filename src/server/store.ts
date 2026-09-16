@@ -27,6 +27,20 @@ export interface AuthorityDb {
   realmId: string;
 }
 
+export function resetStore(store: AuthorityDb): void {
+  const realmId = randomUUID();
+  const world = createSharedWorld();
+  const wipe = store.db.transaction(() => {
+    store.db.run('DELETE FROM receipts;');
+    store.db.run('DELETE FROM ownership;');
+    store.db.run('UPDATE sequences SET high_watermark = 0;');
+    store.db.run('UPDATE world SET revision = revision + 1, data = ? WHERE id = 1;', [serializeWorld(world)]);
+    store.db.run('UPDATE meta SET realm_id = ? WHERE id = 1;', [realmId]);
+  });
+  wipe.exclusive();
+  store.realmId = realmId;
+}
+
 export function selectOne<T>(db: Database, sql: string, ...params: SQLQueryBindings[]): T | null {
   const statement = db.prepare<T, SQLQueryBindings[]>(sql);
   try {

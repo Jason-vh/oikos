@@ -31,6 +31,7 @@ function connect(): WebSocket {
 
 interface Preview {
   known: boolean;
+  canReset: boolean;
   world: World;
 }
 
@@ -38,10 +39,10 @@ async function preview(): Promise<Preview | null> {
   try {
     const response = await fetch('/api/world/preview', { cache: 'no-store' });
     if (!response.ok) return null;
-    const payload = await response.json() as { known?: unknown; world?: unknown };
+    const payload = await response.json() as { known?: unknown; canReset?: unknown; world?: unknown };
     const world = deserializeSharedWorld(JSON.stringify(payload.world));
-    if (typeof payload.known !== 'boolean' || !world) return null;
-    return { known: payload.known, world };
+    if (typeof payload.known !== 'boolean' || typeof payload.canReset !== 'boolean' || !world) return null;
+    return { known: payload.known, canReset: payload.canReset, world };
   } catch {
     return null;
   }
@@ -90,6 +91,7 @@ function boot_(): void {
   let backdrop: Backdrop | null = null;
   let firstSnapshotSeen = false;
   let unreachedHandshakes = 0;
+  let canReset = false;
   let recheckInFlight = false;
   let epoch = 0;
   let bufferedOutcomes: SharedRequestOutcome[] = [];
@@ -114,6 +116,7 @@ function boot_(): void {
   }
 
   async function admit(seen: Preview): Promise<void> {
+    canReset = seen.canReset;
     if (!seen.known) {
       backdrop = await showBackdrop(seen.world, app);
       await overlay.askToJoin(join);
@@ -156,7 +159,7 @@ function boot_(): void {
             if (myEpoch !== epoch) return;
             try {
               if (!firstSnapshotSeen) {
-                handles = boot({ session: session!, initialSnapshot: snapshot }) ?? null;
+                handles = boot({ session: session!, initialSnapshot: snapshot, canReset }) ?? null;
                 if (!handles) throw new Error('Shared game did not start.');
                 handles.onStatus(session!.currentStatus, session!.statusReason);
                 for (const result of bufferedOutcomes.splice(0)) handles.onOutcome(result);

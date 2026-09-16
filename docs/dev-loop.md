@@ -21,6 +21,12 @@ exhaust it: when a shore can no longer be found, use `--fresh` rather than looki
 for the bug. `--agent "<name>"` prints an MCP credential before the server takes
 its exclusive lock on the database, which is the only moment one can be issued.
 
+Only `npm run play` offers **Reset world** in the menu: it starts the authority
+with resetting allowed, and the button appears because `/api/world/preview` says
+so. A reset writes a fresh archipelago under a new realm and drops every socket;
+players keep their cookie and reconnect on their own, city-less. The deployed
+server never offers the route, so the button is never there.
+
 `npm run dev` alone serves the pages but has no authority behind it, so `/` will
 sit at *Cannot reach the world* forever. That is a missing server, not a broken
 client.

@@ -26,7 +26,7 @@ export class TestClock implements RuntimeClock {
   }
 }
 
-export async function fixture(cleanups: Array<() => unknown>, prepare: (authority: Authority) => void = () => {}) {
+export async function fixture(cleanups: Array<() => unknown>, prepare: (authority: Authority) => void = () => {}, options: { allowReset?: boolean } = {}) {
   const files: Array<() => void> = [];
   const { path, authority } = freshAuthority(files);
   cleanups.push(() => { for (const cleanup of files.reverse()) cleanup(); });
@@ -34,7 +34,7 @@ export async function fixture(cleanups: Array<() => unknown>, prepare: (authorit
   authority.close();
   const clock = new TestClock();
   const origin = 'http://127.0.0.1:43210';
-  const runtime = startServer({ path, publicOrigin: origin, port: 0, clock });
+  const runtime = startServer({ path, publicOrigin: origin, port: 0, clock, allowReset: options.allowReset });
   cleanups.push(() => runtime.stop());
   const base = `http://127.0.0.1:${runtime.server.port}`;
   async function joinAs(name: string, headers: Record<string, string> = {}) {

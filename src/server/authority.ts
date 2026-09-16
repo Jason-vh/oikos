@@ -5,7 +5,7 @@ import { claimHarbour, CITY_NAME_LIMIT } from '../sim/claims';
 import { applyCommand, parseCommand } from '../sim/commands';
 import { advance } from '../sim/world';
 import { parseCityName } from './protocol';
-import { type AuthorityDb, closeStore, openStore, readWorldRow, selectAll, selectOne, writeWorldRow } from './store';
+import { type AuthorityDb, closeStore, openStore, readWorldRow, resetStore, selectAll, selectOne, writeWorldRow } from './store';
 
 export const ACTOR_CAP = 1024;
 export const RETAINED_RECEIPTS = 256;
@@ -240,7 +240,6 @@ function resolveOutcome(world: World, db: Database, actorId: number, request: Au
 
 export class Authority {
   private readonly store: AuthorityDb;
-  readonly realmId: string;
   private world: World;
   private revision: number;
   private poisoned = false;
@@ -248,9 +247,12 @@ export class Authority {
 
   private constructor(store: AuthorityDb, world: World, revision: number) {
     this.store = store;
-    this.realmId = store.realmId;
     this.world = world;
     this.revision = revision;
+  }
+
+  get realmId(): string {
+    return this.store.realmId;
   }
 
   static open(path: string): Authority {
@@ -271,6 +273,17 @@ export class Authority {
 
   snapshot(): World {
     return this.poison(() => structuredClone(this.world));
+  }
+
+  reset(): void {
+    this.guardWritable();
+    this.poison(() => {
+      resetStore(this.store);
+      const { revision, world } = readWorldRow(this.store.db);
+      this.world = world;
+      this.revision = revision;
+      this.dirty = false;
+    });
   }
 
   advance(seconds: number): void {

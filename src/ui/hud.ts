@@ -14,6 +14,11 @@ export interface HudActions {
   menu(open: boolean): void;
   sound(enabled: boolean): void;
   discardPending(): void;
+  resetWorld(): void;
+}
+
+export interface HudFeatures {
+  canReset: boolean;
 }
 
 export interface CityScope {
@@ -186,8 +191,8 @@ const SKELETON = `
       <div class="hud-menu-actions">
         <button type="submit" value="grid" data-testid="grid-toggle" aria-pressed="false">Placement grid</button>
         <button type="button" data-action="sound" data-testid="sound-toggle" aria-pressed="true">Sound on</button>
+        <button type="button" class="hud-menu-danger" data-action="reset-world" data-testid="reset-world" hidden>Reset world</button>
       </div>
-      <p class="hud-save-status" data-field="saved">The server saves this city. Menus do not pause shared time.</p>
       <dl class="hud-keys">
         <div><dt>1\u20130</dt><dd>Build tools</dd></div>
         <div><dt>X</dt><dd>Demolish</dd></div>
@@ -221,7 +226,7 @@ function row(root: ParentNode, name: string): HTMLElement {
   return element;
 }
 
-export function createHud(root: HTMLElement, actions: HudActions): Hud {
+export function createHud(root: HTMLElement, actions: HudActions, features: HudFeatures = { canReset: false }): Hud {
   root.innerHTML = SKELETON;
 
   const populationField = field(root, 'population');
@@ -271,6 +276,13 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     actions.menu(true);
     menu.showModal();
   }
+  const resetButton = action(root, 'reset-world');
+  resetButton.hidden = !features.canReset;
+  resetButton.addEventListener('click', () => {
+    if (!window.confirm('Reset the world? Every city on the archipelago is lost.')) return;
+    menu.close('close');
+    actions.resetWorld();
+  });
   action(root, 'sound').addEventListener('click', () => actions.sound(action(root, 'sound').getAttribute('aria-pressed') !== 'true'));
   action(root, 'menu').addEventListener('click', openMenu);
   menu.addEventListener('close', () => {
