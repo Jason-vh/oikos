@@ -2,20 +2,51 @@ import * as T from 'three';
 import { box, colors, group, lump, post, roof } from './primitives';
 import { assemblyPart, modelAssembly, type ModelAssembly } from './assembly';
 
+const FLARE_RADIUS = .175;
+const FLARE_HEIGHT = .3;
+
+function rootedTrunk(plant: T.Object3D): void {
+  post(plant, colors.wood, 0, FLARE_HEIGHT / 2, 0, FLARE_RADIUS, FLARE_HEIGHT);
+  post(plant, colors.wood, 0, .84, 0, .115, 1.24);
+}
+
 export function tree(parent: T.Object3D, x: number, y: number, z: number, scale = 1, cypress = false): void {
   const plant = group(parent, x, y, z, x * 5 + z);
   plant.scale.setScalar(scale);
-  post(plant, colors.wood, 0, .7, 0, .13, 1.4);
+  rootedTrunk(plant);
   if (cypress) {
-    lump(plant, colors.oliveDark, 0, 1.75, 0, .53, 1.45, .53);
-    lump(plant, colors.olive, .04, 2.6, 0, .34, .9, .35);
+    lump(plant, colors.oliveDark, 0, 1.6, 0, .53, 1.32, .53).rotation.set(0, .4, .05);
+    lump(plant, colors.olive, .06, 2.46, -.03, .39, .86, .4).rotation.set(0, 1.3, -.06);
+    lump(plant, colors.oliveLight, -.03, 3.08, .04, .25, .49, .26).rotation.set(0, .7, .08);
     return;
   }
-  const branch = post(plant, colors.wood, .25, 1.3, 0, .09, .9);
-  branch.rotation.z = -.55;
-  lump(plant, colors.oliveDark, -.4, 1.65, .04, .83, .65, .72);
-  lump(plant, colors.olive, .38, 1.9, .12, .91, .72, .83);
-  lump(plant, colors.oliveLight, -.05, 2.17, -.27, .75, .61, .76);
+  const bough = post(plant, colors.wood, .24, 1.42, .02, .075, .82);
+  bough.rotation.set(.1, 0, -.62);
+  const limb = post(plant, colors.wood, -.2, 1.66, -.05, .058, .56);
+  limb.rotation.set(-.14, 0, .68);
+  lump(plant, colors.oliveDark, -.4, 1.83, .04, .83, .65, .72).rotation.set(.3, .5, .18);
+  lump(plant, colors.olive, .38, 2.08, .12, .91, .72, .83).rotation.set(-.2, 1.1, -.34);
+  lump(plant, colors.oliveLight, -.05, 2.35, -.27, .75, .61, .76).rotation.set(.44, 2, .1);
+}
+
+export type Litter = 'bare' | 'chips' | 'logged';
+
+export function litterFor(roll: number, log = true): Litter {
+  if (roll > .78) return log ? 'logged' : 'chips';
+  if (roll > .42) return 'chips';
+  return 'bare';
+}
+
+export function stump(parent: T.Object3D, x: number, y: number, z: number, scale = 1, lie = 0, litter: Litter = 'bare'): void {
+  const remains = group(parent, x, y, z, lie);
+  remains.scale.setScalar(scale);
+  post(remains, colors.wood, 0, FLARE_HEIGHT / 2, 0, FLARE_RADIUS, FLARE_HEIGHT);
+  post(remains, colors.stone, 0, FLARE_HEIGHT + .02, 0, .15, .05).rotation.z = .12;
+  if (litter === 'bare') return;
+  lump(remains, colors.stone, -.29, .04, -.23, .09, .05, .1).rotation.y = .8;
+  if (litter !== 'logged') return;
+  const log = post(remains, colors.wood, .46, .1, .21, .095, .62);
+  log.rotation.set(0, .55, Math.PI / 2);
 }
 
 function farmShed(parent: T.Object3D): void {

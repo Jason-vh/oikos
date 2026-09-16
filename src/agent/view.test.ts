@@ -148,11 +148,11 @@ describe('inspection', () => {
   });
 
   test('adds the walkers a building sent out', () => {
-    const { city } = starterCity();
+    const { world, city } = starterCity();
     const fountain = city.buildings.find((building) => building.kind === 'fountain')!;
 
-    expect(inspectBuilding(city, fountain.id)).toContain('Water carrier');
-    expect(inspectBuilding(city, -1)).toBe('No building #-1 in this city.');
+    expect(inspectBuilding(world, city, fountain.id)).toContain('Water carrier');
+    expect(inspectBuilding(world, city, -1)).toBe('No building #-1 in this city.');
   });
 });
 

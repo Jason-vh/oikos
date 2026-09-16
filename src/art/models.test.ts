@@ -7,7 +7,7 @@ import { WATERLINE } from './coast';
 import { box, colors, disposeModel, group, lump, material, post } from './primitives';
 import { dwelling } from './houses';
 import { stall } from './stall';
-import { tree } from './vegetation';
+import { stump, tree } from './vegetation';
 import { citizen } from './people';
 import { boat } from './ships';
 import { getBuildingModel } from './buildings';
@@ -109,15 +109,27 @@ describe('getBuildingModel drawcall and triangle budgets', () => {
 });
 
 describe('decorative models still build', () => {
-  test('stall() and tree() produce finite, non-empty geometry', () => {
+  test('stall(), tree() and stump() produce finite, non-empty geometry', () => {
     const scene = new T.Group();
     stall(scene, 6, 0, 0, colors.blue);
     tree(scene, 8, 0, 0, 1, false);
     tree(scene, 9, 0, 0, 1, true);
+    stump(scene, 10, 0, 0, 1, 1.2);
     const stats = meshStats(scene);
     expect(stats.meshes).toBeGreaterThan(0);
     expect(stats.triangles).toBeGreaterThan(0);
     assertFiniteVertices(scene);
+  });
+
+  test('a stump sits inside the footprint of the tree it replaces', () => {
+    const standing = new T.Group();
+    const remains = new T.Group();
+    tree(standing, 0, 0, 0, 1, false);
+    stump(remains, 0, 0, 0, 1, 1.2);
+    const trunk = new T.Box3().setFromObject(standing);
+    const cut = new T.Box3().setFromObject(remains);
+    expect(cut.max.y).toBeLessThan(trunk.max.y / 4);
+    expect(cut.min.y).toBeGreaterThanOrEqual(-.01);
   });
 
   test('citizen() and boat() bake to a small number of independent meshes', () => {

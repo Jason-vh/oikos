@@ -5,6 +5,8 @@ import { CELL_SIZE, groundHeight, worldPositionOn, type IslandMap } from '../sim
 import { stairLayout } from '../sim/stairs';
 import { addRoadMark } from './road-marks';
 import { deliveryRoutes, serviceRoute, walkerRoute } from '../sim/logistics';
+import { gatherReach } from '../sim/gathering';
+import { reachOutline } from './reach';
 import type { Building, City, Walker, World } from '../sim/types';
 
 const ROUTE_COLOR = colors.blueLight;
@@ -80,6 +82,8 @@ export class LogisticsOverlay {
   private readonly root = new T.Group();
   private readonly routeTiles = new T.Group();
   private readonly servedMarks = new T.Group();
+  private readonly reachBand = new T.Group();
+  private reachKey = '';
   private readonly unitPlane = new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
   private readonly plannedMaterial = new T.MeshBasicMaterial({ color: ROUTE_COLOR, transparent: true, opacity: .48, depthWrite: false });
   private readonly liveMaterial = new T.MeshBasicMaterial({ color: ROUTE_COLOR, transparent: true, opacity: .68, depthWrite: false });
@@ -88,16 +92,34 @@ export class LogisticsOverlay {
   private key = '';
 
   constructor(scene: T.Scene, private readonly map: IslandMap) {
-    this.root.add(this.routeTiles, this.servedMarks);
+    this.root.add(this.routeTiles, this.servedMarks, this.reachBand);
     scene.add(this.root);
   }
 
+  private showReach(world: World | null, found: { city: City; building: Building } | null): void {
+    const building = found?.building;
+    const gatherer = building?.kind === 'woodcutter' || building?.kind === 'lodge';
+    const key = world && gatherer && found ? `${found.building.id}:${found.city.roads.length}:${world.felled.length}` : '';
+    if (key === this.reachKey) return;
+    this.reachKey = key;
+    this.clearReach();
+    if (key === '' || !world || !found) return;
+    const outline = reachOutline(this.map, gatherReach(world, found.city, found.building.kind, found.building.x, found.building.z, found.building.rotation));
+    if (outline) this.reachBand.add(outline);
+  }
+
+  private clearReach(): void {
+    for (const child of this.reachBand.children) (child as T.Mesh).geometry.dispose();
+    this.reachBand.clear();
+  }
+
   update(world: World | null, buildingId: number | null, walkerId: number | null): void {
+    const found = world && buildingId !== null ? findBuilding(world, buildingId) : null;
+    this.showReach(world, found);
     if (!world) {
-      this.clear();
+      this.clearRoutes();
       return;
     }
-    const found = buildingId !== null ? findBuilding(world, buildingId) : null;
     if (found) {
       const { city, building } = found;
       const circuit = serviceRoute(world, city, building);
@@ -112,7 +134,7 @@ export class LogisticsOverlay {
         this.apply(city, key, deliveries.map((route) => route.path), deliveries.map((route) => route.otherId), 'delivery');
         return;
       }
-      this.clear();
+      this.clearRoutes();
       return;
     }
     const foundWalker = walkerId !== null ? findWalker(world, walkerId) : null;
@@ -122,7 +144,7 @@ export class LogisticsOverlay {
       this.apply(foundWalker.city, key, [path], [], 'live');
       return;
     }
-    this.clear();
+    this.clearRoutes();
   }
 
   private apply(city: City, key: string, paths: number[][], servedIds: number[], style: RouteStyle): void {
@@ -150,6 +172,11 @@ export class LogisticsOverlay {
   }
 
   clear(): void {
+    this.showReach(null, null);
+    this.clearRoutes();
+  }
+
+  private clearRoutes(): void {
     if (this.key === '') return;
     this.key = '';
     this.routeTiles.clear();
@@ -166,7 +193,7 @@ export class LogisticsOverlay {
     this.servedMaterial.dispose();
   }
 
-  get counts(): { route: number; served: number } {
-    return { route: this.routeTiles.children.length, served: this.servedMarks.children.length };
+  get counts(): { route: number; served: number; reach: number } {
+    return { route: this.routeTiles.children.length, served: this.servedMarks.children.length, reach: this.reachBand.children.length };
   }
 }

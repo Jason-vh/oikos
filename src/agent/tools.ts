@@ -101,9 +101,9 @@ export const TOOLS: AgentTool[] = [
     description: 'One building by id, with the walkers it has sent out.',
     schema: { id: tile },
     async run(game, args) {
-      const { city } = game.view();
+      const { world, city } = game.view();
       if (!city) return UNCLAIMED;
-      return inspectBuilding(city, args.id);
+      return inspectBuilding(world, city, args.id);
     },
   }),
   tool({

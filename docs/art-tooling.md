@@ -21,9 +21,10 @@ src/art/
   cliffs.ts       inward-carved terrace faces and clustered limestone outcrops
   coast.ts        seeded shoreline profiles, carved faces and continuous shallows
   foam.ts         painted breakers that ride the shoreline's foot and shallows
-  vegetation.ts   tree(), wheatFarm(stage)
+  vegetation.ts   tree(), stump(litter), litterFor(roll), wheatFarm(stage)
   bushes.ts       bush(shape), seeded scrub pockets and smaller clifftop cushions
-  people.ts       figure(colour, load) with legs/arms, animateFigure(), animateWork()
+  people.ts       figure(colour, load) with legs/arms, axe(), spear(),
+                  animateFigure(), animateIdle(), animateWork(), chopStrikes()
   animals.ts      boar, rabbit, fish, gull, animateAnimal()
   ships.ts        boat()
   buildings.ts    getBuildingModel(kind, { tier, vendorEnabled, stage, stores }),
@@ -83,7 +84,9 @@ dust as each piece lands, then swaps to the ordinary material-batched model.
 
 - **`/art.html`** (`src/art-viewer.ts`): the atelier. Footprint border, grid, scale
   citizen, wireframe, turntable, golden hour, animated walk/flap cycles. The chosen
-  model is kept in `?model=…` so reloads and links preserve it. Every placeable
+  model is kept in `?model=…` so reloads and links preserve it. `artStudy.pose(seconds)`
+  scrubs an animated model to one instant and stops the clock there, the way the
+  construction slider does; changing model starts it again.  Every placeable
   building offers construction replay and a reversible progress slider, scaffolding
   and dust included — this is where timing is judged. Replay is disabled for reduced
   motion; manual scrubbing remains available without autoplay.

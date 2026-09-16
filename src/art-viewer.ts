@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { animalModel, animateAnimal, animateFigure, bake, boat, citizen, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, type ModelStage, type ModelState } from './art';
+import { animalModel, animateAnimal, animateFigure, animateWork, axe, bake, boat, CHOP_SET, citizen, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, spear, stump, tree, type ModelStage, type ModelState } from './art';
 import { cliffOutcrop } from './art/cliffs';
 import { bush, type BushShape } from './art/bushes';
 import { buildRoads } from './art/roads';
@@ -61,9 +61,49 @@ function boot(): void {
       return { model, footprint: null, description: `${kind[0].toUpperCase()}${kind.slice(1)}. Lives on the island; see src/sim/wildlife.ts for habitat and yield.`, animate: (time) => animateAnimal(model, kind, time, true) };
     }
     if (kindValue === 'person') {
+      if (tierValue === 'axe') {
+        const model = new T.Group();
+        const cutter = figure(0x8a5a3a, 'none').root;
+        cutter.add(axe());
+        cutter.scale.setScalar(.83);
+        const reach = .9;
+        tree(model, Math.sin(CHOP_SET) * reach, 0, Math.cos(CHOP_SET) * reach, .75);
+        model.add(cutter);
+        model.rotation.y = Math.PI - CHOP_SET;
+        return { model, footprint: null, description: 'A woodcutter at his tree, side-on and standing where the chop puts him. He winds the axe back over his shoulder and sweeps it round into the trunk.', animate: (time) => animateWork(cutter, time, 'chop') };
+      }
+      if (tierValue === 'spear') {
+        const model = new T.Group();
+        const hunter = figure(0x6f5a3c, 'none').root;
+        hunter.add(spear());
+        hunter.scale.setScalar(.83);
+        const boar = animalModel('boar');
+        boar.scale.setScalar(1.15);
+        boar.position.set(0, 0, .95);
+        boar.rotation.y = Math.PI * .65;
+        model.add(hunter, boar);
+        model.rotation.y = Math.PI;
+        return { model, footprint: null, description: 'A hunter over his quarry, standing where the thrust puts him. He draws the spear back, holds, then drives it down into the boar and leans on it.', animate: (time) => animateWork(hunter, time, 'thrust') };
+      }
       const load = tierValue === 'jar' ? 'jar' : tierValue === 'bundle' ? 'bundle' : 'none';
       const model = figure(colors.blue, load).root;
       return { model, footprint: null, description: 'A citizen. Legs and arms swing while walking.', animate: (time) => animateFigure(model, time * 9, .55) };
+    }
+    if (kindValue === 'tree') {
+      const model = new T.Group();
+      const stumps = tierValue === 'stump';
+      if (stumps) {
+        stump(model, -CELL_SIZE, 0, 0, .8, .4, 'bare');
+        stump(model, 0, 0, 0, .8, 2.1, 'chips');
+        stump(model, CELL_SIZE, 0, 0, .8, 3.4, 'logged');
+      } else tree(model, 0, 0, 0, 1, tierValue === 'cypress');
+      bake(model);
+      const descriptions: Record<string, string> = {
+        broadleaf: 'A broadleaf. A flared root, a tapering trunk and three canopy masses, each turned so no two trees repeat.',
+        cypress: 'A cypress. Three tapering masses on the same flared trunk.',
+        stump: 'What a felled tree leaves, in its three seeded variants: a bare cut stump, one with chips, one with the log still bucked beside it. Most are bare. All clear when the forest regrows.',
+      };
+      return { model, footprint: stumps ? { width: 3, depth: 1 } : { width: 1, depth: 1 }, description: descriptions[tierValue] };
     }
     if (kindValue === 'bush') {
       const model = bush(tierValue as BushShape);
@@ -100,6 +140,7 @@ function boot(): void {
   }
 
   let animate: ((time: number) => void) | null = null;
+  let held: number | null = null;
 
   function disposeStudy(root: T.Group): void {
     root.removeFromParent();
@@ -154,6 +195,7 @@ function boot(): void {
     }
     if (model) disposeStudy(model);
     constructionPlaying = false;
+    held = null;
     const selected = buildSelected(select.value);
     model = selected.model;
     animate = selected.animate ?? null;
@@ -242,7 +284,7 @@ function boot(): void {
       stage.shadows();
     }
     if (dust.advance(document.hidden || reducedMotion ? 0 : delta)) stage.invalidate();
-    if (animate && !document.hidden && !reducedMotion) {
+    if (animate && held === null && !document.hidden && !reducedMotion) {
       elapsed += delta;
       animate(elapsed);
       stage.invalidate();
@@ -250,7 +292,11 @@ function boot(): void {
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
-  Reflect.set(window, 'artStudy', { get frames() { return stage.frames; }, get camera() { return [...stage.camera.position.toArray(), ...stage.controls.target.toArray(), stage.camera.zoom]; } });
+  Reflect.set(window, 'artStudy', {
+    get frames() { return stage.frames; },
+    get camera() { return [...stage.camera.position.toArray(), ...stage.controls.target.toArray(), stage.camera.zoom]; },
+    pose(seconds: number) { held = seconds; animate?.(seconds); stage.invalidate(); },
+  });
 }
 
 try { boot(); }

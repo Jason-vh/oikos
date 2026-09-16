@@ -8,7 +8,8 @@ import { demolitionPreview, footprintTileIssues, harbourRoute, suitableFarmGroun
 import { CELL_SIZE, groundHeight, islandFor, terrainOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
 import { buildingStatus, getSummary, placement, roadPathPlacement, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
 import { animalName, animalStatus } from './sim/wildlife';
-import type { Building, City, Placement, Rotation, Tile, Tool, Walker, World } from './sim/types';
+import { gatherReach } from './sim/gathering';
+import type { Building, BuildingKind, City, Placement, Rotation, Tile, Tool, Walker, World } from './sim/types';
 import { createHud, type CityScope, type HudTool } from './ui/hud';
 import { createSound } from './ui/sound';
 import { celebration, cityMilestones, NO_MILESTONES, rememberMilestones } from './ui/celebrations';
@@ -172,7 +173,7 @@ export function boot(source: SharedBootSource): BootHandles {
     renderedWritable = canEdit;
     if (foundWalker) hud.update(world, viewedScope, activeScope, { kind: 'person', name: walkerName(foundWalker.walker), role: WALKER_ROLES[foundWalker.walker.kind], status: walkerStatus(foundWalker.city, foundWalker.walker) }, canEdit);
     else if (animal) hud.update(world, viewedScope, activeScope, { kind: 'person', name: animalName(animal), role: 'Wildlife', status: animalStatus(animal) }, canEdit);
-    else if (found) hud.update(world, viewedScope, activeScope, { kind: 'building', building: found.building, status: buildingStatus(found.city, found.building), editable: canEdit && found.city.id === active?.id }, canEdit);
+    else if (found) hud.update(world, viewedScope, activeScope, { kind: 'building', building: found.building, status: buildingStatus(world, found.city, found.building), editable: canEdit && found.city.id === active?.id }, canEdit);
     else hud.update(world, viewedScope, activeScope, null, canEdit);
     const debt = (active?.money ?? 0) < 0;
     if (debt && !inDebt) hud.notify('The treasury is in debt: upkeep outweighs income.', true);
@@ -428,7 +429,8 @@ export function boot(source: SharedBootSource): BootHandles {
     const issues = footprintTileIssues(world, homeCity, tool, hover.x, hover.z, rotation);
     const validTiles = issues.filter((tile) => !tile.blocked);
     const invalidTiles = issues.filter((tile) => tile.blocked && insideMap(tile));
-    city.showPreview(tool, hover.x, hover.z, rotation, { ...preview, ok: true, tiles: validTiles.map((tile) => tileIndexOn(map(), tile.x, tile.z)) }, homeCity.roads);
+    const reach = gatherReach(world, homeCity, tool as BuildingKind, hover.x, hover.z, rotation);
+    city.showPreview(tool, hover.x, hover.z, rotation, { ...preview, ok: true, tiles: validTiles.map((tile) => tileIndexOn(map(), tile.x, tile.z)) }, homeCity.roads, reach);
     overlay.setBlockedTiles(invalidTiles);
     overlay.setDemolitionTarget([]);
     overlay.setHarbourRoute(harbourRoute(world, homeCity, validTiles.map((tile) => tileIndexOn(map(), tile.x, tile.z))));

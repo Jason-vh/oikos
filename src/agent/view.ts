@@ -174,7 +174,7 @@ function stockLine(building: Building): string {
   return `${held} of ${storeCapacity(building)}`;
 }
 
-function describeBuilding(city: City, building: Building): string {
+function describeBuilding(world: World, city: City, building: Building): string {
   const definition = BUILDINGS[building.kind];
   const { width, depth } = footprint(building.kind, building.rotation);
   const head = `${building.kind} #${building.id} at (${building.x},${building.z}) ${width}x${depth}`;
@@ -188,7 +188,7 @@ function describeBuilding(city: City, building: Building): string {
   }
   facts.push(`condition ${Math.round(building.condition)}%`);
   if (!building.connected) facts.push('no road');
-  const status = building.kind === 'harbour' ? harbourStatus(building) : buildingStatus(city, building);
+  const status = building.kind === 'harbour' ? harbourStatus(building) : buildingStatus(world, city, building);
   return `  ${head}: ${facts.join(', ')}. ${status.join(' ')}`;
 }
 
@@ -209,11 +209,11 @@ export function cityReport(world: World, city: City): string {
     `Population ${summary.population}, employment ${Math.round(summary.workers)} of ${summary.jobs} jobs, food in store ${Math.round(summary.food)}.`,
     `Harvested ${Math.round(city.produced)} food, delivered ${Math.round(city.delivered)} to homes.`,
     `Goal: ${summary.prosperous} of 4 courtyard houses thriving with a balanced budget; ${summary.goal ? 'met' : 'not met yet'}.`,
-    describeBuilding(city, city.harbour).trimStart(),
+    describeBuilding(world, city, city.harbour).trimStart(),
   ];
   if (city.buildings.length) {
     lines.push(`Buildings (${city.buildings.length}):`);
-    for (const building of [...city.buildings].sort((a, b) => a.id - b.id)) lines.push(describeBuilding(city, building));
+    for (const building of [...city.buildings].sort((a, b) => a.id - b.id)) lines.push(describeBuilding(world, city, building));
   } else lines.push('Buildings: none yet.');
   lines.push(...walkerLines(city));
   lines.push(`Roads: ${city.roads.length} tiles.`);
@@ -233,7 +233,7 @@ export function inspectTile(world: World, city: City, x: number, z: number): str
   ];
   if (city.roads.includes(tile)) lines.push('Your road runs here.');
   const occupant = [...city.buildings, city.harbour].find((building) => footprintTiles(map, building).includes(tile));
-  if (occupant) lines.push(describeBuilding(city, occupant).trimStart());
+  if (occupant) lines.push(describeBuilding(world, city, occupant).trimStart());
   const foreign = foreignOccupancy(world, city);
   if (foreign.roads.has(tile)) lines.push("Another city's road holds this tile.");
   if (foreign.buildings.has(tile)) lines.push("Another city's building holds this tile.");
@@ -256,10 +256,10 @@ export function atlas(world: World): string {
   return lines.join('\n');
 }
 
-export function inspectBuilding(city: City, id: number): string {
+export function inspectBuilding(world: World, city: City, id: number): string {
   const building = [city.harbour, ...city.buildings].find((candidate) => candidate.id === id);
   if (!building) return `No building #${id} in this city.`;
-  const lines = [describeBuilding(city, building).trimStart()];
+  const lines = [describeBuilding(world, city, building).trimStart()];
   const walkers = city.walkers.filter((walker) => walker.homeId === id);
   for (const walker of walkers) lines.push(`  ${WALKER_ROLES[walker.kind]}: ${walkerStatus(city, walker).join(' ')}`);
   return lines.join('\n');

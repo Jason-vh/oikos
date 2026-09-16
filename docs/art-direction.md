@@ -88,6 +88,54 @@ edge at coastal junctions, where stone triangles close the transition to the coa
 inset shoulders. Two-level drops remain closed. Clifftop stones form
 occasional paired outcrops, cleared wherever a road occupies their tile.
 
+## Felling
+
+A tree is cut down, not deleted. `src/art/vegetation.ts` gives every trunk a root
+flare so it looks planted; `src/render/island.ts` hinges the tile's decoration at
+that trunk rather than at the tile centre. Each axe blow shakes the tree and throws
+chips; the topple runs about a single horizontal axis away from whoever is chopping,
+accelerating rather than easing out, and raises dust where the crown lands. Under
+that dust the tree goes and a stump stays. What is left is seeded per trunk and mostly
+modest: usually a bare cut stump, sometimes chips beside it, occasionally the bucked
+log as well. Two trees on one tile never both leave a log — a worked forest should read
+as cleared ground, not a woodyard. Stumps clear when the forest regrows, and hide
+under a building placed on them.
+
+The woodcutter is authored to match. `animateWork(elapsed, 'chop')` runs one
+continuous cycle — wind-up, a beat held at the top, an accelerating strike, recoil,
+recover. It is a felling cut, not a splitting blow: he stands side-on with the tree
+off his front-right (`CHOP_SET`), winds the axe back over his far shoulder and sweeps
+it round horizontally into the trunk, torso and arms twisting with it. That needs the
+tool and arms on `YXZ` rotation order, so the swing is applied after the pitch rather
+than inside it. Its phase comes from the task's start, so `chopStrikes()` tells the
+renderer exactly when the blade lands.
+
+**The swing comes from the trunk, not the wrists.** `pose.swing` turns the torso, and
+the shoulders orbit with it (`setShoulder`); the working arm holds one angle against
+the chest for the whole cycle, and the hips carry a third of the turn. Nothing swings
+by waving an arm about a fixed shoulder, which is what reads as wrong at any zoom.
+
+A tool is built with its origin at the grip and placed on the back hand every frame.
+The fore hand is not authored: `aimArm` points it at a spot `HAND_SPAN` up the haft,
+so both hands sit on the shaft a little apart and stay there as the tool moves. The
+back hand tucks toward the midline (`TUCK`) because these arms are short — without it
+the off hand cannot reach the haft at all.
+
+The axe head sits square across the end of the haft, so the blade is unmistakably
+perpendicular rather than in line with it. `CHOP_HEAD` is where the blade is and
+`CHOP_SET` the bearing it strikes along, which is what the renderer turns the walker
+by. Where the blade lands is measured, not guessed: a test holds it to that bearing
+and inside `CHOP_REACH`.
+
+The hunter's thrust is the same machinery with its own keyframes: guard, a coil that
+draws the spear back and out to the side rather than up, an accelerating drive, a beat
+leaning on the shaft while it is in, then recover. The spear is held level and points
+at the quarry throughout — it never swings behind the shoulder, and no part of the
+cycle stands still.
+
+A walker steps up to whatever it is working, and back out before it is finished:
+`CHOP_REACH` puts the blade on the bark, `HUNT_REACH` puts the spear in the flank.
+
 ## Scrub
 
 `src/art/bushes.ts` authors low cushions, leaning upright shrubs and paired clumps

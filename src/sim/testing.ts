@@ -1,7 +1,7 @@
 import type { ActionResult, Building, BuildingKind, BuildTool, City, Rotation, Tile, World } from './types';
 import { STARTING_MONEY, footprint } from './catalog';
 import { buildable, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn, type IslandMap, type IslandPlacement } from './island';
-import { mapOf as gridMapOf, neighbours, perimeterTiles, footprintTiles } from './grid';
+import { mapOf as gridMapOf, neighbours, perimeterTiles, footprintTiles, siteBuilding } from './grid';
 import { freshHarbour, harbourTiles } from './harbour';
 import { findHarbourSite, harbourApron, harbourSiteOf } from './founding';
 import { placement, placeRoadPath, recomputeConnectivity } from './world';
@@ -120,13 +120,6 @@ export function farCorner(world: World): Tile {
   };
 }
 
-function placeholderBuilding(kind: BuildingKind, rotation: Rotation, x: number, z: number): Building {
-  return {
-    id: 0, x, z, kind, rotation, tier: 1, residents: 0, food: 0, water: 0, condition: 100, stores: {},
-    progress: 0, workers: 0, vendorEnabled: false, vendorInstalled: false, connected: false, serviceTimer: 0, upgradeTimer: 0,
-  };
-}
-
 export function spotAdjacentTo(world: World, kind: Exclude<BuildingKind, 'harbour'>, tile: Tile, rotation: Rotation = 0): Tile | null {
   const city = primaryCity(world);
   const map = mapOf(world);
@@ -137,7 +130,7 @@ export function spotAdjacentTo(world: World, kind: Exclude<BuildingKind, 'harbou
       const x = tile.x + dx;
       const z = tile.z + dz;
       if (x < 0 || z < 0 || x + width > map.width || z + depth > map.depth) continue;
-      if (!perimeterTiles(map, placeholderBuilding(kind, rotation, x, z)).includes(target)) continue;
+      if (!perimeterTiles(map, siteBuilding(kind, rotation, x, z)).includes(target)) continue;
       if (placement(world, city, kind, x, z, rotation).ok) return { x, z };
     }
   }

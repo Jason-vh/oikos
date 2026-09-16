@@ -7,6 +7,7 @@ import { CELL_SIZE, GROUND_Y, groundHeight, islandFor, terrainOn, tileIndexOn, w
 import { roadHeight, stairLayout } from './sim/stairs';
 import { advance, build, createWorld, demolish, placement, placeRoadPath, roadPathPlacement } from './sim/world';
 import { buildStarterNeighbourhood, planStarterNeighbourhood } from './sim/scenario';
+import { gatherReach } from './sim/gathering';
 import { footprintTileIssues } from './sim/construction';
 import type { BuildingKind, BuildTool, Rotation, Tile, World } from './sim/types';
 import './ui/style.css';
@@ -50,6 +51,7 @@ function boot(): void {
   }
 
   function sync(): void {
+    scene.setWorldTime(world.time);
     scene.sync(world);
     overlay.setRoads(city().roads);
     scene.scenery.grid.visible = showGrid;
@@ -133,7 +135,7 @@ function boot(): void {
       const preview = placement(world, city(), tool, x, z, rotation);
       const issues = footprintTileIssues(world, city(), tool, x, z, rotation);
       const valid = issues.filter((tile) => !tile.blocked);
-      scene.showPreview(tool, x, z, rotation, { ...preview, ok: true, tiles: valid.map((tile) => tileIndexOn(scene.map, tile.x, tile.z)) }, city().roads);
+      scene.showPreview(tool, x, z, rotation, { ...preview, ok: true, tiles: valid.map((tile) => tileIndexOn(scene.map, tile.x, tile.z)) }, city().roads, gatherReach(world, city(), tool, x, z, rotation));
       overlay.setBlockedTiles(issues.filter((tile) => tile.blocked));
       return preview;
     },

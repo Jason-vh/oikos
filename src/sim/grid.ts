@@ -1,4 +1,4 @@
-import type { Building, City, World } from './types';
+import type { Building, BuildingKind, City, Rotation, World } from './types';
 import { footprint } from './catalog';
 import { islandFor, insideMapOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import { doorTiles, roadStepAllowed, stairLayout } from './stairs';
@@ -25,6 +25,13 @@ export function footprintTiles(map: IslandMap, building: Building): number[] {
     for (let dx = 0; dx < width; dx++) tiles.push(tileIndexOn(map, building.x + dx, building.z + dz));
   }
   return tiles;
+}
+
+export function siteBuilding(kind: BuildingKind, rotation: Rotation, x: number, z: number): Building {
+  return {
+    id: 0, x, z, kind, rotation, tier: 1, residents: 0, food: 0, water: 0, condition: 100, stores: {},
+    progress: 0, workers: 0, vendorEnabled: false, vendorInstalled: false, connected: false, serviceTimer: 0, upgradeTimer: 0,
+  };
 }
 
 export function perimeterTiles(map: IslandMap, building: Building): number[] {

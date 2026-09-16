@@ -1,7 +1,7 @@
 import type { ActionResult, Building, BuildTool, City, Food, Placement, Resource, Rotation, Stores, Summary, TaskKind, Tile, Walker, WalkerKind, World } from './types';
 import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, STARTING_MONEY, VENDOR_COST, footprint, isFood } from './catalog';
 import { retireRespawned, wildlifeRoster } from './wildlife';
-import { gatherArrival, gatherFinished, regrowForest, updateGatherer } from './gathering';
+import { gatherArrival, gatherErrand, gatherFinished, gatherKind, GATHER_STOCK_CAP, regrowForest, updateGatherer } from './gathering';
 import { findHarbourSite, harbourApron } from './founding';
 import { freshHarbour, HARBOUR_DOCK_CAP, harbourStatus, harbourTiles, setHarbourTrade, updateHarbour } from './harbour';
 import { buildable, insideMapOn, islandFor, levelOn, onHomeIsland, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
@@ -960,7 +960,21 @@ function neglectAdvice(city: City): string {
   return caretakers ? 'Neglected; a caretaker will repair it.' : 'Neglected; build a maintenance post.';
 }
 
-export function buildingStatus(city: City, building: Building): string[] {
+function gathererStatus(world: World, city: City, building: Building): string[] {
+  const hunting = building.kind === 'lodge';
+  if (hasActiveWalker(city, building.id, gatherKind(building))) {
+    return [hunting ? 'Hunter out after game.' : 'Woodcutter in the forest.'];
+  }
+  if (totalStock(building) >= GATHER_STOCK_CAP) {
+    return [hunting ? 'Full of meat; waiting for a cart to a granary.' : 'Full of lumber; waiting for a cart to a stockpile.'];
+  }
+  if (!gatherErrand(world, city, building)) {
+    return [hunting ? 'No game within reach; the herds will wander back.' : 'No standing trees within reach; the forest is regrowing.'];
+  }
+  return [hunting ? 'Hunter resting at the lodge.' : 'Woodcutter resting at the cabin.'];
+}
+
+export function buildingStatus(world: World, city: City, building: Building): string[] {
   if (!building.connected) return ['Not linked to a road; nobody can reach it.'];
   if (building.kind === 'house') return houseStatus(city, building);
 
@@ -985,6 +999,8 @@ export function buildingStatus(city: City, building: Building): string[] {
     lines.push(hasActiveWalker(city, building.id, 'water') ? 'Water carrier making the rounds.' : 'Water carrier resting at the fountain.');
   } else if (building.kind === 'maintenance') {
     lines.push(hasActiveWalker(city, building.id, 'maintenance') ? 'Caretaker doing rounds.' : 'Caretaker resting at the post.');
+  } else if (building.kind === 'woodcutter' || building.kind === 'lodge') {
+    lines.push(...gathererStatus(world, city, building));
   } else if (building.kind === 'harbour') {
     lines.push(...harbourStatus(building));
   }

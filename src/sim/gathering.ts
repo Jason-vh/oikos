@@ -1,7 +1,7 @@
-import type { Animal, Building, City, Walker, World } from './types';
+import type { Animal, Building, BuildingKind, City, Rotation, Walker, World } from './types';
 import { footprint } from './catalog';
 import { buildable, islandFor, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
-import { accessTiles, footprintTiles, mapOf } from './grid';
+import { accessTiles, footprintTiles, mapOf, perimeterTiles, siteBuilding } from './grid';
 import { addStore, departOn, hasActiveWalker, sendCart, setTask, spawnWalker, totalStock } from './world';
 import { alive, animalAt, killAnimal, wildlifeObstacles } from './wildlife';
 import { mixedEdgeAllowed, stairLayout } from './stairs';
@@ -25,25 +25,21 @@ function passable(world: World, map: IslandMap, roads: Set<number>, index: numbe
   return buildable(terrain) || terrain === 'forest' || terrain === 'cliff';
 }
 
-export function overlandPath(world: World, city: City, start: number, isGoal: (tile: number) => boolean, limit: number): number[] | null {
+function walkOverland(world: World, city: City, starts: readonly number[], limit: number, isGoal: (tile: number) => boolean): Map<number, number> {
   const map = mapOf(world, city);
   const roads = new Set(city.roads);
   const stairs = stairLayout(map, roads);
-  const cameFrom = new Map<number, number>([[start, -1]]);
-  const distance = new Map<number, number>([[start, 0]]);
-  const queue = [start];
+  const cameFrom = new Map<number, number>();
+  const distance = new Map<number, number>();
+  const queue = [...starts];
+  for (const start of starts) {
+    cameFrom.set(start, -1);
+    distance.set(start, 0);
+  }
   let head = 0;
   while (head < queue.length) {
     const current = queue[head++];
-    if (isGoal(current)) {
-      const path: number[] = [];
-      let node = current;
-      while (node !== -1) {
-        path.push(node);
-        node = cameFrom.get(node) ?? -1;
-      }
-      return path.reverse();
-    }
+    if (isGoal(current)) break;
     if ((distance.get(current) ?? 0) >= limit) continue;
     const { x, z } = tileAtOn(map, current);
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
@@ -57,7 +53,20 @@ export function overlandPath(world: World, city: City, start: number, isGoal: (t
       queue.push(next);
     }
   }
-  return null;
+  return cameFrom;
+}
+
+export function overlandPath(world: World, city: City, start: number, isGoal: (tile: number) => boolean, limit: number): number[] | null {
+  const cameFrom = walkOverland(world, city, [start], limit, isGoal);
+  const goal = [...cameFrom.keys()].find(isGoal);
+  if (goal === undefined) return null;
+  const path: number[] = [];
+  let node = goal;
+  while (node !== -1) {
+    path.push(node);
+    node = cameFrom.get(node) ?? -1;
+  }
+  return path.reverse();
 }
 
 function animalTile(world: World, map: IslandMap, occupied: ReadonlySet<number>, animal: Animal): number {
@@ -94,44 +103,68 @@ function nearestAdjacentToForest(world: World, map: IslandMap, index: number): b
   });
 }
 
-export function updateGatherer(world: World, city: City, building: Building): void {
-  if (!building.connected || building.workers <= 0) return;
-  sendCart(world, city, building);
-  const kind = building.kind === 'lodge' ? 'hunter' : 'woodcutter';
-  if (hasActiveWalker(city, building.id, kind)) return;
-  if (totalStock(building) >= GATHER_STOCK_CAP) return;
+function gatherOrigins(world: World, city: City, site: Building): number[] {
+  const doors = accessTiles(world, city, site);
+  if (doors.length > 0) return [doors[0]];
+  const map = mapOf(world, city);
+  const roads = new Set(city.roads);
+  return perimeterTiles(map, site).filter((tile) => passable(world, map, roads, tile));
+}
+
+export function gatherReach(world: World, city: City, kind: BuildingKind, x: number, z: number, rotation: Rotation): number[] {
+  if (kind !== 'woodcutter' && kind !== 'lodge') return [];
+  const site = siteBuilding(kind, rotation, x, z);
+  const origins = gatherOrigins(world, city, site);
+  if (origins.length === 0) return [];
+  const own = new Set(footprintTiles(mapOf(world, city), site));
+  const walked = walkOverland(world, city, origins, GATHER_RANGE, () => false);
+  return [...walked.keys()].filter((tile) => !own.has(tile));
+}
+
+export function gatherKind(building: Building): 'hunter' | 'woodcutter' {
+  return building.kind === 'lodge' ? 'hunter' : 'woodcutter';
+}
+
+export function gatherErrand(world: World, city: City, building: Building): { path: number[]; quarry: number | null } | null {
+  const kind = gatherKind(building);
   const map = mapOf(world, city);
   const doors = accessTiles(world, city, building);
-  if (doors.length === 0) return;
+  if (doors.length === 0) return null;
   const start = doors[0];
   const grazing = kind === 'hunter' ? preyByTile(world, map) : new Map<number, number>();
   const path = kind === 'hunter'
     ? overlandPath(world, city, start, (tile) => grazing.has(tile), GATHER_RANGE)
     : overlandPath(world, city, start, (tile) => !new Set(footprintTiles(map, building)).has(tile) && nearestAdjacentToForest(world, map, tile), GATHER_RANGE);
-  if (!path) return;
-  let quarry: number | null = null;
-  if (kind === 'hunter') {
-    quarry = grazing.get(path[path.length - 1]) ?? null;
-  } else {
-    const goal = tileAtOn(map, path[path.length - 1]);
-    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const candidate = tileIndexOn(map, goal.x + dx, goal.z + dz);
-      if (standingForest(world, map, candidate)) { quarry = candidate; break; }
-    }
+  if (!path) return null;
+  if (kind === 'hunter') return { path, quarry: grazing.get(path[path.length - 1]) ?? null };
+  const goal = tileAtOn(map, path[path.length - 1]);
+  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const candidate = tileIndexOn(map, goal.x + dx, goal.z + dz);
+    if (standingForest(world, map, candidate)) return { path, quarry: candidate };
   }
+  return { path, quarry: null };
+}
+
+export function updateGatherer(world: World, city: City, building: Building): void {
+  if (!building.connected || building.workers <= 0) return;
+  sendCart(world, city, building);
+  if (hasActiveWalker(city, building.id, gatherKind(building))) return;
+  if (totalStock(building) >= GATHER_STOCK_CAP) return;
+  const errand = gatherErrand(world, city, building);
+  if (!errand) return;
   const roads = new Set(city.roads);
   spawnWalker(world, city, {
-    kind,
+    kind: gatherKind(building),
     homeId: building.id,
     targetId: null,
-    path,
+    path: errand.path,
     step: 0,
     progress: 0,
     food: null,
     cargo: 0,
     returning: false,
-    overland: path.filter((tile) => !roads.has(tile)),
-    quarry,
+    overland: errand.path.filter((tile) => !roads.has(tile)),
+    quarry: errand.quarry,
   });
 }
 

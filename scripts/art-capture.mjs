@@ -19,12 +19,12 @@ try {
   await page.goto(new URL('/art.html', base).href, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => document.body.dataset.ready || document.body.dataset.error);
   assert.equal(await page.locator('body').getAttribute('data-ready'), 'true');
-  for (const value of ['house:1', 'house:2', 'house:3', 'farm:1:0', 'farm:1:2', 'farm:1:3', 'granary:1:empty', 'granary:1:mixed', 'granary:1:full', 'agora:1', 'agora:2:empty', 'agora:2:mixed', 'fountain:1', 'maintenance:1', 'lodge:1', 'woodcutter:1', 'stockpile:1:materials', 'harbour:1:0', 'harbour:2:0', 'road:straight', 'road:bend', 'road:junction', 'road:cross', 'road:stairs', 'outcrop:1', 'bush:cushion', 'bush:upright', 'bush:paired']) {
+  for (const value of ['house:1', 'house:2', 'house:3', 'farm:1:0', 'farm:1:2', 'farm:1:3', 'granary:1:empty', 'granary:1:mixed', 'granary:1:full', 'agora:1', 'agora:2:empty', 'agora:2:mixed', 'fountain:1', 'maintenance:1', 'lodge:1', 'woodcutter:1', 'stockpile:1:materials', 'harbour:1:0', 'harbour:2:0', 'road:straight', 'road:bend', 'road:junction', 'road:cross', 'road:stairs', 'outcrop:1', 'bush:cushion', 'bush:upright', 'bush:paired', 'tree:broadleaf', 'tree:cypress', 'tree:stump']) {
     await page.getByLabel('Model', { exact: true }).selectOption(value);
     await paint(page);
     assert.equal(await page.locator('body').getAttribute('data-model'), value);
     await page.screenshot({ path: path.join(output, `model-${value.replaceAll(':', '-')}.png`) });
-    if (value.startsWith('bush:') || value.startsWith('outcrop:') || value.startsWith('road:')) {
+    if (value.startsWith('bush:') || value.startsWith('outcrop:') || value.startsWith('road:') || value.startsWith('tree:')) {
       for (let side = 1; side < 4; side++) {
         await page.getByRole('button', { name: 'Turn model', exact: true }).click();
         await paint(page);
@@ -40,7 +40,7 @@ try {
   await paint(page, 8);
   assert.equal(await page.evaluate(() => window.artStudy.frames), staticFrames, 'Static atelier keeps rendering');
   await page.getByLabel('Wireframe', { exact: true }).uncheck();
-  for (const value of ['person:jar', 'animal:boar', 'animal:rabbit', 'animal:fish', 'animal:gull', 'boat:large']) {
+  for (const value of ['person:jar', 'person:axe', 'person:spear', 'animal:boar', 'animal:rabbit', 'animal:fish', 'animal:gull', 'boat:large']) {
     await page.getByLabel('Model', { exact: true }).selectOption(value);
     await paint(page, 4);
     assert.equal(await page.locator('body').getAttribute('data-model'), value);

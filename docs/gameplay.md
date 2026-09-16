@@ -260,6 +260,24 @@ at home; carts take food to a granary and materials to a **stockpile** (3×3, ei
 bays, same court as the granary). Walkers carry `overland` tiles so saves validate
 off-road paths.
 
+A gatherer's reach is never a circle: `gatherReach` runs the same flood as
+`overlandPath` from the same door tile, so it stops at water, rock, cliffs and other
+buildings exactly where the walker would. `src/render/reach.ts` traces its frontier
+as one continuous blue line — one merged mesh, drawn inside the last reachable tile
+rather than on the tile border, so it never hangs over a cliff or a shore. Corners
+are trimmed, abutted or extended to suit the turn, so the stroke reads as an outline
+and not as a row of rectangles. Obstacles enclosed by the reach are filled rather
+than ringed: the line shows how far the gatherer goes, not every rock he steps
+around. It is drawn while a cabin or lodge is being placed and while one is selected,
+so the player can see what ground a site would command before paying for it.
+
+A gatherer with nothing to do says so. `buildingStatus` reports its walker out, its
+store full and waiting on a cart, or — the case that used to be silent — nothing left
+to gather in reach. That last line asks `gatherErrand`, the same query that decides
+whether to send a walker, so the cabin can never claim work it will not do. Lodge and
+cabin share all of it: the same reach, the same outline, the same four lines with game
+in place of trees.
+
 ## The harbour
 
 `src/sim/harbour.ts`. A city's harbour is the quay and pier it was founded on —

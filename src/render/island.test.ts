@@ -57,7 +57,7 @@ test('clifftop decoration clears for roads and returns when they are removed', (
   }
 });
 
-test('felled forest leans from its own tile and disappears once it has settled', () => {
+test('felled forest leans from its own tile and leaves a stump once it has settled', () => {
   const map = generateIsland(1);
   const scenery = new IslandScenery(new T.Scene(), map);
   scenery.reveal(null);
@@ -68,6 +68,7 @@ test('felled forest leans from its own tile and disappears once it has settled',
     const { x, z } = tileAtOn(map, tile);
     const centre = worldPositionOn(map, x + .5, z + .5);
     scenery.clearDecor(new Set(), new Set([tile]));
+    expect(scenery.stumpBounds(tile)).toBeNull();
     expect(scenery.animateFalls(1.1)).toBe(true);
     const leaning = scenery.decorBounds(tile)!;
     expect(leaning).not.toEqual(standing);
@@ -76,6 +77,56 @@ test('felled forest leans from its own tile and disappears once it has settled',
     expect(leaning.distanceToPoint(new T.Vector3(centre.x, leaning.min.y, centre.z))).toBeLessThan(reach);
     expect(scenery.animateFalls(2.2)).toBe(false);
     expect(scenery.decorHidden(tile)).toBe(true);
+    const remains = scenery.stumpBounds(tile)!;
+    expect(remains.max.y - standing.min.y).toBeLessThan((standing.max.y - standing.min.y) / 3);
+    expect(remains.distanceToPoint(new T.Vector3(centre.x, remains.min.y, centre.z))).toBeLessThan(CELL_SIZE);
+  } finally {
+    scenery.dispose();
+  }
+});
+
+test('a tree falls away from whoever chopped it, and regrowth takes the stump with it', () => {
+  const map = generateIsland(1);
+  const scenery = new IslandScenery(new T.Scene(), map);
+  scenery.reveal(null);
+  try {
+    const tile = map.terrain.findIndex((terrain) => terrain === 'forest');
+    const standing = scenery.decorBounds(tile)!;
+    const foot = scenery.decorFoot(tile)!;
+    const chopper = new T.Vector3(foot.x - CELL_SIZE, foot.y, foot.z);
+    scenery.struck(tile, chopper);
+    expect(scenery.animateFalls(.05)).toBe(true);
+    expect(scenery.decorBounds(tile)).not.toEqual(standing);
+    scenery.clearDecor(new Set(), new Set([tile]));
+    scenery.animateFalls(3);
+    const fallen = scenery.decorBounds(tile)!;
+    expect(fallen.max.x - foot.x).toBeGreaterThan(foot.x - fallen.min.x);
+    expect(scenery.stumpBounds(tile)).not.toBeNull();
+    scenery.clearDecor(new Set(), new Set());
+    expect(scenery.stumpBounds(tile)).toBeNull();
+    expect(scenery.decorHidden(tile)).toBe(false);
+    expect(scenery.decorBounds(tile)).toEqual(standing);
+  } finally {
+    scenery.dispose();
+  }
+});
+
+test('reduced motion skips the shudder and the dust but still fells away from the chopper', () => {
+  const map = generateIsland(1);
+  const scenery = new IslandScenery(new T.Scene(), map, null, false);
+  scenery.reveal(null);
+  try {
+    const tile = map.terrain.findIndex((terrain) => terrain === 'forest');
+    const standing = scenery.decorBounds(tile)!;
+    const foot = scenery.decorFoot(tile)!;
+    scenery.struck(tile, new T.Vector3(foot.x - CELL_SIZE, foot.y, foot.z));
+    expect(scenery.animateFalls(.05)).toBe(false);
+    expect(scenery.decorBounds(tile)).toEqual(standing);
+    scenery.clearDecor(new Set(), new Set([tile]));
+    scenery.animateFalls(3);
+    const fallen = scenery.decorBounds(tile)!;
+    expect(fallen.max.x - foot.x).toBeGreaterThan(foot.x - fallen.min.x);
+    expect(scenery.stumpBounds(tile)).not.toBeNull();
   } finally {
     scenery.dispose();
   }
