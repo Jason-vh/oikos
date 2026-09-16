@@ -10,7 +10,12 @@ export interface View { target: number[]; offset: number[]; size: number; zoom?:
 
 const UP = new T.Vector3(0, 1, 0);
 const MOTION_SHADOW_INTERVAL = 1000 / 12;
-const SUN_SNAP = 4;
+const SHADOW_MAP = 2048;
+const SHADOW_SNAP = 4;
+const SHADOW_PADDING = 24;
+const SHADOW_MIN_RADIUS = 44;
+const SHADOW_BIAS_TEXELS = 1.3;
+const SHADOW_MIN_NORMAL_BIAS = .055;
 const HAZE = 0xb1d2cd;
 const DEFAULT_WORLD_SPAN = 1000;
 const STANDOFF_SHARE = 1.7;
@@ -42,7 +47,8 @@ export class Stage {
   private motionShadowsDue = false;
   private lastShadows = 0;
   private readonly sunOffset = SUN_OFFSET.clone();
-  private readonly sunAnchor = new T.Vector3(Infinity, 0, Infinity);
+  private readonly sunFocus = new T.Vector3();
+  private sunRadius = 0;
   private readonly goal = { target: new T.Vector3(), spin: 0, active: false };
   reducedMotion = false;
   frames = 0;
@@ -74,11 +80,8 @@ export class Stage {
     this.controls.addEventListener('change', this.invalidate);
     this.controls.addEventListener('start', this.settle);
     this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(2048, 2048);
-    Object.assign(this.sun.shadow.camera, { left: -44, right: 44, top: 44, bottom: -44, near: 1, far: 120 });
-    this.sun.shadow.normalBias = .055;
+    this.sun.shadow.mapSize.set(SHADOW_MAP, SHADOW_MAP);
     this.sun.shadow.bias = -.00015;
-    this.sun.shadow.camera.updateProjectionMatrix();
     this.scene.add(this.ambient, this.sun, this.sun.target);
     const target = new T.WebGLRenderTarget(1, 1, { type: T.HalfFloatType, samples: 2 });
     this.composer = new EffectComposer(this.renderer, target);
@@ -195,19 +198,49 @@ export class Stage {
     this.camera.updateProjectionMatrix();
   }
 
+  private sunCoverage(): { center: T.Vector3; radius: number } {
+    const forward = new T.Vector3().subVectors(this.controls.target, this.camera.position).normalize();
+    const lit = new T.Box3();
+    if (forward.y < -.05) {
+      const across = new T.Vector3().crossVectors(forward, UP).normalize();
+      const up = new T.Vector3().crossVectors(across, forward).normalize();
+      const halfWidth = (this.camera.right - this.camera.left) / (2 * this.camera.zoom);
+      const halfHeight = (this.camera.top - this.camera.bottom) / (2 * this.camera.zoom);
+      for (const sideways of [-halfWidth, halfWidth]) {
+        for (const raised of [-halfHeight, halfHeight]) {
+          const corner = this.camera.position.clone().addScaledVector(across, sideways).addScaledVector(up, raised);
+          lit.expandByPoint(corner.addScaledVector(forward, -corner.y / forward.y));
+        }
+      }
+    } else {
+      lit.expandByPoint(this.controls.target);
+    }
+    const center = lit.getCenter(new T.Vector3()).setY(0);
+    const spread = lit.getSize(new T.Vector3());
+    const reach = Math.min(Math.hypot(spread.x, spread.z) / 2 + SHADOW_PADDING, this.worldSpan);
+    center.set(Math.round(center.x / SHADOW_SNAP) * SHADOW_SNAP, 0, Math.round(center.z / SHADOW_SNAP) * SHADOW_SNAP);
+    return { center, radius: Math.max(SHADOW_MIN_RADIUS, Math.ceil(reach / SHADOW_SNAP) * SHADOW_SNAP) };
+  }
+
   private trackSun(): void {
-    const x = Math.round(this.controls.target.x / SUN_SNAP) * SUN_SNAP;
-    const z = Math.round(this.controls.target.z / SUN_SNAP) * SUN_SNAP;
-    if (this.sunAnchor.x === x && this.sunAnchor.z === z) return;
-    this.sunAnchor.set(x, 0, z);
+    const { center, radius } = this.sunCoverage();
+    if (this.sunFocus.equals(center) && this.sunRadius === radius) return;
+    this.sunFocus.copy(center);
+    this.sunRadius = radius;
     this.aimSun();
     this.shadowsDue = true;
   }
 
   private aimSun(): void {
-    this.sun.target.position.copy(this.sunAnchor);
+    const radius = this.sunRadius;
+    const distance = radius + this.sunOffset.length();
+    this.sun.target.position.copy(this.sunFocus);
     this.sun.target.updateMatrixWorld();
-    this.sun.position.copy(this.sunAnchor).add(this.sunOffset);
+    this.sun.position.copy(this.sunFocus).addScaledVector(this.sunOffset.clone().normalize(), distance);
+    const shadow = this.sun.shadow;
+    Object.assign(shadow.camera, { left: -radius, right: radius, top: radius, bottom: -radius, near: 1, far: distance + radius });
+    shadow.camera.updateProjectionMatrix();
+    shadow.normalBias = Math.max(SHADOW_MIN_NORMAL_BIAS, radius * 2 / SHADOW_MAP * SHADOW_BIAS_TEXELS);
   }
 
   bounds(radius: number): void {
