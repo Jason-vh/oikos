@@ -168,6 +168,8 @@ function boot(): void {
 try { boot(); }
 catch (error) {
   document.body.dataset.error = 'true';
-  document.querySelector<HTMLElement>('#status')!.textContent = 'The sandbox could not open. WebGL 2 and hardware acceleration are required.';
+  const status = document.querySelector<HTMLElement>('#status')!;
+  status.hidden = false;
+  status.textContent = 'The sandbox could not open. WebGL 2 and hardware acceleration are required.';
   console.error(error);
 }

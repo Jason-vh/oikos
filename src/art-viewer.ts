@@ -317,6 +317,8 @@ function boot(): void {
 try { boot(); }
 catch (error) {
   document.body.dataset.error = 'true';
-  document.querySelector<HTMLElement>('#status')!.textContent = 'The model viewer requires WebGL 2 and hardware acceleration.';
+  const status = document.querySelector<HTMLElement>('#status')!;
+  status.hidden = false;
+  status.textContent = 'The model viewer requires WebGL 2 and hardware acceleration.';
   console.error(error);
 }

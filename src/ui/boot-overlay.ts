@@ -38,8 +38,6 @@ export function createBootOverlay(): BootOverlay {
   const input = form.querySelector<HTMLInputElement>('input[name="name"]')!;
   const submit = form.querySelector<HTMLButtonElement>('button')!;
   const error = root.querySelector<HTMLElement>('[data-field="join-error"]')!;
-  const pageStatus = document.querySelector<HTMLElement>('#status');
-  if (pageStatus) pageStatus.hidden = true;
 
   function showPanel(panel: 'loading' | 'join'): void {
     if (!root.isConnected) document.body.append(root);
