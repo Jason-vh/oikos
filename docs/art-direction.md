@@ -90,11 +90,14 @@ colour carries over the trees and roofs standing on those tiles rather than wash
 the ground alone. A claimed island reads as one painted shape and a free one keeps
 its green. Clouds still pass over it. The coastal band — land within two tiles of
 water — is laid in the same colour at near-full strength, so the island is outlined
-rather than only filled, and its city's name rides above it on a card in the scene
-(`src/render/claim-cards.ts`): a sprite over the island's centre, its texture drawn
-on a canvas and rescaled each frame to hold one size on screen. It belongs to the
-world rather than the HUD, so a cloud passes in front of it; the frosted plate is
-painted, since nothing in the scene can blur what is behind it. It is a
+rather than only filled, and its city's name rides above it on a HUD card
+(`src/ui/claim-labels.ts`) placed by projecting the island's centre, inside the
+stage's own painting frame so it never lags the island beneath it. The card stays
+in the DOM deliberately: the same card as a sprite was tried so that clouds would
+pass in front of it, and it lost both the glass — nothing in the scene can blur
+what is behind it — and its crispness, since the renderer paints at a pixel ratio
+of 1.5 and the page composites at the display's. Text belongs to the layer that
+is not upscaled. It is a
 map-scale affordance, so glaze, outline and cards fade out together between view
 spans 700 and 240 and are gone by the zoom a shore is picked at, where the terrain
 must read true. All of it is taken down once that player has a city.

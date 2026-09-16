@@ -131,6 +131,9 @@ button[aria-pressed='true'] { background: var(--sage); color: #fffdf0; }
 .hud-hint[hidden] { display: none; }
 
 .hud-panel[hidden] { display: none; }
+.claim-labels { position: fixed; inset: 0; z-index: 9; pointer-events: none; font-family: 'Avenir Next', Avenir, 'Segoe UI', system-ui, sans-serif; color: var(--ink); }
+.claim-label { position: absolute; top: 0; left: 0; margin: 0; padding: 5px 13px 6px; white-space: nowrap; font-family: Georgia, 'Times New Roman', serif; font-size: 15px; background: rgba(255, 253, 246, .86); backdrop-filter: blur(14px) saturate(115%); border-radius: 999px; box-shadow: var(--shadow); }
+.claim-label[hidden] { display: none; }
 .hud-toolbar { pointer-events: auto; display: flex; gap: 2px; padding: 6px; max-width: 96vw; overflow-x: auto; }
 .hud-tool {
   display: flex; flex-direction: column; align-items: center; gap: 3px;

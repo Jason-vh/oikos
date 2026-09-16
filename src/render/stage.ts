@@ -50,6 +50,7 @@ export class Stage {
   private readonly sunFocus = new T.Vector3();
   private sunRadius = 0;
   private readonly goal = { target: new T.Vector3(), spin: 0, active: false };
+  private readonly painted = new Set<() => void>();
   reducedMotion = false;
   frames = 0;
 
@@ -126,11 +127,17 @@ export class Stage {
       this.renderer.info.reset();
       this.composer.render();
       this.frames++;
+      for (const follow of this.painted) follow();
       document.body.dataset.ready = 'true';
       const status = document.querySelector<HTMLElement>('#status');
       if (status) status.hidden = true;
     });
   };
+
+  onPainted(follow: () => void): () => void {
+    this.painted.add(follow);
+    return () => this.painted.delete(follow);
+  }
 
   viewSpan(): number {
     return (this.camera.right - this.camera.left) / this.camera.zoom;

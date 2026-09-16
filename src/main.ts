@@ -4,7 +4,7 @@ import type { View } from './render/stage';
 import { CityScene } from './render/city';
 import { ConstructionOverlay } from './render/construction';
 import { ClaimOverlay } from './render/claims';
-import { ClaimCards } from './render/claim-cards';
+import { ClaimLabels } from './ui/claim-labels';
 import { BUILDINGS } from './sim/catalog';
 import { demolitionPreview, footprintTileIssues, harbourRoute, suitableFarmGround } from './sim/construction';
 import { CELL_SIZE, groundHeight, islandFor, ISLAND_COUNT, terrainOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
@@ -68,7 +68,8 @@ export function boot(source: SharedBootSource): BootHandles {
   let city = new CityScene(stage, islandFor(world.seed), !reducedMotion);
   let overlay = new ConstructionOverlay(stage, islandFor(world.seed));
   let claims = new ClaimOverlay(stage, islandFor(world.seed));
-  let claimCards = new ClaimCards(stage, islandFor(world.seed));
+  let claimLabels = new ClaimLabels(document.body, islandFor(world.seed));
+  stage.onPainted(() => claimLabels.follow((x, y, z) => stage.project(x, y, z), claims.strength));
   const map = () => mapFor(activeCity(world, context));
   function viewFor(homeCity: City): View {
     const island = islandFor(world.seed, homeCity.home);
@@ -97,12 +98,12 @@ export function boot(source: SharedBootSource): BootHandles {
     city.dispose();
     overlay.dispose();
     claims.dispose();
-    claimCards.dispose();
+    claimLabels.dispose();
     stage.bounds(seaBounds(world.seed));
     city = new CityScene(stage, islandFor(world.seed), !reducedMotion);
     overlay = new ConstructionOverlay(stage, islandFor(world.seed));
     claims = new ClaimOverlay(stage, islandFor(world.seed));
-    claimCards = new ClaimCards(stage, islandFor(world.seed));
+    claimLabels = new ClaimLabels(document.body, islandFor(world.seed));
   }
 
   function keepsView(previous: CityContext, realmChanged: boolean, founded: boolean): boolean {
@@ -588,7 +589,6 @@ export function boot(source: SharedBootSource): BootHandles {
     city.watch(stage.controls.target, stage.viewSpan());
     city.transitions(delta);
     if (claims.fade(stage.viewSpan())) stage.invalidate();
-    claimCards.place(stage.viewSpan() / stage.canvas.clientWidth, claims.strength);
     if (!document.hidden) {
       visualDelta += delta;
       if (now - lastRender >= ANIMATION_INTERVAL) {
@@ -640,7 +640,7 @@ export function boot(source: SharedBootSource): BootHandles {
     hud.setStance(stance, ready);
     if (!founding && harbourArmed) selectTool('inspect');
     claims.update(world, context.activeId === null);
-    claimCards.update(world, context.activeId === null);
+    claimLabels.update(world, context.activeId === null);
   }
 
 
