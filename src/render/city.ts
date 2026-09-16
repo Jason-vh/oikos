@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { animateFigure, animateIdle, animateWork, axe, bake, box, bundle, bundleKey, chopStrikes, CHOP_SET, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, post, spear, type Idle, type ModelStage } from '../art';
+import { animateFigure, animateIdle, animateWork, axe, bake, box, bundle, bundleKey, chopStrikes, CHOP_SET, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, post, spear, workPeriod, type Idle, type ModelStage } from '../art';
 import { footprint } from '../sim/catalog';
 import { AGORA_SLOTS, GRANARY_SLOTS, WALKER_SPEED } from '../sim/balance';
 import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, groundHeight, insideMapOn, tileAtOn, tileIndexOn, worldPositionOn, type IslandMap } from '../sim/island';
@@ -31,6 +31,7 @@ const NEIGHBOUR_REACH = 3.2;
 const CHOP_REACH = .9;
 const HUNT_REACH = .95;
 const WORK_APPROACH = .5;
+const WORK_SCATTER = 5.7;
 const WORK_WITHDRAW = .4;
 
 function scatterOf(id: number, spell: number): number {
@@ -505,8 +506,8 @@ export class CityScene {
     walker.aim = walker.heading + (scatterOf(id, spell + .25) - .5) * IDLE_SWEEP;
   }
 
-  private chopping(walker: WalkerEntry, spent: number): void {
-    const strikes = chopStrikes(spent);
+  private chopping(walker: WalkerEntry, spent: number, drift: number): void {
+    const strikes = chopStrikes(spent) - chopStrikes(drift);
     if (strikes <= walker.strikes) return;
     walker.strikes = strikes;
     if (walker.quarry === null) return;
@@ -554,9 +555,10 @@ export class CityScene {
       const stride = walker.moving ? .55 : 0;
       const phase = this.worldTime * 9 * Math.max(1, speed) + id;
       if (walker.working && walker.task) {
-        const spent = (this.worldTime - walker.task.since) * Math.max(1, speed);
+        const drift = scatterOf(id, WORK_SCATTER) * workPeriod('chop');
+        const spent = (this.worldTime - walker.task.since) * Math.max(1, speed) + drift;
         animateWork(walker.model, spent, walker.task.kind === 'hunt' ? 'thrust' : 'chop');
-        if (walker.task.kind === 'chop') this.chopping(walker, spent);
+        if (walker.task.kind === 'chop') this.chopping(walker, spent, drift);
       } else if (walker.moving) animateFigure(walker.model, phase, stride);
       else animateIdle(walker.model, (this.worldTime - walker.waitingSince) * Math.max(1, speed) + id, walker.mood);
       for (const companion of walker.model.children.slice(5)) {

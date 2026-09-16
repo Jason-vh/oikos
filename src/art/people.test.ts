@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import * as T from 'three';
-import { animateFigure, animateIdle, animateWork, axe, chopStrikes, CHOP_HEAD, CHOP_SET, citizen, figure, spear } from './people';
+import { animateFigure, animateIdle, animateWork, axe, chopStrikes, CHOP_HEAD, CHOP_SET, citizen, figure, spear, workPeriod } from './people';
 
 function parts(model: T.Object3D) {
   const [body, leftLeg, leftArm] = model.children;
@@ -55,6 +55,32 @@ test('idling leaves nothing of the walk behind it', () => {
   animateIdle(model, .3, 'breathe');
   const [, leftLeg, leftArm, rightLeg, rightArm] = model.children;
   for (const limb of [leftLeg, leftArm, rightLeg, rightArm]) expect(limb.rotation.x).toBe(0);
+});
+
+test('a cycle closes on itself: a whole swing later he stands exactly as he began', () => {
+  const model = woodcutter();
+  const [body] = model.children;
+  const tool = model.children[5];
+  const frame = () => [body.rotation.y, body.position.y, tool.rotation.x, tool.rotation.y];
+  animateWork(model, 0, 'chop');
+  const opening = frame();
+  for (const swings of [1, 3, 7]) {
+    animateWork(model, workPeriod('chop') * swings, 'chop');
+    expect(frame()).toEqual(opening);
+  }
+});
+
+test('two workers side by side are never in step, and each still strikes once a swing', () => {
+  const alone = woodcutter();
+  const beside = woodcutter();
+  const drift = .37;
+  animateWork(alone, 2, 'chop');
+  animateWork(beside, 2 + drift, 'chop');
+  expect(beside.children[5].rotation.y).not.toBeCloseTo(alone.children[5].rotation.y, 3);
+
+  for (const spent of [1, 2, 3, 4]) {
+    expect(chopStrikes(spent + drift) - chopStrikes(drift)).toBe(chopStrikes(spent));
+  }
 });
 
 test('a chop swings without a break, however finely it is sampled', () => {

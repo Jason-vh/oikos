@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { animalModel, animateAnimal, animateFigure, animateWork, axe, bake, boat, CHOP_SET, citizen, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, spear, stump, tree, type ModelStage, type ModelState } from './art';
+import { animalModel, animateAnimal, animateFigure, animateWork, axe, bake, boat, CHOP_SET, citizen, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, spear, stump, tree, workPeriod, type ModelStage, type ModelState } from './art';
 import { cliffOutcrop } from './art/cliffs';
 import { bush, type BushShape } from './art/bushes';
 import { buildRoads } from './art/roads';
@@ -53,12 +53,12 @@ function boot(): void {
   let site: Site | null = null;
   let constructionPlaying = false;
 
-  function buildSelected(id: string): { model: T.Group; footprint: { width: number; depth: number } | null; description: string; animate?: (time: number) => void; site?: Site } {
+  function buildSelected(id: string): { model: T.Group; footprint: { width: number; depth: number } | null; description: string; animate?: (time: number) => void; span?: number; site?: Site } {
     const [kindValue, tierValue, variant = ''] = id.split(':');
     if (kindValue === 'animal') {
       const kind = tierValue as AnimalKind;
       const model = animalModel(kind);
-      return { model, footprint: null, description: `${kind[0].toUpperCase()}${kind.slice(1)}. Lives on the island; see src/sim/wildlife.ts for habitat and yield.`, animate: (time) => animateAnimal(model, kind, time, true) };
+      return { model, footprint: null, description: `${kind[0].toUpperCase()}${kind.slice(1)}. Lives on the island; see src/sim/wildlife.ts for habitat and yield.`, animate: (time) => animateAnimal(model, kind, time, true), span: 2 };
     }
     if (kindValue === 'person') {
       if (tierValue === 'axe') {
@@ -70,7 +70,7 @@ function boot(): void {
         tree(model, Math.sin(CHOP_SET) * reach, 0, Math.cos(CHOP_SET) * reach, .75);
         model.add(cutter);
         model.rotation.y = Math.PI - CHOP_SET;
-        return { model, footprint: null, description: 'A woodcutter at his tree, side-on and standing where the chop puts him. He winds the axe back over his shoulder and sweeps it round into the trunk.', animate: (time) => animateWork(cutter, time, 'chop') };
+        return { model, footprint: null, description: 'A woodcutter at his tree, side-on and standing where the chop puts him. He winds the axe back over his shoulder and sweeps it round into the trunk.', animate: (time) => animateWork(cutter, time, 'chop'), span: workPeriod('chop') };
       }
       if (tierValue === 'spear') {
         const model = new T.Group();
@@ -83,11 +83,11 @@ function boot(): void {
         boar.rotation.y = Math.PI * .65;
         model.add(hunter, boar);
         model.rotation.y = Math.PI;
-        return { model, footprint: null, description: 'A hunter over his quarry, standing where the thrust puts him. He draws the spear back, holds, then drives it down into the boar and leans on it.', animate: (time) => animateWork(hunter, time, 'thrust') };
+        return { model, footprint: null, description: 'A hunter over his quarry, standing where the thrust puts him. He draws the spear back, holds, then drives it down into the boar and leans on it.', animate: (time) => animateWork(hunter, time, 'thrust'), span: workPeriod('thrust') };
       }
       const load = tierValue === 'jar' ? 'jar' : tierValue === 'bundle' ? 'bundle' : 'none';
       const model = figure(colors.blue, load).root;
-      return { model, footprint: null, description: 'A citizen. Legs and arms swing while walking.', animate: (time) => animateFigure(model, time * 9, .55) };
+      return { model, footprint: null, description: 'A citizen. Legs and arms swing while walking.', animate: (time) => animateFigure(model, time * 9, .55), span: Math.PI * 2 / 9 };
     }
     if (kindValue === 'tree') {
       const model = new T.Group();
@@ -140,6 +140,7 @@ function boot(): void {
   }
 
   let animate: ((time: number) => void) | null = null;
+  let span = 0;
   let held: number | null = null;
 
   function disposeStudy(root: T.Group): void {
@@ -199,6 +200,7 @@ function boot(): void {
     const selected = buildSelected(select.value);
     model = selected.model;
     animate = selected.animate ?? null;
+    span = selected.span ?? 0;
     site = selected.site ?? null;
     construction = raiseConstruction();
     constructionControls.hidden = construction === null;
@@ -295,6 +297,19 @@ function boot(): void {
   Reflect.set(window, 'artStudy', {
     get frames() { return stage.frames; },
     get camera() { return [...stage.camera.position.toArray(), ...stage.controls.target.toArray(), stage.camera.zoom]; },
+    get span() { return span; },
+    get frame() {
+      const shown = construction?.model ?? model;
+      if (!shown) return null;
+      const bounds = new T.Box3().setFromObject(shown);
+      const corners = [bounds.min.x, bounds.max.x].flatMap((x) => [bounds.min.y, bounds.max.y].flatMap((y) => [bounds.min.z, bounds.max.z].map((z) => stage.project(x, y, z))));
+      return {
+        left: Math.min(...corners.map((corner) => corner.x)),
+        right: Math.max(...corners.map((corner) => corner.x)),
+        top: Math.min(...corners.map((corner) => corner.y)),
+        bottom: Math.max(...corners.map((corner) => corner.y)),
+      };
+    },
     pose(seconds: number) { held = seconds; animate?.(seconds); stage.invalidate(); },
   });
 }

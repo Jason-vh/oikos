@@ -132,69 +132,76 @@ const COILED: WorkPose = { arms: -.6, blade: 1.02, swing: -.64, pitch: -.13, lea
 const DRIVEN: WorkPose = { arms: -1.62, blade: 1.68, swing: .04, pitch: .34, lean: .06, lift: -.05, brace: .2 };
 const HELD: WorkPose = { arms: -1.42, blade: 1.6, swing: .02, pitch: .24, lean: .05, lift: -.02, brace: .13 };
 
-const CHOP_PERIOD = 1.05;
-const CHOP_IMPACT = .58;
-const THRUST_PERIOD = .95;
-const THRUST_IMPACT = .62;
-const blended: WorkPose = { arms: 0, blade: 0, swing: 0, pitch: 0, lean: 0, lift: 0, brace: 0 };
+type Ease = (t: number) => number;
 
-function blend(from: WorkPose, to: WorkPose, t: number): WorkPose {
-  blended.arms = from.arms + (to.arms - from.arms) * t;
-  blended.blade = from.blade + (to.blade - from.blade) * t;
-  blended.swing = from.swing + (to.swing - from.swing) * t;
-  blended.pitch = from.pitch + (to.pitch - from.pitch) * t;
-  blended.lean = from.lean + (to.lean - from.lean) * t;
-  blended.lift = from.lift + (to.lift - from.lift) * t;
-  blended.brace = from.brace + (to.brace - from.brace) * t;
-  return blended;
+const linear: Ease = (t) => t;
+const smooth: Ease = (t) => t * t * (3 - 2 * t);
+const easeIn: Ease = (t) => t * t;
+const easeOut: Ease = (t) => 1 - (1 - t) * (1 - t);
+
+interface Key { at: number; pose: WorkPose; ease?: Ease; lands?: boolean; }
+interface Cycle { period: number; keys: Key[]; }
+
+const CHOP: Cycle = {
+  period: 1.05,
+  keys: [
+    { at: 0, pose: READY, ease: smooth },
+    { at: .38, pose: RAISED },
+    { at: .5, pose: RAISED, ease: easeIn },
+    { at: .58, pose: STRUCK, ease: easeOut, lands: true },
+    { at: .72, pose: RECOIL, ease: smooth },
+    { at: 1, pose: READY },
+  ],
+};
+
+const THRUST: Cycle = {
+  period: .95,
+  keys: [
+    { at: 0, pose: GUARD, ease: smooth },
+    { at: .42, pose: COILED },
+    { at: .52, pose: COILED, ease: easeIn },
+    { at: .62, pose: DRIVEN, ease: easeOut, lands: true },
+    { at: .78, pose: HELD, ease: smooth },
+    { at: 1, pose: GUARD },
+  ],
+};
+
+function poseAt(cycle: Cycle, elapsed: number, out: WorkPose): WorkPose {
+  const spin = elapsed / cycle.period;
+  const phase = spin - Math.floor(spin);
+  let index = 0;
+  while (index + 2 < cycle.keys.length && cycle.keys[index + 1].at <= phase) index++;
+  const from = cycle.keys[index];
+  const to = cycle.keys[index + 1];
+  const t = (from.ease ?? linear)((phase - from.at) / (to.at - from.at));
+  out.arms = from.pose.arms + (to.pose.arms - from.pose.arms) * t;
+  out.blade = from.pose.blade + (to.pose.blade - from.pose.blade) * t;
+  out.swing = from.pose.swing + (to.pose.swing - from.pose.swing) * t;
+  out.pitch = from.pose.pitch + (to.pose.pitch - from.pose.pitch) * t;
+  out.lean = from.pose.lean + (to.pose.lean - from.pose.lean) * t;
+  out.lift = from.pose.lift + (to.pose.lift - from.pose.lift) * t;
+  out.brace = from.pose.brace + (to.pose.brace - from.pose.brace) * t;
+  return out;
 }
 
-function chopPose(cycle: number): WorkPose {
-  if (cycle < .38) {
-    const t = cycle / .38;
-    return blend(READY, RAISED, t * t * (3 - 2 * t));
-  }
-  if (cycle < .5) return RAISED;
-  if (cycle < CHOP_IMPACT) {
-    const t = (cycle - .5) / (CHOP_IMPACT - .5);
-    return blend(RAISED, STRUCK, t * t);
-  }
-  if (cycle < .72) {
-    const t = (cycle - CHOP_IMPACT) / (.72 - CHOP_IMPACT);
-    return blend(STRUCK, RECOIL, 1 - (1 - t) * (1 - t));
-  }
-  const t = (cycle - .72) / .28;
-  return blend(RECOIL, READY, t * t * (3 - 2 * t));
+function landingsBy(cycle: Cycle, elapsed: number): number {
+  const lands = cycle.keys.find((key) => key.lands)!.at * cycle.period;
+  return Math.max(0, Math.floor((elapsed - lands) / cycle.period) + 1);
 }
 
-function thrustPose(cycle: number): WorkPose {
-  if (cycle < .42) {
-    const t = cycle / .42;
-    return blend(GUARD, COILED, t * t * (3 - 2 * t));
-  }
-  if (cycle < .52) return COILED;
-  if (cycle < THRUST_IMPACT) {
-    const t = (cycle - .52) / (THRUST_IMPACT - .52);
-    return blend(COILED, DRIVEN, t * t);
-  }
-  if (cycle < .78) {
-    const t = (cycle - THRUST_IMPACT) / (.78 - THRUST_IMPACT);
-    return blend(DRIVEN, HELD, 1 - (1 - t) * (1 - t));
-  }
-  const t = (cycle - .78) / .22;
-  return blend(HELD, GUARD, t * t * (3 - 2 * t));
+export function workPeriod(kind: 'chop' | 'thrust'): number {
+  return (kind === 'chop' ? CHOP : THRUST).period;
 }
 
 export function chopStrikes(elapsed: number): number {
-  return Math.max(0, Math.floor((elapsed - CHOP_IMPACT * CHOP_PERIOD) / CHOP_PERIOD) + 1);
+  return landingsBy(CHOP, elapsed);
 }
+
+const working: WorkPose = { arms: 0, blade: 0, swing: 0, pitch: 0, lean: 0, lift: 0, brace: 0 };
 
 export function animateWork(model: T.Object3D, elapsed: number, kind: 'chop' | 'thrust'): void {
   const [body, leftLeg, leftArm, rightLeg, rightArm] = model.children;
-  const period = kind === 'chop' ? CHOP_PERIOD : THRUST_PERIOD;
-  const spin = elapsed / period;
-  const cycle = spin - Math.floor(spin);
-  const pose = kind === 'chop' ? chopPose(cycle) : thrustPose(cycle);
+  const pose = poseAt(kind === 'chop' ? CHOP : THRUST, elapsed, working);
   leftLeg.rotation.set(.2 + pose.brace, pose.swing * .3, 0);
   rightLeg.rotation.set(-.17 - pose.brace * .6, pose.swing * .3, 0);
   body.rotation.set(pose.pitch, pose.swing, pose.lean);

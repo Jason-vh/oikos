@@ -184,4 +184,6 @@ Keep these small. At city zoom a person is a few pixels tall, and the reading is
 "someone is alive there", not a performance.
 
 A grazing animal is the same idea: a settled boar dips its head rather than
-standing to attention.
+standing to attention. Working is no different: two woodcutters at neighbouring trees
+swing on their own phase, drawn from their own ids, and each throws its chips on its
+own blow.

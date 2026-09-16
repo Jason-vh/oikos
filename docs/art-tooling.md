@@ -24,7 +24,8 @@ src/art/
   vegetation.ts   tree(), stump(litter), litterFor(roll), wheatFarm(stage)
   bushes.ts       bush(shape), seeded scrub pockets and smaller clifftop cushions
   people.ts       figure(colour, load) with legs/arms, axe(), spear(),
-                  animateFigure(), animateIdle(), animateWork(), chopStrikes()
+                  animateFigure(), animateIdle(), animateWork(), workPeriod(),
+                  chopStrikes()
   animals.ts      boar, rabbit, fish, gull, animateAnimal()
   ships.ts        boat()
   buildings.ts    getBuildingModel(kind, { tier, vendorEnabled, stage, stores }),
@@ -72,6 +73,47 @@ dust as each piece lands, then swaps to the ordinary material-batched model.
 - `src/art/assembly.test.ts` holds every kind to the finished model's bounds and
   palette, and to its footprint at every pose and rotation.
 
+## Animation
+
+The rig is five joints and nothing else: a body, two legs, two arms, each a baked box
+on a pivot. There is no elbow, wrist or neck. Arms are `.34` long and shoulders `.42`
+apart, which is short — a two-handed grip only works because the holding hand tucks
+toward the midline. Know that before authoring a pose that asks an arm to reach.
+
+A work animation is a table, not a branch. `WorkPose` is a row of semantic channels
+(`swing`, `brace`, `lean`, `lift`…), never raw transforms; a `Cycle` is a period and a
+list of keys:
+
+```ts
+const CHOP: Cycle = { period: 1.05, keys: [
+  { at: 0, pose: READY, ease: smooth },
+  { at: .38, pose: RAISED },                            // held to the next key
+  { at: .5, pose: RAISED, ease: easeIn },
+  { at: .58, pose: STRUCK, ease: easeOut, lands: true }, // the blow
+  { at: .72, pose: RECOIL, ease: smooth },
+  { at: 1, pose: READY },                               // closes the loop
+] };
+```
+
+A hold is two keys with the same pose, so it is visible as one. `lands` marks the
+instant something connects, and `landingsBy()` counts them — which is how the renderer
+knows when to throw chips and shake the tree, from the same table that poses the arms.
+Easings are named (`smooth`, `easeIn`, `easeOut`), never written out as arithmetic.
+`poseAt()` writes into a pose the caller owns; it never hands back a shared scratch.
+
+Apply the pose to the rig in one place. Then two animations share the rig and the
+next one costs a table.
+
+Work is scattered per walker the way idling is: the renderer offsets the phase by a
+hash of the walker's id and subtracts the same offset from the landing count, so two
+woodcutters side by side never swing in step and each still throws chips on its own
+blow.
+
+Tests hold what the eye is bad at: continuity under fine sampling, the cycle closing
+on itself, the swing coming from the torso rather than the arm, and where the tool's
+business end actually lands. Measure a posed model to set a reach constant; never
+derive one by hand.
+
 ## Adding a model
 
 1. Build it from primitives in the relevant file, front facing `+Z`, ground at `y=0`.
@@ -96,6 +138,12 @@ dust as each piece lands, then swaps to the ordinary material-batched model.
   demolition and projection for the capture scripts below. It is an authoring tool,
   never a way to play.
 - **`npm run art:check`**: `bun test src/art`.
+- **`npm run art:cycle -- <base url> [model] [frames] [turns]`**: walks one animated
+  model through a whole cycle and lays the frames out as a contact sheet, framed on
+  the subject rather than the scene — `artStudy.frame` projects the model's bounds, so
+  the crop is right for any model. `turns` presses *Turn model*, which is how you get
+  a view the scenery is not standing in front of. Output: `artifacts/cycles/<model>/`.
+  This is the loop for judging motion; do not hand-roll a montage script.
 - **`npm run art:capture -- <base url>`**: captures every atelier model to
   `artifacts/art/`, including roads, bushes and outcrops from four sides, and asserts the
   atelier stays still when nothing animates, keeps
