@@ -88,6 +88,9 @@ button[aria-pressed='true'] { background: var(--sage); color: #fffdf0; }
 .hud-milestones label { display: flex; align-items: center; gap: 9px; font-size: 12.5px; line-height: 1.4; }
 .hud-milestones input { width: 15px; height: 15px; accent-color: var(--terracotta); flex-shrink: 0; }
 .hud-milestones input:checked + label, .hud-milestones label:has(input:checked) { color: var(--ink-soft); text-decoration: line-through; text-decoration-color: rgba(41, 75, 74, .35); }
+.claim-labels { position: fixed; inset: 0; z-index: 9; pointer-events: none; font-family: 'Avenir Next', Avenir, 'Segoe UI', system-ui, sans-serif; color: var(--ink); }
+.claim-label { position: absolute; top: 0; left: 0; margin: 0; padding: 5px 12px 6px; white-space: nowrap; font-family: Georgia, 'Times New Roman', serif; font-size: 15px; background: var(--cream-glass); backdrop-filter: blur(10px); border-radius: 999px; box-shadow: var(--shadow); }
+.claim-label[hidden] { display: none; }
 .hud-colour[hidden] { display: none; }
 .hud-colour { display: inline-block; width: 9px; height: 9px; margin-right: 9px; border-radius: 50%; background: var(--city-colour, transparent); box-shadow: inset 0 0 0 1px rgba(41, 75, 74, .2); }
 .hud-banner-title .hud-colour { width: 12px; height: 12px; margin-right: 12px; }

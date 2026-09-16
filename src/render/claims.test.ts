@@ -21,11 +21,12 @@ function claim(world: World, home: number, color: 'terracotta' | 'lapis') {
 }
 
 test('only claimed islands are marked, and a new claim joins them', () => {
-  const { overlay, world } = fixture();
+  const { overlay, world, scene } = fixture();
   try {
     claim(world, 0, 'terracotta');
     overlay.update(world, true);
     expect(overlay.claimedIslands).toBe(1);
+    expect(scene.getObjectByProperty('type', 'Group')!.children.length).toBe(2);
 
     claim(world, 3, 'lapis');
     overlay.update(world, true);
@@ -58,12 +59,15 @@ test('the glaze is full across the archipelago and gone by street level', () => 
     const mark = () => scene.getObjectByProperty('type', 'Group')!.children[0] as T.Mesh<T.BufferGeometry, T.MeshBasicMaterial>;
 
     expect(overlay.fade(1300)).toBe(true);
-    const wide = mark().material.opacity;
-    expect(wide).toBeGreaterThan(.4);
+    const [glaze, edge] = scene.getObjectByProperty('type', 'Group')!.children as T.Mesh<T.BufferGeometry, T.MeshBasicMaterial>[];
+    expect(glaze.material.opacity).toBeGreaterThan(.4);
+    expect(edge.material.opacity).toBeGreaterThan(glaze.material.opacity);
+    expect(overlay.strength).toBe(1);
 
     expect(overlay.fade(1300)).toBe(false);
     expect(overlay.fade(60)).toBe(true);
     expect(mark().material.opacity).toBe(0);
+    expect(overlay.strength).toBe(0);
     expect(mark().parent!.visible).toBe(false);
   } finally {
     overlay.dispose();

@@ -6,7 +6,9 @@ import type { City, World } from '../sim/types';
 import type { Stage } from './stage';
 
 const LIFT = .05;
-const FULL_OPACITY = .5;
+const GLAZE_OPACITY = .5;
+const EDGE_OPACITY = .88;
+const EDGE_TILES = 2;
 const FADE_FROM = 240;
 const FADE_TO = 700;
 const RENDER_ORDER = -1;
@@ -22,11 +24,27 @@ function tileQuad(positions: number[], map: IslandMap, x: number, z: number): vo
   );
 }
 
+function nearWater(map: IslandMap, x: number, z: number): boolean {
+  for (let dz = -EDGE_TILES; dz <= EDGE_TILES; dz++) {
+    for (let dx = -EDGE_TILES; dx <= EDGE_TILES; dx++) {
+      if (terrainOn(map, x + dx, z + dz) === 'water') return true;
+    }
+  }
+  return false;
+}
+
+function geometryOf(positions: number[]): T.BufferGeometry {
+  const geometry = new T.BufferGeometry();
+  geometry.setAttribute('position', new T.Float32BufferAttribute(positions, 3));
+  return geometry;
+}
+
 export class ClaimOverlay {
   private readonly group = new T.Group();
-  private readonly glazes = new Map<CityColor, T.MeshBasicMaterial>();
+  private readonly paints = new Map<string, T.MeshBasicMaterial>();
   private signature = '';
-  private opacity = 0;
+  private marks = 0;
+  private lit = 0;
 
   constructor(private readonly stage: Stage, private readonly map: IslandMap) {
     this.group.visible = false;
@@ -39,59 +57,68 @@ export class ClaimOverlay {
     this.signature = signature;
     this.clearMarks();
     if (shown) for (const city of world.cities) this.addMark(city);
-    this.group.visible = shown && this.opacity > 0;
+    this.group.visible = shown && this.lit > 0;
     this.stage.invalidate();
   }
 
   fade(span: number): boolean {
-    const wanted = FULL_OPACITY * T.MathUtils.smoothstep(span, FADE_FROM, FADE_TO);
-    if (Math.abs(wanted - this.opacity) < .001) return false;
-    this.opacity = wanted;
-    for (const material of this.glazes.values()) material.opacity = wanted;
-    this.group.visible = this.group.children.length > 0 && wanted > 0;
+    const wanted = T.MathUtils.smoothstep(span, FADE_FROM, FADE_TO);
+    if (Math.abs(wanted - this.lit) < .001) return false;
+    this.lit = wanted;
+    for (const [key, material] of this.paints) material.opacity = wanted * (key.endsWith(':edge') ? EDGE_OPACITY : GLAZE_OPACITY);
+    this.group.visible = this.marks > 0 && wanted > 0;
     return true;
   }
 
   dispose(): void {
     this.clearMarks();
-    for (const material of this.glazes.values()) material.dispose();
-    this.glazes.clear();
+    for (const material of this.paints.values()) material.dispose();
+    this.paints.clear();
     this.group.removeFromParent();
     this.stage.invalidate();
   }
 
+  get strength(): number {
+    return this.lit;
+  }
+
   get claimedIslands(): number {
-    return this.group.children.length;
+    return this.marks;
   }
 
   private addMark(city: City): void {
     const island = this.map.islands[city.home];
     if (!island) return;
-    const positions: number[] = [];
+    const land: number[] = [];
+    const edge: number[] = [];
     for (let z = island.z; z < island.z + island.depth; z++) {
       for (let x = island.x; x < island.x + island.width; x++) {
-        if (terrainOn(this.map, x, z) !== 'water') tileQuad(positions, this.map, x, z);
+        if (terrainOn(this.map, x, z) === 'water') continue;
+        tileQuad(nearWater(this.map, x, z) ? edge : land, this.map, x, z);
       }
     }
-    if (positions.length === 0) return;
-    const geometry = new T.BufferGeometry();
-    geometry.setAttribute('position', new T.Float32BufferAttribute(positions, 3));
-    const mark = new T.Mesh(geometry, this.glaze(city.color));
-    mark.renderOrder = RENDER_ORDER;
-    this.group.add(mark);
+    if (land.length === 0 && edge.length === 0) return;
+    for (const [positions, kind] of [[land, 'glaze'], [edge, 'edge']] as const) {
+      if (positions.length === 0) continue;
+      const mesh = new T.Mesh(geometryOf(positions), this.paint(city.color, kind));
+      mesh.renderOrder = RENDER_ORDER;
+      this.group.add(mesh);
+    }
+    this.marks += 1;
   }
 
-  private glaze(color: CityColor): T.MeshBasicMaterial {
-    let material = this.glazes.get(color);
+  private paint(color: CityColor, kind: 'glaze' | 'edge'): T.MeshBasicMaterial {
+    const key = `${color}:${kind}`;
+    let material = this.paints.get(key);
     if (!material) {
       material = new T.MeshBasicMaterial({
         color: cityColors[color],
         transparent: true,
-        opacity: this.opacity,
+        opacity: this.lit * (kind === 'edge' ? EDGE_OPACITY : GLAZE_OPACITY),
         depthWrite: false,
         depthTest: false,
       });
-      this.glazes.set(color, material);
+      this.paints.set(key, material);
     }
     return material;
   }
@@ -99,5 +126,6 @@ export class ClaimOverlay {
   private clearMarks(): void {
     for (const child of this.group.children) (child as T.Mesh).geometry.dispose();
     this.group.clear();
+    this.marks = 0;
   }
 }

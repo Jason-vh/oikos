@@ -88,9 +88,13 @@ where to land (`src/render/claims.ts`): one flat layer over the island's land ti
 drawn without depth testing and before the rest of the transparent pass, so the
 colour carries over the trees and roofs standing on those tiles rather than washing
 the ground alone. A claimed island reads as one painted shape and a free one keeps
-its green. Clouds still pass over it. It is a map-scale affordance, so it fades out
-between view spans 700 and 240 and is gone by the zoom a shore is picked at, where
-the terrain must read true. It is taken down altogether once that player has a city.
+its green. Clouds still pass over it. The coastal band — land within two tiles of
+water — is laid in the same colour at near-full strength, so the island is outlined
+rather than only filled, and its city's name rides above it on a HUD card
+(`src/ui/claim-labels.ts`) placed by projecting the island's centre. It is a
+map-scale affordance, so glaze, outline and cards fade out together between view
+spans 700 and 240 and are gone by the zoom a shore is picked at, where the terrain
+must read true. All of it is taken down once that player has a city.
 
 Wildlife is drawn near the view, not across the world: sight is the view span capped
 at 220, so pulling back to the archipelago no longer places and poses every animal on
