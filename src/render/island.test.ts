@@ -188,3 +188,56 @@ test('a view is never short of trees, and the rest of the island follows on late
     ahead.dispose();
   }
 });
+
+function gridOpacity(scenery: IslandScenery): number {
+  const lines = scenery.grid.children[0] as T.LineSegments;
+  return scenery.grid.visible ? (lines.material as T.LineBasicMaterial).opacity : 0;
+}
+
+test('the grid eases in, eases out, and stays away from a wide view', () => {
+  const map = generateIsland(1);
+  const scenery = new IslandScenery(new T.Scene(), map);
+  try {
+    expect(gridOpacity(scenery)).toBe(0);
+
+    scenery.showGrid(true);
+    expect(scenery.fadeGrid(1 / 60, 44)).toBe(true);
+    const firstFrame = gridOpacity(scenery);
+    expect(firstFrame).toBeGreaterThan(0);
+    scenery.fadeGrid(1 / 60, 44);
+    expect(gridOpacity(scenery)).toBeGreaterThan(firstFrame);
+
+    let frames = 0;
+    while (scenery.fadeGrid(1 / 60, 44)) expect(frames++).toBeLessThan(600);
+    const settled = gridOpacity(scenery);
+    expect(settled).toBeGreaterThan(firstFrame);
+
+    while (scenery.fadeGrid(1 / 60, 400));
+    expect(gridOpacity(scenery)).toBe(0);
+
+    while (scenery.fadeGrid(1 / 60, 44));
+    expect(gridOpacity(scenery)).toBeCloseTo(settled, 6);
+
+    scenery.showGrid(false);
+    while (scenery.fadeGrid(1 / 60, 44));
+    expect(gridOpacity(scenery)).toBe(0);
+  } finally {
+    scenery.dispose();
+  }
+});
+
+test('reduced motion puts the grid up and takes it down without a fade', () => {
+  const map = generateIsland(1);
+  const scenery = new IslandScenery(new T.Scene(), map, null, false);
+  try {
+    scenery.showGrid(true);
+    expect(scenery.fadeGrid(1 / 60, 44)).toBe(true);
+    expect(scenery.fadeGrid(1 / 60, 44)).toBe(false);
+    expect(gridOpacity(scenery)).toBeGreaterThan(.3);
+    scenery.showGrid(false);
+    scenery.fadeGrid(1 / 60, 44);
+    expect(gridOpacity(scenery)).toBe(0);
+  } finally {
+    scenery.dispose();
+  }
+});

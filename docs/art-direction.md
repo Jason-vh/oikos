@@ -74,6 +74,11 @@ hazed. Zoom is bounded by world distances rather than a zoom factor (`Stage.worl
 out to the whole archipelago and no further — the sea must never be seen to end — and
 in to a single street from any view, founding included.
 
+The placement grid is shown while something is being placed — a build tool or the
+harbour in hand — or because the player asked for it. It eases in and out rather than
+blinking, and fades away between view spans 90 and 170, where a cell is too small to
+aim at and its lines only add noise to the land.
+
 Wildlife is drawn near the view, not across the world: sight is the view span capped
 at 220, so pulling back to the archipelago no longer places and poses every animal on
 it at a few pixels each. Posing belongs to `animate`; `watch` only adds and removes

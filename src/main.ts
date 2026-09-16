@@ -97,6 +97,7 @@ export function boot(source: SharedBootSource): BootHandles {
     city.watch(stage.controls.target, stage.viewSpan());
     overlay.dispose();
     overlay = new ConstructionOverlay(stage, mapFor(home));
+    applyGrid();
     if (preserveView) stage.setView(previousView);
     else {
       const viewed = viewedCity(world, context);
@@ -216,7 +217,7 @@ export function boot(source: SharedBootSource): BootHandles {
   }
 
   function applyGrid(): void {
-    city.scenery.grid.visible = showGrid || harbourArmed || tool !== 'inspect';
+    city.setGrid(showGrid || harbourArmed || tool !== 'inspect');
   }
 
   function setGrid(enabled: boolean): void {

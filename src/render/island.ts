@@ -20,6 +20,11 @@ const DECOR_HEIGHT = 12;
 const DECOR_CHUNK = 24;
 const RIPPLE_FROM = 90;
 const RIPPLE_TO = 260;
+const GRID_OPACITY = .34;
+const GRID_FADE_FROM = 90;
+const GRID_FADE_TO = 170;
+const GRID_EASE = 11;
+const GRID_SETTLED = .004;
 const PLANTING_BUDGET = 4;
 
 const SHUDDER_SECONDS = .3;
@@ -59,6 +64,9 @@ export class IslandScenery {
   private stairs: ReadonlyMap<number, Stair> = new Map();
   private readonly waterTime = { value: 0 };
   private readonly waterDetail = { value: 1 };
+  private readonly gridMaterial = new T.LineBasicMaterial({ color: 0xfff1c9, transparent: true, opacity: 0, depthWrite: false });
+  private gridWanted = false;
+  private gridOpacity = 0;
   private readonly sea: Sea;
   private readonly fields = new Map<number, InstanceField>();
   private readonly decor = new Map<number, DecorEntry>();
@@ -99,7 +107,7 @@ export class IslandScenery {
     }
     const geometry = new T.BufferGeometry();
     geometry.setAttribute('position', new T.Float32BufferAttribute(gridPoints, 3));
-    this.grid.add(new T.LineSegments(geometry, new T.LineBasicMaterial({ color: 0xfff1c9, transparent: true, opacity: .34, depthWrite: false })));
+    this.grid.add(new T.LineSegments(geometry, this.gridMaterial));
     this.grid.visible = false;
     this.root.add(this.grid);
     scene.add(this.root);
@@ -166,6 +174,20 @@ export class IslandScenery {
     const chunkX = key % this.map.width;
     const chunkZ = Math.floor(key / this.map.width);
     return worldPositionOn(this.map, (chunkX + .5) * DECOR_CHUNK, (chunkZ + .5) * DECOR_CHUNK);
+  }
+
+  showGrid(wanted: boolean): void {
+    this.gridWanted = wanted;
+  }
+
+  fadeGrid(delta: number, span: number): boolean {
+    const wanted = this.gridWanted ? GRID_OPACITY * (1 - T.MathUtils.smoothstep(span, GRID_FADE_FROM, GRID_FADE_TO)) : 0;
+    if (this.gridOpacity === wanted) return false;
+    const near = !this.motion || Math.abs(wanted - this.gridOpacity) < GRID_SETTLED;
+    this.gridOpacity = near ? wanted : this.gridOpacity + (wanted - this.gridOpacity) * (1 - Math.exp(-delta * GRID_EASE));
+    this.gridMaterial.opacity = this.gridOpacity;
+    this.grid.visible = this.gridOpacity > 0;
+    return true;
   }
 
   detail(span: number): void {

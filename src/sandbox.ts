@@ -57,7 +57,7 @@ function boot(): void {
     scene.setWorldTime(world.time);
     scene.sync(world);
     overlay.setRoads(city().roads);
-    scene.scenery.grid.visible = showGrid;
+    scene.setGrid(showGrid);
     scene.watch(stage.controls.target, stage.viewSpan());
     stage.shadows();
   }

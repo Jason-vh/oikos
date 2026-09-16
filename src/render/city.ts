@@ -119,6 +119,7 @@ export class CityScene {
   private selectedWalker: number | null = null;
   private focus: T.Vector3 | null = null;
   private sight = 60;
+  private span = 60;
   private planting = false;
   private lastWorld: World | null = null;
   private syncedWildlife: readonly Animal[] | null = null;
@@ -374,6 +375,7 @@ export class CityScene {
   }
 
   watch(focus: T.Vector3, span: number): void {
+    this.span = span;
     this.scenery.detail(span);
     if (this.clouds.fade(span)) this.stage.invalidate();
     const sight = Math.min(Math.max(60, span), WILDLIFE_SIGHT);
@@ -634,8 +636,14 @@ export class CityScene {
     entry.model.scale.setScalar(scale);
   }
 
+  setGrid(wanted: boolean): void {
+    this.scenery.showGrid(wanted);
+    this.stage.invalidate();
+  }
+
   transitions(delta: number): boolean {
-    let active = false;
+    let active = this.scenery.fadeGrid(delta, this.span);
+    if (active) this.stage.invalidate();
     for (const entry of this.buildings.values()) {
       if (entry.construction) {
         if (entry.construction.advance(delta)) {
