@@ -34,6 +34,7 @@ export interface Hud {
   setSound(enabled: boolean): void;
   setConnection(blocked: boolean, message: string): void;
   setFounding(founding: boolean, ready: boolean): void;
+  announceFounding(name: string): void;
   setDiscardAvailable(available: boolean): void;
   toggleMenu(): boolean;
   dispose(): void;
@@ -64,6 +65,7 @@ const TOOL_DEFS: ToolDef[] = [
 ];
 
 const TOAST_LIFETIME = 3200;
+const BANNER_LIFETIME = 3600;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const FOUNDING_YEAR_BC = 421;
 
@@ -174,6 +176,10 @@ const SKELETON = `
     <div class="hud-panel hud-toolbar" role="group" aria-label="Build tools" data-testid="toolbar"></div>
   </div>
   <div class="hud-toast-region" role="status" aria-live="polite" data-testid="toast-region"></div>
+  <div class="hud-banner" role="status" aria-live="polite" data-testid="banner" hidden>
+    <p class="hud-banner-title" data-field="banner-title"></p>
+    <p class="hud-banner-note" data-field="banner-note"></p>
+  </div>
   <dialog class="hud-dialog hud-menu" data-testid="menu-dialog" aria-label="Menu">
     <form method="dialog">
       <h2 lang="grc">Οἶκος</h2>
@@ -423,6 +429,25 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
   const hintElement = field(root, 'hint');
   const toastRegion = root.querySelector<HTMLElement>('.hud-toast-region')!;
   const toastTimers = new Set<number>();
+  const banner = root.querySelector<HTMLElement>('.hud-banner')!;
+  const bannerTitle = field(root, 'banner-title');
+  const bannerNote = field(root, 'banner-note');
+  let bannerDate = '';
+
+  function announceFounding(name: string): void {
+    bannerTitle.textContent = name;
+    bannerNote.textContent = `founded \u00b7 ${bannerDate}`;
+    banner.hidden = false;
+    banner.classList.remove('hud-banner-shown');
+    void banner.offsetWidth;
+    banner.classList.add('hud-banner-shown');
+    const timer = window.setTimeout(() => {
+      banner.classList.remove('hud-banner-shown');
+      banner.hidden = true;
+      toastTimers.delete(timer);
+    }, BANNER_LIFETIME);
+    toastTimers.add(timer);
+  }
 
   function update(world: World, viewed: CityScope | null, active: CityScope | null, selected: Selection | null, writable: boolean): void {
     const money = viewed?.city.money ?? 0;
@@ -437,7 +462,8 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
     }
     balanceField.textContent = formatSigned(viewed?.summary.balance ?? 0);
     employedField.textContent = `${viewed?.summary.workers ?? 0} / ${viewed?.summary.jobs ?? 0}`;
-    timeField.textContent = formatDate(world);
+    bannerDate = formatDate(world);
+    timeField.textContent = bannerDate;
 
     updateMilestones(active);
     updateInspector(selected);
@@ -514,6 +540,6 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
 
   return {
     update, setTool, notify, setHint, setGrid, setSound, toggleMenu, dispose,
-    setConnection, setFounding, setDiscardAvailable,
+    setConnection, setFounding, announceFounding, setDiscardAvailable,
   };
 }

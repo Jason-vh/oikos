@@ -301,7 +301,7 @@ export function boot(source: SharedBootSource): BootHandles {
   });
 
   const sharedIntent = new SharedIntent(source.session, () => realmId, (outcome, kind) => {
-    applySharedOutcome(outcome, kind !== 'command');
+    applySharedOutcome(outcome, false);
     if (kind === 'claim') updateFounding();
     onStatusUpdate(source.session.currentStatus, source.session.statusReason);
   });
@@ -597,6 +597,13 @@ export function boot(source: SharedBootSource): BootHandles {
   stage.shadows();
   requestAnimationFrame(frame);
 
+  function celebrateFounding(): void {
+    const home = activeCity(world, context);
+    if (!home) return;
+    hud.announceFounding(home.name);
+    sound.play('founding');
+  }
+
   function updateFounding(): void {
     const founding = context.activeId === null;
     const ready = founding && siting() && !sharedIntent.busy && bufferedRequest === null;
@@ -655,6 +662,7 @@ export function boot(source: SharedBootSource): BootHandles {
     }
     updateFounding();
     refresh();
+    if (founded) celebrateFounding();
     if (tool !== 'inspect' || hover !== null) updatePreview();
     if (reducedMotion) {
       city.animate(0, .25, 1);

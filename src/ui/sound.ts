@@ -1,4 +1,4 @@
-export type SoundCue = 'build' | 'road' | 'remove' | 'error' | 'arrival' | 'delivery' | 'upgrade' | 'goal';
+export type SoundCue = 'build' | 'road' | 'remove' | 'error' | 'arrival' | 'delivery' | 'upgrade' | 'goal' | 'founding';
 
 const SOUND_KEY = 'oikos.sound.v1';
 const NOTES: Record<SoundCue, number[]> = {
@@ -10,6 +10,7 @@ const NOTES: Record<SoundCue, number[]> = {
   delivery: [440, 554, 659],
   upgrade: [330, 440, 554],
   goal: [330, 440, 554, 659],
+  founding: [392, 523, 659, 784, 1047],
 };
 
 export function createSound() {
@@ -30,7 +31,7 @@ export function createSound() {
   function play(cue: SoundCue): void {
     if (!enabled || !context || context.state !== 'running') return;
     const now = context.currentTime;
-    const priority = cue === 'arrival' || cue === 'delivery' || cue === 'upgrade' || cue === 'goal';
+    const priority = cue === 'arrival' || cue === 'delivery' || cue === 'upgrade' || cue === 'goal' || cue === 'founding';
     if (now - lastCue < .08 || (!priority && now - lastPriority < .6)) return;
     if (priority) lastPriority = now;
     lastCue = now;
