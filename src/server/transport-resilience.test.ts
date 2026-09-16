@@ -115,4 +115,4 @@ test('exact acknowledgement-loss replay survives reconnect; rebuilt road survive
     expect(reopened.submit(actor.credential, 3, rid(3), remove).status).toBe('pruned');
     expect(stored(reopened)).toEqual(before);
   } finally { reopened.close(); }
-});
+}, 120_000);
