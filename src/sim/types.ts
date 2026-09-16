@@ -75,8 +75,9 @@ export interface City {
   buildings: Building[];
   walkers: Walker[];
 }
+export const CURRENT_VERSION = 15 as const;
 export interface World {
-  version: 14;
+  version: typeof CURRENT_VERSION;
   island: 'kalliste';
   seed: number;
   time: number;

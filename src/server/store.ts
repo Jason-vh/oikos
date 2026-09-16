@@ -4,7 +4,7 @@ import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { World } from '../sim/types';
 import { createSharedWorld } from '../sim/world';
-import { deserializeSharedWorld, serializeWorld } from '../sim/save';
+import { CURRENT_VERSION, deserializeSharedWorld, savedVersion, serializeWorld } from '../sim/save';
 
 export const SCHEMA_VERSION = 2;
 
@@ -128,7 +128,7 @@ export function readWorldRow(db: Database): { revision: number; world: World } {
   if (!row) throw new Error('Authority store has no world row.');
   if (!Number.isSafeInteger(row.revision) || row.revision < 0) throw new Error('Authority store world revision is invalid.');
   const world = deserializeSharedWorld(row.data);
-  if (!world) throw new Error('Authority store world data is corrupt or incompatible.');
+  if (!world) throw new Error(`Authority store world data is corrupt or incompatible: stored format ${savedVersion(row.data) ?? 'unreadable'}, this authority reads ${CURRENT_VERSION}. See deploy/README.md.`);
   return { revision: row.revision, world };
 }
 

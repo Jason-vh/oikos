@@ -1,4 +1,4 @@
-import type { Animal, Building, BuildingKind, City, Resource, Rotation, Stores, Walker, WalkerKind, WalkerTask, World } from './types';
+import { CURRENT_VERSION, type Animal, type Building, type BuildingKind, type City, type Resource, type Rotation, type Stores, type Walker, type WalkerKind, type WalkerTask, type World } from './types';
 
 
 import { BUILDINGS, HOUSE_CAPACITY, RESOURCES } from './catalog';
@@ -10,7 +10,7 @@ import { cityName } from './claims';
 import { footprintTiles, neighbours } from './grid';
 import { dropInvalidWalkers, recomputeConnectivity } from './world';
 import { harbourAt, validateHarbourProgress } from './harbour';
-export const CURRENT_VERSION = 14 as const;
+export { CURRENT_VERSION };
 
 export interface AnimalFate {
   id: number;
@@ -27,7 +27,7 @@ function countdownsScheduled(parsed: Record<string, unknown>): Record<string, un
   const cities = Array.isArray(parsed.cities) ? parsed.cities : [];
   return {
     ...parsed,
-    version: CURRENT_VERSION,
+    version: 14,
     cities: cities.map((city) => {
       if (!isPlainObject(city) || !Array.isArray(city.walkers)) return city;
       return {
@@ -47,7 +47,30 @@ function countdownsScheduled(parsed: Record<string, unknown>): Record<string, un
 function rosterForgotten(parsed: Record<string, unknown>): Record<string, unknown> {
   const wildlife = Array.isArray(parsed.wildlife) ? parsed.wildlife : [];
   const kept = wildlife.filter((entry) => isPlainObject(entry) && (entry.respawnAt !== null || entry.cornered === true));
-  return { ...parsed, version: CURRENT_VERSION - 1, wildlife: kept };
+  return { ...parsed, version: 13, wildlife: kept };
+}
+
+const MIGRATIONS: Array<[number, (parsed: Record<string, unknown>) => Record<string, unknown>]> = [
+  [12, rosterForgotten],
+  [13, countdownsScheduled],
+];
+
+function raise(parsed: Record<string, unknown>): Record<string, unknown> {
+  let raised = parsed;
+  for (const [from, migrate] of MIGRATIONS) {
+    if (raised.version === from) raised = migrate(raised);
+  }
+  return raised;
+}
+
+export function savedVersion(raw: string): number | null {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!isPlainObject(parsed) || !isInteger(parsed.version)) return null;
+    return parsed.version;
+  } catch {
+    return null;
+  }
 }
 
 export function wildlifeFates(world: World): AnimalFate[] {
@@ -257,9 +280,7 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
     return null;
   }
   if (!isPlainObject(parsed)) return null;
-  let raised: Record<string, unknown> = parsed;
-  if (raised.version === CURRENT_VERSION - 2) raised = rosterForgotten(raised);
-  if (raised.version === CURRENT_VERSION - 1) raised = countdownsScheduled(raised);
+  const raised = raise(parsed);
   const { version, island, seed, time, remainder, nextId, nextCityId, wildlife: rawWildlife, felled: rawFelled, regrowth, cities: rawCities } = raised;
 
   if (version !== CURRENT_VERSION) return null;

@@ -18,7 +18,7 @@ try {
     process.once(signal, () => { void runtime.stop().then(() => { process.exitCode = 0; }); });
   }
   console.log('Authority listening.');
-} catch {
-  console.error('Authority startup failed.');
+} catch (error) {
+  console.error('Authority startup failed.', error);
   process.exit(1);
 }

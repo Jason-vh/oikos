@@ -73,7 +73,9 @@ jobs:
             sleep 3
           done
           echo "static $static, authority $world; see deploy/README.md for first-time world setup"
-          cd "$DEPLOY_DIR" && docker compose logs --tail 50 authority
+          cd "$DEPLOY_DIR"
+          docker compose ps -a
+          docker compose logs --tail 100 authority
           exit 1
 
       - name: Reload Caddy

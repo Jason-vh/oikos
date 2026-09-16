@@ -1,4 +1,4 @@
-import type { ActionResult, Building, BuildTool, City, Food, Placement, Resource, Rotation, Stores, Summary, TaskKind, Tile, Walker, WalkerKind, World } from './types';
+import { CURRENT_VERSION, type ActionResult, type Building, type BuildTool, type City, type Food, type Placement, type Resource, type Rotation, type Stores, type Summary, type TaskKind, type Tile, type Walker, type WalkerKind, type World } from './types';
 import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, STARTING_MONEY, VENDOR_COST, footprint, isFood } from './catalog';
 import { retireRespawned, wildlifeRoster } from './wildlife';
 import { gatherArrival, gatherErrand, gatherFinished, gatherKind, GATHER_STOCK_CAP, regrowForest, updateGatherer } from './gathering';
@@ -65,7 +65,7 @@ export function createWorld(seed = DEFAULT_SEED, home?: number, name = 'Kalliste
     walkers: [],
   };
   const world: World = {
-    version: 14,
+    version: CURRENT_VERSION,
     island: 'kalliste',
     seed,
     time: 0,
@@ -85,7 +85,7 @@ export function createWorld(seed = DEFAULT_SEED, home?: number, name = 'Kalliste
 
 export function createSharedWorld(seed = DEFAULT_SEED): World {
   const world: World = {
-    version: 14,
+    version: CURRENT_VERSION,
     island: 'kalliste',
     seed,
     time: 0,

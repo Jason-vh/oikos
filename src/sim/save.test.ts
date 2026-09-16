@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import { deserializeWorld, serializeWorld } from './save';
-import { CURRENT_VERSION } from './save';
+import { deserializeSharedWorld, deserializeWorld, serializeWorld } from './save';
+import { CURRENT_VERSION, savedVersion } from './save';
+import beforeTheResize from './fixtures/kalliste-before-the-resize.json' with { type: 'json' };
 import { advance, build, createWorld } from './world';
 import { buildStarterNeighbourhood } from './scenario';
 import { islandFor, tileIndexOn } from './island';
@@ -132,6 +133,24 @@ describe('gathering saves', () => {
     const restored = deserializeWorld(serializeWorld(world));
     expect(restored).not.toBeNull();
     expect(restored).toEqual(world);
+  });
+});
+
+describe('worlds from an older generator', () => {
+  const raw = JSON.stringify(beforeTheResize);
+
+  test('the fixture predates the current format', () => {
+    expect(savedVersion(raw)).toBeLessThan(CURRENT_VERSION);
+  });
+
+  test('refuses an archipelago generated before the islands were resized', () => {
+    expect(deserializeSharedWorld(raw)).toBeNull();
+    expect(deserializeWorld(raw)).toBeNull();
+  });
+
+  test('refuses it even when relabelled as current, because its tiles name another map', () => {
+    const relabelled = JSON.stringify({ ...beforeTheResize, version: CURRENT_VERSION });
+    expect(deserializeSharedWorld(relabelled)).toBeNull();
   });
 });
 

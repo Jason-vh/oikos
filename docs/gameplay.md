@@ -394,10 +394,18 @@ another building, and that every walker's path is a real, road-adjacent route
 rejected as unsupported rather than partially loaded. A valid save round-trips
 exactly, including walkers already mid-journey, which keep walking correctly after
 a reload. The harbour's site and progress (tier, stock, trade order, voyage) are preserved
-exactly, including the quay's orientation. Version 11 is the only format loaded:
-each city carries a `name` and a coastal harbour, and there is no migration chain —
-older saves are refused outright, because an inland dockyard cannot be moved to a
-shore. `deserializeWorld` still accepts exactly one city; `deserializeSharedWorld`
+exactly, including the quay's orientation. `CURRENT_VERSION` in `src/sim/types.ts`
+is the only format loaded. `MIGRATIONS` in `src/sim/save.ts` raises the older
+formats that can be raised, keyed by the version each one reads; a version with no
+entry is refused outright.
+
+A save holds a seed and tile indices, not terrain: `islandFor(seed)` regenerates the
+map on load. Any change to `generateArchipelago` or `generateIsland` therefore
+invalidates every stored world — indices name tiles on a map that no longer exists,
+and the wildlife roster changes size — and must bump `CURRENT_VERSION`. Version 14
+has no migration for exactly that reason: the islands were resized beneath it.
+`src/sim/fixtures/kalliste-before-the-resize.json` is a world from that generation,
+kept so the refusal stays tested. `deserializeWorld` still accepts exactly one city; `deserializeSharedWorld`
 accepts 0 to `ISLAND_COUNT`, with unique ids and homes, no two cities' roads,
 buildings or harbours overlapping, and every harbour standing on its own island's
 shore.

@@ -57,6 +57,32 @@ docker compose up -d
 Every push to `main` runs on the self-hosted runner labeled `oikos-prod`, builds
 both images, recreates the containers, and reloads Caddy.
 
+## Resetting the world after a format change
+
+A world holds a seed and tile indices, not terrain, so changing the island
+generator invalidates every stored world; `CURRENT_VERSION` is bumped to say so
+(see [gameplay](../docs/gameplay.md)). The authority then refuses to start and
+says which format it found:
+
+```text
+Authority store world data is corrupt or incompatible: stored format 14, this
+authority reads 15.
+```
+
+It will not initialize over an existing store, so the old world has to go. Keep a
+copy, then create the new one with the image that refused the old:
+
+```bash
+cd /home/exedev/apps/oikos
+docker compose stop authority
+docker run --rm -v oikos_world:/data -v "$PWD":/backup alpine \
+  sh -c 'mv /data/world.db /backup/world-$(date +%F).db; rm -f /data/world.db-wal /data/world.db-shm'
+docker compose run --rm authority bun scripts/authority-admin.ts init /data/world.db
+docker compose up -d
+```
+
+Everyone loses their cities and rejoins under a name. Announce it before, not after.
+
 ## Operations
 
 Admission is open: anyone who reaches the origin joins under a name. Nothing needs
