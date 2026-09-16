@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { advance, build, createWorld } from './world';
 import { islandFor, terrainOn } from './island';
-import { SPECIES, alive, animalAt, animalStatus, killAnimal, wildlifeRoster, wildlifeObstacles, RESPAWN_SECONDS } from './wildlife';
+import { SPECIES, alive, animalAt, animalQuarry, killAnimal, wildlifeRoster, wildlifeObstacles, RESPAWN_SECONDS } from './wildlife';
 import { spotFor } from './testing';
 import { primaryCity } from './city';
 import type { Animal, World } from './types';
@@ -94,9 +94,14 @@ describe('wildlife', () => {
     expect(SPECIES.rabbit.food).toBe('meat');
     expect(SPECIES.fish.food).toBe('fish');
     expect(SPECIES.gull.food).toBeNull();
+  });
+
+  test('quarry names an animal and what it yields, and stays silent for animals worth no food', () => {
     const world = createWorld(1);
     const boar = world.wildlife.find((animal) => animal.kind === 'boar')!;
-    expect(animalStatus(boar)[0]).toContain('meat');
+    const gull = world.wildlife.find((animal) => animal.kind === 'gull')!;
+    expect(animalQuarry(boar)).toEqual({ name: 'Wild boar', yield: SPECIES.boar.yield, food: 'meat' });
+    expect(animalQuarry(gull)).toBeNull();
   });
 });
 

@@ -9,7 +9,7 @@ import { BUILDINGS } from './sim/catalog';
 import { demolitionPreview, footprintTileIssues, harbourRoute, suitableFarmGround } from './sim/construction';
 import { CELL_SIZE, groundHeight, islandFor, ISLAND_COUNT, terrainOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
 import { buildingStatus, getSummary, placement, roadPathPlacement, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
-import { animalName, animalStatus } from './sim/wildlife';
+import { animalQuarry } from './sim/wildlife';
 import { gatherReach } from './sim/gathering';
 import type { Building, BuildingKind, City, Placement, Rotation, Tile, Tool, Walker, World } from './sim/types';
 import { createHud, type CityScope, type HudTool, type Stance } from './ui/hud';
@@ -136,6 +136,7 @@ export function boot(source: SharedBootSource): BootHandles {
   let rotation: Rotation = 0;
   let selectedId: number | null = null;
   let hover: Tile | null = null;
+  let pointer: { x: number; y: number } | null = null;
   let drag: { tile: Tile; x: number; y: number; pointer: number; gestureWritable: boolean; gestureGeneration: number } | null = null;
   let bendVertical = false;
   let renderedWritable = false;
@@ -197,17 +198,15 @@ export function boot(source: SharedBootSource): BootHandles {
     const active = activeCity(world, context);
     const found = findBuildingOwner(selectedId);
     const foundWalker = found ? null : findWalkerOwner(selectedId);
-    const animal = found || foundWalker ? null : world.wildlife.find((candidate) => candidate.id === selectedId) ?? null;
-    if (!found && !foundWalker && !animal) selectedId = null;
+    if (!found && !foundWalker) selectedId = null;
     city.sync(world);
     overlay.setRoads(active?.roads ?? []);
-    city.select(found?.building ?? null, foundWalker?.walker.id ?? animal?.id ?? null);
+    city.select(found?.building ?? null, foundWalker?.walker.id ?? null);
     const viewedScope = scopeOf(viewed);
     const activeScope = scopeOf(active);
     const canEdit = writable();
     renderedWritable = canEdit;
     if (foundWalker) hud.update(world, viewedScope, activeScope, { kind: 'person', name: walkerName(foundWalker.walker), role: WALKER_ROLES[foundWalker.walker.kind], status: walkerStatus(foundWalker.city, foundWalker.walker) }, canEdit);
-    else if (animal) hud.update(world, viewedScope, activeScope, { kind: 'person', name: animalName(animal), role: 'Wildlife', status: animalStatus(animal) }, canEdit);
     else if (found) hud.update(world, viewedScope, activeScope, { kind: 'building', building: found.building, status: buildingStatus(world, found.city, found.building), editable: canEdit && found.city.id === active?.id }, canEdit);
     else hud.update(world, viewedScope, activeScope, null, canEdit);
     const debt = (active?.money ?? 0) < 0;
@@ -414,6 +413,7 @@ export function boot(source: SharedBootSource): BootHandles {
     const preview = harbourPlacement(world, site.x, site.z, rotation);
     city.showPreview('harbour', site.x, site.z, rotation, preview);
     city.clearHover();
+    hud.setTooltip(null);
     overlay.setFertileGround(null);
     overlay.setBlockedTiles([]);
     overlay.setDemolitionTarget([]);
@@ -422,34 +422,49 @@ export function boot(source: SharedBootSource): BootHandles {
     hud.setHint(preview.ok ? 'Found your city here · the harbour is free · R turns it' : preview.reason);
   }
 
-  function updatePreview(pointer: { x: number; y: number } | null = null): void {
+  function updateHoverFeedback(): void {
+    if (!pointer || drag) {
+      city.clearHover();
+      hud.setTooltip(null);
+      return;
+    }
+    const target = city.hover(pointer.x, pointer.y, world);
+    if (target && target.kind !== 'animal') stage.canvas.style.cursor = 'pointer';
+    const animal = target?.kind === 'animal' ? world.wildlife.find((candidate) => candidate.id === target.id) : null;
+    const quarry = animal ? animalQuarry(animal) : null;
+    hud.setTooltip(quarry ? { text: `${quarry.name} \u00b7 ${quarry.yield}`, resource: quarry.food, x: pointer.x, y: pointer.y } : null);
+  }
+
+  function updatePreview(): void {
     if (harbourArmed && siting() && hover) {
       previewHarbourSite(hover);
       return;
     }
     if (!writable()) {
       city.hidePreview();
-      city.clearHover();
       overlay.setFertileGround(null);
       overlay.setBlockedTiles([]);
       overlay.setDemolitionTarget([]);
       overlay.setHarbourRoute(null);
       stage.canvas.style.cursor = '';
       hud.setHint(connectionHint());
-      if (pointer && !drag && city.hover(pointer.x, pointer.y, world)) stage.canvas.style.cursor = 'pointer';
+      updateHoverFeedback();
       return;
     }
     const homeCity = activeCity(world, context)!;
     overlay.setFertileGround(tool === 'farm' ? suitableFarmGround(world, homeCity) : null);
     stage.canvas.style.cursor = tool === 'inspect' ? '' : 'crosshair';
-    if (tool !== 'inspect') city.clearHover();
+    if (tool !== 'inspect') {
+      city.clearHover();
+      hud.setTooltip(null);
+    }
     if (!hover || tool === 'inspect') {
       city.hidePreview();
       overlay.setBlockedTiles([]);
       overlay.setHarbourRoute(null);
       overlay.setDemolitionTarget([]);
       hud.setHint('Click anything to inspect · WASD pans · Scroll zooms · Q rotates');
-      if (tool === 'inspect' && pointer && !drag && city.hover(pointer.x, pointer.y, world)) stage.canvas.style.cursor = 'pointer';
+      if (tool === 'inspect') updateHoverFeedback();
       return;
     }
     if (tool === 'demolish') {
@@ -501,8 +516,9 @@ export function boot(source: SharedBootSource): BootHandles {
   stage.canvas.addEventListener('pointermove', (event) => {
     if (!event.isPrimary || event.altKey || event.buttons === 2) return;
     hover = atPointer(event);
+    pointer = { x: event.clientX, y: event.clientY };
     bendVertical = event.shiftKey;
-    updatePreview({ x: event.clientX, y: event.clientY });
+    updatePreview();
   });
   stage.canvas.addEventListener('pointerup', (event) => {
     if (!drag || drag.pointer !== event.pointerId) return;
@@ -515,7 +531,7 @@ export function boot(source: SharedBootSource): BootHandles {
         submitShared({ kind: 'claim', x: hover.x, z: hover.z, rotation });
       } else if (!home || tool === 'inspect') {
         const picked = city.pick(event.clientX, event.clientY);
-        selectedId = picked.walker ?? picked.animal ?? picked.building;
+        selectedId = picked.walker ?? picked.building;
         refresh();
       } else if (tool === 'demolish') {
         const picked = city.pick(event.clientX, event.clientY);
@@ -528,7 +544,14 @@ export function boot(source: SharedBootSource): BootHandles {
     updatePreview();
   });
   stage.canvas.addEventListener('pointercancel', () => { drag = null; city.hidePreview(); });
-  stage.canvas.addEventListener('pointerleave', () => { if (!drag) { hover = null; city.hidePreview(); city.clearHover(); } });
+  stage.canvas.addEventListener('pointerleave', () => {
+    if (drag) return;
+    hover = null;
+    pointer = null;
+    city.hidePreview();
+    city.clearHover();
+    hud.setTooltip(null);
+  });
   const held = new Set<string>();
   const PAN_KEYS: Record<string, [number, number]> = { w: [0, 1], s: [0, -1], a: [-1, 0], d: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
   window.addEventListener('keyup', (event) => held.delete(event.key.length === 1 ? event.key.toLowerCase() : event.key));
@@ -696,7 +719,7 @@ export function boot(source: SharedBootSource): BootHandles {
     updateFounding();
     refresh();
     if (founded) celebrateFounding();
-    if (tool !== 'inspect' || hover !== null) updatePreview();
+    updatePreview();
     if (reducedMotion) {
       city.animate(0, .25, 1);
       stage.shadows();
@@ -829,7 +852,7 @@ export function boot(source: SharedBootSource): BootHandles {
       select: (x: number, z: number) => {
         const point = projectTile(x, z);
         const picked = city.pick(point.x, point.y);
-        selectedId = picked.walker ?? picked.animal ?? picked.building;
+        selectedId = picked.walker ?? picked.building;
         refresh();
         return selectedId;
       },

@@ -1,9 +1,9 @@
-import type { Building, City, Rotation, Summary, Tool, World } from '../sim/types';
+import type { Building, City, Resource, Rotation, Summary, Tool, World } from '../sim/types';
 import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, VENDOR_COST } from '../sim/catalog';
 import { FOOD_CONSUMPTION_PER_RESIDENT, WATER_DECAY_PER_SECOND } from '../sim/balance';
 import { cityColors } from '../art/primitives';
 import type { CityColor } from '../sim/colors';
-import { toolIcon } from './icons';
+import { resourceIcon, toolIcon } from './icons';
 
 export type HudTool = Tool | 'harbour';
 export type Stance = 'founding' | 'watching' | 'building';
@@ -29,6 +29,13 @@ export interface CityScope {
   summary: Summary;
 }
 
+export interface Tooltip {
+  text: string;
+  resource: Resource;
+  x: number;
+  y: number;
+}
+
 export type Selection =
   | { kind: 'building'; building: Building; status: string[]; editable: boolean }
   | { kind: 'person'; name: string; role: string; status: string[] };
@@ -38,6 +45,7 @@ export interface Hud {
   setTool(tool: HudTool, rotation: Rotation): void;
   notify(message: string, error?: boolean): void;
   setHint(message: string): void;
+  setTooltip(tooltip: Tooltip | null): void;
   setGrid(enabled: boolean): void;
   setSound(enabled: boolean): void;
   setConnection(blocked: boolean, message: string): void;
@@ -95,10 +103,16 @@ function formatDate(world: World): string {
   return `${day} ${MONTHS[months % 12]} ${year} BC`;
 }
 
-function describeStores(building: Building): string {
-  const entries = Object.entries(building.stores).filter(([, amount]) => amount > 0);
-  if (entries.length === 0) return 'Empty';
-  return entries.map(([food, amount]) => `${Math.round(amount)} ${food}`).join(' \u00b7 ');
+function describeStores(building: Building): Node[] {
+  const entries = Object.entries(building.stores).filter(([, amount]) => amount > 0) as [Resource, number][];
+  if (entries.length === 0) return [document.createTextNode('Empty')];
+  return entries.map(([resource, amount]) => {
+    const item = document.createElement('span');
+    item.className = 'hud-stock-item';
+    item.title = resource;
+    item.append(String(Math.round(amount)), resourceIcon(resource));
+    return item;
+  });
 }
 
 interface Milestones {
@@ -183,6 +197,7 @@ const SKELETON = `
     <p class="hud-hint" data-field="hint" role="note" hidden></p>
     <div class="hud-panel hud-toolbar" role="group" aria-label="Build tools" data-testid="toolbar"></div>
   </div>
+  <p class="hud-tooltip" data-field="tooltip" data-testid="tooltip" hidden></p>
   <div class="hud-toast-region" role="status" aria-live="polite" data-testid="toast-region"></div>
   <div class="hud-banner" role="status" aria-live="polite" data-testid="banner" hidden>
     <p class="hud-banner-title"><span class="hud-colour" data-field="banner-colour"></span><span data-field="banner-title"></span></p>
@@ -406,7 +421,7 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
 
     const hasStock = selected.kind === 'farm' || selected.kind === 'granary' || selected.kind === 'agora' || selected.kind === 'lodge' || selected.kind === 'woodcutter' || selected.kind === 'stockpile' || selected.kind === 'harbour';
     rowStock.hidden = !hasStock;
-    if (hasStock) field(rowStock, 'inspector-stock').textContent = describeStores(selected);
+    if (hasStock) field(rowStock, 'inspector-stock').replaceChildren(...describeStores(selected));
 
     const hasWorkers = definition.jobs > 0;
     rowWorkers.hidden = !hasWorkers;
@@ -541,6 +556,24 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
     hintElement.hidden = message.length === 0;
   }
 
+  const tooltipElement = field(root, 'tooltip');
+  let tooltipShape = { key: '', halfWidth: 0 };
+  function setTooltip(tooltip: Tooltip | null): void {
+    if (!tooltip) {
+      tooltipElement.hidden = true;
+      return;
+    }
+    tooltipElement.hidden = false;
+    const key = `${tooltip.resource}:${tooltip.text}`;
+    if (key !== tooltipShape.key) {
+      tooltipElement.replaceChildren(tooltip.text, resourceIcon(tooltip.resource));
+      tooltipShape = { key, halfWidth: tooltipElement.offsetWidth / 2 };
+    }
+    const margin = tooltipShape.halfWidth + 8;
+    tooltipElement.style.left = `${Math.min(Math.max(tooltip.x, margin), window.innerWidth - margin)}px`;
+    tooltipElement.style.top = `${tooltip.y}px`;
+  }
+
   function dispose(): void {
     for (const timer of toastTimers) window.clearTimeout(timer);
     toastTimers.clear();
@@ -576,7 +609,7 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
   }
 
   return {
-    update, setTool, notify, setHint, setGrid, setSound, toggleMenu, dispose,
+    update, setTool, notify, setHint, setTooltip, setGrid, setSound, toggleMenu, dispose,
     setConnection, setStance, announceFounding, setDiscardAvailable,
   };
 }

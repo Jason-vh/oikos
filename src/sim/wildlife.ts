@@ -208,15 +208,10 @@ export function wildlifeObstacles(world: World): ReadonlySet<number> {
   return occupied;
 }
 
-export function animalName(animal: Animal): string {
-  return SPECIES[animal.kind].name;
-}
-
-export function animalStatus(animal: Animal): string[] {
+export function animalQuarry(animal: Animal): { name: string; yield: number; food: Food } | null {
   const species = SPECIES[animal.kind];
-  if (animal.kind === 'gull') return ['Wheeling over the shore.'];
-  if (animal.kind === 'fish') return [`A shoal in the shallows. Worth ${species.yield} fish to a fisherman.`];
-  return [`Roaming the ${animal.kind === 'boar' ? 'forest' : 'scrub'}. Worth ${species.yield} meat to a hunter.`];
+  if (!species.food) return null;
+  return { name: species.name, yield: species.yield, food: species.food };
 }
 
 export const RESPAWN_SECONDS = 240;

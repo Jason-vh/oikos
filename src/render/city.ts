@@ -19,6 +19,8 @@ import { WildlifeField } from './wildlife';
 import { CloudLayer } from './clouds';
 import { worldSpan } from './extent';
 
+export type HoverTarget = { kind: 'building' | 'walker' | 'animal'; id: number };
+
 interface BuildingEntry { key: string; tier: number; model: T.Group; intro: number; from: number; construction: BuildingConstruction | null; }
 interface Departure { model: T.Group; elapsed: number; }
 interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; path: number[]; departedAt: number; quarry: number | null; task: WalkerTask | null; strikes: number; moving: boolean; working: boolean; waitingSince: number; spell: number; mood: Idle; aim: number; heading: number; stepped: boolean; stairs: ReadonlyMap<number, Stair>; }
@@ -26,6 +28,7 @@ interface AnimalEntry { animal: Animal; home: T.Vector3; roam: number; position:
 
 const SIGHT_MARGIN = 1.3;
 const WILDLIFE_SIGHT = 220;
+const ANIMAL_PICK_SPAN = 120;
 const ANIMAL_FACING_LOOK = .35;
 const IDLE_SETTLE = 1.2;
 const IDLE_SPELL = 3.4;
@@ -684,22 +687,26 @@ export class CityScene {
     return this.animals.get(id)?.position ?? null;
   }
 
-  hover(clientX: number, clientY: number, world: World): boolean {
+  hover(clientX: number, clientY: number, world: World): HoverTarget | null {
     const picked = this.pick(clientX, clientY);
     const building = findBuilding(world, picked.building);
-    const mover = this.moverPosition(picked.walker ?? picked.animal);
-    this.hoverMark.visible = building !== undefined || mover !== null;
-    if (mover) {
+    const walker = this.moverPosition(picked.walker);
+    const marked = this.hoverMark.visible;
+    this.hoverMark.visible = building !== undefined || walker !== null;
+    if (walker) {
       this.hoverMark.scale.set(1.1, 1, 1.1);
-      this.hoverMark.position.set(mover.x, mover.y - .015, mover.z);
+      this.hoverMark.position.set(walker.x, walker.y - .015, walker.z);
     } else if (building) {
       const { width, depth } = footprint(building.kind, building.rotation);
       const p = worldPositionOn(this.map, building.x + width / 2, building.z + depth / 2);
       this.hoverMark.scale.set(width * CELL_SIZE + .12, 1, depth * CELL_SIZE + .12);
       this.hoverMark.position.set(p.x, groundHeight(this.map, building.x, building.z) + .06, p.z);
     }
-    this.stage.invalidate();
-    return this.hoverMark.visible;
+    if (marked || this.hoverMark.visible) this.stage.invalidate();
+    if (picked.walker !== null) return { kind: 'walker', id: picked.walker };
+    if (picked.animal !== null) return { kind: 'animal', id: picked.animal };
+    if (building) return { kind: 'building', id: building.id };
+    return null;
   }
 
   clearHover(): void {
@@ -859,11 +866,13 @@ export class CityScene {
     }
     if (nearest) return { building: null, walker: nearest.id, animal: null };
     let nearestAnimal: { id: number; distance: number } | null = null;
-    for (const [id, entry] of this.animals) {
-      if (!entry.visible) continue;
-      centre.copy(entry.position).setY(entry.position.y + .25);
-      const distance = ray.ray.distanceToPoint(centre);
-      if (distance < .7 && (!nearestAnimal || distance < nearestAnimal.distance)) nearestAnimal = { id, distance };
+    if (this.span <= ANIMAL_PICK_SPAN) {
+      for (const [id, entry] of this.animals) {
+        if (!entry.visible) continue;
+        centre.copy(entry.position).setY(entry.position.y + .25);
+        const distance = ray.ray.distanceToPoint(centre);
+        if (distance < .7 && (!nearestAnimal || distance < nearestAnimal.distance)) nearestAnimal = { id, distance };
+      }
     }
     if (nearestAnimal) return { building: null, walker: null, animal: nearestAnimal.id };
     const hits = ray.intersectObjects([...this.buildings.values()].map((entry) => entry.model), true);
