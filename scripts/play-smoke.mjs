@@ -28,20 +28,23 @@ try {
     const { width, depth } = window.oikos.map;
     for (let z = 0; z < depth; z++) {
       for (let x = 0; x < width; x++) {
-        for (const rotation of [0, 1, 2, 3]) {
-          if (window.oikos.checkClaim(x, z, rotation).ok) return { x, z, rotation };
-        }
+        if (window.oikos.checkClaim(x, z, 0).ok) return { x, z, rotation: 0 };
       }
     }
     return null;
   });
   assert.notEqual(site, null, 'No unclaimed shore was found; the world needs resetting');
 
-  const claimed = await page.evaluate((where) => window.oikos.claim(where.x, where.z, where.rotation), site);
-  assert.equal(claimed.ok, true, `Claim refused: ${claimed.reason}`);
+  await page.evaluate((where) => window.oikos.focusTile(where.x, where.z), site);
+  await page.getByRole('button', { name: /Harbour/ }).click();
+  const point = await page.evaluate((where) => window.oikos.projectTile(where.x, where.z), site);
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.down();
+  await page.waitForTimeout(400);
+  await page.mouse.up();
   await page.evaluate(() => window.oikos.settled());
   const founded = await page.evaluate(() => window.oikos.session);
-  assert.notEqual(founded.activeCityId, null, 'The claim did not found a city');
+  assert.notEqual(founded.activeCityId, null, 'A held click did not found a city');
   assert.equal(await page.evaluate(() => window.oikos.state.cities.length >= 1), true);
   await page.screenshot({ path: path.join(output, 'founded.png') });
 

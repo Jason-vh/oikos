@@ -15,8 +15,9 @@ so the way out is the way in.
 Joining takes a name and nothing else: the credential cookie is the whole account.
 It admits a player without a city. The camera opens on the whole sea; hovering a
 shore previews a harbour, R turns it, and clicking places it. That placement is the
-claim: the island under the quay becomes yours, the city is founded and named after
-you, and the view settles on it. A refused site says why and costs nothing.
+claim: the island under the quay becomes yours, the city is founded under the name
+you joined with, and the camera stays where you left it. A refused site says why and
+costs nothing.
 
 Founding requires a ready session and no city yet. Construction and vendors
 require an owned, viewed city and a ready session. Disconnects disable these controls and cancel unfinished gestures.

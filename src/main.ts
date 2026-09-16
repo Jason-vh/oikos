@@ -16,7 +16,7 @@ import { celebration, cityMilestones, NO_MILESTONES, rememberMilestones } from '
 import { harbourPlacement } from './sim/founding';
 import type { AuthorityRequest } from './server/authority';
 import { parseCommand, type CityCommand } from './sim/commands';
-import { activeCity, canWrite, contextForOwnedCity, reconcileContext, resolveCity, viewedCity, withViewed } from './ui/city-context';
+import { activeCity, canWrite, contextForOwnedCity, reconcileContext, resolveCity, viewedCity, withViewed, type CityContext } from './ui/city-context';
 import { cadence, debugEnabled, meterEnabled, protocolLog, snapshotLog } from './ui/debug';
 import { FrameMeter } from './ui/meter';
 import { SharedSession, type SendOutcome, type SharedRequestOutcome, type SharedSessionStatus, type SharedSnapshot } from './ui/shared-session';
@@ -33,6 +33,7 @@ export interface SharedBootSource {
 const CONNECTION_NOTICE_DELAY = 900;
 const OVERVIEW_MARGIN = 1.04;
 const ANIMATION_INTERVAL = 1000 / 30;
+const CITY_VIEW_SIZE = 36;
 
 function isSettling(status: SharedSessionStatus): boolean {
   return status === 'pending' || status === 'reconciling';
@@ -61,13 +62,13 @@ export function boot(source: SharedBootSource): BootHandles {
   function mapFor(home: City | null): ReturnType<typeof islandFor> {
     return home ? islandFor(world.seed, home.home) : islandFor(world.seed);
   }
-  let city = new CityScene(stage, mapFor(activeCity(world, context)), !reducedMotion);
-  let overlay = new ConstructionOverlay(stage, mapFor(activeCity(world, context)));
-  const map = () => city.map;
-  function viewFor(homeCity: City): { target: number[]; offset: number[]; size: number } {
+  let city = new CityScene(stage, islandFor(world.seed), !reducedMotion);
+  let overlay = new ConstructionOverlay(stage, islandFor(world.seed));
+  const map = () => mapFor(activeCity(world, context));
+  function viewFor(homeCity: City): View {
     const island = islandFor(world.seed, homeCity.home);
     const harbour = worldPositionOn(island, island.entry.x + .5, island.entry.z - 7);
-    return { target: [harbour.x, GROUND_Y, harbour.z], offset: [35, 38, 48], size: 36 };
+    return { target: [harbour.x, GROUND_Y, harbour.z], offset: [35, 38, 48], size: CITY_VIEW_SIZE };
   }
   function seaBounds(seed: number): number {
     const island = islandFor(seed);
@@ -87,23 +88,37 @@ export function boot(source: SharedBootSource): BootHandles {
   const initialActive = activeCity(world, context);
   if (initialActive) stage.setView(viewFor(initialActive));
   else stage.setView(overviewView(world.seed));
-  function rebuildScene(preserveView = false): void {
-    const previousView = stage.getView();
+  function replaceScene(): void {
     city.dispose();
+    overlay.dispose();
     stage.bounds(seaBounds(world.seed));
-    const home = activeCity(world, context);
-    city = new CityScene(stage, mapFor(home), !reducedMotion);
+    city = new CityScene(stage, islandFor(world.seed), !reducedMotion);
+    overlay = new ConstructionOverlay(stage, islandFor(world.seed));
+  }
+
+  function keepsView(previous: CityContext, realmChanged: boolean, founded: boolean): boolean {
+    if (realmChanged) return false;
+    if (founded) return true;
+    return previous.viewedId === context.viewedId;
+  }
+
+  function contextView(): View {
+    const viewed = viewedCity(world, context);
+    if (!viewed) return overviewView(world.seed);
+    return cameraMemory.get(viewed.id) ?? viewFor(viewed);
+  }
+
+  function rebuildScene(preserveView: boolean): void {
+    const previousView = stage.getView();
+    if (city.map.seed === world.seed) {
+      city.hidePreview();
+      overlay.clear();
+      city.reload(world);
+    } else replaceScene();
+    applyGrid();
+    stage.setView(preserveView ? previousView : contextView());
     city.setWorldTime(clock.now);
     city.watch(stage.controls.target, stage.viewSpan());
-    overlay.dispose();
-    overlay = new ConstructionOverlay(stage, mapFor(home));
-    applyGrid();
-    if (preserveView) stage.setView(previousView);
-    else {
-      const viewed = viewedCity(world, context);
-      if (viewed) stage.setView(cameraMemory.get(viewed.id) ?? viewFor(viewed));
-      else stage.setView(overviewView(world.seed));
-    }
     stage.shadows();
   }
   let tool: Tool = 'inspect';
@@ -627,6 +642,7 @@ export function boot(source: SharedBootSource): BootHandles {
       cameraMemory.set(previousContext.viewedId, stage.getView());
     }
     const contextChanged = previousContext.activeId !== context.activeId || previousContext.viewedId !== context.viewedId;
+    const founded = !realmChanged && previousContext.activeId === null && context.activeId !== null;
     if (realmChanged || bindingChanged || contextChanged) {
       if (realmChanged) cameraMemory.clear();
       const active = activeCity(world, context);
@@ -634,7 +650,7 @@ export function boot(source: SharedBootSource): BootHandles {
       selectedId = null;
       hover = null;
       drag = null;
-      rebuildScene(!realmChanged && previousContext.viewedId === context.viewedId);
+      rebuildScene(keepsView(previousContext, realmChanged, founded));
       selectTool('inspect');
     }
     updateFounding();
@@ -680,7 +696,7 @@ export function boot(source: SharedBootSource): BootHandles {
     hud.setDiscardAvailable(status === 'indeterminate' || status === 'storage-error');
     updateFounding();
     const nowWritable = writable();
-    if (!nowWritable) {
+    if (!nowWritable && !siting()) {
       if (tool !== 'inspect') selectTool('inspect');
       else drag = null;
     }
