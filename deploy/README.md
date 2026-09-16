@@ -57,6 +57,17 @@ docker compose up -d
 Every push to `main` runs on the self-hosted runner labeled `oikos-prod`, builds
 both images, recreates the containers, and reloads Caddy.
 
+## Schema changes
+
+The store's tables are versioned separately from the save. An authority opening a
+store older than itself raises it in place, one transaction per step, before it
+serves anything; there is no migration command to run and none to forget. A store
+newer than the authority is refused, so a rollback stops rather than writes.
+
+The authority container reports `/healthz` as its healthcheck, so a store it
+refuses shows up as `unhealthy` in `docker compose ps` instead of as a static
+page that never reaches the world.
+
 ## Resetting the world after a format change
 
 A world holds a seed and tile indices, not terrain, so changing the island

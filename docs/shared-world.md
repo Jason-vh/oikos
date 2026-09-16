@@ -89,6 +89,24 @@ claimed harbours through the shared `nextId`; never assign `0` to every harbour.
 Validate harbour, building, walker and wildlife IDs globally. City IDs remain
 stable identities, not array positions.
 
+## Store schema
+
+The save is the world as JSON; the store is the SQLite container around it, and
+the two are versioned apart. `SCHEMA_VERSION` in `src/server/store.ts` names the
+tables `openStore` accepts, compared byte-for-byte against `sqlite_master`.
+
+A store behind that version is raised on open, in one exclusive transaction per
+step, by the ladder in `src/server/migrations.ts`; a store ahead of it is refused.
+Adding a column to a `STRICT` table means `rebuildTable`, which creates the table
+from its recorded shape and refills it, because an `ALTER TABLE` default would
+outlive the migration in the schema text.
+
+Every schema ever deployed is recorded in `src/server/schema-history.ts`. Bumping
+`SCHEMA_VERSION` means recording the new shape and adding the step that reaches
+it: the tests compare the record against `TABLE_SCHEMA` and migrate a store built
+from every earlier version, so a schema edited without a migration fails the suite
+rather than the deployment.
+
 ## Save schema and claims
 
 Version 17 adds `City.color`, one of the eight names in `src/sim/colors.ts`; the

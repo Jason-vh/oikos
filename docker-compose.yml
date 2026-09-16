@@ -11,6 +11,12 @@ services:
       OIKOS_PUBLIC_ORIGIN: ${OIKOS_PUBLIC_ORIGIN:-https://oikos.vhtm.eu}
       OIKOS_HOST: 0.0.0.0
       PORT: 3000
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--output-document=-", "http://127.0.0.1:3000/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     volumes:
       - world:/data
     networks:

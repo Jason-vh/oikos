@@ -5,12 +5,13 @@ import { randomUUID } from 'node:crypto';
 import type { World } from '../sim/types';
 import { createSharedWorld } from '../sim/world';
 import { CURRENT_VERSION, deserializeSharedWorld, savedVersion, serializeWorld } from '../sim/save';
+import { migrateStore } from './migrations';
 
 export const SCHEMA_VERSION = 3;
 
 const REALM_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const TABLE_SCHEMA: Record<string, string> = {
+export const TABLE_SCHEMA: Record<string, string> = {
   meta: 'CREATE TABLE meta (id INTEGER PRIMARY KEY CHECK (id = 1), format_version INTEGER NOT NULL, realm_id TEXT NOT NULL) STRICT',
   world: 'CREATE TABLE world (id INTEGER PRIMARY KEY CHECK (id = 1), revision INTEGER NOT NULL CHECK (revision >= 0), data TEXT NOT NULL) STRICT',
   actors: 'CREATE TABLE actors (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, color TEXT NOT NULL, created_at INTEGER NOT NULL) STRICT',
@@ -114,6 +115,18 @@ function checkSchemaShape(db: Database, path: string): void {
   }
 }
 
+function storedSchemaVersion(db: Database, path: string): number {
+  let found: number | null = null;
+  try {
+    found = selectOne<{ format_version: number }>(db, 'SELECT format_version FROM meta WHERE id = 1;')?.format_version ?? null;
+  } catch {
+    throw new Error(`Authority store at ${path} has no readable schema version.`);
+  }
+  if (found === null || !Number.isSafeInteger(found) || found < 1) throw new Error(`Authority store at ${path} has no readable schema version.`);
+  if (found > SCHEMA_VERSION) throw new Error(`Authority store at ${path} was written by a newer authority: stored schema ${found}, this authority reads ${SCHEMA_VERSION}.`);
+  return found;
+}
+
 export function openStore(path: string): AuthorityDb {
   if (!existsSync(path)) throw new Error(`No authority store at ${path}.`);
   if (statSync(path).size === 0) throw new Error(`Authority store at ${path} is empty.`);
@@ -121,6 +134,8 @@ export function openStore(path: string): AuthorityDb {
   try {
     applyPragmas(db);
     acquireExclusiveFileLock(db, path);
+    const storedVersion = storedSchemaVersion(db, path);
+    if (storedVersion < SCHEMA_VERSION) migrateStore(db, storedVersion, SCHEMA_VERSION, path);
     checkSchemaShape(db, path);
     const meta = selectOne<{ format_version: number; realm_id: string }>(db, 'SELECT format_version, realm_id FROM meta WHERE id = 1;');
     if (!meta || meta.format_version !== SCHEMA_VERSION) throw new Error(`Authority store at ${path} is corrupt or incompatible.`);
