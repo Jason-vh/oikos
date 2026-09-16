@@ -619,7 +619,7 @@ export class CityScene {
       animal.phase = this.worldTime * Math.max(1, speed) + id;
       this.writeAnimal(id, animal);
     }
-    if (this.scenery.animateFalls(delta * speed)) this.stage.shadowsFromMotion();
+    if (this.scenery.animateFalls(delta * speed)) this.stage.shadows();
     this.followSelection();
     this.stage.invalidate();
   }
@@ -669,7 +669,7 @@ export class CityScene {
       active = true;
     }
     if (this.dust.advance(delta)) active = true;
-    if (active) this.stage.shadowsFromMotion();
+    if (active) this.stage.shadows();
     return active;
   }
 

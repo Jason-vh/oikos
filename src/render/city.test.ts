@@ -10,7 +10,7 @@ import { primaryCity } from '../sim/city';
 function fixture(motion = true) {
   const world = createWorld();
   const scene = new T.Scene();
-  const stage = { scene, shadows() {}, shadowsFromMotion() {}, invalidate() {}, world(_span: number) {} } as Stage;
+  const stage = { scene, shadows() {}, invalidate() {}, world(_span: number) {} } as Stage;
   const city = new CityScene(stage, islandFor(world.seed), motion);
   const site = planStarterNeighbourhood(world, primaryCity(world))!.buildings.find((building) => building.kind === 'house')!;
   function placeHouse() {

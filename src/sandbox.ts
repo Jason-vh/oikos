@@ -65,7 +65,7 @@ function boot(): void {
   function pose(): void {
     if (!reducedMotion) return;
     scene.animate(0, .25, 1);
-    stage.shadowsFromMotion();
+    stage.shadows();
   }
 
   function frame(now: number): void {
@@ -77,7 +77,7 @@ function boot(): void {
     if (!reducedMotion && !document.hidden) {
       artTime += delta;
       scene.animate(artTime, delta, 1);
-      stage.shadowsFromMotion();
+      stage.shadows();
     }
     meter?.sample(now, {
       rendered: stage.frames,

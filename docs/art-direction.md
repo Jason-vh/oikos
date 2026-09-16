@@ -66,7 +66,10 @@ existing one reads correctly at city zoom.
 
 Orthographic camera; hemisphere light `e7f1ee`/`b4a075` at 2.1; sun `ffe6bd` at 3.5
 from `(-25, 42, 24)`; ACES tone mapping at 1.18; 2× MSAA; GTAO at 70% resolution;
-shadows refreshed on change, not per frame. Golden hour swaps the sun to `ffc083`
+shadows refreshed in every frame that paints, never on a frame that does not. A
+moving body and its shadow therefore share one cadence; throttling the map below
+the pose rate was tried and only made shadows trail their casters, for a saving
+too small to measure. Golden hour swaps the sun to `ffc083`
 lower in the sky. Do not add bloom, vignette or outlines.
 
 The camera stands off the target by a fixed multiple of the world span, so every

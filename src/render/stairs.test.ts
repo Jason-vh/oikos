@@ -33,7 +33,7 @@ function fixture(dx = 1, dz = 0) {
   const stage = {
     scene, camera,
     canvas: { getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 800 }) },
-    shadows() { renders.shadows++; }, shadowsFromMotion() {}, invalidate() {}, world(_span: number) {},
+    shadows() { renders.shadows++; }, invalidate() {}, world(_span: number) {},
     pointerRay,
     pick(x: number, y: number, height: number) {
       return pointerRay(x, y).ray.intersectPlane(new T.Plane(new T.Vector3(0, 1, 0), -height), new T.Vector3());

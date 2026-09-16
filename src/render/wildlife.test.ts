@@ -100,7 +100,7 @@ test('a removed animal hands its instance slots to the next one', () => {
 
 test('a view of the whole archipelago does not draw every animal on it', () => {
   const world = createWorld();
-  const stage = { scene: new T.Scene(), shadows() {}, shadowsFromMotion() {}, invalidate() {}, world(_span: number) {} } as Stage;
+  const stage = { scene: new T.Scene(), shadows() {}, invalidate() {}, world(_span: number) {} } as Stage;
   const city = new CityScene(stage, islandFor(world.seed), true);
   try {
     city.setWorldTime(12);

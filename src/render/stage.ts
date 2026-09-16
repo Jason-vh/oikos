@@ -9,7 +9,6 @@ import { GOLDEN_SUN_OFFSET, SUN_OFFSET } from './sun';
 export interface View { target: number[]; offset: number[]; size: number; zoom?: number; }
 
 const UP = new T.Vector3(0, 1, 0);
-const MOTION_SHADOW_INTERVAL = 1000 / 12;
 const SHADOW_MAP = 2048;
 const SHADOW_SNAP = 4;
 const SHADOW_PADDING = 24;
@@ -44,8 +43,6 @@ export class Stage {
   private request = 0;
   private lost = false;
   private shadowsDue = false;
-  private motionShadowsDue = false;
-  private lastShadows = 0;
   private readonly sunOffset = SUN_OFFSET.clone();
   private readonly sunFocus = new T.Vector3();
   private sunRadius = 0;
@@ -255,22 +252,13 @@ export class Stage {
   }
 
   private refreshShadows(): void {
-    const now = performance.now();
-    const motionDue = this.motionShadowsDue && now - this.lastShadows >= MOTION_SHADOW_INTERVAL;
-    if (!this.shadowsDue && !motionDue) return;
+    if (!this.shadowsDue) return;
     this.renderer.shadowMap.needsUpdate = true;
     this.shadowsDue = false;
-    this.motionShadowsDue = false;
-    this.lastShadows = now;
   }
 
   shadows(): void {
     this.shadowsDue = true;
-    this.invalidate();
-  }
-
-  shadowsFromMotion(): void {
-    this.motionShadowsDue = true;
     this.invalidate();
   }
 

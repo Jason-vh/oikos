@@ -595,7 +595,7 @@ export function boot(source: SharedBootSource): BootHandles {
         if (!reducedMotion) {
           artTime += visualDelta;
           city.animate(artTime, visualDelta, 1);
-          stage.shadowsFromMotion();
+          stage.shadows();
         }
         visualDelta = 0;
         lastRender = now;
@@ -699,7 +699,7 @@ export function boot(source: SharedBootSource): BootHandles {
     if (tool !== 'inspect' || hover !== null) updatePreview();
     if (reducedMotion) {
       city.animate(0, .25, 1);
-      stage.shadowsFromMotion();
+      stage.shadows();
     }
   }
 

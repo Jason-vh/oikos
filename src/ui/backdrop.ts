@@ -52,7 +52,7 @@ export async function showBackdrop(world: World, root: HTMLElement): Promise<Bac
     stage.camera.position.copy(target).add(OFFSET.clone().applyAxisAngle(UP, angle));
     stage.camera.lookAt(target);
     city.animate(now / 1000, delta, 1);
-    stage.shadowsFromMotion();
+    stage.shadows();
     stage.invalidate();
   };
   if (!reducedMotion) request = requestAnimationFrame(frame);
