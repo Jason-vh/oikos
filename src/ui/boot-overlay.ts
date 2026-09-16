@@ -1,4 +1,5 @@
-import { NAME_LIMIT } from '../server/protocol';
+import { cityName, CITY_NAME_LIMIT } from '../sim/claims';
+import { suggestCityName } from './city-names';
 
 export type JoinAttempt = (name: string) => Promise<string>;
 
@@ -20,10 +21,10 @@ export function createBootOverlay(): BootOverlay {
     </div>
     <div class="boot-scrim" data-panel="join" hidden>
       <form class="boot-card" data-testid="join-form">
-        <h2>Welcome to Kalliste</h2>
-        <p>Every shore is unclaimed until someone lands on it. Give the archipelago a name to remember you by.</p>
-        <label>Your name
-          <input type="text" name="name" maxlength="${NAME_LIMIT}" autocomplete="nickname" spellcheck="false" required />
+        <h2>Found your city</h2>
+        <p>Every shore is unclaimed until someone lands on it. Name the city you are about to found.</p>
+        <label>City name
+          <input type="text" name="name" maxlength="${CITY_NAME_LIMIT}" autocomplete="off" spellcheck="false" required />
         </label>
         <button type="submit">Join</button>
         <p data-field="join-error" role="alert" hidden></p>
@@ -51,11 +52,20 @@ export function createBootOverlay(): BootOverlay {
     submit.disabled = busy;
   }
 
+  input.addEventListener('input', () => {
+    const chosen = cityName(input.value);
+    input.setCustomValidity(chosen === null && input.value.trim().length > 0 ? `A city name of up to ${CITY_NAME_LIMIT} characters.` : '');
+    error.hidden = true;
+  });
+
   let pending: { attempt: JoinAttempt; resolve: () => void } | null = null;
   form.addEventListener('submit', (event) => {
     event.preventDefault();
-    const name = input.value.trim();
-    if (name.length === 0 || pending === null || submit.disabled) return;
+    const name = cityName(input.value);
+    if (name === null || pending === null || submit.disabled) {
+      input.reportValidity();
+      return;
+    }
     const request = pending;
     setBusy(true);
     error.hidden = true;
@@ -82,7 +92,10 @@ export function createBootOverlay(): BootOverlay {
       showPanel('join');
       error.hidden = true;
       setBusy(false);
+      input.value = suggestCityName();
+      input.setCustomValidity('');
       input.focus();
+      input.select();
       return new Promise<void>((resolve) => { pending = { attempt, resolve }; });
     },
     fail(message) {

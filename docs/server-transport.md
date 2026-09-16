@@ -14,8 +14,8 @@ OIKOS_DB=/absolute/persistent/world.db OIKOS_PUBLIC_ORIGIN=https://game.example 
 
 The server exclusively locks its database for its lifetime. Never initialize over
 an existing database. Admission is open: anyone reaching the configured origin may
-join under a name of their choosing. A player is their cookie and nothing else;
-there is no recovery endpoint, so a lost cookie is a lost city.
+join under a city name of their choosing. A player is their cookie and nothing
+else; there is no recovery endpoint, so a lost cookie is a lost city.
 `PORT` defaults to 3000; `OIKOS_HOST` defaults to 127.0.0.1. Terminate HTTPS at a
 trusted same-origin proxy forwarding HTTP and WebSocket upgrades. Forwarded IP
 headers are deliberately ignored: admission quotas use the TCP peer, so proxied

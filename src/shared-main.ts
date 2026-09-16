@@ -1,5 +1,5 @@
 import { boot, type BootHandles } from './main';
-import { NAME_LIMIT } from './server/protocol';
+import { CITY_NAME_LIMIT } from './sim/claims';
 import { deserializeSharedWorld } from './sim/save';
 import type { World } from './sim/types';
 import { showBackdrop, type Backdrop } from './ui/backdrop';
@@ -57,7 +57,7 @@ async function join(name: string): Promise<string> {
     if (response.ok) return '';
     if (response.status === 409) return 'Already joined. Reload the page to reconnect.';
     if (response.status === 429) return 'Too many attempts. Wait a moment and try again.';
-    if (response.status === 400) return `Choose a name of up to ${NAME_LIMIT} characters.`;
+    if (response.status === 400) return `Choose a city name of up to ${CITY_NAME_LIMIT} characters.`;
     return 'The world could not admit you. Try again.';
   } catch {
     return 'Could not reach the server. Check your connection and try again.';

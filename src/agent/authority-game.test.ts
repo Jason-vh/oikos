@@ -68,7 +68,7 @@ describe('an agent on the shared archipelago', () => {
 
     const survey = await call('survey', { island: 3 });
 
-    expect(survey).toContain('Island 3 of the Kalliste archipelago');
+    expect(survey).toContain('Island 3 of the archipelago');
     expect(survey).toContain('Legend:');
     expect(survey).not.toContain('your road');
     expect(await call('survey')).toContain('Island 3: free');
@@ -110,7 +110,7 @@ describe('an agent on the shared archipelago', () => {
     const report = await call('report');
 
     expect(founded).toStartWith('Done.');
-    expect(survey).toContain('Island 2 of the Kalliste archipelago');
+    expect(survey).toContain('Island 2 of the archipelago');
     expect(report).toContain('City 1 on island 2');
   });
 

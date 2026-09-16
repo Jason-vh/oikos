@@ -159,7 +159,7 @@ export function surveyIsland(world: World, view: Viewpoint, requested?: MapWindo
   const bounds = islandBounds(view);
   const window = clampWindow(bounds, requested ?? (view.city ? cityWindow(world, view.city) : bounds));
   const lines = [
-    `Island ${view.home} of the Kalliste archipelago: x ${bounds.x}-${bounds.x + bounds.width - 1}, z ${bounds.z}-${bounds.z + bounds.depth - 1}.`,
+    `Island ${view.home} of the archipelago: x ${bounds.x}-${bounds.x + bounds.width - 1}, z ${bounds.z}-${bounds.z + bounds.depth - 1}.`,
     'Farms need fertile ground; buildings need flat, clear grass, fertile, sand or scrub. A harbour needs two rows of that shore with three rows of open water in front of it.',
     `Island terrain: ${terrainCounts(view)}.`,
     `Window x ${window.x}-${window.x + window.width - 1}, z ${window.z}-${window.z + window.depth - 1} of ${bounds.width}x${bounds.depth} tiles.`,
@@ -245,7 +245,7 @@ export function inspectTile(world: World, city: City, x: number, z: number): str
 export function atlas(world: World): string {
   const map = islandFor(world.seed);
   const lines = [
-    'The Kalliste archipelago has eight islands. Found your city on the shore of a free one; its harbour claims the island.',
+    'The archipelago has eight islands. Found your city on the shore of a free one; its harbour claims the island.',
     'survey with an island number reads its coastline before you commit to it.',
   ];
   for (let home = 0; home < ISLAND_COUNT; home++) {

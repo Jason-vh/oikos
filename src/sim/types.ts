@@ -75,10 +75,11 @@ export interface City {
   buildings: Building[];
   walkers: Walker[];
 }
-export const CURRENT_VERSION = 15 as const;
+export const CURRENT_VERSION = 16 as const;
+export const WORLD_LABEL = 'archipelago' as const;
 export interface World {
   version: typeof CURRENT_VERSION;
-  island: 'kalliste';
+  island: typeof WORLD_LABEL;
   seed: number;
   time: number;
   remainder: number;

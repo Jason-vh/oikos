@@ -422,7 +422,7 @@ export function createHud(root: HTMLElement, actions: HudActions): Hud {
       ['harbourTrade', 'Porters carry stockpile lumber to the harbour. Enough rebuilds it in stone; then start its trade.'],
     ];
     const next = steps.find(([key]) => !milestones[key]);
-    guidePanel.querySelector('summary')!.textContent = summary.goal ? 'Kalliste is thriving' : 'A home on Kalliste';
+    guidePanel.querySelector('summary')!.textContent = summary.goal ? `${active.city.name} is thriving` : `A home in ${active.city.name}`;
     guidePanel.querySelector('.hud-guide-note')!.textContent = next?.[1] ?? 'Your neighbourhood is thriving. Keep building at your own pace.';
   }
 

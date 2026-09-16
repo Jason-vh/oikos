@@ -136,6 +136,28 @@ describe('gathering saves', () => {
   });
 });
 
+describe('worlds labelled before the archipelago was renamed', () => {
+  function labelledKalliste() {
+    return JSON.stringify({ ...JSON.parse(serializeWorld(advancedWorld())), version: 15, island: 'kalliste' });
+  }
+
+  test('a version 15 world is raised and loads unchanged', () => {
+    const raw = labelledKalliste();
+    expect(savedVersion(raw)).toBe(15);
+    const restored = deserializeWorld(raw);
+    expect(restored).not.toBeNull();
+    expect(restored!.island).toBe('archipelago');
+    expect(restored!.version).toBe(CURRENT_VERSION);
+    expect(restored).toEqual(deserializeWorld(serializeWorld(advancedWorld())));
+  });
+
+  test('a version 15 world under any other label is refused', () => {
+    const raw = JSON.stringify({ ...JSON.parse(labelledKalliste()), island: 'elsewhere' });
+    expect(deserializeWorld(raw)).toBeNull();
+    expect(deserializeSharedWorld(raw)).toBeNull();
+  });
+});
+
 describe('worlds from an older generator', () => {
   const raw = JSON.stringify(beforeTheResize);
 

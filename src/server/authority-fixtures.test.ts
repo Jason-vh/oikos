@@ -40,7 +40,7 @@ export function claimFor(home: number): ClaimRequest {
   return { kind: 'claim', x: site.x, z: site.z, rotation: site.rotation };
 }
 
-export function playerNames(authority: Authority): string[] {
+export function cityNames(authority: Authority): string[] {
   return selectAll<{ name: string }>(rawDb(authority), 'SELECT name FROM actors ORDER BY id;').map((row) => row.name);
 }
 

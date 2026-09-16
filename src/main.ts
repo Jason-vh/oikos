@@ -204,7 +204,7 @@ export function boot(source: SharedBootSource): BootHandles {
     inDebt = debt;
     if (active) {
       const nextMilestones = cityMilestones(active);
-      const event = celebration(milestones, nextMilestones);
+      const event = celebration(milestones, nextMilestones, active.name);
       milestones = rememberMilestones(milestones, nextMilestones);
       if (event) {
         hud.notify(event.message);

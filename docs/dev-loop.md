@@ -16,7 +16,7 @@ npm run play -- --fresh      # start the archipelago over
 ```
 
 The world is a file under `artifacts/`, not the checkout, and it survives between
-runs. Kalliste has eight islands and a claim is permanent, so a few founding runs
+runs. The archipelago has eight islands and a claim is permanent, so a few founding runs
 exhaust it: when a shore can no longer be found, use `--fresh` rather than looking
 for the bug. `--agent "<name>"` prints an MCP credential before the server takes
 its exclusive lock on the database, which is the only moment one can be issued.

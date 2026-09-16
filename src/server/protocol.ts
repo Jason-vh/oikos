@@ -1,17 +1,13 @@
 import type { AuthorityRequest, RequestOutcome, RequestStatus, Session } from './authority';
 import type { World } from '../sim/types';
+import { cityName } from '../sim/claims';
 
 export const PROTOCOL = 5;
 export const MAX_REQUEST_BYTES = 64 * 1024;
 export const COOKIE = '__Host-oikos';
-export const NAME_LIMIT = 24;
 
-const NAME_PATTERN = new RegExp(`^[^\\p{C}]{1,${NAME_LIMIT}}$`, 'u');
-
-export function parsePlayerName(raw: unknown): string | null {
-  if (typeof raw !== 'string') return null;
-  const name = raw.trim();
-  return NAME_PATTERN.test(name) ? name : null;
+export function parseCityName(raw: unknown): string | null {
+  return typeof raw === 'string' ? cityName(raw) : null;
 }
 export interface PublicSession extends Omit<Session, 'actorId'> { binding: string }
 export interface ClientRequest {
@@ -81,7 +77,7 @@ export async function parseJoinName(request: Request): Promise<string | null> {
     }
     const value: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
     if (!record(value) || !exactKeys(value, ['name'])) return null;
-    return parsePlayerName(value.name);
+    return parseCityName(value.name);
   } catch {
     return null;
   } finally {

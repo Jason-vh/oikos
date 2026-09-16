@@ -405,7 +405,9 @@ invalidates every stored world — indices name tiles on a map that no longer ex
 and the wildlife roster changes size — and must bump `CURRENT_VERSION`. Version 14
 has no migration for exactly that reason: the islands were resized beneath it.
 `src/sim/fixtures/kalliste-before-the-resize.json` is a world from that generation,
-kept so the refusal stays tested. `deserializeWorld` still accepts exactly one city; `deserializeSharedWorld`
+kept so the refusal stays tested. Version 16 only relabels the save's `island` field,
+which once read `kalliste`, so it migrates: the terrain is untouched and stored
+worlds are raised on load. `deserializeWorld` still accepts exactly one city; `deserializeSharedWorld`
 accepts 0 to `ISLAND_COUNT`, with unique ids and homes, no two cities' roads,
 buildings or harbours overlapping, and every harbour standing on its own island's
 shore.

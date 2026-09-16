@@ -21,8 +21,8 @@ export function cityMilestones(city: City): CityMilestones {
   };
 }
 
-export function celebration(previous: CityMilestones, next: CityMilestones): { message: string; sound: SoundCue } | null {
-  if (!previous.thriving && next.thriving) return { message: 'Kalliste is thriving. Four courtyard homes, supplied and prosperous.', sound: 'goal' };
+export function celebration(previous: CityMilestones, next: CityMilestones, name = 'Your city'): { message: string; sound: SoundCue } | null {
+  if (!previous.thriving && next.thriving) return { message: `${name} is thriving. Four courtyard homes, supplied and prosperous.`, sound: 'goal' };
   if (!previous.courtyard && next.courtyard) return { message: 'Your first courtyard home. A neighbourhood takes shape.', sound: 'upgrade' };
   if (!previous.delivered && next.delivered) return { message: 'The first food has reached a home.', sound: 'delivery' };
   if (!previous.settled && next.settled) return { message: 'Your first settlers have arrived. Welcome home.', sound: 'arrival' };

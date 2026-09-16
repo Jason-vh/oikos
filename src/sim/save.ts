@@ -1,4 +1,4 @@
-import { CURRENT_VERSION, type Animal, type Building, type BuildingKind, type City, type Resource, type Rotation, type Stores, type Walker, type WalkerKind, type WalkerTask, type World } from './types';
+import { CURRENT_VERSION, WORLD_LABEL, type Animal, type Building, type BuildingKind, type City, type Resource, type Rotation, type Stores, type Walker, type WalkerKind, type WalkerTask, type World } from './types';
 
 
 import { BUILDINGS, HOUSE_CAPACITY, RESOURCES } from './catalog';
@@ -50,9 +50,15 @@ function rosterForgotten(parsed: Record<string, unknown>): Record<string, unknow
   return { ...parsed, version: 13, wildlife: kept };
 }
 
+function archipelagoRelabelled(parsed: Record<string, unknown>): Record<string, unknown> {
+  if (parsed.island !== 'kalliste') return parsed;
+  return { ...parsed, version: 16, island: WORLD_LABEL };
+}
+
 const MIGRATIONS: Array<[number, (parsed: Record<string, unknown>) => Record<string, unknown>]> = [
   [12, rosterForgotten],
   [13, countdownsScheduled],
+  [15, archipelagoRelabelled],
 ];
 
 function raise(parsed: Record<string, unknown>): Record<string, unknown> {
@@ -284,7 +290,7 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
   const { version, island, seed, time, remainder, nextId, nextCityId, wildlife: rawWildlife, felled: rawFelled, regrowth, cities: rawCities } = raised;
 
   if (version !== CURRENT_VERSION) return null;
-  if (island !== 'kalliste') return null;
+  if (island !== WORLD_LABEL) return null;
   if (!isInteger(seed) || seed < 0 || seed > 0xffffffff) return null;
   if (!isNonNegativeFinite(time)) return null;
   if (!isNonNegativeFinite(remainder)) return null;
@@ -375,7 +381,7 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
 
   const world: World = {
     version: CURRENT_VERSION,
-    island: 'kalliste',
+    island: WORLD_LABEL,
     seed: seed as number,
     time: time as number,
     remainder: remainder as number,

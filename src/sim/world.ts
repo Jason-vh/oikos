@@ -1,4 +1,4 @@
-import { CURRENT_VERSION, type ActionResult, type Building, type BuildTool, type City, type Food, type Placement, type Resource, type Rotation, type Stores, type Summary, type TaskKind, type Tile, type Walker, type WalkerKind, type World } from './types';
+import { CURRENT_VERSION, WORLD_LABEL, type ActionResult, type Building, type BuildTool, type City, type Food, type Placement, type Resource, type Rotation, type Stores, type Summary, type TaskKind, type Tile, type Walker, type WalkerKind, type World } from './types';
 import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, STARTING_MONEY, VENDOR_COST, footprint, isFood } from './catalog';
 import { retireRespawned, wildlifeRoster } from './wildlife';
 import { gatherArrival, gatherErrand, gatherFinished, gatherKind, GATHER_STOCK_CAP, regrowForest, updateGatherer } from './gathering';
@@ -48,7 +48,7 @@ import {
 
 export const DEFAULT_SEED = 1;
 
-export function createWorld(seed = DEFAULT_SEED, home?: number, name = 'Kalliste'): World {
+export function createWorld(seed = DEFAULT_SEED, home?: number, name = 'Oikos'): World {
   const map = islandFor(seed, home);
   const site = findHarbourSite(map, map.home);
   if (!site) throw new Error('That island has no shore for a harbour.');
@@ -66,7 +66,7 @@ export function createWorld(seed = DEFAULT_SEED, home?: number, name = 'Kalliste
   };
   const world: World = {
     version: CURRENT_VERSION,
-    island: 'kalliste',
+    island: WORLD_LABEL,
     seed,
     time: 0,
     remainder: 0,
@@ -86,7 +86,7 @@ export function createWorld(seed = DEFAULT_SEED, home?: number, name = 'Kalliste
 export function createSharedWorld(seed = DEFAULT_SEED): World {
   const world: World = {
     version: CURRENT_VERSION,
-    island: 'kalliste',
+    island: WORLD_LABEL,
     seed,
     time: 0,
     remainder: 0,

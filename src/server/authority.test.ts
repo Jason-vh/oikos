@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { ACTOR_CAP, Authority } from './authority';
-import { admit, claimFor, foundedActor, freshAuthority, playerNames, rid, roadTileOf, sequenceRow } from './authority-fixtures.test';
+import { admit, claimFor, foundedActor, freshAuthority, cityNames, rid, roadTileOf, sequenceRow } from './authority-fixtures.test';
 import { harbourApron } from '../sim/founding';
 
 const cleanups: Array<() => void> = [];
@@ -39,16 +39,16 @@ describe('open admission', () => {
     const { authority } = freshAuthority(cleanups);
     const admission = authority.admit('  Tycho  ');
     if (!admission.ok) throw new Error('expected admission to succeed');
-    expect(playerNames(authority)).toEqual(['Tycho']);
+    expect(cityNames(authority)).toEqual(['Tycho']);
     expect(authority.authenticate(admission.credential)?.actorId).toBe(admission.actorId);
   });
 
   test('an unusable name is refused without admitting anyone', () => {
     const { authority } = freshAuthority(cleanups);
     for (const name of ['', '   ', 'x'.repeat(25), 'Ty\u0000cho']) {
-      expect(authority.admit(name)).toEqual({ ok: false, reason: 'Choose a name of up to 24 characters.' });
+      expect(authority.admit(name)).toEqual({ ok: false, reason: 'Choose a city name of up to 24 characters.' });
     }
-    expect(playerNames(authority)).toEqual([]);
+    expect(cityNames(authority)).toEqual([]);
   });
 
   test('admission is capped and admits nobody once full', () => {

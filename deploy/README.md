@@ -66,7 +66,7 @@ says which format it found:
 
 ```text
 Authority store world data is corrupt or incompatible: stored format 14, this
-authority reads 15.
+authority reads 16.
 ```
 
 It will not initialize over an existing store, so the old world has to go. Keep a
@@ -81,12 +81,14 @@ docker compose run --rm authority bun scripts/authority-admin.ts init /data/worl
 docker compose up -d
 ```
 
-Everyone loses their cities and rejoins under a name. Announce it before, not after.
+Everyone loses their cities and rejoins under a city name. Announce it before, not
+after. A format bump that only relabels the save, as version 16 does, carries a
+migration instead: stored worlds are raised on load and nothing is lost.
 
 ## Operations
 
-Admission is open: anyone who reaches the origin joins under a name. Nothing needs
-issuing.
+Admission is open: anyone who reaches the origin joins under a city name. Nothing
+needs issuing.
 
 Agents are not open. `/mcp` serves the shared world to agents over MCP, and takes
 a bearer credential issued by hand:

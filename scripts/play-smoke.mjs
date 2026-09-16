@@ -15,6 +15,10 @@ try {
   await page.goto(new URL('/?debug', base).href, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('[data-testid="join-form"]:visible');
   assert.equal(await page.evaluate(() => document.querySelectorAll('canvas').length), 1, 'The world was not rendered behind the join modal');
+  await page.getByRole('textbox').fill('   ');
+  await page.getByRole('button', { name: 'Join' }).click();
+  await page.waitForTimeout(200);
+  assert.equal(await page.locator('[data-testid="join-form"]').isVisible(), true, 'A blank city name was accepted');
   await page.getByRole('textbox').fill(`Smoke ${Date.now() % 1000000}`);
   await page.getByRole('button', { name: 'Join' }).click();
   await page.waitForFunction(() => document.body.dataset.ready === 'true' || document.body.dataset.error === 'true');

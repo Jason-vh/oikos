@@ -1,0 +1,36 @@
+const CITY_NAMES = [
+  'Akragas',
+  'Amphipolis',
+  'Apollonia',
+  'Chalkis',
+  'Elaia',
+  'Emporion',
+  'Epidauros',
+  'Eretria',
+  'Halikarnassos',
+  'Kallipolis',
+  'Korkyra',
+  'Kroton',
+  'Kyrene',
+  'Massalia',
+  'Megara',
+  'Miletos',
+  'Mytilene',
+  'Naukratis',
+  'Neapolis',
+  'Olbia',
+  'Pella',
+  'Phokaia',
+  'Poseidonia',
+  'Pylos',
+  'Rhodos',
+  'Selinous',
+  'Sinope',
+  'Taras',
+  'Thalassa',
+  'Thera',
+];
+
+export function suggestCityName(): string {
+  return CITY_NAMES[Math.floor(Math.random() * CITY_NAMES.length)];
+}
