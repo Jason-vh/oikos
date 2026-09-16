@@ -61,7 +61,7 @@ test('a new city stands at its own quay, its apron paved and its land tiles know
 test('a claimed shore refuses another city, and open shore elsewhere still accepts one', () => {
   const world = createSharedWorld();
   const first = findHarbourSite(islandFor(world.seed), 0)!;
-  expect(claimHarbour(world, 'Tycho', first.x, first.z, first.rotation).ok).toBe(true);
+  expect(claimHarbour(world, 'Tycho', 'terracotta', first.x, first.z, first.rotation).ok).toBe(true);
   expect(harbourPlacement(world, first.x, first.z, first.rotation).ok).toBe(false);
   const second = findHarbourSite(islandFor(world.seed), 6)!;
   expect(harbourPlacement(world, second.x, second.z, second.rotation).ok).toBe(true);

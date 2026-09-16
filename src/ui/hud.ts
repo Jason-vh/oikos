@@ -1,6 +1,8 @@
 import type { Building, City, Rotation, Summary, Tool, World } from '../sim/types';
 import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, VENDOR_COST } from '../sim/catalog';
 import { FOOD_CONSUMPTION_PER_RESIDENT, WATER_DECAY_PER_SECOND } from '../sim/balance';
+import { cityColors } from '../art/primitives';
+import type { CityColor } from '../sim/colors';
 import { toolIcon } from './icons';
 
 export type HudTool = Tool | 'harbour';
@@ -39,7 +41,7 @@ export interface Hud {
   setSound(enabled: boolean): void;
   setConnection(blocked: boolean, message: string): void;
   setFounding(founding: boolean, ready: boolean): void;
-  announceFounding(name: string): void;
+  announceFounding(name: string, color: CityColor): void;
   setDiscardAvailable(available: boolean): void;
   toggleMenu(): boolean;
   dispose(): void;
@@ -149,7 +151,7 @@ const SKELETON = `
     </div>
   </div>
   <details class="hud-panel hud-guide" data-testid="guide" open>
-    <summary>Guide</summary>
+    <summary><span class="hud-colour" data-field="guide-colour" hidden></span><span data-field="guide-title">Guide</span></summary>
     <ol class="hud-milestones" data-testid="milestones">
       <li><label><input type="checkbox" disabled data-milestone="houses" /> Four homes linked to the harbour</label></li>
       <li><label><input type="checkbox" disabled data-milestone="farmGranary" /> A wheat farm and a granary</label></li>
@@ -182,7 +184,7 @@ const SKELETON = `
   </div>
   <div class="hud-toast-region" role="status" aria-live="polite" data-testid="toast-region"></div>
   <div class="hud-banner" role="status" aria-live="polite" data-testid="banner" hidden>
-    <p class="hud-banner-title" data-field="banner-title"></p>
+    <p class="hud-banner-title"><span class="hud-colour" data-field="banner-colour"></span><span data-field="banner-title"></span></p>
     <p class="hud-banner-note" data-field="banner-note"></p>
   </div>
   <dialog class="hud-dialog hud-menu" data-testid="menu-dialog" aria-label="Menu">
@@ -212,6 +214,11 @@ function field(root: ParentNode, name: string): HTMLElement {
   const element = root.querySelector<HTMLElement>(`[data-field="${name}"]`);
   if (!element) throw new Error(`hud: missing field "${name}"`);
   return element;
+}
+
+function paintSwatch(element: HTMLElement, color: CityColor): void {
+  element.style.setProperty('--city-colour', `#${cityColors[color].toString(16).padStart(6, '0')}`);
+  element.title = color;
 }
 
 function action(root: ParentNode, name: string): HTMLButtonElement {
@@ -414,8 +421,12 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
 
   function updateMilestones(active: CityScope | null): void {
     guidePanel.querySelector<HTMLElement>('.hud-milestones')!.hidden = !active;
+    const guideTitle = field(guidePanel, 'guide-title');
+    const guideColour = field(guidePanel, 'guide-colour');
+    guideColour.hidden = !active;
+    if (active) paintSwatch(guideColour, active.city.color);
     if (!active) {
-      guidePanel.querySelector('summary')!.textContent = 'No city yet';
+      guideTitle.textContent = 'No city yet';
       guidePanel.querySelector('.hud-guide-note')!.textContent = 'Choose the harbour below, then a shore to set it on: the quay on land, its pier over the water.';
       return;
     }
@@ -434,7 +445,7 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
       ['harbourTrade', 'Porters carry stockpile lumber to the harbour. Enough rebuilds it in stone; then start its trade.'],
     ];
     const next = steps.find(([key]) => !milestones[key]);
-    guidePanel.querySelector('summary')!.textContent = summary.goal ? `${active.city.name} is thriving` : `A home in ${active.city.name}`;
+    guideTitle.textContent = summary.goal ? `${active.city.name} is thriving` : `A home in ${active.city.name}`;
     guidePanel.querySelector('.hud-guide-note')!.textContent = next?.[1] ?? 'Your neighbourhood is thriving. Keep building at your own pace.';
   }
 
@@ -443,10 +454,12 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
   const toastTimers = new Set<number>();
   const banner = root.querySelector<HTMLElement>('.hud-banner')!;
   const bannerTitle = field(root, 'banner-title');
+  const bannerColour = field(root, 'banner-colour');
   const bannerNote = field(root, 'banner-note');
   let bannerDate = '';
 
-  function announceFounding(name: string): void {
+  function announceFounding(name: string, color: CityColor): void {
+    paintSwatch(bannerColour, color);
     bannerTitle.textContent = name;
     bannerNote.textContent = `founded \u00b7 ${bannerDate}`;
     banner.hidden = false;

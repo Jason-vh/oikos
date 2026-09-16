@@ -91,6 +91,10 @@ stable identities, not array positions.
 
 ## Save schema and claims
 
+Version 17 adds `City.color`, one of the eight names in `src/sim/colors.ts`; the
+migration from 16 colours existing cities by their position. A city's colour is
+chosen when its player joins, kept on the actor row, and copied in at the claim.
+
 Version 10 adds `World.nextCityId`, separate from entity `nextId`. Older saves
 must have one city; migration derives its next City id without renumbering entities.
 `deserializeWorld` still accepts exactly one city; `deserializeSharedWorld` accepts

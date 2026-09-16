@@ -10,7 +10,7 @@ import type { City, World } from './types';
 
 function foundAt(world: World, home: number, name = `City ${home}`): City {
   const site = findHarbourSite(islandFor(world.seed), home)!;
-  const result = claimHarbour(world, name, site.x, site.z, site.rotation);
+  const result = claimHarbour(world, name, 'terracotta', site.x, site.z, site.rotation);
   expect(result.ok).toBe(true);
   return result.city!;
 }

@@ -7,6 +7,7 @@ import { wildlifeRoster } from './wildlife';
 import { islandFor, insideMapOn, ISLAND_COUNT, type IslandMap } from './island';
 import { harbourIslandAt } from './founding';
 import { cityName } from './claims';
+import { cityColor, cityColorAt } from './colors';
 import { footprintTiles, neighbours } from './grid';
 import { dropInvalidWalkers, recomputeConnectivity } from './world';
 import { harbourAt, validateHarbourProgress } from './harbour';
@@ -55,10 +56,20 @@ function archipelagoRelabelled(parsed: Record<string, unknown>): Record<string, 
   return { ...parsed, version: 16, island: WORLD_LABEL };
 }
 
+function citiesColoured(parsed: Record<string, unknown>): Record<string, unknown> {
+  const cities = Array.isArray(parsed.cities) ? parsed.cities : [];
+  return {
+    ...parsed,
+    version: 17,
+    cities: cities.map((city, index) => (isPlainObject(city) ? { ...city, color: cityColor(city.color) ?? cityColorAt(index) } : city)),
+  };
+}
+
 const MIGRATIONS: Array<[number, (parsed: Record<string, unknown>) => Record<string, unknown>]> = [
   [12, rosterForgotten],
   [13, countdownsScheduled],
   [15, archipelagoRelabelled],
+  [16, citiesColoured],
 ];
 
 function raise(parsed: Record<string, unknown>): Record<string, unknown> {
@@ -312,7 +323,7 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
 
   for (const rawCity of rawCities) {
     if (!isPlainObject(rawCity)) return null;
-    const { id, name, home, money, harbour: rawHarbour, produced, delivered, roads: rawRoads, buildings: rawBuildings, walkers: rawWalkers } = rawCity;
+    const { id, name, color: rawColor, home, money, harbour: rawHarbour, produced, delivered, roads: rawRoads, buildings: rawBuildings, walkers: rawWalkers } = rawCity;
     if (!isSafeInteger(id) || id <= 0) return null;
     if (usedCityIds.has(id) || id >= (nextCityId as number)) return null;
     usedCityIds.add(id);
@@ -321,6 +332,8 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
     usedHomes.add(home);
     const map = islandFor(seed as number, home as number);
     if (typeof name !== 'string' || cityName(name) !== name) return null;
+    const color = cityColor(rawColor);
+    if (!color) return null;
     if (!isFiniteNumber(money)) return null;
     if (!isNonNegativeFinite(produced)) return null;
     if (!isNonNegativeFinite(delivered)) return null;
@@ -372,7 +385,7 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
       walkers.push(walker);
     }
 
-    const city: City = { id: id as number, name, home: home as number, money: money as number, harbour, produced: produced as number, delivered: delivered as number, roads, buildings, walkers };
+    const city: City = { id: id as number, name, color, home: home as number, money: money as number, harbour, produced: produced as number, delivered: delivered as number, roads, buildings, walkers };
     cities.push(city);
   }
 

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { claimHarbour } from './claims';
+import type { CityColor } from './colors';
 import { advance, build, createSharedWorld, placeRoadPath } from './world';
 import { findHarbourSite, harbourApron, harbourPlacement, harbourSite } from './founding';
 import { buildStarterNeighbourhood } from './scenario';
@@ -15,9 +16,9 @@ function siteFor(home: number): { x: number; z: number; rotation: Rotation } {
   return site;
 }
 
-function claim(world: ReturnType<typeof createSharedWorld>, home: number, name = 'Tycho') {
+function claim(world: ReturnType<typeof createSharedWorld>, home: number, name = 'Tycho', color: CityColor = 'terracotta') {
   const site = siteFor(home);
-  return claimHarbour(world, name, site.x, site.z, site.rotation);
+  return claimHarbour(world, name, color, site.x, site.z, site.rotation);
 }
 
 describe('placing a harbour claims an island and founds a city', () => {

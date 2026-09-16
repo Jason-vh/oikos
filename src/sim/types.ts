@@ -1,3 +1,5 @@
+import type { CityColor } from './colors';
+
 export type BuildingKind = 'house' | 'farm' | 'granary' | 'agora' | 'fountain' | 'maintenance' | 'lodge' | 'woodcutter' | 'stockpile' | 'harbour';
 export type BuildTool = Exclude<BuildingKind, 'harbour'> | 'road';
 export type Tool = BuildTool | 'inspect' | 'demolish';
@@ -66,6 +68,7 @@ export interface WalkerTask {
 export interface City {
   id: number;
   name: string;
+  color: CityColor;
   home: number;
   money: number;
   harbour: Building;
@@ -75,7 +78,7 @@ export interface City {
   buildings: Building[];
   walkers: Walker[];
 }
-export const CURRENT_VERSION = 16 as const;
+export const CURRENT_VERSION = 17 as const;
 export const WORLD_LABEL = 'archipelago' as const;
 export interface World {
   version: typeof CURRENT_VERSION;

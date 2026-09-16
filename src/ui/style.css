@@ -88,6 +88,9 @@ button[aria-pressed='true'] { background: var(--sage); color: #fffdf0; }
 .hud-milestones label { display: flex; align-items: center; gap: 9px; font-size: 12.5px; line-height: 1.4; }
 .hud-milestones input { width: 15px; height: 15px; accent-color: var(--terracotta); flex-shrink: 0; }
 .hud-milestones input:checked + label, .hud-milestones label:has(input:checked) { color: var(--ink-soft); text-decoration: line-through; text-decoration-color: rgba(41, 75, 74, .35); }
+.hud-colour[hidden] { display: none; }
+.hud-colour { display: inline-block; width: 9px; height: 9px; margin-right: 9px; border-radius: 50%; background: var(--city-colour, transparent); box-shadow: inset 0 0 0 1px rgba(41, 75, 74, .2); }
+.hud-banner-title .hud-colour { width: 12px; height: 12px; margin-right: 12px; }
 .hud-guide-note { margin: 12px 16px 0; padding-top: 10px; border-top: 1px solid rgba(41, 75, 74, .12); font-size: 12px; line-height: 1.6; color: var(--ink-soft); }
 
 .hud-inspector h3 { margin: 4px 16px 0; font-family: Georgia, serif; font-weight: 400; font-size: 19px; }
@@ -292,6 +295,15 @@ body[data-error] .boot-progress { display: none; }
 .boot-card button:hover:not(:disabled) { background: var(--terracotta-deep); }
 .boot-card button:disabled { opacity: .6; }
 .boot-card [data-field="join-error"] { color: var(--terracotta-deep); }
+.boot-colours { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 0; padding: 0; border: 0; }
+.boot-colours legend { padding: 0 0 8px; font-size: 12px; letter-spacing: .6px; text-transform: uppercase; color: var(--ink-soft); }
+.boot-swatch { position: relative; margin: 0; }
+.boot-swatch input { position: absolute; inset: 0; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
+.boot-swatch span { display: block; width: 28px; height: 28px; border-radius: 50%; background: var(--swatch); box-shadow: inset 0 0 0 1px rgba(41, 75, 74, .18); text-indent: -999em; overflow: hidden; cursor: pointer; transition: transform .12s ease, box-shadow .12s ease; }
+.boot-swatch:hover span { transform: scale(1.08); }
+.boot-swatch input:checked + span { box-shadow: inset 0 0 0 1px rgba(41, 75, 74, .18), 0 0 0 2px var(--cream-glass), 0 0 0 4px var(--swatch); }
+.boot-swatch input:focus-visible + span { outline: 2px solid var(--sage); outline-offset: 3px; }
+.boot-swatch input:disabled + span { opacity: .6; cursor: default; }
 
 @media (prefers-reduced-motion: reduce) {
   .boot-progress span { animation: none; width: 100%; opacity: .45; }

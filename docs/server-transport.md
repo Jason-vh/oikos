@@ -24,11 +24,14 @@ development. Cookies remain Secure even there. Never expose this private service
 without the configured HTTPS origin. `/healthz` reports liveness without state.
 SIGINT/SIGTERM checkpoint and stop; storage faults stop the listener and exit 1.
 
-## Protocol 3
+## Protocol 6
 
 POST `/api/session/join`, exact configured `Origin`, `application/json`, and
-`{"name":"<1–24 characters>"}` (maximum 1 KiB) admits a player. Names are trimmed,
-reject control characters, need not be unique, and are stored on the actor row.
+`{"name":"<1–24 characters>","color":"<palette name>"}` (maximum 1 KiB) admits a
+player. Names are trimmed, reject control characters, need not be unique, and are
+stored on the actor row. The colour is one of `CITY_COLORS` in `src/sim/colors.ts`;
+it is stored beside the name and copied onto the city the actor founds. Colours
+need not be unique either, and no other value is accepted.
 Success returns only `{"ok":true}` and `__Host-oikos=<credential>; Path=/; HttpOnly;
 Secure; SameSite=Strict; Max-Age=31536000`. All application responses are `no-store`.
 An authenticated browser cannot join again. Unusable names and a full realm fail
@@ -50,7 +53,7 @@ A client sends:
 ```
 
 A claim is `{"kind":"claim","x":…,"z":…,"rotation":0-3}`: it places the player's
-harbour, claims that island and founds a city named after the actor. Commands use
+harbour, claims that island and founds a city named and coloured after the actor. Commands use
 `{"kind":"command","cityId":1,"command":<CityCommand>}`. Outer
 fields are exact. Pure normalization parses inner command data for replay
 fingerprints; dispatch executes only after explicit city authorization. There are
@@ -64,7 +67,7 @@ snapshot at the next permitted send. Non-consuming refusals produce
 `conflict`, `pruned`, `exhausted`, `rate-limited`, `session-mismatch`. Never parse human reasons.
 Logical failures consume a sequence and receipt without changing World.
 
-Snapshots are `{type:"snapshot",protocol:3,realmId,streamId,serial,session,world}`.
+Snapshots are `{type:"snapshot",protocol:6,realmId,streamId,serial,session,world}`.
 Session contains only `binding`, `ownedCityIds`, `nextSeq` (null at exhaustion), and
 `receiptWatermark` (highest pruned sequence). `realmId` persists across restarts;
 `streamId` is fresh each lifetime; serial increases within that stream. Public

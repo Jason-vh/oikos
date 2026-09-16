@@ -15,7 +15,7 @@ let directory: string;
 let authority: Authority;
 
 function admit(name: string): string {
-  const admission = authority.admit(name);
+  const admission = authority.admit(name, 'terracotta');
   if (!admission.ok) throw new Error(admission.reason);
   return admission.credential;
 }

@@ -612,7 +612,7 @@ export function boot(source: SharedBootSource): BootHandles {
   function celebrateFounding(): void {
     const home = activeCity(world, context);
     if (!home) return;
-    hud.announceFounding(home.name);
+    hud.announceFounding(home.name, home.color);
     sound.play('founding');
   }
 

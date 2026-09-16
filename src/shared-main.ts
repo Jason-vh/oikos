@@ -1,5 +1,6 @@
 import { boot, type BootHandles } from './main';
 import { CITY_NAME_LIMIT } from './sim/claims';
+import type { CityColor } from './sim/colors';
 import { deserializeSharedWorld } from './sim/save';
 import type { World } from './sim/types';
 import { showBackdrop, type Backdrop } from './ui/backdrop';
@@ -48,12 +49,12 @@ async function preview(): Promise<Preview | null> {
   }
 }
 
-async function join(name: string): Promise<string> {
+async function join(name: string, color: CityColor): Promise<string> {
   try {
     const response = await fetch('/api/session/join', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, color }),
     });
     if (response.ok) return '';
     if (response.status === 409) return 'Already joined. Reload the page to reconnect.';
@@ -119,7 +120,7 @@ function boot_(): void {
     canReset = seen.canReset;
     if (!seen.known) {
       backdrop = await showBackdrop(seen.world, app);
-      await overlay.askToJoin(join);
+      await overlay.askToJoin(join, seen.world.cities.map((city) => city.color));
       backdrop.dispose();
       backdrop = null;
     }

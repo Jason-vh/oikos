@@ -1,6 +1,7 @@
 import { CURRENT_VERSION, WORLD_LABEL, type ActionResult, type Building, type BuildTool, type City, type Food, type Placement, type Resource, type Rotation, type Stores, type Summary, type TaskKind, type Tile, type Walker, type WalkerKind, type World } from './types';
 import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, STARTING_MONEY, VENDOR_COST, footprint, isFood } from './catalog';
 import { retireRespawned, wildlifeRoster } from './wildlife';
+import type { CityColor } from './colors';
 import { gatherArrival, gatherErrand, gatherFinished, gatherKind, GATHER_STOCK_CAP, regrowForest, updateGatherer } from './gathering';
 import { findHarbourSite, harbourApron } from './founding';
 import { freshHarbour, HARBOUR_DOCK_CAP, harbourStatus, harbourTiles, setHarbourTrade, updateHarbour } from './harbour';
@@ -48,13 +49,14 @@ import {
 
 export const DEFAULT_SEED = 1;
 
-export function createWorld(seed = DEFAULT_SEED, home?: number, name = 'Oikos'): World {
+export function createWorld(seed = DEFAULT_SEED, home?: number, name = 'Oikos', color: CityColor = 'terracotta'): World {
   const map = islandFor(seed, home);
   const site = findHarbourSite(map, map.home);
   if (!site) throw new Error('That island has no shore for a harbour.');
   const city: City = {
     id: 1,
     name,
+    color,
     home: map.home,
     money: STARTING_MONEY,
     harbour: freshHarbour(site),

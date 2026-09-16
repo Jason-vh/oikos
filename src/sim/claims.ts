@@ -1,4 +1,5 @@
 import type { City, Rotation, World } from './types';
+import type { CityColor } from './colors';
 import { STARTING_MONEY } from './catalog';
 import { freshHarbour } from './harbour';
 import { harbourIslandAt, harbourPlacement } from './founding';
@@ -15,7 +16,7 @@ export function cityName(raw: string): string | null {
   return /^[^\p{C}]+$/u.test(name) ? name : null;
 }
 
-export function claimHarbour(world: World, name: string, x: number, z: number, rotation: Rotation): ClaimResult {
+export function claimHarbour(world: World, name: string, color: CityColor, x: number, z: number, rotation: Rotation): ClaimResult {
   const chosen = cityName(name);
   if (!chosen) return { ok: false, reason: `A city needs a name of up to ${CITY_NAME_LIMIT} characters.`, city: null };
   const placement = harbourPlacement(world, x, z, rotation);
@@ -27,6 +28,7 @@ export function claimHarbour(world: World, name: string, x: number, z: number, r
   const city: City = {
     id: world.nextCityId++,
     name: chosen,
+    color,
     home: map.islands.indexOf(island),
     money: STARTING_MONEY,
     harbour: { ...freshHarbour({ x, z, rotation }), id: world.nextId++ },

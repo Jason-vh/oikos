@@ -38,7 +38,7 @@ export async function fixture(cleanups: Array<() => unknown>, prepare: (authorit
   cleanups.push(() => runtime.stop());
   const base = `http://127.0.0.1:${runtime.server.port}`;
   async function joinAs(name: string, headers: Record<string, string> = {}) {
-    return fetch(`${base}/api/session/join`, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', ...headers }, body: JSON.stringify({ name }) });
+    return fetch(`${base}/api/session/join`, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', ...headers }, body: JSON.stringify({ name, color: 'terracotta' }) });
   }
   async function cookie(name = 'Tycho') {
     const response = await joinAs(name);

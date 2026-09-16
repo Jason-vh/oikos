@@ -5,7 +5,7 @@ Live at <https://oikos.vhtm.eu>.
 *Οἶκος* (oikos): the household, root of *economy*. A city builder on the Aegean:
 settle an island, feed and water its households along real roads, hunt, fell,
 farm and trade your way to a thriving city. The world is a shared archipelago of
-eight islands, no two the same size. Name your city, claim an unclaimed island, place your founding
+eight islands, no two the same size. Name your city, pick its colour, claim an unclaimed island, place your founding
 dockyard beside its landing road, and build. One player or eight, it is the same
 world: the server owns it and saves it.
 

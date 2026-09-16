@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { ACTOR_CAP, Authority } from './authority';
-import { admit, claimFor, foundedActor, freshAuthority, cityNames, rid, roadTileOf, sequenceRow } from './authority-fixtures.test';
+import { actorColors, admit, claimFor, foundedActor, freshAuthority, cityNames, rid, roadTileOf, sequenceRow } from './authority-fixtures.test';
 import { harbourApron } from '../sim/founding';
 
 const cleanups: Array<() => void> = [];
@@ -13,7 +13,7 @@ afterEach(() => {
 describe('credential secrecy', () => {
   test('issued credentials are 256-bit hex and never persisted in plaintext', () => {
     const { path, authority } = freshAuthority(cleanups);
-    const admission = authority.admit('Tycho');
+    const admission = authority.admit('Tycho', 'terracotta');
     if (!admission.ok) throw new Error('expected admission to succeed');
 
     expect(/^[0-9a-f]{64}$/.test(admission.credential)).toBe(true);
@@ -27,8 +27,8 @@ describe('credential secrecy', () => {
 describe('open admission', () => {
   test('anyone may join, and each join is a separate actor with its own credential', () => {
     const { authority } = freshAuthority(cleanups);
-    const first = authority.admit('Tycho');
-    const second = authority.admit('Kleio');
+    const first = authority.admit('Tycho', 'terracotta');
+    const second = authority.admit('Kleio', 'saffron');
     if (!first.ok || !second.ok) throw new Error('expected both admissions to succeed');
     expect(first.actorId).toBeGreaterThan(0);
     expect(second.actorId).not.toBe(first.actorId);
@@ -37,7 +37,7 @@ describe('open admission', () => {
 
   test('a joined name is trimmed and kept, and authenticates as its own actor', () => {
     const { authority } = freshAuthority(cleanups);
-    const admission = authority.admit('  Tycho  ');
+    const admission = authority.admit('  Tycho  ', 'terracotta');
     if (!admission.ok) throw new Error('expected admission to succeed');
     expect(cityNames(authority)).toEqual(['Tycho']);
     expect(authority.authenticate(admission.credential)?.actorId).toBe(admission.actorId);
@@ -46,15 +46,33 @@ describe('open admission', () => {
   test('an unusable name is refused without admitting anyone', () => {
     const { authority } = freshAuthority(cleanups);
     for (const name of ['', '   ', 'x'.repeat(25), 'Ty\u0000cho']) {
-      expect(authority.admit(name)).toEqual({ ok: false, reason: 'Choose a city name of up to 24 characters.' });
+      expect(authority.admit(name, 'terracotta')).toEqual({ ok: false, reason: 'Choose a city name of up to 24 characters.' });
     }
     expect(cityNames(authority)).toEqual([]);
+  });
+
+  test('a colour outside the palette is refused without admitting anyone', () => {
+    const { authority } = freshAuthority(cleanups);
+    for (const color of ['', 'chartreuse', 'TERRACOTTA']) {
+      expect(authority.admit('Tycho', color as never)).toEqual({ ok: false, reason: 'Choose a colour from the palette.' });
+    }
+    expect(cityNames(authority)).toEqual([]);
+  });
+
+  test('the joined colour is kept on the actor and founds the city in that colour', () => {
+    const { authority } = freshAuthority(cleanups);
+    const credential = admit(authority, 'Kleio', 'plum');
+    expect(actorColors(authority)).toEqual(['plum']);
+
+    const claim = authority.submit(credential, 1, rid(1), claimFor(0));
+    expect(claim.ok).toBe(true);
+    expect(authority.snapshot().cities.find((city) => city.id === claim.cityId)!.color).toBe('plum');
   });
 
   test('admission is capped and admits nobody once full', () => {
     const { authority } = freshAuthority(cleanups);
     for (let i = 0; i < ACTOR_CAP; i++) admit(authority);
-    expect(authority.admit('Tycho')).toEqual({ ok: false, reason: 'No admission slots remain.' });
+    expect(authority.admit('Tycho', 'terracotta')).toEqual({ ok: false, reason: 'No admission slots remain.' });
   }, 120_000);
 });
 

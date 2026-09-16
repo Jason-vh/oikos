@@ -1,14 +1,16 @@
 import type { AuthorityRequest, RequestOutcome, RequestStatus, Session } from './authority';
 import type { World } from '../sim/types';
 import { cityName } from '../sim/claims';
+import { cityColor, type CityColor } from '../sim/colors';
 
-export const PROTOCOL = 5;
+export const PROTOCOL = 6;
 export const MAX_REQUEST_BYTES = 64 * 1024;
 export const COOKIE = '__Host-oikos';
 
 export function parseCityName(raw: unknown): string | null {
   return typeof raw === 'string' ? cityName(raw) : null;
 }
+export interface Admission { name: string; color: CityColor }
 export interface PublicSession extends Omit<Session, 'actorId'> { binding: string }
 export interface ClientRequest {
   type: 'request';
@@ -19,7 +21,7 @@ export interface ClientRequest {
 }
 export type RejectCode = Exclude<RequestStatus, 'processed' | 'replayed'> | 'rate-limited' | 'session-mismatch';
 export type ServerPacket =
-  | { type: 'snapshot'; protocol: 5; realmId: string; streamId: string; serial: number; session: PublicSession; world: World }
+  | { type: 'snapshot'; protocol: 6; realmId: string; streamId: string; serial: number; session: PublicSession; world: World }
   | { type: 'receipt'; requestId: string; seq: number; result: RequestOutcome }
   | { type: 'reject'; code: RejectCode; session: PublicSession };
 
@@ -62,7 +64,7 @@ export function credentialFrom(request: Request): string {
   return /^[a-f0-9]{64}$/.test(value) ? value : '';
 }
 
-export async function parseJoinName(request: Request): Promise<string | null> {
+export async function parseJoin(request: Request): Promise<Admission | null> {
   if (!/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(request.headers.get('content-type') ?? '') || !request.body) return null;
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -76,8 +78,10 @@ export async function parseJoinName(request: Request): Promise<string | null> {
       chunks.push(value);
     }
     const value: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-    if (!record(value) || !exactKeys(value, ['name'])) return null;
-    return parseCityName(value.name);
+    if (!record(value) || !exactKeys(value, ['name', 'color'])) return null;
+    const name = parseCityName(value.name);
+    const color = cityColor(value.color);
+    return name && color ? { name, color } : null;
   } catch {
     return null;
   } finally {

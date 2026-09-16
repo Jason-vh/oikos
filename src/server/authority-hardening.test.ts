@@ -43,7 +43,7 @@ describe('malformed in-process payload resilience', () => {
 
     const validCommand = authority.submit(credential, 3, rid(3), { kind: 'command', cityId, command: { type: 'demolish', x: 0, z: 0 } });
     expect(validCommand.status).toBe('processed');
-    expect(authority.admit('Kleio').ok).toBe(true);
+    expect(authority.admit('Kleio', 'saffron').ok).toBe(true);
   });
 
   test('null is processed as an ordinary logical-failure baseline; NaN at the same seq is rejected as malformed, never replaying it', () => {
@@ -204,7 +204,7 @@ describe('failed commit consistency', () => {
     expect(receipt).toBeNull();
 
     expect(() => authority.submit(credential, 3, rid(3), { kind: 'command', cityId, command: { type: 'demolish', x: tile.x, z: tile.z } })).toThrow();
-    expect(() => authority.admit('Kleio')).toThrow();
+    expect(() => authority.admit('Kleio', 'saffron')).toThrow();
   });
 
   test('a COMMIT-time constraint failure (not just a statement failure) rolls back the whole transaction and leaves memory untouched', () => {
@@ -233,7 +233,7 @@ describe('corrupt authority state', () => {
     initStore(path);
     const world = createSharedWorld();
     const site = claimFor(0);
-    claimHarbour(world, 'Tycho', site.x, site.z, site.rotation as Rotation);
+    claimHarbour(world, 'Tycho', 'terracotta', site.x, site.z, site.rotation as Rotation);
     const store = openStore(path);
     store.db.run('UPDATE world SET revision = revision + 1, data = ? WHERE id = 1;', [serializeWorld(world)]);
     closeStore(store);

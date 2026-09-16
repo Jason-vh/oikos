@@ -1,5 +1,6 @@
 import { Authority } from '../src/server/authority';
 import { initStore } from '../src/server/store';
+import { randomCityColor } from '../src/sim/colors';
 
 const [command, path, name] = process.argv.slice(2);
 
@@ -9,7 +10,7 @@ if (command === 'init' && path) {
 } else if (command === 'agent' && path && name) {
   const authority = Authority.open(path);
   try {
-    const admission = authority.admit(name);
+    const admission = authority.admit(name, randomCityColor());
     if (!admission.ok) {
       console.error(admission.reason);
       process.exit(1);

@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path';
 import { Authority } from '../src/server/authority';
 import { startServer } from '../src/server/runtime';
 import { initStore } from '../src/server/store';
+import { randomCityColor } from '../src/sim/colors';
 
 const args = process.argv.slice(2);
 const fresh = args.includes('--fresh');
@@ -24,7 +25,7 @@ if (agentNames.length > 0) {
   const authority = Authority.open(dbPath);
   try {
     for (const name of agentNames) {
-      const admission = authority.admit(name);
+      const admission = authority.admit(name, randomCityColor());
       if (!admission.ok) {
         console.error(`Could not admit ${name}: ${admission.reason}`);
         process.exit(1);

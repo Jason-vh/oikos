@@ -1,6 +1,7 @@
 import * as T from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import type { CityColor } from '../sim/colors';
 
 export const colors = {
   plaster: 0xf3dfb5, cream: 0xffefcb, stone: 0xc9b689, paving: 0xe1d0a7,
@@ -8,6 +9,11 @@ export const colors = {
   blue: 0x426f83, blueLight: 0x68919c, dark: 0x364d48, wood: 0x846347,
   olive: 0x879557, oliveLight: 0xa2ae70, oliveDark: 0x627a50,
   grass: 0xa7ac73, earth: 0xb0a17b, gold: 0xd6ab53, linen: 0xffedc5,
+};
+
+export const cityColors: Record<CityColor, number> = {
+  terracotta: 0xb85e41, saffron: 0xd9a441, olive: 0x7d8f4a, verdigris: 0x4fa287,
+  aegean: 0x3d8f99, lapis: 0x4a6ca8, plum: 0x8a5a86, crimson: 0xa8434f,
 };
 
 const materials = new Map<number, T.MeshStandardMaterial>();

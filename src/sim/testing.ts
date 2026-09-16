@@ -6,18 +6,20 @@ import { freshHarbour, harbourTiles } from './harbour';
 import { findHarbourSite, harbourApron, harbourSiteOf } from './founding';
 import { placement, placeRoadPath, recomputeConnectivity } from './world';
 import { primaryCity } from './city';
+import type { CityColor } from './colors';
 
 export function mapOf(world: World): IslandMap {
   return gridMapOf(world, primaryCity(world));
 }
 
-export function foundSecondCity(world: World, home: number, name = 'Naxos'): City {
+export function foundSecondCity(world: World, home: number, name = 'Naxos', color: CityColor = 'aegean'): City {
   const map = islandFor(world.seed, home);
   const site = findHarbourSite(map, home);
   if (!site) throw new Error('That island has no shore for a harbour.');
   const city: City = {
     id: world.nextCityId++,
     name,
+    color,
     home,
     money: STARTING_MONEY,
     harbour: { ...freshHarbour(site), id: world.nextId++ },

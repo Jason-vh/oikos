@@ -5,6 +5,7 @@ import { claimHarbour, CITY_NAME_LIMIT } from '../sim/claims';
 import { applyCommand, parseCommand } from '../sim/commands';
 import { advance } from '../sim/world';
 import { parseCityName } from './protocol';
+import { cityColor, type CityColor } from '../sim/colors';
 import { type AuthorityDb, closeStore, openStore, readWorldRow, resetStore, selectAll, selectOne, writeWorldRow } from './store';
 
 export const ACTOR_CAP = 1024;
@@ -154,8 +155,9 @@ function verifyStoredInvariants(db: Database, world: World): void {
   }
   if (credentialActorIds.size !== actorIds.size) throw new Error('Authority store actors do not each have exactly one credential row.');
 
-  for (const row of selectAll<{ name: string }>(db, 'SELECT name FROM actors;')) {
+  for (const row of selectAll<{ name: string; color: string }>(db, 'SELECT name, color FROM actors;')) {
     if (parseCityName(row.name) !== row.name) throw new Error('Authority store has an actor with a malformed city name.');
+    if (!cityColor(row.color)) throw new Error('Authority store has an actor with an unknown city colour.');
   }
 
   const watermarkByActor = new Map<number, number>();
@@ -221,9 +223,11 @@ function resolveOutcome(world: World, db: Database, actorId: number, request: Au
     const owned = selectOne<{ count: number }>(db, 'SELECT COUNT(*) as count FROM ownership WHERE actor_id = ?;', actorId)!.count;
     if (owned > 0) return { ok: false, reason: 'This actor already holds an island claim.' };
     if (request.rotation < 0 || request.rotation > 3) return { ok: false, reason: 'A harbour faces one of four ways.' };
-    const name = selectOne<{ name: string }>(db, 'SELECT name FROM actors WHERE id = ?;', actorId)!.name;
+    const actor = selectOne<{ name: string; color: string }>(db, 'SELECT name, color FROM actors WHERE id = ?;', actorId)!;
+    const color = cityColor(actor.color);
+    if (!color) return { ok: false, reason: 'This actor has no colour to found under.' };
     const candidate = structuredClone(world);
-    const result = claimHarbour(candidate, name, request.x, request.z, request.rotation as Rotation);
+    const result = claimHarbour(candidate, actor.name, color, request.x, request.z, request.rotation as Rotation);
     if (!result.ok || !result.city) return { ok: false, reason: result.reason };
     return { ok: true, reason: result.reason, cityId: result.city.id, world: candidate, ownerCityId: result.city.id };
   }
@@ -334,11 +338,13 @@ export class Authority {
     });
   }
 
-  admit(name: string): { ok: true; actorId: number; credential: string } | { ok: false; reason: string } {
+  admit(name: string, color: CityColor): { ok: true; actorId: number; credential: string } | { ok: false; reason: string } {
     this.guardWritable();
     return this.poison(() => {
       const chosen = parseCityName(name);
       if (!chosen) return { ok: false, reason: `Choose a city name of up to ${CITY_NAME_LIMIT} characters.` };
+      const chosenColor = cityColor(color);
+      if (!chosenColor) return { ok: false, reason: 'Choose a colour from the palette.' };
       const db = this.store.db;
       const actorCount = selectOne<{ count: number }>(db, 'SELECT COUNT(*) as count FROM actors;')!.count;
       if (actorCount >= ACTOR_CAP) return { ok: false, reason: 'No admission slots remain.' };
@@ -346,7 +352,7 @@ export class Authority {
       const now = Date.now();
       const credential = randomToken();
       const join = db.transaction(() => {
-        const actorId = Number(db.run('INSERT INTO actors (name, created_at) VALUES (?, ?);', [chosen, now]).lastInsertRowid);
+        const actorId = Number(db.run('INSERT INTO actors (name, color, created_at) VALUES (?, ?, ?);', [chosen, chosenColor, now]).lastInsertRowid);
         db.run('INSERT INTO credentials (actor_id, credential_hash, created_at) VALUES (?, ?, ?);', [actorId, hashToken(credential), now]);
         db.run('INSERT INTO sequences (actor_id, high_watermark) VALUES (?, 0);', [actorId]);
         return actorId;

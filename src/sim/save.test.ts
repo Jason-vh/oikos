@@ -158,6 +158,28 @@ describe('worlds labelled before the archipelago was renamed', () => {
   });
 });
 
+describe('worlds saved before cities had colours', () => {
+  function colourless() {
+    const parsed = JSON.parse(serializeWorld(advancedWorld()));
+    return JSON.stringify({ ...parsed, version: 16, cities: parsed.cities.map(({ color, ...city }: { color: string }) => city) });
+  }
+
+  test('a version 16 world is raised with a colour from the palette', () => {
+    const raw = colourless();
+    expect(savedVersion(raw)).toBe(16);
+    const restored = deserializeWorld(raw);
+    expect(restored).not.toBeNull();
+    expect(restored!.cities[0].color).toBe('terracotta');
+  });
+
+  test('a colour outside the palette is refused', () => {
+    const parsed = JSON.parse(serializeWorld(advancedWorld()));
+    parsed.cities[0].color = 'chartreuse';
+    expect(deserializeWorld(JSON.stringify(parsed))).toBeNull();
+    expect(deserializeSharedWorld(JSON.stringify(parsed))).toBeNull();
+  });
+});
+
 describe('worlds from an older generator', () => {
   const raw = JSON.stringify(beforeTheResize);
 

@@ -24,7 +24,7 @@ test('joins only from the configured origin, keeps credentials solely in the sec
   expect((await fetch(`${f.base}/api/world`, { headers: { Origin: 'https://foreign.example', Cookie: admitted, Upgrade: 'websocket' } })).status).toBe(403);
   const { snapshot } = await connect(cleanups, f, admitted);
   expect(Object.keys(snapshot).sort()).toEqual(['protocol', 'realmId', 'serial', 'session', 'streamId', 'type', 'world']);
-  expect(snapshot.protocol).toBe(5);
+  expect(snapshot.protocol).toBe(6);
   expect(snapshot.session.binding).toMatch(/^[a-f0-9]{64}$/);
   expect(snapshot.session).toEqual({ binding: snapshot.session.binding, ownedCityIds: [], nextSeq: 1, receiptWatermark: 0 });
   expect(deserializeSharedWorld(serializeWorld(snapshot.world))).toEqual(snapshot.world);

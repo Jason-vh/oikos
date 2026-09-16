@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { initStore, selectAll, type AuthorityDb } from './store';
 import { Authority } from './authority';
+import type { CityColor } from '../sim/colors';
 import { islandFor, tileAtOn } from '../sim/island';
 import { findHarbourSite, harbourApron } from '../sim/founding';
 import type { ClaimRequest } from './authority';
@@ -44,8 +45,12 @@ export function cityNames(authority: Authority): string[] {
   return selectAll<{ name: string }>(rawDb(authority), 'SELECT name FROM actors ORDER BY id;').map((row) => row.name);
 }
 
-export function admit(authority: Authority, name = 'Tycho'): string {
-  const admission = authority.admit(name);
+export function actorColors(authority: Authority): string[] {
+  return selectAll<{ color: string }>(rawDb(authority), 'SELECT color FROM actors ORDER BY id;').map((row) => row.color);
+}
+
+export function admit(authority: Authority, name = 'Tycho', color: CityColor = 'terracotta'): string {
+  const admission = authority.admit(name, color);
   if (!admission.ok) throw new Error(admission.reason);
   return admission.credential;
 }

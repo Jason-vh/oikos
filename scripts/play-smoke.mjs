@@ -20,6 +20,8 @@ try {
   await page.waitForTimeout(200);
   assert.equal(await page.locator('[data-testid="join-form"]').isVisible(), true, 'A blank city name was accepted');
   await page.getByRole('textbox').fill(`Smoke ${Date.now() % 1000000}`);
+  const preselected = await page.evaluate(() => document.querySelector('input[name="color"]:checked')?.value ?? null);
+  assert.notEqual(preselected, null, 'No city colour was preselected');
   await page.getByRole('button', { name: 'Join' }).click();
   await page.waitForFunction(() => document.body.dataset.ready === 'true' || document.body.dataset.error === 'true');
   assert.equal(await page.locator('body').getAttribute('data-error'), null, 'The shared game failed to boot');
@@ -49,6 +51,8 @@ try {
   await page.evaluate(() => window.oikos.settled());
   const founded = await page.evaluate(() => window.oikos.session);
   assert.notEqual(founded.activeCityId, null, 'A held click did not found a city');
+  const foundedColor = await page.evaluate(() => window.oikos.state.cities.find((city) => city.id === window.oikos.session.activeCityId).color);
+  assert.equal(foundedColor, preselected, 'The city was not founded in the colour chosen at the gate');
   assert.equal(await page.evaluate(() => window.oikos.state.cities.length >= 1), true);
   await page.screenshot({ path: path.join(output, 'founded.png') });
 

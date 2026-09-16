@@ -4,7 +4,7 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import { AuthorityGame } from '../agent/authority-game';
 import { createServer } from '../agent/mcp';
 import { Authority } from './authority';
-import { COOKIE, MAX_REQUEST_BYTES, PROTOCOL, credentialFrom, parseJoinName, parseRequest, publicSession, type RejectCode } from './protocol';
+import { COOKIE, MAX_REQUEST_BYTES, PROTOCOL, credentialFrom, parseJoin, parseRequest, publicSession, type RejectCode } from './protocol';
 import { serializeWorld } from '../sim/save';
 
 export interface RuntimeClock {
@@ -290,10 +290,10 @@ export function startServer(options: RuntimeOptions) {
             if (authenticated) return response(409, 'already-authenticated');
             const ip = listener.requestIP(request)?.address;
             if (!ip || !take(admissions, ip, clock.now(), 5, 5 / 60)) return response(429, 'rate-limited');
-            return parseJoinName(request).then((name) => {
-              if (!name) return response(400, 'invalid-name');
+            return parseJoin(request).then((joining) => {
+              if (!joining) return response(400, 'invalid-name');
               if (!healthy || stopped) return response(503, 'unavailable');
-              const admission = authority.admit(name);
+              const admission = authority.admit(joining.name, joining.color);
               if (!admission.ok) return response(403, 'admission-denied');
               return Response.json({ ok: true }, { headers: {
                 'Cache-Control': 'no-store',
