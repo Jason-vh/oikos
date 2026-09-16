@@ -21,8 +21,6 @@ const CLOSEST_SPAN = 13;
 const AO_BLEND = .65;
 const AO_FULL_SPAN = 120;
 const AO_GONE_SPAN = 220;
-const ZOOM_EASE = 13;
-const ZOOM_SETTLED = .002;
 
 export class Stage {
   readonly scene = new T.Scene();
@@ -37,8 +35,6 @@ export class Stage {
   private readonly sun = new T.DirectionalLight(0xffe6bd, 3.5);
   private readonly haze = new T.Fog(HAZE, 1, 2);
   private worldSpan = DEFAULT_WORLD_SPAN;
-  private zoomGoal = 1;
-  private zoomShown = 1;
   private size = 44;
   private request = 0;
   private lost = false;
@@ -95,7 +91,6 @@ export class Stage {
     this.composer.addPass(this.ao);
     this.composer.addPass(new OutputPass());
     this.canvas.addEventListener('webglcontextlost', this.contextLost);
-    window.addEventListener('wheel', this.aimZoom, { capture: true, passive: true });
     window.addEventListener('resize', this.resize);
     this.resize();
   }
@@ -122,7 +117,6 @@ export class Stage {
     this.request = requestAnimationFrame(() => {
       this.request = 0;
       if (document.hidden) return;
-      this.absorbZoom();
       this.depth();
       this.trackSun();
       this.refreshShadows();
@@ -150,49 +144,17 @@ export class Stage {
     const offset = this.camera.position.clone().sub(this.controls.target);
     if (offset.lengthSq() === 0) return;
     this.camera.position.copy(this.controls.target).addScaledVector(offset.normalize(), this.worldSpan * STANDOFF_SHARE);
-    this.steerControls();
+    this.controls.update();
   }
 
   private clampZoom(): void {
     const spanAtRest = this.camera.right - this.camera.left;
     this.controls.minZoom = spanAtRest / this.worldSpan;
     this.controls.maxZoom = spanAtRest / CLOSEST_SPAN;
-    this.zoomGoal = T.MathUtils.clamp(this.zoomGoal, this.controls.minZoom, this.controls.maxZoom);
-    const bounded = T.MathUtils.clamp(this.zoomShown, this.controls.minZoom, this.controls.maxZoom);
-    if (bounded === this.zoomShown) return;
-    this.showZoom(bounded);
-  }
-
-  private aimZoom = (): void => {
-    this.camera.zoom = this.zoomGoal;
-  };
-
-  private absorbZoom(): void {
-    if (this.camera.zoom === this.zoomShown) return;
-    this.zoomGoal = this.camera.zoom;
-    this.camera.zoom = this.zoomShown;
+    const bounded = T.MathUtils.clamp(this.camera.zoom, this.controls.minZoom, this.controls.maxZoom);
+    if (bounded === this.camera.zoom) return;
+    this.camera.zoom = bounded;
     this.camera.updateProjectionMatrix();
-  }
-
-  private showZoom(zoom: number): void {
-    this.zoomShown = zoom;
-    this.camera.zoom = zoom;
-    this.camera.updateProjectionMatrix();
-  }
-
-  private steerControls(): boolean {
-    this.absorbZoom();
-    const moved = this.controls.update();
-    this.absorbZoom();
-    return moved;
-  }
-
-  private easeZoom(delta: number): boolean {
-    if (this.zoomShown === this.zoomGoal) return false;
-    const remaining = Math.log(this.zoomGoal / this.zoomShown);
-    const settling = this.reducedMotion || Math.abs(remaining) < ZOOM_SETTLED;
-    this.showZoom(settling ? this.zoomGoal : this.zoomShown * Math.exp(remaining * (1 - Math.exp(-delta * ZOOM_EASE))));
-    return true;
   }
 
   sizeToFit(target: T.Vector3, offset: T.Vector3, corners: T.Vector3[]): number {
@@ -293,12 +255,11 @@ export class Stage {
   setView(view: View): void {
     this.controls.target.fromArray(view.target);
     this.camera.position.copy(this.controls.target).add(new T.Vector3().fromArray(view.offset));
-    this.zoomGoal = view.zoom ?? 1;
-    this.showZoom(this.zoomGoal);
+    this.camera.zoom = view.zoom ?? 1;
     this.size = view.size;
     this.settle();
     this.standoff();
-    this.steerControls();
+    this.controls.update();
     this.resize();
   }
 
@@ -307,7 +268,7 @@ export class Stage {
       target: this.controls.target.toArray(),
       offset: this.camera.position.clone().sub(this.controls.target).toArray(),
       size: this.size,
-      zoom: this.zoomGoal,
+      zoom: this.camera.zoom,
     };
   }
 
@@ -334,14 +295,11 @@ export class Stage {
         this.goal.spin = 0;
         this.goal.active = false;
       }
-      this.steerControls();
-      this.easeZoom(delta);
+      this.controls.update();
       this.invalidate();
       return;
     }
-    const moved = this.steerControls();
-    const zooming = this.easeZoom(delta);
-    if (moved || zooming) this.invalidate();
+    if (this.controls.update()) this.invalidate();
   }
 
   pan(right: number, forward: number): void {
@@ -353,7 +311,7 @@ export class Stage {
     const step = new T.Vector3().addScaledVector(rightDirection, right * distance).addScaledVector(forwardDirection, forward * distance);
     this.controls.target.add(step);
     this.camera.position.add(step);
-    this.steerControls();
+    this.controls.update();
     this.invalidate();
   }
 
@@ -393,7 +351,6 @@ export class Stage {
 
   dispose(): void {
     cancelAnimationFrame(this.request);
-    window.removeEventListener('wheel', this.aimZoom, { capture: true });
     window.removeEventListener('resize', this.resize);
     this.canvas.removeEventListener('webglcontextlost', this.contextLost);
     this.controls.removeEventListener('start', this.settle);

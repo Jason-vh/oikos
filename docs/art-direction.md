@@ -91,13 +91,14 @@ frame, until the whole island stands. A city is complete on its first frame and 
 rest of the archipelago follows within a second or two of idle time, so zooming out
 later costs nothing. Chunks pop into visibility, never into existence.
 
-Zoom is eased, not stepped. Three applies orthographic zoom the instant the wheel
-turns, which reads as jerk; the stage keeps the wheel's value as a goal and shows a
-value easing towards it, so a notch is a movement rather than a jump — and the work a
-wider view triggers is spread over those frames instead of landing in one. Contact
-shadows follow the same logic: GTAO renders the scene a second time for depth and
-normals, which doubles the cost of a view full of trees for an occlusion radius that
-is sub-pixel out there, so it fades out between spans 120 and 220 and the pass is
+Zoom follows the wheel exactly, with nothing between the hand and the view. Easing it
+was tried and removed: on a trackpad, which already sends a smooth stream, smoothing
+is only lag, and it reads as the page zooming itself. If a step ever needs softening,
+soften the step — `controls.zoomSpeed` — not the response.
+
+Contact shadows do fade with the view: GTAO renders the scene a second time for depth
+and normals, which doubles the cost of a view full of trees for an occlusion radius
+that is sub-pixel out there, so it fades out between spans 120 and 220 and the pass is
 switched off once it contributes nothing.
 
 ## Sea and sky
