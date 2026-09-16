@@ -210,16 +210,18 @@ export function boot(source: SharedBootSource): BootHandles {
     drag = null;
     hud.setTool(next, rotation);
     stage.controls.touches.ONE = next === 'inspect' ? T.TOUCH.ROTATE : null;
-    const home = activeCity(world, context);
-    city.scenery.grid.visible = !home || showGrid || tool !== 'inspect';
+    applyGrid();
     updatePreview();
     stage.invalidate();
   }
 
+  function applyGrid(): void {
+    city.scenery.grid.visible = showGrid || harbourArmed || tool !== 'inspect';
+  }
+
   function setGrid(enabled: boolean): void {
     showGrid = enabled;
-    const home = activeCity(world, context);
-    city.scenery.grid.visible = !home || enabled || tool !== 'inspect';
+    applyGrid();
     hud.setGrid(enabled);
     stage.invalidate();
   }
