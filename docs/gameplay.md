@@ -54,7 +54,10 @@ level-0 shore and three rows of pier over open water, facing whichever of the fo
 ways `rotation` points. `claimHarbour(world, name, color, x, z, rotation)` commits it,
 which is also the claim: the island under the quay becomes that city's `home`, and
 an island already held by another city refuses the site. Founding is one-time; the
-harbour can never move or be demolished. The name and colour come from the join,
+harbour can never move or be demolished. A player who joins an archipelago whose
+eight islands are all claimed has nothing to found with: the harbour tool, the
+toolbar and the guide are taken away and they watch, still able to look around and
+inspect. The name and colour come from the join,
 not the click; a player choosing where to land sees every claimed island glazed in
 its owner's colour, and the unclaimed ones in their own. There is no landing road and no free
 ground: a new city holds 1600 drachma, one harbour, and nothing else, and pays for

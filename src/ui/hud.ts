@@ -6,6 +6,7 @@ import type { CityColor } from '../sim/colors';
 import { toolIcon } from './icons';
 
 export type HudTool = Tool | 'harbour';
+export type Stance = 'founding' | 'watching' | 'building';
 
 export interface HudActions {
   tool(tool: HudTool): void;
@@ -40,7 +41,7 @@ export interface Hud {
   setGrid(enabled: boolean): void;
   setSound(enabled: boolean): void;
   setConnection(blocked: boolean, message: string): void;
-  setFounding(founding: boolean, ready: boolean): void;
+  setStance(stance: Stance, ready: boolean): void;
   announceFounding(name: string, color: CityColor): void;
   setDiscardAvailable(available: boolean): void;
   toggleMenu(): boolean;
@@ -553,10 +554,12 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
     connectionText.textContent = message;
   }
 
-  function setFounding(founding: boolean, ready: boolean): void {
-    harbourButton.hidden = !founding;
+  function setStance(stance: Stance, ready: boolean): void {
+    harbourButton.hidden = stance !== 'founding';
     harbourButton.disabled = !ready;
-    for (const def of TOOL_DEFS) toolButtons.get(def.tool)!.hidden = founding;
+    for (const def of TOOL_DEFS) toolButtons.get(def.tool)!.hidden = stance !== 'building';
+    toolbar.hidden = stance === 'watching';
+    guidePanel.hidden = stance === 'watching';
   }
 
   function setDiscardAvailable(available: boolean): void {
@@ -565,6 +568,6 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
 
   return {
     update, setTool, notify, setHint, setGrid, setSound, toggleMenu, dispose,
-    setConnection, setFounding, announceFounding, setDiscardAvailable,
+    setConnection, setStance, announceFounding, setDiscardAvailable,
   };
 }

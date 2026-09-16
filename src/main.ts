@@ -4,15 +4,15 @@ import type { View } from './render/stage';
 import { CityScene } from './render/city';
 import { ConstructionOverlay } from './render/construction';
 import { ClaimOverlay } from './render/claims';
-import { ClaimLabels } from './ui/claim-labels';
+import { ClaimCards } from './render/claim-cards';
 import { BUILDINGS } from './sim/catalog';
 import { demolitionPreview, footprintTileIssues, harbourRoute, suitableFarmGround } from './sim/construction';
-import { CELL_SIZE, groundHeight, islandFor, terrainOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
+import { CELL_SIZE, groundHeight, islandFor, ISLAND_COUNT, terrainOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
 import { buildingStatus, getSummary, placement, roadPathPlacement, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
 import { animalName, animalStatus } from './sim/wildlife';
 import { gatherReach } from './sim/gathering';
 import type { Building, BuildingKind, City, Placement, Rotation, Tile, Tool, Walker, World } from './sim/types';
-import { createHud, type CityScope, type HudTool } from './ui/hud';
+import { createHud, type CityScope, type HudTool, type Stance } from './ui/hud';
 import { createSound } from './ui/sound';
 import { celebration, cityMilestones, NO_MILESTONES, rememberMilestones } from './ui/celebrations';
 import { harbourPlacement } from './sim/founding';
@@ -68,8 +68,7 @@ export function boot(source: SharedBootSource): BootHandles {
   let city = new CityScene(stage, islandFor(world.seed), !reducedMotion);
   let overlay = new ConstructionOverlay(stage, islandFor(world.seed));
   let claims = new ClaimOverlay(stage, islandFor(world.seed));
-  let claimLabels = new ClaimLabels(document.body, islandFor(world.seed));
-  stage.onPainted(() => claimLabels.follow((x, y, z) => stage.project(x, y, z), claims.strength));
+  let claimCards = new ClaimCards(stage, islandFor(world.seed));
   const map = () => mapFor(activeCity(world, context));
   function viewFor(homeCity: City): View {
     const island = islandFor(world.seed, homeCity.home);
@@ -98,12 +97,12 @@ export function boot(source: SharedBootSource): BootHandles {
     city.dispose();
     overlay.dispose();
     claims.dispose();
-    claimLabels.dispose();
+    claimCards.dispose();
     stage.bounds(seaBounds(world.seed));
     city = new CityScene(stage, islandFor(world.seed), !reducedMotion);
     overlay = new ConstructionOverlay(stage, islandFor(world.seed));
     claims = new ClaimOverlay(stage, islandFor(world.seed));
-    claimLabels = new ClaimLabels(document.body, islandFor(world.seed));
+    claimCards = new ClaimCards(stage, islandFor(world.seed));
   }
 
   function keepsView(previous: CityContext, realmChanged: boolean, founded: boolean): boolean {
@@ -186,6 +185,7 @@ export function boot(source: SharedBootSource): BootHandles {
   function connectionHint(): string {
     if (!source.session.canSend() && !settling()) return connectionMessage(source.session.currentStatus);
     if (harbourArmed) return 'Choose a shore: two rows of land, three of water \u00b7 R turns the harbour';
+    if (watching()) return 'Every island is claimed. You are watching the archipelago.';
     if (context.activeId === null) return 'Choose the harbour to found your city.';
     if (context.viewedId !== context.activeId) return 'Visiting another city · read-only. H returns home.';
     return 'Viewing another city grants no writes.';
@@ -547,7 +547,7 @@ export function boot(source: SharedBootSource): BootHandles {
     if (event.key === 'Escape') {
       escapeOpensMenu = tool === 'inspect' && !harbourArmed;
       if (!escapeOpensMenu) selectTool('inspect');
-    } else if (event.key === '1' && context.activeId === null) selectTool('harbour');
+    } else if (event.key === '1' && context.activeId === null && !watching()) selectTool('harbour');
     else if (keys[event.key]) selectTool(keys[event.key]);
     else if (event.key.toLowerCase() === 'g') setGrid(!showGrid);
     else if (event.key.toLowerCase() === 'r') { rotation = ((rotation + 1) % 4) as Rotation; hud.setTool(tool, rotation); updatePreview(); }
@@ -588,6 +588,7 @@ export function boot(source: SharedBootSource): BootHandles {
     city.watch(stage.controls.target, stage.viewSpan());
     city.transitions(delta);
     if (claims.fade(stage.viewSpan())) stage.invalidate();
+    claimCards.place(stage.viewSpan() / stage.canvas.clientWidth, claims.strength);
     if (!document.hidden) {
       visualDelta += delta;
       if (now - lastRender >= ANIMATION_INTERVAL) {
@@ -626,12 +627,20 @@ export function boot(source: SharedBootSource): BootHandles {
     sound.play('founding');
   }
 
+  function watching(): boolean {
+    return context.activeId === null && world.cities.length >= ISLAND_COUNT;
+  }
+
   function updateFounding(): void {
-    const founding = context.activeId === null;
+    const founding = context.activeId === null && !watching();
     const ready = founding && siting() && !sharedIntent.busy && bufferedRequest === null;
-    hud.setFounding(founding, ready);
-    claims.update(world, founding);
-    claimLabels.update(world, founding);
+    let stance: Stance = 'building';
+    if (founding) stance = 'founding';
+    else if (watching()) stance = 'watching';
+    hud.setStance(stance, ready);
+    if (!founding && harbourArmed) selectTool('inspect');
+    claims.update(world, context.activeId === null);
+    claimCards.update(world, context.activeId === null);
   }
 
 
