@@ -28,6 +28,10 @@ silhouette and colour, second by a single distinguishing feature, never by detai
 | grass / earth | `a7ac73` / `b0a17b` | ground |
 | gold / linen | `d6ab53` / `ffedc5` | grain, cloth |
 
+City colours — what a player picks when joining — are `cityColors` in the same
+file, one muted hue per name in `src/sim/colors.ts`: terracotta, saffron, olive,
+verdigris, aegean, lapis, plum, crimson. They mark a player, never a building.
+
 Terrain surface colours live in `src/render/terrain.ts` (`SURFACE`). Food and
 material bundle colours live in `src/art/food.ts`. Add a colour only when no
 existing one reads correctly at city zoom.
@@ -78,6 +82,13 @@ The placement grid is shown while something is being placed — a build tool or 
 harbour in hand — or because the player asked for it. It eases in and out rather than
 blinking, and fades away between view spans 90 and 170, where a cell is too small to
 aim at and its lines only add noise to the land.
+
+A claimed island is glazed in its owner's colour while a player is still choosing
+where to land (`src/render/claims.ts`): one multiply-blended layer over the land
+tiles, so the island darkens and takes the hue without losing its ground. It is a
+map-scale affordance, so it fades out between view spans 700 and 240 and is gone by
+the zoom a shore is picked at, where the terrain must read true. It is taken down
+altogether once that player has a city.
 
 Wildlife is drawn near the view, not across the world: sight is the view span capped
 at 220, so pulling back to the archipelago no longer places and poses every animal on

@@ -427,7 +427,7 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
     if (active) paintSwatch(guideColour, active.city.color);
     if (!active) {
       guideTitle.textContent = 'No city yet';
-      guidePanel.querySelector('.hud-guide-note')!.textContent = 'Choose the harbour below, then a shore to set it on: the quay on land, its pier over the water.';
+      guidePanel.querySelector('.hud-guide-note')!.textContent = 'Choose the harbour below, then a shore to set it on: the quay on land, its pier over the water. Islands washed in a colour are already taken.';
       return;
     }
     const summary = active.summary;

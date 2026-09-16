@@ -51,10 +51,12 @@ caches whole archipelagos; the world stores only the seed.
 A city exists because its harbour does. `harbourPlacement(world, x, z, rotation)`
 in `src/sim/founding.ts` previews a 2×5 site: two rows of quay on flat, buildable,
 level-0 shore and three rows of pier over open water, facing whichever of the four
-ways `rotation` points. `claimHarbour(world, name, x, z, rotation)` commits it,
+ways `rotation` points. `claimHarbour(world, name, color, x, z, rotation)` commits it,
 which is also the claim: the island under the quay becomes that city's `home`, and
 an island already held by another city refuses the site. Founding is one-time; the
-harbour can never move or be demolished. There is no landing road and no free
+harbour can never move or be demolished. The name and colour come from the join,
+not the click; a player choosing where to land sees every claimed island glazed in
+its owner's colour, and the unclaimed ones in their own. There is no landing road and no free
 ground: a new city holds 1600 drachma, one harbour, and nothing else, and pays for
 its first road out of the quay.
 

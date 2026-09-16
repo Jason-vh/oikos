@@ -3,6 +3,7 @@ import { Stage } from './render/stage';
 import type { View } from './render/stage';
 import { CityScene } from './render/city';
 import { ConstructionOverlay } from './render/construction';
+import { ClaimOverlay } from './render/claims';
 import { BUILDINGS } from './sim/catalog';
 import { demolitionPreview, footprintTileIssues, harbourRoute, suitableFarmGround } from './sim/construction';
 import { CELL_SIZE, groundHeight, islandFor, terrainOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
@@ -65,6 +66,7 @@ export function boot(source: SharedBootSource): BootHandles {
   }
   let city = new CityScene(stage, islandFor(world.seed), !reducedMotion);
   let overlay = new ConstructionOverlay(stage, islandFor(world.seed));
+  let claims = new ClaimOverlay(stage, islandFor(world.seed));
   const map = () => mapFor(activeCity(world, context));
   function viewFor(homeCity: City): View {
     const island = islandFor(world.seed, homeCity.home);
@@ -92,9 +94,11 @@ export function boot(source: SharedBootSource): BootHandles {
   function replaceScene(): void {
     city.dispose();
     overlay.dispose();
+    claims.dispose();
     stage.bounds(seaBounds(world.seed));
     city = new CityScene(stage, islandFor(world.seed), !reducedMotion);
     overlay = new ConstructionOverlay(stage, islandFor(world.seed));
+    claims = new ClaimOverlay(stage, islandFor(world.seed));
   }
 
   function keepsView(previous: CityContext, realmChanged: boolean, founded: boolean): boolean {
@@ -578,6 +582,7 @@ export function boot(source: SharedBootSource): BootHandles {
     stage.update(delta);
     city.watch(stage.controls.target, stage.viewSpan());
     city.transitions(delta);
+    if (claims.fade(stage.viewSpan())) stage.invalidate();
     if (!document.hidden) {
       visualDelta += delta;
       if (now - lastRender >= ANIMATION_INTERVAL) {
@@ -620,6 +625,7 @@ export function boot(source: SharedBootSource): BootHandles {
     const founding = context.activeId === null;
     const ready = founding && siting() && !sharedIntent.busy && bufferedRequest === null;
     hud.setFounding(founding, ready);
+    claims.update(world, founding);
   }
 
 
