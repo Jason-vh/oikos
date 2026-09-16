@@ -36,6 +36,7 @@ export interface SharedBootSource {
 const CONNECTION_NOTICE_DELAY = 900;
 const OVERVIEW_MARGIN = 1.04;
 const ANIMATION_INTERVAL = 1000 / 30;
+const TOOLTIP_DELAY = 360;
 const CITY_VIEW_SIZE = 36;
 
 function isSettling(status: SharedSessionStatus): boolean {
@@ -137,6 +138,9 @@ export function boot(source: SharedBootSource): BootHandles {
   let selectedId: number | null = null;
   let hover: Tile | null = null;
   let pointer: { x: number; y: number } | null = null;
+  let hoveredAnimal: number | null = null;
+  let tooltipRevealed = false;
+  let tooltipTimer = 0;
   let drag: { tile: Tile; x: number; y: number; pointer: number; gestureWritable: boolean; gestureGeneration: number } | null = null;
   let bendVertical = false;
   let renderedWritable = false;
@@ -413,7 +417,7 @@ export function boot(source: SharedBootSource): BootHandles {
     const preview = harbourPlacement(world, site.x, site.z, rotation);
     city.showPreview('harbour', site.x, site.z, rotation, preview);
     city.clearHover();
-    hud.setTooltip(null);
+    forgetTooltip();
     overlay.setFertileGround(null);
     overlay.setBlockedTiles([]);
     overlay.setDemolitionTarget([]);
@@ -422,17 +426,40 @@ export function boot(source: SharedBootSource): BootHandles {
     hud.setHint(preview.ok ? 'Found your city here · the harbour is free · R turns it' : preview.reason);
   }
 
+  function forgetTooltip(): void {
+    window.clearTimeout(tooltipTimer);
+    hoveredAnimal = null;
+    tooltipRevealed = false;
+    hud.setTooltip(null);
+  }
+
   function updateHoverFeedback(): void {
     if (!pointer || drag) {
       city.clearHover();
-      hud.setTooltip(null);
+      forgetTooltip();
       return;
     }
     const target = city.hover(pointer.x, pointer.y, world);
     if (target && target.kind !== 'animal') stage.canvas.style.cursor = 'pointer';
-    const animal = target?.kind === 'animal' ? world.wildlife.find((candidate) => candidate.id === target.id) : null;
+    const animal = target?.kind === 'animal' ? world.wildlife.find((candidate) => candidate.id === target.id) ?? null : null;
     const quarry = animal ? animalQuarry(animal) : null;
-    hud.setTooltip(quarry ? { text: `${quarry.name} \u00b7 ${quarry.yield}`, resource: quarry.food, x: pointer.x, y: pointer.y } : null);
+    if (!animal || !quarry) {
+      city.markAnimal(null);
+      forgetTooltip();
+      return;
+    }
+    city.markAnimal(animal.id);
+    if (animal.id !== hoveredAnimal) {
+      forgetTooltip();
+      hoveredAnimal = animal.id;
+      tooltipTimer = window.setTimeout(() => {
+        tooltipRevealed = true;
+        updateHoverFeedback();
+      }, TOOLTIP_DELAY);
+      return;
+    }
+    if (!tooltipRevealed) return;
+    hud.setTooltip({ text: `${quarry.name} \u00b7 ${quarry.yield}`, resource: quarry.food, x: pointer.x, y: pointer.y });
   }
 
   function updatePreview(): void {
@@ -456,7 +483,7 @@ export function boot(source: SharedBootSource): BootHandles {
     stage.canvas.style.cursor = tool === 'inspect' ? '' : 'crosshair';
     if (tool !== 'inspect') {
       city.clearHover();
-      hud.setTooltip(null);
+      forgetTooltip();
     }
     if (!hover || tool === 'inspect') {
       city.hidePreview();
@@ -550,7 +577,7 @@ export function boot(source: SharedBootSource): BootHandles {
     pointer = null;
     city.hidePreview();
     city.clearHover();
-    hud.setTooltip(null);
+    forgetTooltip();
   });
   const held = new Set<string>();
   const PAN_KEYS: Record<string, [number, number]> = { w: [0, 1], s: [0, -1], a: [-1, 0], d: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };

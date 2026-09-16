@@ -30,6 +30,8 @@ const SIGHT_MARGIN = 1.3;
 const WILDLIFE_SIGHT = 220;
 const ANIMAL_PICK_SPAN = 120;
 const ANIMAL_FACING_LOOK = .35;
+const ANIMAL_MARK_SECONDS = .16;
+const ANIMAL_MARK_OPACITY = .45;
 const IDLE_SETTLE = 1.2;
 const IDLE_SPELL = 3.4;
 const IDLE_SWEEP = 1.8;
@@ -109,6 +111,9 @@ export class CityScene {
   private readonly dust: DustField;
   private readonly roads = new T.Group();
   private readonly hoverMark = new T.Mesh(new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new T.MeshBasicMaterial({ color: 0xffefae, transparent: true, opacity: .18, depthWrite: false }));
+  private readonly animalMark = new T.Mesh(new T.RingGeometry(.3, .42, 32).rotateX(-Math.PI / 2), new T.MeshBasicMaterial({ color: 0xfff1c8, transparent: true, opacity: 0, depthWrite: false }));
+  private markedAnimal: number | null = null;
+  private animalMarkFade = 0;
   private primed = false;
   private readonly selection = new T.Mesh(new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new T.MeshBasicMaterial({ color: 0xffefae, transparent: true, opacity: .4, depthWrite: false }));
   private readonly preview = new T.Group();
@@ -150,7 +155,8 @@ export class CityScene {
     stage.world(span);
     this.selection.visible = false;
     this.hoverMark.visible = false;
-    stage.scene.add(this.roads, this.selection, this.hoverMark, this.preview);
+    this.animalMark.visible = false;
+    stage.scene.add(this.roads, this.selection, this.hoverMark, this.animalMark, this.preview);
   }
 
   private roadModels(world: World): void {
@@ -671,6 +677,10 @@ export class CityScene {
       }
       active = true;
     }
+    if (this.fadeAnimalMark(delta)) {
+      this.stage.invalidate();
+      active = true;
+    }
     if (this.dust.advance(delta)) active = true;
     if (active) this.stage.shadows();
     return active;
@@ -710,9 +720,31 @@ export class CityScene {
   }
 
   clearHover(): void {
+    this.markAnimal(null);
     if (!this.hoverMark.visible) return;
     this.hoverMark.visible = false;
     this.stage.invalidate();
+  }
+
+  markAnimal(id: number | null): void {
+    if (id === this.markedAnimal) return;
+    this.markedAnimal = id;
+    this.stage.invalidate();
+  }
+
+  private fadeAnimalMark(delta: number): boolean {
+    const entry = this.markedAnimal === null ? null : this.animals.get(this.markedAnimal);
+    const towards = entry?.visible ? 1 : 0;
+    const step = delta / ANIMAL_MARK_SECONDS;
+    const fade = towards > this.animalMarkFade ? Math.min(towards, this.animalMarkFade + step) : Math.max(towards, this.animalMarkFade - step);
+    const settled = fade === this.animalMarkFade && fade === 0;
+    this.animalMarkFade = fade;
+    this.animalMark.visible = fade > 0;
+    if (settled) return false;
+    (this.animalMark.material as T.MeshBasicMaterial).opacity = fade * ANIMAL_MARK_OPACITY;
+    this.animalMark.scale.setScalar(.8 + fade * .2);
+    if (entry) this.animalMark.position.set(entry.position.x, entry.position.y + .05, entry.position.z);
+    return true;
   }
 
   select(building: Building | null, walkerId: number | null = null): void {
@@ -908,6 +940,9 @@ export class CityScene {
     this.logistics.dispose();
     this.selection.removeFromParent();
     this.hoverMark.removeFromParent();
+    this.animalMark.removeFromParent();
+    this.animalMark.geometry.dispose();
+    (this.animalMark.material as T.MeshBasicMaterial).dispose();
     this.preview.removeFromParent();
     this.tileGeometry.dispose();
     this.validStairMaterial.dispose();

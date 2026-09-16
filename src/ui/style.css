@@ -149,9 +149,11 @@ button[aria-pressed='true'] { background: var(--sage); color: #fffdf0; }
   border: 1px solid var(--line);
   border-radius: 999px;
   box-shadow: var(--shadow);
-  transform: translate(-50%, calc(-100% - 16px));
+  opacity: 0;
+  transform: translate(-50%, calc(-100% - 4px)) scale(.94);
+  transition: opacity .16s ease, transform .16s ease;
 }
-.hud-tooltip[hidden] { display: none; }
+.hud-tooltip-shown { opacity: 1; transform: translate(-50%, calc(-100% - 16px)) scale(1); }
 .hud-resource-icon { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 .hud-panel[hidden] { display: none; }
@@ -279,6 +281,7 @@ body[data-error] #status { background: #fbe9e2; color: var(--terracotta-deep); }
   .hud-toast { animation: none; }
   .hud-banner { transition: none; }
   .hud-banner-shown { animation: none; }
+  .hud-tooltip { transition: none; }
 }
 .hud-menu-actions { display: flex; flex-direction: column; gap: 4px; margin: 14px 0; }
 .hud-menu-actions button { text-align: left; padding: 10px 14px; font-size: 13px; background: rgba(41, 75, 74, .06); }

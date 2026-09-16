@@ -197,7 +197,7 @@ const SKELETON = `
     <p class="hud-hint" data-field="hint" role="note" hidden></p>
     <div class="hud-panel hud-toolbar" role="group" aria-label="Build tools" data-testid="toolbar"></div>
   </div>
-  <p class="hud-tooltip" data-field="tooltip" data-testid="tooltip" hidden></p>
+  <p class="hud-tooltip" data-field="tooltip" data-testid="tooltip"></p>
   <div class="hud-toast-region" role="status" aria-live="polite" data-testid="toast-region"></div>
   <div class="hud-banner" role="status" aria-live="polite" data-testid="banner" hidden>
     <p class="hud-banner-title"><span class="hud-colour" data-field="banner-colour"></span><span data-field="banner-title"></span></p>
@@ -560,10 +560,9 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
   let tooltipShape = { key: '', halfWidth: 0 };
   function setTooltip(tooltip: Tooltip | null): void {
     if (!tooltip) {
-      tooltipElement.hidden = true;
+      tooltipElement.classList.remove('hud-tooltip-shown');
       return;
     }
-    tooltipElement.hidden = false;
     const key = `${tooltip.resource}:${tooltip.text}`;
     if (key !== tooltipShape.key) {
       tooltipElement.replaceChildren(tooltip.text, resourceIcon(tooltip.resource));
@@ -572,6 +571,7 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
     const margin = tooltipShape.halfWidth + 8;
     tooltipElement.style.left = `${Math.min(Math.max(tooltip.x, margin), window.innerWidth - margin)}px`;
     tooltipElement.style.top = `${tooltip.y}px`;
+    tooltipElement.classList.add('hud-tooltip-shown');
   }
 
   function dispose(): void {
