@@ -6,9 +6,10 @@ import type { City, World } from '../sim/types';
 import type { Stage } from './stage';
 
 const LIFT = .05;
-const FULL_OPACITY = .55;
+const FULL_OPACITY = .5;
 const FADE_FROM = 240;
 const FADE_TO = 700;
+const RENDER_ORDER = -1;
 
 function tileQuad(positions: number[], map: IslandMap, x: number, z: number): void {
   const origin = worldPositionOn(map, x, z);
@@ -75,7 +76,9 @@ export class ClaimOverlay {
     if (positions.length === 0) return;
     const geometry = new T.BufferGeometry();
     geometry.setAttribute('position', new T.Float32BufferAttribute(positions, 3));
-    this.group.add(new T.Mesh(geometry, this.glaze(city.color)));
+    const mark = new T.Mesh(geometry, this.glaze(city.color));
+    mark.renderOrder = RENDER_ORDER;
+    this.group.add(mark);
   }
 
   private glaze(color: CityColor): T.MeshBasicMaterial {
@@ -86,6 +89,7 @@ export class ClaimOverlay {
         transparent: true,
         opacity: this.opacity,
         depthWrite: false,
+        depthTest: false,
       });
       this.glazes.set(color, material);
     }

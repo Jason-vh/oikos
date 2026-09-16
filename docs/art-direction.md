@@ -84,11 +84,13 @@ blinking, and fades away between view spans 90 and 170, where a cell is too smal
 aim at and its lines only add noise to the land.
 
 A claimed island is glazed in its owner's colour while a player is still choosing
-where to land (`src/render/claims.ts`): one multiply-blended layer over the land
-tiles, so the island darkens and takes the hue without losing its ground. It is a
-map-scale affordance, so it fades out between view spans 700 and 240 and is gone by
-the zoom a shore is picked at, where the terrain must read true. It is taken down
-altogether once that player has a city.
+where to land (`src/render/claims.ts`): one flat layer over the island's land tiles,
+drawn without depth testing and before the rest of the transparent pass, so the
+colour carries over the trees and roofs standing on those tiles rather than washing
+the ground alone. A claimed island reads as one painted shape and a free one keeps
+its green. Clouds still pass over it. It is a map-scale affordance, so it fades out
+between view spans 700 and 240 and is gone by the zoom a shore is picked at, where
+the terrain must read true. It is taken down altogether once that player has a city.
 
 Wildlife is drawn near the view, not across the world: sight is the view span capped
 at 220, so pulling back to the archipelago no longer places and poses every animal on
