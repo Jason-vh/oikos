@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { generateArchipelago, ISLAND_COUNT, islandAt, islandFor, terrainOn } from './island';
+import { generateArchipelago, islandFacts, ISLAND_COUNT, islandAt, islandFor, terrainOn } from './island';
 import { createWorld } from './world';
 import { bfsReachable } from './grid';
 import { homeIsland } from './testing';
@@ -68,6 +68,16 @@ test('islands never share a bounding box, and the home island is the most centra
   };
   for (let index = 0; index < map.islands.length; index++) expect(distance(map.home)).toBeLessThanOrEqual(distance(index));
   expect(map.entry).toEqual(map.islands[map.home].entry);
+});
+
+test('every seed deals out a spread of island sizes, never eight of a kind', () => {
+  for (const seed of SEEDS) {
+    const map = generateArchipelago(seed);
+    const land = map.islands.map((_, home) => islandFacts(map, home).land).sort((a, b) => a - b);
+    expect(new Set(land).size).toBe(ISLAND_COUNT);
+    expect(land[0]).toBeGreaterThan(8000);
+    expect(land[ISLAND_COUNT - 1] / land[0]).toBeGreaterThan(2);
+  }
 });
 
 test('the same seed always builds the same sea, and different seeds do not', () => {

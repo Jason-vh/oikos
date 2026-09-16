@@ -1,3 +1,11 @@
+import { chromium } from 'playwright';
+
+export function launchGameBrowser() {
+  return chromium.launch({ channel: 'chromium' }).catch((error) => {
+    throw new Error(`The archipelago is too heavy for the headless shell: npx playwright install chromium\n${error.message}`);
+  });
+}
+
 export const paint = (page, frames = 3) => page.evaluate((count) => new Promise((resolve) => {
   function frame() {
     if (--count === 0) resolve();

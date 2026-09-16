@@ -24,7 +24,7 @@ for (let choice = 0; choice < ISLAND_COUNT * 2; choice++) {
     expect(city.harbour.connected).toBe(true);
     expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
     expect(primaryCity(world).harbour.connected).toBe(true);
-    advance(world, 180);
+    advance(world, 240);
     expect(getSummary(primaryCity(world)).goal).toBe(true);
     expect(city.walkers.length).toBeGreaterThan(0);
     const loaded = deserializeWorld(serializeWorld(world));

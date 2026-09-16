@@ -144,13 +144,12 @@ export function unevenFootprint(world: World, kind: BuildingKind, rotation: Rota
   for (let z = home.z; z <= home.z + home.depth - depth; z++) {
     for (let x = home.x; x <= home.x + home.width - width; x++) {
       const base = levelOn(map, x, z);
-      let uneven = false;
-      for (let dz = 0; dz < depth && !uneven; dz++) {
-        for (let dx = 0; dx < width && !uneven; dx++) {
-          if (levelOn(map, x + dx, z + dz) !== base) uneven = true;
-        }
+      for (let index = 0; index < width * depth; index++) {
+        const tx = x + index % width;
+        const tz = z + Math.floor(index / width);
+        if (levelOn(map, tx, tz) !== base) return { x, z };
+        if (!buildable(terrainOn(map, tx, tz))) break;
       }
-      if (uneven) return { x, z };
     }
   }
   return null;

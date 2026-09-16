@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import * as T from 'three';
 import { CityScene } from './city';
 import type { Stage } from './stage';
-import { groundHeight, islandFor, tileAtOn, worldPositionOn } from '../sim/island';
+import { groundHeight, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn, worldPositionOn, type IslandMap } from '../sim/island';
 import { build, createWorld, placement } from '../sim/world';
 import { primaryCity } from '../sim/city';
 import { foundSecondCity } from '../sim/testing';
@@ -134,26 +134,43 @@ function stationaryWalkerHeight(city: CityScene, world: World, owner: City, tile
   return city.moverPoint(walker.id)!.y;
 }
 
-// Real seed-1 coordinates: (204,28) is a cliff tile at level 1, with (203,28) one
-// level down to its west and (204,27) one level down to its north — a genuine
-// stair candidate only for whichever city's own road network actually reaches it.
+function cliffStep(map: IslandMap): { upper: number; flat: number; west: number; north: number } {
+  const island = map.islands[map.home];
+  for (let z = island.z + 1; z < island.z + island.depth; z++) {
+    for (let x = island.x + 1; x < island.x + island.width - 1; x++) {
+      const around = [[0, 0], [1, 0], [-1, 0], [0, -1]].map(([dx, dz]) => ({
+        level: levelOn(map, x + dx, z + dz),
+        terrain: terrainOn(map, x + dx, z + dz),
+      }));
+      const [upper, flat, west, north] = around;
+      if (around.some((tile) => tile.terrain === 'water')) continue;
+      if (upper.level !== 1 || flat.level !== 1 || west.level !== 0 || north.level !== 0) continue;
+      return {
+        upper: tileIndexOn(map, x, z),
+        flat: tileIndexOn(map, x + 1, z),
+        west: tileIndexOn(map, x - 1, z),
+        north: tileIndexOn(map, x, z - 1),
+      };
+    }
+  }
+  throw new Error('no cliff step found');
+}
+
 describe('a city\'s road and stair geometry never depends on a neighbouring city\'s roads', () => {
-  const OWNER_UPPER = 15268; // (204, 28) level 1, cliff
-  const OWNER_FLAT = 15269; // (205, 28) level 1, no real level change from OWNER_UPPER
-  const WEST_LOWER = 15267; // (203, 28) level 0, west of OWNER_UPPER
-  const NORTH_LOWER = 14730; // (204, 27) level 0, north of OWNER_UPPER
+  const step = cliffStep(islandFor(1, 0));
+  const upperTile = tileAtOn(islandFor(1, 0), step.upper);
 
   test('a foreign road one level down does not turn the owner\'s flat cliff-top road into a stair', () => {
     const { city, world } = fixture();
     try {
       const city1 = primaryCity(world);
-      city1.roads = [OWNER_UPPER, OWNER_FLAT];
+      city1.roads = [step.upper, step.flat];
       const city2 = foundSecondCity(world, (city1.home + 1) % 8);
-      city2.roads = [WEST_LOWER];
+      city2.roads = [step.west];
 
       const map = islandFor(world.seed);
-      const flatHeight = groundHeight(map, 204, 28) + .08;
-      expect(stationaryWalkerHeight(city, world, city1, OWNER_UPPER)).toBeCloseTo(flatHeight, 5);
+      const flatHeight = groundHeight(map, upperTile.x, upperTile.z) + .08;
+      expect(stationaryWalkerHeight(city, world, city1, step.upper)).toBeCloseTo(flatHeight, 5);
     } finally {
       city.dispose();
     }
@@ -163,13 +180,13 @@ describe('a city\'s road and stair geometry never depends on a neighbouring city
     const { city, world } = fixture();
     try {
       const city1 = primaryCity(world);
-      city1.roads = [WEST_LOWER, OWNER_UPPER];
+      city1.roads = [step.west, step.upper];
       const city2 = foundSecondCity(world, (city1.home + 1) % 8);
-      city2.roads = [NORTH_LOWER];
+      city2.roads = [step.north];
 
       const map = islandFor(world.seed);
-      const flatHeight = groundHeight(map, 204, 28) + .08;
-      expect(stationaryWalkerHeight(city, world, city1, OWNER_UPPER)).not.toBeCloseTo(flatHeight, 5);
+      const flatHeight = groundHeight(map, upperTile.x, upperTile.z) + .08;
+      expect(stationaryWalkerHeight(city, world, city1, step.upper)).not.toBeCloseTo(flatHeight, 5);
     } finally {
       city.dispose();
     }

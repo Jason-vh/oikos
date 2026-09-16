@@ -57,14 +57,17 @@ are invisible over loopback and obvious at 250 ms.
 
 ## Browser automation
 
-Launch the full browser, not Playwright's headless shell:
+Launch the full browser, not Playwright's headless shell. `launchGameBrowser()`
+in `scripts/sandbox-page.mjs` is the one way in:
 
 ```js
-await chromium.launch({ channel: 'chromium' });
+const browser = await launchGameBrowser();     // chromium.launch({ channel: 'chromium' })
 ```
 
-The headless shell renders through SwiftShader, which is slow enough that the
-page cannot drain its WebSocket. Control frames then queue behind the wildlife
+The headless shell renders through SwiftShader, which is far too slow for an
+archipelago of this size: a scrubbed construction sequence that finishes in
+seconds under real Chromium runs for minutes, and often never finishes at all.
+It is also slow enough that the page cannot drain its WebSocket. Control frames then queue behind the wildlife
 snapshots — 90 KB a second — and a receipt can arrive fifteen seconds late, by
 which time the client has given up and reported *Connection lost*. It reads
 exactly like a protocol bug and is only the renderer. The same run under
@@ -74,7 +77,8 @@ Never quote a frame time, a long task or a click latency measured under the
 headless shell.
 
 `scripts/play-smoke.mjs` is the worked example; `npm run smoke:play` runs it
-against whatever `npm run play` is serving.
+against whatever `npm run play` is serving. Only `/art.html`, which draws one
+model, is light enough for the shell.
 
 ## Reading the world while it runs
 

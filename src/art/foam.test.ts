@@ -73,7 +73,7 @@ test('foam stays at the waterline, faces upward, and fits its fixed bounds on se
   for (const seed of [1, 2, 8, 37]) {
     const foam = new CoastalFoam(generateIsland(seed));
     try {
-      expect(foam.mesh.geometry.index!.count / 3).toBeLessThan(4000);
+      expect(foam.mesh.geometry.index!.count / 3).toBeLessThan(8000);
       expect(foam.mesh.material).toBe(material(colors.cream));
       expect(foam.mesh.material.transparent).toBe(false);
       expect(foam.mesh.castShadow).toBe(false);

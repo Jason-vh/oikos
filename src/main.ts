@@ -30,6 +30,7 @@ export interface SharedBootSource {
 }
 
 const CONNECTION_NOTICE_DELAY = 900;
+const OVERVIEW_MARGIN = 1.04;
 
 function isSettling(status: SharedSessionStatus): boolean {
   return status === 'pending' || status === 'reconciling';
@@ -70,10 +71,15 @@ export function boot(source: SharedBootSource): BootHandles {
     const island = islandFor(seed);
     return Math.max(island.width, island.depth) * CELL_SIZE / 2 + 20;
   }
-  function overviewView(seed: number): { target: number[]; offset: number[]; size: number } {
-    const island = islandFor(seed);
-    const centre = worldPositionOn(island, island.width / 2, island.depth / 2);
-    return { target: [centre.x, GROUND_Y, centre.z], offset: [52, 66, 70], size: 240 };
+  function overviewView(seed: number): View {
+    const archipelago = islandFor(seed);
+    const centre = worldPositionOn(archipelago, archipelago.width / 2, archipelago.depth / 2);
+    const target = new T.Vector3(centre.x, GROUND_Y, centre.z);
+    const offset = new T.Vector3(52, 66, 70);
+    const corners = [[0, 0], [archipelago.width, 0], [0, archipelago.depth], [archipelago.width, archipelago.depth]]
+      .map(([x, z]) => worldPositionOn(archipelago, x, z))
+      .map((point) => new T.Vector3(point.x, GROUND_Y, point.z));
+    return { target: target.toArray(), offset: offset.toArray(), size: stage.sizeToFit(target, offset, corners) * OVERVIEW_MARGIN };
   }
   stage.bounds(seaBounds(world.seed));
   const initialActive = activeCity(world, context);

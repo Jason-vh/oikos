@@ -1,11 +1,10 @@
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
-import { chromium } from 'playwright';
-import { openSandbox, paint } from './sandbox-page.mjs';
+import { launchGameBrowser, openSandbox, paint } from './sandbox-page.mjs';
 
 const [base = 'http://localhost:5180', output = 'artifacts/terraces'] = process.argv.slice(2);
 await mkdir(output, { recursive: true });
-const browser = await chromium.launch();
+const browser = await launchGameBrowser();
 
 try {
   const errors = [];

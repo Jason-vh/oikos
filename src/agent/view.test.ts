@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { cityReport, cityWindow, describeHarbourSite, describePlacement, describeRoadPath, inspectBuilding, inspectTile, islandBounds, renderMap, surveyIsland, viewpointOf } from './view';
+import { cityReport, cityWindow, describeHarbourSite, describePlacement, describeRoadPath, inspectBuilding, inspectTile, islandBounds, MAX_WINDOW_DEPTH, MAX_WINDOW_WIDTH, renderMap, surveyIsland, viewpointOf } from './view';
 import { primaryCity } from '../sim/city';
 import { mapOf } from '../sim/grid';
 import { ISLAND_COUNT, tileIndexOn } from '../sim/island';
@@ -16,20 +16,27 @@ function starterCity() {
 }
 
 function rowAt(map: string, z: number): string {
-  const line = map.split('\n').find((candidate) => candidate.startsWith(`${z} `));
+  const line = map.split('\n').find((candidate) => candidate.trimStart().startsWith(`${z} `));
   if (!line) throw new Error(`No row ${z} in the map.`);
-  return line.slice(String(z).length + 1);
+  return line.trimStart().slice(String(z).length + 1);
+}
+
+function tenColumnRuler(from: number, labels: number): string {
+  return Array.from({ length: labels }, (_, step) => String(from + step * 10).padEnd(10)).join('').trimEnd();
 }
 
 describe('the island map', () => {
   test('labels its columns and rows with tile coordinates', () => {
     const { world, city } = starterCity();
-    const map = renderMap(world, viewpointOf(world, city), { x: 210, z: 180, width: 25, depth: 10 });
+    const bounds = islandBounds(viewpointOf(world, city));
+    const x = Math.ceil(bounds.x / 10) * 10;
+    const z = bounds.z + 10;
+    const map = renderMap(world, viewpointOf(world, city), { x, z, width: 25, depth: 10 });
     const [ruler] = map.split('\n');
 
-    expect(ruler.trimStart()).toBe('210       220       230');
+    expect(ruler.trimStart()).toBe(tenColumnRuler(x, 3));
     expect(map.split('\n')).toHaveLength(11);
-    expect(rowAt(map, 180)).toHaveLength(25);
+    expect(rowAt(map, z)).toHaveLength(25);
   });
 
   test('draws the city over the terrain it stands on', () => {
@@ -44,16 +51,16 @@ describe('the island map', () => {
     expect(rowAt(map, Math.floor(road / grid.width))[(road % grid.width) - (grid.entry.x - 20)]).toBe('+');
   });
 
-  test('never leaves the settled island, however far the window reaches', () => {
+  test('never leaves the settled island, nor outgrows a window worth reading', () => {
     const { world, city } = starterCity();
     const bounds = islandBounds(viewpointOf(world, city));
 
     const map = renderMap(world, viewpointOf(world, city), { x: bounds.x - 50, z: bounds.z - 50, width: 400, depth: 400 });
     const rows = map.split('\n').slice(1);
 
-    expect(rows).toHaveLength(bounds.depth);
-    expect(rows[0]).toStartWith(String(bounds.z));
-    expect(rowAt(map, bounds.z)).toHaveLength(bounds.width);
+    expect(rows).toHaveLength(Math.min(bounds.depth, MAX_WINDOW_DEPTH));
+    expect(rows[0].trimStart()).toStartWith(String(bounds.z));
+    expect(rowAt(map, bounds.z)).toHaveLength(Math.min(bounds.width, MAX_WINDOW_WIDTH));
   });
 
   test('centres itself on the city and keeps a workable minimum', () => {

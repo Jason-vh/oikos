@@ -4,7 +4,7 @@ import { footprint } from '../sim/catalog';
 import { AGORA_SLOTS, GRANARY_SLOTS, WALKER_SPEED } from '../sim/balance';
 import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, groundHeight, insideMapOn, tileAtOn, tileIndexOn, worldPositionOn, type IslandMap } from '../sim/island';
 import { buildRoads } from '../art/roads';
-import { alive, animalAt, animalStride, wildlifeObstacles } from '../sim/wildlife';
+import { alive, animalAt, animalStride, SPECIES, wildlifeObstacles } from '../sim/wildlife';
 import { STAIR_WIDTH } from '../art/stairs';
 import { roadHeight, stairLayout, STAIR_STEPS, type Stair } from '../sim/stairs';
 import { addRoadMark } from './road-marks';
@@ -20,7 +20,7 @@ import { WildlifeField } from './wildlife';
 interface BuildingEntry { key: string; tier: number; model: T.Group; intro: number; from: number; construction: BuildingConstruction | null; }
 interface Departure { model: T.Group; elapsed: number; }
 interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; path: number[]; departedAt: number; quarry: number | null; task: WalkerTask | null; strikes: number; moving: boolean; working: boolean; waitingSince: number; spell: number; mood: Idle; aim: number; heading: number; stepped: boolean; stairs: ReadonlyMap<number, Stair>; }
-interface AnimalEntry { animal: Animal; position: T.Vector3; facing: number; roll: number; phase: number; moving: boolean; stride: number; dying: number; visible: boolean; drawn: boolean; }
+interface AnimalEntry { animal: Animal; home: T.Vector3; roam: number; position: T.Vector3; facing: number; roll: number; phase: number; moving: boolean; stride: number; dying: number; visible: boolean; drawn: boolean; }
 
 const SIGHT_MARGIN = 1.3;
 const ANIMAL_FACING_LOOK = .35;
@@ -285,9 +285,12 @@ export class CityScene {
   private syncAnimal(animal: Animal): void {
     const entry = this.animals.get(animal.id);
     if (!entry) {
+      const home = worldPositionOn(this.map, animal.homeX, animal.homeZ);
       const fresh: AnimalEntry = {
         animal,
-        position: new T.Vector3(),
+        home: new T.Vector3(home.x, 0, home.z),
+        roam: SPECIES[animal.kind].range * CELL_SIZE,
+        position: new T.Vector3(home.x, 0, home.z),
         facing: 0,
         roll: 0,
         phase: 0,
@@ -297,7 +300,6 @@ export class CityScene {
         visible: alive(animal, this.worldTime),
         drawn: false,
       };
-      fresh.position.copy(this.animalPosition(fresh, this.worldTime));
       this.animals.set(animal.id, fresh);
       this.writeAnimal(animal.id, fresh);
       return;
@@ -323,9 +325,9 @@ export class CityScene {
 
   private withinSight(entry: AnimalEntry): boolean {
     if (!this.focus) return true;
-    const reach = this.sight * (entry.drawn ? SIGHT_MARGIN : 1);
-    const dx = entry.position.x - this.focus.x;
-    const dz = entry.position.z - this.focus.z;
+    const reach = this.sight * (entry.drawn ? SIGHT_MARGIN : 1) + entry.roam;
+    const dx = entry.home.x - this.focus.x;
+    const dz = entry.home.z - this.focus.z;
     return dx * dx + dz * dz <= reach * reach;
   }
 
@@ -338,6 +340,7 @@ export class CityScene {
       return true;
     }
     if (!entry.drawn) {
+      this.placeAnimal(entry, 0);
       this.wildlife.add(id, entry.animal.kind);
       entry.drawn = true;
     }
@@ -567,6 +570,10 @@ export class CityScene {
       this.groundCompanions(walker);
     }
     for (const [id, animal] of this.animals) {
+      if (!this.withinSight(animal)) {
+        if (animal.drawn) this.writeAnimal(id, animal);
+        continue;
+      }
       this.placeAnimal(animal, turning);
 
       if (animal.dying > 0) {

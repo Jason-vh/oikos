@@ -9,10 +9,14 @@ same output.
 
 `generateArchipelago(seed)` in `src/sim/island.ts` builds a sea of eight islands.
 Each one is a full `generateIsland` run on its own grid, stamped into the shared map
-at a slot in a four-by-two layout with eighteen-tile channels; slot sizes and offsets
-are jittered from the seed, so the islands scatter rather than line up. Every island
-keeps its own harbour entry, and `islandAt(map, x, z)` says which island a tile
-belongs to. The default `map.home` is the most central island. `world.cities[0].home` records the chosen
+at a slot in a four-by-two layout with eighteen-tile channels. `islandSizes(seed)`
+deals out a fixed ladder of eight size factors, shuffled by the seed and given an
+aspect jitter, so every archipelago holds one large island, one small one and a
+spread between — the largest carries roughly two and a half times the land of the
+smallest. Columns are as wide as their widest island and rows as deep as their
+deepest, and each island is offset within its lane from the seed, so they scatter
+rather than line up. Every island keeps its own harbour entry, and
+`islandAt(map, x, z)` says which island a tile belongs to. The default `map.home` is the most central island. `world.cities[0].home` records the chosen
 starting island; `islandFor(seed, home)` shares the generated terrain while providing
 that island's `map.home` and harbour `map.entry`. Choosing one home never changes
 another city's map.
@@ -31,6 +35,10 @@ be demolished.
 `generateIsland(seed, width, depth)` builds one island from a seed: a radial
 mask plus value noise for the coastline, a relief field quantised into three levels
 (lowland, plateau, upland) with cellular smoothing, and soil/wood fields for terrain.
+Coast and relief noise are a fixed fraction of the island's span, so a larger island
+keeps the same silhouette and the same number of headlands rather than fraying into
+inlets. Soil and wood stay at absolute scale, so a larger island holds more fields
+and woods of the same size rather than bigger ones.
 Terrain kinds: `water`, `sand`, `grass`, `fertile`, `scrub`, `forest`, `rock`, `cliff`.
 Buildings need level ground on grass/fertile/sand/scrub (farms: fertile only); roads
 can also cross forest and climb cliff edges using stairs. `cliff` and `rock` cannot

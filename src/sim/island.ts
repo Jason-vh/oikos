@@ -24,14 +24,16 @@ export interface IslandMap {
   home: number;
 }
 
-export const ISLAND_WIDTH = 112;
-export const ISLAND_DEPTH = 88;
+export const ISLAND_WIDTH = 224;
+export const ISLAND_DEPTH = 176;
 export const ISLAND_COLUMNS = 4;
 export const ISLAND_ROWS = 2;
 export const ISLAND_COUNT = ISLAND_COLUMNS * ISLAND_ROWS;
 export const CHANNEL = 18;
-const SHRINK_WIDTH = 20;
-const SHRINK_DEPTH = 16;
+const SIZE_LADDER = [1.13, 1.06, 1.00, .94, .88, .82, .77, .72];
+const ASPECT_SPREAD = .22;
+const COAST_GRAIN = .2;
+const RELIEF_GRAIN = .14;
 
 function mulberry(seed: number): () => number {
   let state = seed >>> 0;
@@ -128,6 +130,7 @@ export function generateIsland(seed: number, width = ISLAND_WIDTH, depth = ISLAN
   const reliefSeed = Math.floor(random() * 1e9);
   const soilSeed = Math.floor(random() * 1e9);
   const woodSeed = Math.floor(random() * 1e9);
+  const span = Math.sqrt(width * depth);
   const count = width * depth;
   const height = new Float32Array(count);
   for (let z = 0; z < depth; z++) {
@@ -135,7 +138,7 @@ export function generateIsland(seed: number, width = ISLAND_WIDTH, depth = ISLAN
       const nx = (x + .5) / width * 2 - 1;
       const nz = (z + .5) / depth * 2 - 1;
       const radial = 1 - Math.sqrt(nx * nx * .85 + nz * nz * 1.0);
-      const noise = fractal(x, z, shapeSeed, 4, 20) - .5;
+      const noise = fractal(x, z, shapeSeed, 4, COAST_GRAIN * span) - .5;
       height[z * width + x] = radial + noise * .7;
     }
   }
@@ -147,7 +150,7 @@ export function generateIsland(seed: number, width = ISLAND_WIDTH, depth = ISLAN
     for (let x = 0; x < width; x++) {
       const index = z * width + x;
       if (!land[index]) continue;
-      const relief = fractal(x, z, reliefSeed, 3, 14);
+      const relief = fractal(x, z, reliefSeed, 3, RELIEF_GRAIN * span);
       const inland = Math.min(1, (height[index] - .18) / .5);
       const upland = relief * .55 + inland * .55;
       level[index] = upland > .82 ? 2 : upland > .64 ? 1 : 0;
@@ -199,11 +202,39 @@ function slotSeed(seed: number, slot: number): number {
   return Math.floor(hash(slot * 31 + 7, slot * 17 + 3, seed + 6151) * 1e9);
 }
 
+function islandSizes(seed: number): Array<{ width: number; depth: number }> {
+  const factors = [...SIZE_LADDER];
+  for (let index = factors.length - 1; index > 0; index--) {
+    const swap = Math.floor(hash(index, index * 7 + 3, seed + 8191) * (index + 1));
+    [factors[index], factors[swap]] = [factors[swap], factors[index]];
+  }
+  return factors.map((factor, slot) => {
+    const aspect = 1 - ASPECT_SPREAD / 2 + hash(slot, slot * 3 + 1, seed + 4093) * ASPECT_SPREAD;
+    return { width: Math.round(ISLAND_WIDTH * factor * aspect), depth: Math.round(ISLAND_DEPTH * factor / aspect) };
+  });
+}
+
+function laneStarts(extents: number[]): number[] {
+  let next = CHANNEL;
+  return extents.map((extent) => {
+    const start = next;
+    next += extent + CHANNEL;
+    return start;
+  });
+}
+
+function laneSpan(extents: number[]): number {
+  return extents.reduce((total, extent) => total + extent + CHANNEL, CHANNEL);
+}
+
 export function generateArchipelago(seed: number): IslandMap {
-  const slotWidth = ISLAND_WIDTH + CHANNEL;
-  const slotDepth = ISLAND_DEPTH + CHANNEL;
-  const width = ISLAND_COLUMNS * slotWidth + CHANNEL;
-  const depth = ISLAND_ROWS * slotDepth + CHANNEL;
+  const sizes = islandSizes(seed);
+  const columnWidths = Array.from({ length: ISLAND_COLUMNS }, (_, column) => Math.max(...sizes.filter((_, slot) => slot % ISLAND_COLUMNS === column).map((size) => size.width)));
+  const rowDepths = Array.from({ length: ISLAND_ROWS }, (_, row) => Math.max(...sizes.filter((_, slot) => Math.floor(slot / ISLAND_COLUMNS) === row).map((size) => size.depth)));
+  const columnStarts = laneStarts(columnWidths);
+  const rowStarts = laneStarts(rowDepths);
+  const width = laneSpan(columnWidths);
+  const depth = laneSpan(rowDepths);
   const count = width * depth;
   const terrain: Terrain[] = new Array(count).fill('water');
   const level = new Uint8Array(count);
@@ -212,12 +243,11 @@ export function generateArchipelago(seed: number): IslandMap {
     const column = slot % ISLAND_COLUMNS;
     const row = Math.floor(slot / ISLAND_COLUMNS);
     const islandSeed = slotSeed(seed, slot);
-    const islandWidth = ISLAND_WIDTH - Math.floor(hash(column, row, seed + 101) * SHRINK_WIDTH);
-    const islandDepth = ISLAND_DEPTH - Math.floor(hash(column, row, seed + 211) * SHRINK_DEPTH);
+    const { width: islandWidth, depth: islandDepth } = sizes[slot];
     const island = generateIsland(islandSeed, islandWidth, islandDepth);
-    const slack = { x: slotWidth - islandWidth, z: slotDepth - islandDepth };
-    const x = CHANNEL + column * slotWidth + Math.floor(hash(column, row, seed + 307) * slack.x) - CHANNEL / 2;
-    const z = CHANNEL + row * slotDepth + Math.floor(hash(column, row, seed + 401) * slack.z) - CHANNEL / 2;
+    const slack = { x: columnWidths[column] - islandWidth, z: rowDepths[row] - islandDepth };
+    const x = columnStarts[column] + Math.floor(hash(column, row, seed + 307) * slack.x);
+    const z = rowStarts[row] + Math.floor(hash(column, row, seed + 401) * slack.z);
     for (let iz = 0; iz < islandDepth; iz++) {
       for (let ix = 0; ix < islandWidth; ix++) {
         const source = iz * islandWidth + ix;

@@ -39,12 +39,14 @@ const OWN_ROAD_GLYPH = '+';
 const FOREIGN_ROAD_GLYPH = '=';
 const MIN_WINDOW_WIDTH = 24;
 const MIN_WINDOW_DEPTH = 16;
+export const MAX_WINDOW_WIDTH = 128;
+export const MAX_WINDOW_DEPTH = 96;
 
 function clampWindow(bounds: MapWindow, requested: MapWindow): MapWindow {
   const x = Math.max(bounds.x, Math.min(requested.x, bounds.x + bounds.width - 1));
   const z = Math.max(bounds.z, Math.min(requested.z, bounds.z + bounds.depth - 1));
-  const width = Math.max(1, Math.min(requested.width, bounds.x + bounds.width - x));
-  const depth = Math.max(1, Math.min(requested.depth, bounds.z + bounds.depth - z));
+  const width = Math.max(1, Math.min(requested.width, bounds.x + bounds.width - x, MAX_WINDOW_WIDTH));
+  const depth = Math.max(1, Math.min(requested.depth, bounds.z + bounds.depth - z, MAX_WINDOW_DEPTH));
   return { x, z, width, depth };
 }
 

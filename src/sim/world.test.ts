@@ -71,9 +71,8 @@ describe('placement validation', () => {
     expect(build(world, primaryCity(world), 'house', spot.x, spot.z).ok).toBe(true);
     expect(placement(world, primaryCity(world), 'house', spot.x + 1, spot.z + 1).ok).toBe(false);
 
-    const overlapX = mapOf(world).entry.x - 1;
-    const overlapZ = mapOf(world).entry.z - 4;
-    expect(placement(world, primaryCity(world), 'house', overlapX, overlapZ).reason).toBe('That tile is occupied by a road.');
+    const road = tileAtOn(mapOf(world), primaryCity(world).roads[0]);
+    expect(placement(world, primaryCity(world), 'house', road.x, road.z).reason).toBe('That tile is occupied by a road.');
   });
 
   test('rejects roads on top of buildings', () => {

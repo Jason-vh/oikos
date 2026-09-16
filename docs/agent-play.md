@@ -91,7 +91,9 @@ Looking costs nothing and changes nothing:
 - `survey` — the ground as one character a tile, with coordinate rulers. Around
   the city by default, `island` for a shore you do not own yet, `full` for a whole
   island, `x`/`z` for anywhere else. With no city and no island, it answers with
-  the atlas of all eight.
+  the atlas of all eight. No window is ever wider than 128 tiles or deeper than 96,
+  whatever is asked for; islands outgrow that, so `full` on a large one answers
+  with a corner and says which one.
 - `report` — treasury, population, employment, the goal, every building with the
   diagnosis its inspector panel would show, and the walkers on the roads.
 - `inspect_tile`, `inspect_building` — one tile or one building.

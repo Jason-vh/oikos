@@ -122,6 +122,23 @@ export class Stage {
     return (this.camera.right - this.camera.left) / this.camera.zoom;
   }
 
+  sizeToFit(target: T.Vector3, offset: T.Vector3, corners: T.Vector3[]): number {
+    const forward = offset.clone().normalize();
+    const across = new T.Vector3().crossVectors(forward, UP).normalize();
+    const up = new T.Vector3().crossVectors(across, forward).normalize();
+    const local = new T.Vector3();
+    let horizontal = 0;
+    let vertical = 0;
+    for (const corner of corners) {
+      local.subVectors(corner, target);
+      horizontal = Math.max(horizontal, Math.abs(local.dot(across)));
+      vertical = Math.max(vertical, Math.abs(local.dot(up)));
+    }
+    const aspect = window.innerWidth / window.innerHeight;
+    const widening = Math.max(1, 1.25 / aspect);
+    return Math.max(vertical * 2, horizontal * 2 / aspect) / widening;
+  }
+
   private depth(): void {
     const span = this.viewSpan();
     const reach = this.camera.position.distanceTo(this.controls.target) + span * 1.5;

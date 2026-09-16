@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import { chromium } from 'playwright';
+import { launchGameBrowser } from './sandbox-page.mjs';
 
 const [base = 'http://localhost:5180', output = 'artifacts/construction'] = process.argv.slice(2);
 await mkdir(output, { recursive: true });
-const browser = await chromium.launch();
+const browser = await launchGameBrowser();
 const errors = [];
 
 async function open(route, reducedMotion = 'no-preference') {
