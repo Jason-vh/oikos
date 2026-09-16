@@ -156,3 +156,35 @@ test('decoration draws as instanced batches per chunk, each cullable on its own'
     scenery.dispose();
   }
 });
+
+test('a view is never short of trees, and the rest of the island follows on later frames', () => {
+  const map = generateIsland(1);
+  const whole = new IslandScenery(new T.Scene(), map);
+  whole.reveal(null);
+  const everything = whole.decorTiles().length;
+  whole.dispose();
+
+  const framed = new IslandScenery(new T.Scene(), map);
+  const middle = worldPositionOn(map, map.width / 2, map.depth / 2);
+  try {
+    expect(framed.reveal(middle, map.width * CELL_SIZE)).toBe(false);
+    expect(framed.decorTiles().length).toBe(everything);
+  } finally {
+    framed.dispose();
+  }
+
+  const ahead = new IslandScenery(new T.Scene(), map);
+  try {
+    expect(ahead.reveal(middle, 12)).toBe(true);
+    const framedTiles = ahead.decorTiles().length;
+    expect(framedTiles).toBeGreaterThan(0);
+    expect(framedTiles).toBeLessThan(everything);
+    let frames = 0;
+    while (ahead.reveal(middle, 12)) {
+      expect(frames++).toBeLessThan(2000);
+    }
+    expect(ahead.decorTiles().length).toBe(everything);
+  } finally {
+    ahead.dispose();
+  }
+});

@@ -28,7 +28,7 @@ function spotFor(world: World, city: City, kind: 'house'): { x: number; z: numbe
 function fixture() {
   const world = createWorld(1, 0);
   const scene = new T.Scene();
-  const stage = { scene, shadows() {}, shadowsFromMotion() {}, invalidate() {} } as Stage;
+  const stage = { scene, shadows() {}, shadowsFromMotion() {}, invalidate() {}, world(_span: number) {} } as Stage;
   const city = new CityScene(stage, islandFor(world.seed), false);
   function model(id: number): T.Object3D | undefined {
     return scene.children.find((child) => child.userData.buildingId === id);

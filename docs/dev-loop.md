@@ -55,6 +55,21 @@ one side of the socket or the other.
 `/?debug&latency=250` delays what the client sends. Prediction and reconciliation
 are invisible over loopback and obvious at 250 ms.
 
+## Is it the frames or the behaviour
+
+`/?fps` (and any `?debug` page, including `/sandbox.html?fps`) shows a frame meter.
+It separates the two things that feel alike:
+
+- **drawn/s** — frames the renderer actually produced. Rendering is invalidate-driven,
+  so this sits at the animation cadence when idle and rises while you interact.
+- **frames/s** — animation frames the page was given. Below the display's refresh rate
+  means the main thread is behind.
+- **ms worst** — the longest gap in the last half second. A spike here is a stall;
+  steady numbers with movement that still feels wrong is behaviour, not performance.
+- **calls**, **k tris** — what the last frame cost. Contact shadows double both.
+- **span** — the view's width in world units, the number every zoom threshold is in.
+- **planting** — decoration is still being laid down ahead of the view.
+
 ## Browser automation
 
 Launch the full browser, not Playwright's headless shell. `launchGameBrowser()`

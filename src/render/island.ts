@@ -4,6 +4,8 @@ import type { Stair } from '../sim/stairs';
 import { CELL_SIZE, buildable, groundHeight, levelOn, terrainOn, worldPositionOn, type IslandMap } from '../sim/island';
 import { fractal } from '../sim/island';
 import { buildTerrain } from './terrain';
+import { seaSpan } from './extent';
+import { Sea } from './sea';
 import { CoastalFoam } from '../art/foam';
 import { cliffOutcrop } from '../art/cliffs';
 import { bushForTile } from '../art/bushes';
@@ -16,6 +18,9 @@ function seeded(map: IslandMap, x: number, z: number, salt: number): number {
 
 const DECOR_HEIGHT = 12;
 const DECOR_CHUNK = 24;
+const RIPPLE_FROM = 90;
+const RIPPLE_TO = 260;
+const PLANTING_BUDGET = 4;
 
 const SHUDDER_SECONDS = .3;
 const SHUDDER_ANGLE = .03;
@@ -53,6 +58,8 @@ export class IslandScenery {
   private stairKey = '';
   private stairs: ReadonlyMap<number, Stair> = new Map();
   private readonly waterTime = { value: 0 };
+  private readonly waterDetail = { value: 1 };
+  private readonly sea: Sea;
   private readonly fields = new Map<number, InstanceField>();
   private readonly decor = new Map<number, DecorEntry>();
   private readonly falling = new Map<number, number>();
@@ -96,22 +103,8 @@ export class IslandScenery {
     this.grid.visible = false;
     this.root.add(this.grid);
     scene.add(this.root);
-    const waterMaterial = new T.MeshStandardMaterial({ color: 0x559fa5, roughness: .48, metalness: .12 });
-    waterMaterial.onBeforeCompile = (shader) => {
-      shader.uniforms.seaTime = this.waterTime;
-      shader.vertexShader = `varying vec3 seaPosition;\n${shader.vertexShader}`.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nseaPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-      shader.fragmentShader = `uniform float seaTime;\nvarying vec3 seaPosition;\n${shader.fragmentShader}`.replace('#include <color_fragment>', `#include <color_fragment>
-        float swell = sin(seaPosition.x * 1.4 + seaPosition.z * .8 + seaTime * .5);
-        float crossWave = sin(seaPosition.z * 3.4 - seaPosition.x * .35 + seaTime * .7);
-        float ripple = smoothstep(.91, 1.0, swell) * smoothstep(.6, 1.0, crossWave);
-        diffuseColor.rgb += ripple * .065 + sin(seaPosition.x * .13 + seaPosition.z * .2) * .018;
-      `);
-    };
-    const water = new T.Mesh(new T.PlaneGeometry(2000, 2000), waterMaterial);
-    water.rotation.x = -Math.PI / 2;
-    water.position.y = -.08;
-    water.receiveShadow = true;
-    this.root.add(water);
+    this.sea = new Sea(map, seaSpan(map), this.waterTime, this.waterDetail);
+    this.root.add(this.sea.mesh);
   }
 
   setStairs(stairs: ReadonlyMap<number, Stair>): void {
@@ -175,22 +168,33 @@ export class IslandScenery {
     return worldPositionOn(this.map, (chunkX + .5) * DECOR_CHUNK, (chunkZ + .5) * DECOR_CHUNK);
   }
 
-  reveal(focus: { x: number; z: number } | null, radius = 0): void {
-    const span = DECOR_CHUNK * CELL_SIZE / 2;
-    const reach = radius + span;
-    for (const [key, tiles] of [...this.unrevealed]) {
-      if (focus) {
-        const centre = this.chunkCentre(key);
-        if (Math.hypot(centre.x - focus.x, centre.z - focus.z) > reach) continue;
-      }
+  detail(span: number): void {
+    this.waterDetail.value = 1 - T.MathUtils.smoothstep(span, RIPPLE_FROM, RIPPLE_TO);
+  }
+
+  private chunkDistance(key: number, focus: { x: number; z: number } | null): number {
+    if (!focus) return 0;
+    const centre = this.chunkCentre(key);
+    return Math.hypot(centre.x - focus.x, centre.z - focus.z);
+  }
+
+  reveal(focus: { x: number; z: number } | null, radius = 0): boolean {
+    const reach = radius + DECOR_CHUNK * CELL_SIZE / 2;
+    const nearestFirst = [...this.unrevealed.keys()]
+      .map((key) => ({ key, distance: this.chunkDistance(key, focus) }))
+      .sort((one, other) => one.distance - other.distance);
+    const deadline = performance.now() + PLANTING_BUDGET;
+    for (const { key, distance } of nearestFirst) {
+      if (distance > reach && performance.now() >= deadline) break;
+      for (const tile of this.unrevealed.get(key)!) this.plant(tile);
       this.unrevealed.delete(key);
-      for (const tile of tiles) this.plant(tile);
     }
-    if (!focus) return;
-    for (const [key, field] of this.fields) {
-      const centre = this.chunkCentre(key);
-      field.root.visible = Math.hypot(centre.x - focus.x, centre.z - focus.z) <= reach;
+    if (focus) {
+      for (const [key, field] of this.fields) {
+        field.root.visible = this.chunkDistance(key, focus) <= reach;
+      }
     }
+    return this.unrevealed.size > 0;
   }
 
   private plant(tile: number): void {
@@ -438,5 +442,6 @@ export class IslandScenery {
     this.root.traverse((child) => {
       if (child instanceof T.Mesh || child instanceof T.LineSegments) child.geometry.dispose();
     });
+    this.sea.dispose();
   }
 }

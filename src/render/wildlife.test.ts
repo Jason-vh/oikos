@@ -2,6 +2,10 @@ import { expect, test } from 'bun:test';
 import * as T from 'three';
 import { animalModel } from '../art';
 import { WildlifeField } from './wildlife';
+import { CityScene } from './city';
+import { createWorld } from '../sim/world';
+import { islandFor } from '../sim/island';
+import type { Stage } from './stage';
 import type { AnimalKind } from '../sim/types';
 
 const KINDS: AnimalKind[] = ['boar', 'rabbit', 'fish', 'gull'];
@@ -93,3 +97,38 @@ test('a removed animal hands its instance slots to the next one', () => {
     field.dispose();
   }
 });
+
+test('a view of the whole archipelago does not draw every animal on it', () => {
+  const world = createWorld();
+  const stage = { scene: new T.Scene(), shadows() {}, shadowsFromMotion() {}, invalidate() {}, world(_span: number) {} } as Stage;
+  const city = new CityScene(stage, islandFor(world.seed), true);
+  try {
+    city.setWorldTime(12);
+    city.sync(world);
+    const home = city.moverPoint(world.wildlife[0].id)!.clone();
+
+    city.watch(home, 80);
+    city.animate(0, 1 / 60, 1);
+    const nearby = herd(stage.scene);
+    expect(nearby).toBeGreaterThan(0);
+
+    city.watch(home, 1400);
+    city.animate(1 / 60, 1 / 60, 1);
+    expect(herd(stage.scene)).toBeLessThan(world.wildlife.length);
+
+    city.watch(home, 80);
+    city.animate(2 / 60, 1 / 60, 1);
+    expect(herd(stage.scene)).toBe(nearby);
+  } finally {
+    city.dispose();
+  }
+});
+
+function herd(scene: T.Scene): number {
+  let drawn = 0;
+  scene.getObjectByName('wildlife')!.traverse((object) => {
+    const instanced = object as T.InstancedMesh;
+    if (instanced.isInstancedMesh) drawn = Math.max(drawn, instanced.count);
+  });
+  return drawn;
+}

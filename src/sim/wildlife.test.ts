@@ -179,3 +179,17 @@ describe('pace', () => {
     expect(bounds).toBe(4);
   });
 });
+
+test('a seed hands out the same roster every time, and never the same objects twice', () => {
+  const first = wildlifeRoster(7);
+  const second = wildlifeRoster(7);
+  expect(second.length).toBe(first.length);
+  expect(second).toEqual(first);
+  expect(second[0]).not.toBe(first[0]);
+
+  first[0].respawnAt = 500;
+  first[0].cornered = true;
+  const third = wildlifeRoster(7);
+  expect(third[0].respawnAt).toBeNull();
+  expect(third[0].cornered).toBe(false);
+});

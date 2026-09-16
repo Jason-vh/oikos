@@ -16,6 +16,8 @@ import { LogisticsOverlay, syncDisconnectedMark, syncHouseSupplies } from './log
 import { BuildingConstruction } from './assembly';
 import { DustField } from './dust';
 import { WildlifeField } from './wildlife';
+import { CloudLayer } from './clouds';
+import { worldSpan } from './extent';
 
 interface BuildingEntry { key: string; tier: number; model: T.Group; intro: number; from: number; construction: BuildingConstruction | null; }
 interface Departure { model: T.Group; elapsed: number; }
@@ -23,6 +25,7 @@ interface WalkerEntry { key: string; kind: WalkerKind; model: T.Group; path: num
 interface AnimalEntry { animal: Animal; home: T.Vector3; roam: number; position: T.Vector3; facing: number; roll: number; phase: number; moving: boolean; stride: number; dying: number; visible: boolean; drawn: boolean; }
 
 const SIGHT_MARGIN = 1.3;
+const WILDLIFE_SIGHT = 220;
 const ANIMAL_FACING_LOOK = .35;
 const IDLE_SETTLE = 1.2;
 const IDLE_SPELL = 3.4;
@@ -116,12 +119,14 @@ export class CityScene {
   private selectedWalker: number | null = null;
   private focus: T.Vector3 | null = null;
   private sight = 60;
+  private planting = false;
   private lastWorld: World | null = null;
   private syncedWildlife: readonly Animal[] | null = null;
   private wildlifeObstacles: ReadonlySet<number> = new Set();
   private worldTime = 0;
   private turnedAt = 0;
   private readonly logistics: LogisticsOverlay;
+  private readonly clouds: CloudLayer;
   private readonly validMaterial = new T.MeshBasicMaterial({ color: 0x79b58b, transparent: true, opacity: .38, depthWrite: false });
   private readonly invalidMaterial = new T.MeshBasicMaterial({ color: 0xd3664e, transparent: true, opacity: .45, depthWrite: false });
   private readonly validStairMaterial = this.validMaterial.clone();
@@ -136,6 +141,9 @@ export class CityScene {
     this.scenery = new IslandScenery(stage.scene, map, this.dust, this.motion);
     this.wildlife = new WildlifeField(stage.scene);
     this.logistics = new LogisticsOverlay(stage.scene, map);
+    const span = worldSpan(map);
+    this.clouds = new CloudLayer(stage.scene, span, map.seed);
+    stage.world(span);
     this.selection.visible = false;
     this.hoverMark.visible = false;
     stage.scene.add(this.roads, this.selection, this.hoverMark, this.preview);
@@ -331,37 +339,53 @@ export class CityScene {
     return dx * dx + dz * dz <= reach * reach;
   }
 
-  private writeAnimal(id: number, entry: AnimalEntry): boolean {
-    const sighted = this.withinSight(entry);
-    if (!sighted) {
+  private showAnimal(id: number, entry: AnimalEntry): boolean {
+    if (!this.withinSight(entry)) {
       if (!entry.drawn) return false;
       this.wildlife.remove(id);
       entry.drawn = false;
       return true;
     }
-    if (!entry.drawn) {
-      this.placeAnimal(entry, 0);
-      this.wildlife.add(id, entry.animal.kind);
-      entry.drawn = true;
-    }
-    if (!entry.visible) {
-      this.wildlife.conceal(id);
-      return true;
-    }
-    this.wildlife.pose(id, entry.animal.kind, { position: entry.position, facing: entry.facing, roll: entry.roll, phase: entry.phase, moving: entry.moving, stride: entry.stride });
+    if (entry.drawn) return false;
+    this.placeAnimal(entry, 0);
+    this.wildlife.add(id, entry.animal.kind);
+    entry.drawn = true;
+    this.poseAnimal(id, entry);
     return true;
   }
 
+  private poseAnimal(id: number, entry: AnimalEntry): void {
+    if (!entry.drawn) return;
+    if (!entry.visible) {
+      this.wildlife.conceal(id);
+      return;
+    }
+    this.wildlife.pose(id, entry.animal.kind, { position: entry.position, facing: entry.facing, roll: entry.roll, phase: entry.phase, moving: entry.moving, stride: entry.stride });
+  }
+
+  private writeAnimal(id: number, entry: AnimalEntry): boolean {
+    const changed = this.showAnimal(id, entry);
+    this.poseAnimal(id, entry);
+    return changed;
+  }
+
+  get growing(): boolean {
+    return this.planting;
+  }
+
   watch(focus: T.Vector3, span: number): void {
-    const sight = Math.max(60, span);
-    if (this.focus && this.sight === sight && this.focus.distanceToSquared(focus) < 1) return;
+    this.scenery.detail(span);
+    if (this.clouds.fade(span)) this.stage.invalidate();
+    const sight = Math.min(Math.max(60, span), WILDLIFE_SIGHT);
+    const settled = this.focus && this.sight === sight && this.focus.distanceToSquared(focus) < 1;
+    if (settled && !this.planting) return;
     this.focus = focus.clone();
     this.sight = sight;
-    this.scenery.reveal(this.focus, span * REVEAL_SHARE);
+    this.planting = this.scenery.reveal(this.focus, span * REVEAL_SHARE);
+    if (this.planting) this.stage.invalidate();
     let changed = false;
     for (const [id, entry] of this.animals) {
-      const drawn = entry.drawn;
-      if (this.writeAnimal(id, entry) !== drawn) changed = true;
+      if (this.showAnimal(id, entry)) changed = true;
     }
     if (changed) this.stage.invalidate();
   }
@@ -548,6 +572,7 @@ export class CityScene {
 
   animate(time: number, delta: number, speed: number): void {
     this.scenery.update(time, this.focus);
+    this.clouds.drift(time);
     const turning = Math.max(0, this.worldTime - this.turnedAt) * Math.max(1, speed);
     this.turnedAt = this.worldTime;
     for (const [id, walker] of this.walkers) {
@@ -571,7 +596,7 @@ export class CityScene {
     }
     for (const [id, animal] of this.animals) {
       if (!this.withinSight(animal)) {
-        if (animal.drawn) this.writeAnimal(id, animal);
+        this.showAnimal(id, animal);
         continue;
       }
       this.placeAnimal(animal, turning);
@@ -860,6 +885,7 @@ export class CityScene {
     }
     this.departures.length = 0;
     this.dust.clear();
+    this.clouds.dispose();
     disposeModel(this.roads);
     this.roads.removeFromParent();
     this.logistics.dispose();

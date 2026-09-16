@@ -65,6 +65,59 @@ from `(-25, 42, 24)`; ACES tone mapping at 1.18; 2× MSAA; GTAO at 70% resolutio
 shadows refreshed on change, not per frame. Golden hour swaps the sun to `ffc083`
 lower in the sky. Do not add bloom, vignette or outlines.
 
+The camera stands off the target by a fixed multiple of the world span, so every
+fragment lies in front of it and depth increases with distance. Haze is linear fog
+measured from that standoff: it begins beyond the archipelago and closes well
+inside the far plane, so clipped geometry is already the background colour and its
+edge cannot be seen. Fog is a rim, not a wash — at play zoom nothing in frame is
+hazed. Zoom is bounded by world distances rather than a zoom factor (`Stage.world`):
+out to the whole archipelago and no further — the sea must never be seen to end — and
+in to a single street from any view, founding included.
+
+Wildlife is drawn near the view, not across the world: sight is the view span capped
+at 220, so pulling back to the archipelago no longer places and poses every animal on
+it at a few pixels each. Posing belongs to `animate`; `watch` only adds and removes
+what sight has changed, and never rewrites a pose that nothing moved.
+
+Decoration is never seen arriving. `IslandScenery.reveal` plants every chunk the
+view reaches in the frame that asks for it, so a widening view is never short of
+trees; what lies beyond the view is planted nearest-first under a few milliseconds a
+frame, until the whole island stands. A city is complete on its first frame and the
+rest of the archipelago follows within a second or two of idle time, so zooming out
+later costs nothing. Chunks pop into visibility, never into existence.
+
+Zoom is eased, not stepped. Three applies orthographic zoom the instant the wheel
+turns, which reads as jerk; the stage keeps the wheel's value as a goal and shows a
+value easing towards it, so a notch is a movement rather than a jump — and the work a
+wider view triggers is spread over those frames instead of landing in one. Contact
+shadows follow the same logic: GTAO renders the scene a second time for depth and
+normals, which doubles the cost of a view full of trees for an occlusion radius that
+is sub-pixel out there, so it fades out between spans 120 and 220 and the pass is
+switched off once it contributes nothing.
+
+## Sea and sky
+
+The sea is one plane four world spans across (`src/render/extent.ts`). Its colour
+comes from the land, not from distance: `src/render/sea.ts` bakes a distance-to-
+shore field into a data texture and mixes shallow `559fa5` at the coast into deep
+`3a7e93` about forty cells out. Offshore water reads as sea at any zoom without
+help from the haze.
+
+Wave marks are painted, not procedural wallpaper: crossed sine waves make a lattice
+of identical dots, which is what a regular grid on water always looks like. Instead a
+hash picks one short dash per jittered cell, sparsely, each on its own fade cycle, all
+leaning the same way as a brush would. They fade out between view spans 90 and 260 —
+detail belongs to the zoom that can see it.
+
+Clouds (`src/art/clouds.ts`, `src/render/clouds.ts`) are the one thing in the sky:
+three painted dodecahedron shapes, instanced, flat-bottomed, cream `fff6e6`. They
+sit between 52 and 72 above the water, drift on world time — so they freeze with a
+paused city and under reduced motion — and are the only transparency besides
+placement ghosts. They fade in between view spans 300 and 560: high enough that a
+cloud never dwarfs the island under it, and that its painted shadow — a soft patch
+leaning away from the sun, drawn over land and sea alike — clears the cloud itself.
+The sun's own shadow map is too small to reach them.
+
 ## Coastlines
 
 `src/art/coast.ts` derives coastal profiles from neighbouring land and sea tiles.

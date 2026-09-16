@@ -17,7 +17,8 @@ import { harbourPlacement } from './sim/founding';
 import type { AuthorityRequest } from './server/authority';
 import { parseCommand, type CityCommand } from './sim/commands';
 import { activeCity, canWrite, contextForOwnedCity, reconcileContext, resolveCity, viewedCity, withViewed } from './ui/city-context';
-import { cadence, debugEnabled, protocolLog, snapshotLog } from './ui/debug';
+import { cadence, debugEnabled, meterEnabled, protocolLog, snapshotLog } from './ui/debug';
+import { FrameMeter } from './ui/meter';
 import { SharedSession, type SendOutcome, type SharedRequestOutcome, type SharedSessionStatus, type SharedSnapshot } from './ui/shared-session';
 import { SharedIntent } from './ui/shared-intent';
 import { PredictedWorld } from './ui/predicted-world';
@@ -31,6 +32,7 @@ export interface SharedBootSource {
 
 const CONNECTION_NOTICE_DELAY = 900;
 const OVERVIEW_MARGIN = 1.04;
+const ANIMATION_INTERVAL = 1000 / 30;
 
 function isSettling(status: SharedSessionStatus): boolean {
   return status === 'pending' || status === 'reconciling';
@@ -525,6 +527,7 @@ export function boot(source: SharedBootSource): BootHandles {
   let previous = 0;
   let lastRender = 0;
   let visualDelta = 0;
+  const meter = meterEnabled(location.search) ? new FrameMeter(document.body) : null;
   function frame(now: number): void {
     const delta = previous === 0 || document.hidden ? 0 : Math.min((now - previous) / 1000, .25);
     previous = now;
@@ -547,7 +550,7 @@ export function boot(source: SharedBootSource): BootHandles {
     city.transitions(delta);
     if (!document.hidden) {
       visualDelta += delta;
-      if (now - lastRender >= 1000 / 30) {
+      if (now - lastRender >= ANIMATION_INTERVAL) {
         if (!reducedMotion) {
           artTime += visualDelta;
           city.animate(artTime, visualDelta, 1);
@@ -557,6 +560,13 @@ export function boot(source: SharedBootSource): BootHandles {
         lastRender = now;
       }
     }
+    meter?.sample(now, {
+      rendered: stage.frames,
+      drawCalls: stage.renderer.info.render.calls,
+      triangles: stage.renderer.info.render.triangles,
+      span: stage.viewSpan(),
+      planting: city.growing,
+    });
     requestAnimationFrame(frame);
   }
   document.addEventListener('visibilitychange', () => { previous = 0; if (!document.hidden) stage.invalidate(); });

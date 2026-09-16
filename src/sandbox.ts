@@ -10,6 +10,8 @@ import { buildStarterNeighbourhood, planStarterNeighbourhood } from './sim/scena
 import { gatherReach } from './sim/gathering';
 import { footprintTileIssues } from './sim/construction';
 import type { BuildingKind, BuildTool, Rotation, Tile, World } from './sim/types';
+import { meterEnabled } from './ui/debug';
+import { FrameMeter } from './ui/meter';
 import './ui/style.css';
 
 function boot(): void {
@@ -22,6 +24,7 @@ function boot(): void {
   let showGrid = false;
   let artTime = 0;
   let previous = 0;
+  const meter = meterEnabled(location.search) ? new FrameMeter(document.body) : null;
 
   function seedFromQuery(): number {
     const raw = Number(new URLSearchParams(location.search).get('seed'));
@@ -76,6 +79,13 @@ function boot(): void {
       scene.animate(artTime, delta, 1);
       stage.shadowsFromMotion();
     }
+    meter?.sample(now, {
+      rendered: stage.frames,
+      drawCalls: stage.renderer.info.render.calls,
+      triangles: stage.renderer.info.render.triangles,
+      span: stage.viewSpan(),
+      planting: scene.growing,
+    });
     requestAnimationFrame(frame);
   }
 

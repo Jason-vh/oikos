@@ -30,7 +30,18 @@ export const SPECIES: Record<AnimalKind, SpeciesDefinition> = {
   gull: { name: 'Gull', food: null, yield: 0, speed: 1.6, range: 9, rest: 0, move: .8, hop: false, habitat: (map, x, z) => terrainOn(map, x, z) === 'sand' || coastalWater(map, x, z), density: .03, flock: 1 },
 };
 
+const rosters = new Map<number, readonly Animal[]>();
+
 export function wildlifeRoster(seed: number): Animal[] {
+  let roster = rosters.get(seed);
+  if (!roster) {
+    roster = buildRoster(seed);
+    rosters.set(seed, roster);
+  }
+  return roster.map((animal) => ({ ...animal }));
+}
+
+function buildRoster(seed: number): readonly Animal[] {
   const map = islandFor(seed);
   const animals: Animal[] = [];
   for (const kind of Object.keys(SPECIES) as AnimalKind[]) {

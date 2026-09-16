@@ -168,6 +168,15 @@ The capture scripts below drive the sandbox; pass the site's base URL, not a rou
   pixel-identical scenery after placing then demolishing a road. Requires the dev
   server. Output: `artifacts/roads/`.
   Use `terrace:capture` alongside it for carved stairs, landings and rejected side entries.
+- **`npm run zoom:capture -- <base url> [output]`**: the sandbox city, then three
+  steps of zooming out. Use it to judge how the sea's shore gradient, the ripples
+  and the clouds arrive as the view widens. Output: `artifacts/zoom/`.
+- **`npm run sea:capture -- <base url> [output]`**: open water beside the sandbox
+  harbour, close and one zoom wider. Use it to judge wave marks and the shore
+  gradient without the shoreline filling the frame. Output: `artifacts/sea/`.
+- **`npm run overview:capture -- <base url> [output]`**: the founding overview of
+  the shared game, at the fitted view and against the zoom-out bound. Needs
+  `npm run play`, not the dev server. Output: `artifacts/overview/`.
 - **`npm run smoke:foam -- <base url>`**: breakers animate, stay still under reduced
   motion, and never render while idle. Output: `artifacts/foam/`.
 - **`npm run check`**: build, tests and the capture suites. Models are judged in

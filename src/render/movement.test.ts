@@ -13,7 +13,7 @@ import type { Walker } from '../sim/types';
 
 function fixture() {
   const world = createWorld();
-  const stage = { scene: new T.Scene(), shadows() {}, shadowsFromMotion() {}, invalidate() {} } as Stage;
+  const stage = { scene: new T.Scene(), shadows() {}, shadowsFromMotion() {}, invalidate() {}, world(_span: number) {} } as Stage;
   const city = new CityScene(stage, islandFor(world.seed), true);
   const owner = primaryCity(world);
   const walker: Walker = {
@@ -75,7 +75,7 @@ test('a beat that never arrives costs the walker nothing', () => {
 
 test('an animal is drawn wherever the clock puts it, with no update to wait for', () => {
   const world = createWorld();
-  const stage = { scene: new T.Scene(), shadows() {}, shadowsFromMotion() {}, invalidate() {} } as Stage;
+  const stage = { scene: new T.Scene(), shadows() {}, shadowsFromMotion() {}, invalidate() {}, world(_span: number) {} } as Stage;
   const city = new CityScene(stage, islandFor(world.seed), true);
   const animal = world.wildlife.find((candidate) => candidate.kind === 'gull')!;
   city.setWorldTime(0);
@@ -93,7 +93,7 @@ test('an animal is drawn wherever the clock puts it, with no update to wait for'
 
 test('nothing alive stirs while the world stands still, and does once it moves', () => {
   const world = createWorld();
-  const stage = { scene: new T.Scene(), shadows() {}, shadowsFromMotion() {}, invalidate() {} } as Stage;
+  const stage = { scene: new T.Scene(), shadows() {}, shadowsFromMotion() {}, invalidate() {}, world(_span: number) {} } as Stage;
   const city = new CityScene(stage, islandFor(world.seed), true);
   const gull = world.wildlife.find((animal) => animal.kind === 'gull')!;
   city.setWorldTime(12);
@@ -133,7 +133,7 @@ test('a snapshot from further ahead than the clock does not drag a walker with i
 
 test('an axe falls at the same moment on every screen, and stops when the task does', () => {
   const world = createWorld();
-  const stage = { scene: new T.Scene(), shadows() {}, shadowsFromMotion() {}, invalidate() {} } as Stage;
+  const stage = { scene: new T.Scene(), shadows() {}, shadowsFromMotion() {}, invalidate() {}, world(_span: number) {} } as Stage;
   const city = new CityScene(stage, islandFor(world.seed), true);
   const owner = primaryCity(world);
   const spur = roadSpur(world, 4).map((tile) => tileIndexOn(mapOf(world, owner), tile.x, tile.z));
@@ -165,7 +165,7 @@ function armAngles(scene: T.Scene, id: number): number[] {
 
 test('a walker kept waiting looks about, of its own accord', () => {
   const world = createWorld();
-  const stage = { scene: new T.Scene(), shadows() {}, shadowsFromMotion() {}, invalidate() {} } as Stage;
+  const stage = { scene: new T.Scene(), shadows() {}, shadowsFromMotion() {}, invalidate() {}, world(_span: number) {} } as Stage;
   const city = new CityScene(stage, islandFor(world.seed), true);
   const owner = primaryCity(world);
   const spur = roadSpur(world, 3).map((tile) => tileIndexOn(mapOf(world, owner), tile.x, tile.z));
@@ -201,7 +201,7 @@ test('a walker kept waiting looks about, of its own accord', () => {
 
 test('two people left standing together eventually turn to face one another', () => {
   const world = createWorld();
-  const stage = { scene: new T.Scene(), shadows() {}, shadowsFromMotion() {}, invalidate() {} } as Stage;
+  const stage = { scene: new T.Scene(), shadows() {}, shadowsFromMotion() {}, invalidate() {}, world(_span: number) {} } as Stage;
   const city = new CityScene(stage, islandFor(world.seed), true);
   const owner = primaryCity(world);
   const spur = roadSpur(world, 4).map((tile) => tileIndexOn(mapOf(world, owner), tile.x, tile.z));

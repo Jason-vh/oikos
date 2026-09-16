@@ -95,6 +95,11 @@ export function debugEnabled(search: string): boolean {
   return new URLSearchParams(search).has('debug');
 }
 
+export function meterEnabled(search: string): boolean {
+  const query = new URLSearchParams(search);
+  return query.has('fps') || query.has('debug');
+}
+
 export function latencyMillis(search: string): number {
   const raw = Number(new URLSearchParams(search).get('latency'));
   if (!Number.isFinite(raw) || raw <= 0) return 0;

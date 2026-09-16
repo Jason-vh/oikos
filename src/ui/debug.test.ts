@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { ProtocolLog, SnapshotLog, cadence, debugEnabled, delaySends, latencyMillis, observe } from './debug';
+import { ProtocolLog, SnapshotLog, cadence, debugEnabled, delaySends, latencyMillis, meterEnabled, observe } from './debug';
 
 class FakeSocket extends EventTarget {
   readyState: number = WebSocket.OPEN;
@@ -16,6 +16,13 @@ test('the seam stays off unless the page asks for it', () => {
   expect(debugEnabled('?seed=3')).toBe(false);
   expect(debugEnabled('?debug')).toBe(true);
   expect(debugEnabled('?latency=250&debug')).toBe(true);
+});
+
+test('the frame meter answers to its own flag as well as the seam', () => {
+  expect(meterEnabled('')).toBe(false);
+  expect(meterEnabled('?seed=3')).toBe(false);
+  expect(meterEnabled('?fps')).toBe(true);
+  expect(meterEnabled('?debug')).toBe(true);
 });
 
 test('latency is a positive number of milliseconds or nothing at all', () => {

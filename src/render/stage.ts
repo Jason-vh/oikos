@@ -4,14 +4,25 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { GOLDEN_SUN_OFFSET, SUN_OFFSET } from './sun';
 
 export interface View { target: number[]; offset: number[]; size: number; zoom?: number; }
 
 const UP = new T.Vector3(0, 1, 0);
 const MOTION_SHADOW_INTERVAL = 1000 / 12;
-const SUN_OFFSET = new T.Vector3(-23, 42, 28);
-const GOLDEN_SUN_OFFSET = new T.Vector3(-23, 22, 28);
 const SUN_SNAP = 4;
+const HAZE = 0xb1d2cd;
+const DEFAULT_WORLD_SPAN = 1000;
+const STANDOFF_SHARE = 1.7;
+const CLIP_SHARE = 1.6;
+const FOG_NEAR_SHARE = .45;
+const FOG_FAR_SHARE = 1.15;
+const CLOSEST_SPAN = 13;
+const AO_BLEND = .65;
+const AO_FULL_SPAN = 120;
+const AO_GONE_SPAN = 220;
+const ZOOM_EASE = 13;
+const ZOOM_SETTLED = .002;
 
 export class Stage {
   readonly scene = new T.Scene();
@@ -21,8 +32,13 @@ export class Stage {
   readonly canvas: HTMLCanvasElement;
   private readonly composer: EffectComposer;
   private readonly ao: GTAOPass;
+  private aoWanted = true;
   private readonly ambient = new T.HemisphereLight(0xe7f1ee, 0xb4a075, 2.1);
   private readonly sun = new T.DirectionalLight(0xffe6bd, 3.5);
+  private readonly haze = new T.Fog(HAZE, 1, 2);
+  private worldSpan = DEFAULT_WORLD_SPAN;
+  private zoomGoal = 1;
+  private zoomShown = 1;
   private size = 44;
   private request = 0;
   private lost = false;
@@ -36,8 +52,8 @@ export class Stage {
   frames = 0;
 
   constructor(root: HTMLElement, interactive = true) {
-    this.scene.background = new T.Color(0xb1d2cd);
-    this.scene.fog = new T.FogExp2(0xb1d2cd, .0045);
+    this.scene.background = new T.Color(HAZE);
+    this.scene.fog = this.haze;
     const lean = new URLSearchParams(location.search).has('lean');
     this.renderer.setPixelRatio(lean ? 1 : Math.min(window.devicePixelRatio, 1.5));
     this.renderer.shadowMap.enabled = !lean;
@@ -54,8 +70,6 @@ export class Stage {
     this.controls.dampingFactor = .14;
     this.controls.minPolarAngle = Math.PI / 7;
     this.controls.maxPolarAngle = Math.PI / 2.65;
-    this.controls.minZoom = .25;
-    this.controls.maxZoom = 3.8;
     this.controls.maxTargetRadius = 65;
     this.controls.screenSpacePanning = false;
     this.controls.zoomSpeed = .75;
@@ -75,11 +89,13 @@ export class Stage {
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     this.ao = new GTAOPass(this.scene, this.camera, 1, 1);
     this.ao.updateGtaoMaterial({ radius: .65, distanceExponent: 1.5, thickness: 1, scale: 1 });
-    this.ao.blendIntensity = .65;
-    this.ao.enabled = !lean && !new URLSearchParams(location.search).has('noao');
+    this.ao.blendIntensity = AO_BLEND;
+    this.aoWanted = !lean && !new URLSearchParams(location.search).has('noao');
+    this.ao.enabled = this.aoWanted;
     this.composer.addPass(this.ao);
     this.composer.addPass(new OutputPass());
     this.canvas.addEventListener('webglcontextlost', this.contextLost);
+    window.addEventListener('wheel', this.aimZoom, { capture: true, passive: true });
     window.addEventListener('resize', this.resize);
     this.resize();
   }
@@ -106,6 +122,7 @@ export class Stage {
     this.request = requestAnimationFrame(() => {
       this.request = 0;
       if (document.hidden) return;
+      this.absorbZoom();
       this.depth();
       this.trackSun();
       this.refreshShadows();
@@ -120,6 +137,62 @@ export class Stage {
 
   viewSpan(): number {
     return (this.camera.right - this.camera.left) / this.camera.zoom;
+  }
+
+  world(span: number): void {
+    this.worldSpan = span;
+    this.standoff();
+    this.clampZoom();
+    this.invalidate();
+  }
+
+  private standoff(): void {
+    const offset = this.camera.position.clone().sub(this.controls.target);
+    if (offset.lengthSq() === 0) return;
+    this.camera.position.copy(this.controls.target).addScaledVector(offset.normalize(), this.worldSpan * STANDOFF_SHARE);
+    this.steerControls();
+  }
+
+  private clampZoom(): void {
+    const spanAtRest = this.camera.right - this.camera.left;
+    this.controls.minZoom = spanAtRest / this.worldSpan;
+    this.controls.maxZoom = spanAtRest / CLOSEST_SPAN;
+    this.zoomGoal = T.MathUtils.clamp(this.zoomGoal, this.controls.minZoom, this.controls.maxZoom);
+    const bounded = T.MathUtils.clamp(this.zoomShown, this.controls.minZoom, this.controls.maxZoom);
+    if (bounded === this.zoomShown) return;
+    this.showZoom(bounded);
+  }
+
+  private aimZoom = (): void => {
+    this.camera.zoom = this.zoomGoal;
+  };
+
+  private absorbZoom(): void {
+    if (this.camera.zoom === this.zoomShown) return;
+    this.zoomGoal = this.camera.zoom;
+    this.camera.zoom = this.zoomShown;
+    this.camera.updateProjectionMatrix();
+  }
+
+  private showZoom(zoom: number): void {
+    this.zoomShown = zoom;
+    this.camera.zoom = zoom;
+    this.camera.updateProjectionMatrix();
+  }
+
+  private steerControls(): boolean {
+    this.absorbZoom();
+    const moved = this.controls.update();
+    this.absorbZoom();
+    return moved;
+  }
+
+  private easeZoom(delta: number): boolean {
+    if (this.zoomShown === this.zoomGoal) return false;
+    const remaining = Math.log(this.zoomGoal / this.zoomShown);
+    const settling = this.reducedMotion || Math.abs(remaining) < ZOOM_SETTLED;
+    this.showZoom(settling ? this.zoomGoal : this.zoomShown * Math.exp(remaining * (1 - Math.exp(-delta * ZOOM_EASE))));
+    return true;
   }
 
   sizeToFit(target: T.Vector3, offset: T.Vector3, corners: T.Vector3[]): number {
@@ -139,12 +212,24 @@ export class Stage {
     return Math.max(vertical * 2, horizontal * 2 / aspect) / widening;
   }
 
+  private fitContactShadows(span: number): void {
+    if (!this.aoWanted) return;
+    const blend = AO_BLEND * (1 - T.MathUtils.smoothstep(span, AO_FULL_SPAN, AO_GONE_SPAN));
+    this.ao.blendIntensity = blend;
+    this.ao.enabled = blend > .01;
+  }
+
   private depth(): void {
+    const distance = this.camera.position.distanceTo(this.controls.target);
     const span = this.viewSpan();
-    const reach = this.camera.position.distanceTo(this.controls.target) + span * 1.5;
-    if (Math.abs(this.camera.far - reach) < 1) return;
-    this.camera.near = -reach;
-    this.camera.far = reach;
+    this.fitContactShadows(span);
+    const reach = Math.max(this.worldSpan, span);
+    this.haze.near = distance + reach * FOG_NEAR_SHARE;
+    this.haze.far = distance + reach * FOG_FAR_SHARE;
+    const clip = reach * CLIP_SHARE;
+    if (Math.abs(this.camera.far - (distance + clip)) < 1) return;
+    this.camera.near = distance - clip;
+    this.camera.far = distance + clip;
     this.camera.updateProjectionMatrix();
   }
 
@@ -201,16 +286,19 @@ export class Stage {
     this.composer.setSize(width, height);
     const ratio = this.renderer.getPixelRatio() * .7;
     this.ao.setSize(Math.max(1, Math.round(width * ratio)), Math.max(1, Math.round(height * ratio)));
+    this.clampZoom();
     this.invalidate();
   };
 
   setView(view: View): void {
     this.controls.target.fromArray(view.target);
     this.camera.position.copy(this.controls.target).add(new T.Vector3().fromArray(view.offset));
-    this.camera.zoom = view.zoom ?? 1;
+    this.zoomGoal = view.zoom ?? 1;
+    this.showZoom(this.zoomGoal);
     this.size = view.size;
     this.settle();
-    this.controls.update();
+    this.standoff();
+    this.steerControls();
     this.resize();
   }
 
@@ -219,7 +307,7 @@ export class Stage {
       target: this.controls.target.toArray(),
       offset: this.camera.position.clone().sub(this.controls.target).toArray(),
       size: this.size,
-      zoom: this.camera.zoom,
+      zoom: this.zoomGoal,
     };
   }
 
@@ -246,11 +334,14 @@ export class Stage {
         this.goal.spin = 0;
         this.goal.active = false;
       }
-      this.controls.update();
+      this.steerControls();
+      this.easeZoom(delta);
       this.invalidate();
       return;
     }
-    if (this.controls.update()) this.invalidate();
+    const moved = this.steerControls();
+    const zooming = this.easeZoom(delta);
+    if (moved || zooming) this.invalidate();
   }
 
   pan(right: number, forward: number): void {
@@ -262,7 +353,7 @@ export class Stage {
     const step = new T.Vector3().addScaledVector(rightDirection, right * distance).addScaledVector(forwardDirection, forward * distance);
     this.controls.target.add(step);
     this.camera.position.add(step);
-    this.controls.update();
+    this.steerControls();
     this.invalidate();
   }
 
@@ -287,7 +378,6 @@ export class Stage {
     const rect = this.canvas.getBoundingClientRect();
     const ray = new T.Raycaster();
     ray.setFromCamera(new T.Vector2((clientX - rect.left) / rect.width * 2 - 1, -(clientY - rect.top) / rect.height * 2 + 1), this.camera);
-    ray.ray.origin.addScaledVector(ray.ray.direction, this.camera.near);
     return ray;
   }
 
@@ -303,6 +393,7 @@ export class Stage {
 
   dispose(): void {
     cancelAnimationFrame(this.request);
+    window.removeEventListener('wheel', this.aimZoom, { capture: true });
     window.removeEventListener('resize', this.resize);
     this.canvas.removeEventListener('webglcontextlost', this.contextLost);
     this.controls.removeEventListener('start', this.settle);
