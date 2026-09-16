@@ -303,12 +303,19 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
 
   const guidePanel = root.querySelector<HTMLDetailsElement>('.hud-guide')!;
   const inspectorPanel = root.querySelector<HTMLDetailsElement>('.hud-inspector')!;
+  const resources = root.querySelector<HTMLElement>('.hud-resources')!;
   let lastSelectedId: number | string | null = null;
+  let stance: Stance = 'building';
   const narrow = window.matchMedia('(max-width: 860px)');
   if (narrow.matches) guidePanel.open = false;
+
+  function showGuide(crowdedOut: boolean): void {
+    guidePanel.hidden = stance === 'watching' || crowdedOut;
+  }
+
   narrow.addEventListener('change', (event) => {
     if (event.matches) guidePanel.open = false;
-    if (lastSelectedId !== null) guidePanel.hidden = event.matches;
+    if (lastSelectedId !== null) showGuide(event.matches);
   });
 
   const milestoneInputs = new Map<keyof Milestones, HTMLInputElement>();
@@ -366,7 +373,7 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
   function updateInspector(selection: Selection | null): void {
     if (!selection) {
       inspectorPanel.hidden = true;
-      guidePanel.hidden = false;
+      showGuide(false);
       lastSelectedId = null;
       return;
     }
@@ -376,7 +383,7 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
       lastSelectedId = id;
     }
     inspectorPanel.hidden = false;
-    guidePanel.hidden = narrow.matches;
+    showGuide(narrow.matches);
     if (selection.kind === 'person') {
       showPerson(selection);
       return;
@@ -554,12 +561,14 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
     connectionText.textContent = message;
   }
 
-  function setStance(stance: Stance, ready: boolean): void {
+  function setStance(next: Stance, ready: boolean): void {
+    stance = next;
     harbourButton.hidden = stance !== 'founding';
     harbourButton.disabled = !ready;
     for (const def of TOOL_DEFS) toolButtons.get(def.tool)!.hidden = stance !== 'building';
     toolbar.hidden = stance === 'watching';
-    guidePanel.hidden = stance === 'watching';
+    resources.hidden = stance === 'watching';
+    showGuide(lastSelectedId !== null && narrow.matches);
   }
 
   function setDiscardAvailable(available: boolean): void {
