@@ -40,7 +40,7 @@ export class ClaimLabels {
       const point = project(placard.anchor.x, placard.anchor.y, placard.anchor.z);
       const visible = strength > 0 && point.x > 0 && point.y > 0 && point.x < window.innerWidth && point.y < window.innerHeight;
       placard.card.hidden = !visible;
-      if (visible) placard.card.style.transform = `translate(${Math.round(point.x)}px, ${Math.round(point.y)}px) translate(-50%, -100%)`;
+      if (visible) placard.card.style.transform = `translate3d(${point.x.toFixed(1)}px, ${point.y.toFixed(1)}px, 0) translate(-50%, -100%)`;
     }
   }
 

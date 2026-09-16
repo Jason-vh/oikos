@@ -69,6 +69,7 @@ export function boot(source: SharedBootSource): BootHandles {
   let overlay = new ConstructionOverlay(stage, islandFor(world.seed));
   let claims = new ClaimOverlay(stage, islandFor(world.seed));
   let claimLabels = new ClaimLabels(document.body, islandFor(world.seed));
+  stage.onPainted(() => claimLabels.follow((x, y, z) => stage.project(x, y, z), claims.strength));
   const map = () => mapFor(activeCity(world, context));
   function viewFor(homeCity: City): View {
     const island = islandFor(world.seed, homeCity.home);
@@ -587,7 +588,6 @@ export function boot(source: SharedBootSource): BootHandles {
     city.watch(stage.controls.target, stage.viewSpan());
     city.transitions(delta);
     if (claims.fade(stage.viewSpan())) stage.invalidate();
-    claimLabels.follow((x, y, z) => stage.project(x, y, z), claims.strength);
     if (!document.hidden) {
       visualDelta += delta;
       if (now - lastRender >= ANIMATION_INTERVAL) {
