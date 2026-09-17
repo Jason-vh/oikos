@@ -287,13 +287,16 @@ function afford(city: City, cost: number): string {
   return `costs ${cost} dr, leaving ${Math.round(city.money) - cost} dr`;
 }
 
+const BLOCKED_SHOWN = 6;
+
 function blockedTiles(map: IslandMap, blocked: number[] | undefined): string {
   if (!blocked?.length) return '';
-  const named = blocked.map((tile) => {
+  const named = blocked.slice(0, BLOCKED_SHOWN).map((tile) => {
     const { x, z } = tileAtOn(map, tile);
     return `(${x},${z}) ${terrainOn(map, x, z)}`;
   });
-  return ` Blocked at ${named.join(', ')}.`;
+  const rest = blocked.length - named.length;
+  return ` Blocked at ${named.join(', ')}${rest > 0 ? `, and ${rest} more of the ${blocked.length}` : ''}.`;
 }
 
 export function describePlacement(world: World, city: City, tool: BuildTool, x: number, z: number, rotation: Rotation): string {

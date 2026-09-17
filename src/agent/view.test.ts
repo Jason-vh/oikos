@@ -220,6 +220,7 @@ describe('dry runs', () => {
     expect(answer).toContain('Farms need fertile ground.');
     expect(answer).toContain('Blocked at');
     expect(named.length).toBeGreaterThan(0);
+    expect(named.length).toBeLessThanOrEqual(6);
     for (const [, x, z, terrain] of named) {
       expect(terrainOn(grid, Number(x), Number(z))).toBe(terrain as Terrain);
     }
