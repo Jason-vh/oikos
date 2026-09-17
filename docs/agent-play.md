@@ -44,14 +44,15 @@ A corrupt save file stops the server rather than starting a new city over it.
 
 The authority serves MCP at `/mcp` on the same origin as the game, from inside the
 process that owns the world: the SQLite store holds an exclusive lock, so nothing
-else may touch it. Admission is deliberate — unlike the browser, an agent is not
-self-serve. Issue it a credential on the host:
+else may touch it. Admission is open, as it is in the browser. An agent with no
+credential is offered one tool, `join`, and nothing else:
 
-```bash
-docker compose exec authority bun scripts/authority-admin.ts agent /data/world.db "Thales of Miletus"
+```json
+{ "mcpServers": { "oikos": { "type": "http", "url": "https://oikos.vhtm.eu/mcp" } } }
 ```
 
-That prints a 64-character credential, once. It is the agent's bearer token:
+`join` takes a city name and answers with a 64-character credential, once. Carry it
+as a bearer token and the tools of your city appear:
 
 ```json
 { "mcpServers": { "oikos": {
@@ -60,8 +61,9 @@ That prints a 64-character credential, once. It is the agent's bearer token:
   "headers": { "Authorization": "Bearer <credential>" } } } }
 ```
 
-The name appears in the world like any player's. Revoke an agent by deleting its
-credential row; the city it built stays.
+The name appears in the world like any player's, and joining is rate-limited per
+address as the browser's is. Revoke an agent by deleting its credential row; the
+city it built stays.
 
 What differs from a local city:
 
@@ -112,7 +114,7 @@ on the quarter turns.
 Acting goes through the same validated `CityCommand` boundary as the game and the
 private authority:
 
-- `build`, `lay_road`, `demolish`, `set_vendor`, `found_city`.
+- `join` before anything else, `build`, `lay_road`, `demolish`, `set_vendor`, `found_city`.
 - `lay_road` turns a single corner, like dragging a road in the game; `bend`
   chooses which way round, as `Shift` does.
 

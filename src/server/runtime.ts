@@ -1,9 +1,12 @@
 import type { ServerWebSocket } from 'bun';
 import { createHash, randomUUID } from 'node:crypto';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { AuthorityGame } from '../agent/authority-game';
 import { createServer } from '../agent/mcp';
 import { Authority } from './authority';
+import { createAdmissionServer, type AdmissionOutcome } from './agent-admission';
+import { randomCityColor } from '../sim/colors';
 import { COOKIE, MAX_REQUEST_BYTES, PROTOCOL, credentialFrom, parseJoin, parseRequest, publicSession, type RejectCode } from './protocol';
 import { serializeWorld } from '../sim/save';
 
@@ -216,26 +219,35 @@ export function startServer(options: RuntimeOptions) {
     return stopPromise;
   }
 
-  async function serveAgent(request: Request): Promise<Response> {
+  async function answer(request: Request, server: McpServer): Promise<Response> {
+    const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
+    await server.connect(transport);
+    return transport.handleRequest(request);
+  }
+
+  function admitAgent(name: string, ip: string | undefined): AdmissionOutcome {
+    if (!ip || !take(admissions, ip, clock.now(), 5, 5 / 60)) return { ok: false, reason: 'Too many joins from here just now; try again shortly.' };
+    const taken = authority.snapshot().cities.map((city) => city.color);
+    const admission = authority.admit(name, randomCityColor(taken));
+    if (!admission.ok) return admission;
+    return { ok: true, credential: admission.credential };
+  }
+
+  async function serveAgent(request: Request, ip: string | undefined): Promise<Response> {
     const origin = request.headers.get('origin');
     if (origin !== null && origin !== options.publicOrigin) return response(403, 'origin-denied');
     const offered = BEARER.exec(request.headers.get('authorization') ?? '');
     const credential = offered ? offered[1] : '';
     const authenticated = credential ? authority.authenticate(credential) : null;
-    if (!authenticated) {
-      return Response.json({ code: 'unauthenticated' }, { status: 401, headers: { 'Cache-Control': 'no-store', 'WWW-Authenticate': 'Bearer realm="oikos"' } });
-    }
+    if (!authenticated) return answer(request, createAdmissionServer((name) => admitAgent(name, ip)));
     if (!take(requests, authenticated.actorId, clock.now(), 16, 8)) return response(429, 'rate-limited');
 
     settle();
     agentsPresentUntil = clock.now() + AGENT_PRESENCE_MS;
     beginPlaying();
 
-    const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
-    const server = createServer(new AuthorityGame(authority, credential));
-    await server.connect(transport);
     try {
-      return await transport.handleRequest(request);
+      return await answer(request, createServer(new AuthorityGame(authority, credential)));
     } finally {
       for (const ws of sockets) ws.data.snapshotDue = true;
       snapshots();
@@ -253,7 +265,7 @@ export function startServer(options: RuntimeOptions) {
         const path = new URL(request.url).pathname;
         if (path === '/healthz' && request.method === 'GET') return response(200, 'healthy');
         if (path === '/mcp') {
-          return serveAgent(request).catch(() => { fatal(); return response(503, 'unavailable'); });
+          return serveAgent(request, listener.requestIP(request)?.address).catch(() => { fatal(); return response(503, 'unavailable'); });
         }
         if (path !== '/api/session/join' && path !== '/api/world' && path !== '/api/world/preview' && path !== '/api/world/reset') return response(404, 'not-found');
         if (path === '/api/world/reset' && !options.allowReset) return response(404, 'not-found');

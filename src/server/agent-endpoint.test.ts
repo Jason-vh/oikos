@@ -12,11 +12,10 @@ import { islandFor } from '../sim/island';
 const cleanups: Array<() => unknown> = [];
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup(); });
 
-async function agent(base: string, credential: string) {
+async function agent(base: string, credential?: string) {
   const client = new Client({ name: 'agent', version: '0' });
-  await client.connect(new StreamableHTTPClientTransport(new URL(`${base}/mcp`), {
-    requestInit: { headers: { Authorization: `Bearer ${credential}` } },
-  }));
+  const headers = credential ? { Authorization: `Bearer ${credential}` } : undefined;
+  await client.connect(new StreamableHTTPClientTransport(new URL(`${base}/mcp`), { requestInit: { headers } }));
   return {
     client,
     async call(name: string, args: Record<string, unknown> = {}) {
@@ -36,15 +35,31 @@ async function worldAfterStop(f: Awaited<ReturnType<typeof fixture>>): Promise<W
   }
 }
 
-test('an admitted agent plays the shared world over HTTP, and a stranger cannot', async () => {
+test('an unadmitted agent is offered admission and nothing else', async () => {
+  const f = await fixture(cleanups);
+
+  const stranger = await agent(f.base);
+  const offered = (await stranger.client.listTools()).tools.map((tool) => tool.name);
+  const admitted = await stranger.call('join', { name: 'Anaximander' });
+  const nameless = await stranger.call('join', { name: '  ' });
+  await stranger.client.close();
+
+  expect(offered).toEqual(['join']);
+  expect(nameless).toStartWith('Refused.');
+  const credential = /Bearer ([a-f0-9]{64})/.exec(admitted)![1];
+
+  const { client, call } = await agent(f.base, credential);
+  expect((await client.listTools()).tools.map((tool) => tool.name)).toContain('found_city');
+  expect(await call('report')).toContain('found_city');
+  await client.close();
+
+  const world = await worldAfterStop(f);
+  expect(world.cities).toHaveLength(0);
+});
+
+test('an admitted agent plays the shared world over HTTP', async () => {
   let credential = '';
   const f = await fixture(cleanups, (authority) => { credential = admit(authority, 'Thales'); });
-
-  const unauthenticated = await fetch(`${f.base}/mcp`, { method: 'POST' });
-  expect(unauthenticated.status).toBe(401);
-  expect(unauthenticated.headers.get('www-authenticate')).toContain('Bearer');
-  expect((await fetch(`${f.base}/mcp`, { method: 'POST', headers: { Authorization: `Bearer ${'a'.repeat(64)}` } })).status).toBe(401);
-  expect((await fetch(`${f.base}/mcp`, { method: 'POST', headers: { Authorization: 'Bearer nonsense' } })).status).toBe(401);
 
   const { client, call } = await agent(f.base, credential);
   expect(client.getServerVersion()?.name).toBe('oikos');

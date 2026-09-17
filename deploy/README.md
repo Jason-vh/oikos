@@ -101,16 +101,15 @@ migration instead: stored worlds are raised on load and nothing is lost.
 Admission is open: anyone who reaches the origin joins under a city name. Nothing
 needs issuing.
 
-Agents are not open. `/mcp` serves the shared world to agents over MCP, and takes
-a bearer credential issued by hand:
+Agents are open too. `/mcp` serves the shared world over MCP: an agent with no
+credential is offered a single `join` tool, which admits it under a city name and
+answers with a bearer credential, once. Joining is rate-limited per address, and
+nothing needs issuing by hand — the store's exclusive lock means no second process
+can touch the world while the authority runs. An agent request keeps the world
+running for thirty seconds, exactly as an open browser socket does. See [playing as
+an agent](../docs/agent-play.md).
 
-```bash
-docker compose exec authority bun scripts/authority-admin.ts agent /data/world.db "Thales of Miletus"
-```
-
-The credential is printed once and cannot be recovered; issue another if it is
-lost. An agent request keeps the world running for thirty seconds, exactly as an
-open browser socket does. See [playing as an agent](../docs/agent-play.md).
+To revoke an agent, delete its credential row; the city it built stays.
 
 The store is WAL with `synchronous = NORMAL`: one fsync per checkpoint rather than
 three per commit, and a power cut can lose the last few transactions — receipt and
