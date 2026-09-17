@@ -1,6 +1,6 @@
 import type { Building, City, Placement, Rotation, Tile, World } from './types';
 import { footprint } from './catalog';
-import { buildable, insideMapOn, islandAt, islandFor, levelOn, terrainOn, tileIndexOn, type IslandMap, type IslandPlacement } from './island';
+import { buildable, insideMapOn, islandAt, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn, type IslandMap, type IslandPlacement } from './island';
 import { foreignOccupancy } from './occupancy';
 
 export const HARBOUR_WIDTH = 2;
@@ -66,14 +66,12 @@ export function harbourIslandAt(map: IslandMap, x: number, z: number, rotation: 
   return first;
 }
 
-function shoreRefusal(map: IslandMap, site: HarbourSite): string {
-  for (const tile of site.land) {
-    if (!buildable(terrainOn(map, tile.x, tile.z)) || levelOn(map, tile.x, tile.z) !== 0) return 'The quay needs flat, open shore.';
-  }
-  for (const tile of site.water) {
-    if (terrainOn(map, tile.x, tile.z) !== 'water') return 'The pier needs open water in front of the quay.';
-  }
-  return '';
+function unfitQuayTiles(map: IslandMap, site: HarbourSite): Tile[] {
+  return site.land.filter((tile) => !buildable(terrainOn(map, tile.x, tile.z)) || levelOn(map, tile.x, tile.z) !== 0);
+}
+
+function unfitPierTiles(map: IslandMap, site: HarbourSite): Tile[] {
+  return site.water.filter((tile) => terrainOn(map, tile.x, tile.z) !== 'water');
 }
 
 export function harbourPlacement(world: World, x: number, z: number, rotation: Rotation, city: City | null = null): Placement {
@@ -82,10 +80,18 @@ export function harbourPlacement(world: World, x: number, z: number, rotation: R
   const all = [...site.land, ...site.water];
   if (all.some((tile) => !insideMapOn(map, tile.x, tile.z))) return { ok: false, reason: 'Out of bounds.', cost: 0, tiles: [] };
   const occupied = all.map((tile) => tileIndexOn(map, tile.x, tile.z));
-  const reject = (reason: string): Placement => ({ ok: false, reason, cost: 0, tiles: occupied });
+  const reject = (reason: string, blocked: Tile[] = []): Placement => ({
+    ok: false,
+    reason,
+    cost: 0,
+    tiles: occupied,
+    blocked: blocked.map((tile) => tileIndexOn(map, tile.x, tile.z)),
+  });
 
-  const refusal = shoreRefusal(map, site);
-  if (refusal) return reject(refusal);
+  const unfitQuay = unfitQuayTiles(map, site);
+  if (unfitQuay.length) return reject('The quay needs flat, open shore.', unfitQuay);
+  const unfitPier = unfitPierTiles(map, site);
+  if (unfitPier.length) return reject('The pier needs open water in front of the quay.', unfitPier);
 
   const island = harbourIslandAt(map, x, z, rotation);
   if (!island) return reject('A harbour stands at the shore of one island.');
@@ -95,8 +101,8 @@ export function harbourPlacement(world: World, x: number, z: number, rotation: R
   const foreign = foreignOccupancy(world, city?.id ?? null);
   const roads = new Set(city?.roads ?? []);
   for (const tile of occupied) {
-    if (foreign.roads.has(tile) || foreign.buildings.has(tile)) return reject('Another city already holds that ground.');
-    if (roads.has(tile)) return reject('Place the harbour beside the road, not on it.');
+    if (foreign.roads.has(tile) || foreign.buildings.has(tile)) return reject('Another city already holds that ground.', [tileAtOn(map, tile)]);
+    if (roads.has(tile)) return reject('Place the harbour beside the road, not on it.', [tileAtOn(map, tile)]);
   }
   return { ok: true, reason: '', cost: 0, tiles: occupied };
 }
@@ -125,7 +131,7 @@ export function findHarbourSite(map: IslandMap, home: number): { x: number; z: n
         for (const rotation of [0, 3, 1, 2] as Rotation[]) {
           const site = harbourSite(x, z, rotation);
           if ([...site.land, ...site.water].some((tile) => !insideMapOn(map, tile.x, tile.z))) continue;
-          if (shoreRefusal(map, site)) continue;
+          if (unfitQuayTiles(map, site).length || unfitPierTiles(map, site).length) continue;
           if (harbourIslandAt(map, x, z, rotation) !== island) continue;
           if (!openBehind(map, x, z, rotation)) continue;
           return { x, z, rotation };

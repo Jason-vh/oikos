@@ -94,7 +94,7 @@ export interface World {
   cities: City[];
 }
 export interface ActionResult { ok: boolean; reason: string; }
-export interface Placement extends ActionResult { cost: number; tiles: number[]; }
+export interface Placement extends ActionResult { cost: number; tiles: number[]; blocked?: number[]; }
 export interface Summary {
   population: number;
   workers: number;

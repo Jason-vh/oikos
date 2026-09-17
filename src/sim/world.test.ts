@@ -624,7 +624,23 @@ describe('player-facing building status', () => {
     house.tier = 2;
     house.residents = 5;
     house.food = 0;
-    expect(buildingStatus(world, primaryCity(world), house)).toEqual(['Out of food; a vendor visit is needed.']);
+    expect(buildingStatus(world, primaryCity(world), house)).toEqual(['Out of food; no agora vendor is serving the streets.']);
+  });
+
+  test('a house served by a vendor is told to wait for the round, not to add one', () => {
+    const world = createWorld();
+    const city = primaryCity(world);
+    buildStarterNeighbourhood(world, city);
+    const agora = findByKind(world, 'agora');
+    setVendor(city, agora.id, true);
+    const house = findByKind(world, 'house');
+    house.residents = 8;
+    house.food = 0;
+
+    expect(buildingStatus(world, city, house)).toEqual(['Needs food to grow; the vendor has yet to call.']);
+
+    house.tier = 2;
+    expect(buildingStatus(world, city, house)).toEqual(['Out of food; a vendor visit is needed.']);
   });
 
   test('a tier-3 house that has run dry needs water, not food', () => {

@@ -1,10 +1,10 @@
 import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, footprint } from '../sim/catalog';
-import { harbourPlacement } from '../sim/founding';
+import { harbourPlacement, harbourSite } from '../sim/founding';
 import { footprintTiles, mapOf } from '../sim/grid';
 import { harbourStatus } from '../sim/harbour';
-import { ISLAND_COUNT, buildable, islandAt, islandFacts, islandFor, levelOn, terrainOn, tileIndexOn } from '../sim/island';
+import { ISLAND_COUNT, buildable, islandAt, islandFacts, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn } from '../sim/island';
 import { foreignOccupancy } from '../sim/occupancy';
-import type { IslandMap } from '../sim/island';
+import type { IslandMap, IslandPlacement } from '../sim/island';
 import type { Building, BuildingKind, BuildTool, City, Rotation, Terrain, Tile, World } from '../sim/types';
 import { WALKER_ROLES, buildingStatus, getSummary, placement, roadPathPlacement, storeCapacity, walkerStatus } from '../sim/world';
 
@@ -56,8 +56,16 @@ export function viewpointOf(world: World, city: City): Viewpoint {
   return { map: mapOf(world, city), home: city.home, city };
 }
 
-export function viewpointOn(world: World, home: number): Viewpoint {
+export function viewpointOn(world: World, home: number, city: City | null = null): Viewpoint {
+  if (city && city.home === home) return viewpointOf(world, city);
   return { map: islandFor(world.seed, home), home, city: null };
+}
+
+export function viewpointAt(world: World, city: City | null, x: number, z: number): Viewpoint | null {
+  const map = islandFor(world.seed);
+  const island = islandAt(map, x, z);
+  if (!island) return null;
+  return viewpointOn(world, map.islands.indexOf(island), city);
 }
 
 export function islandBounds(view: Viewpoint): MapWindow {
@@ -222,21 +230,29 @@ export function cityReport(world: World, city: City): string {
   return lines.join('\n');
 }
 
-export function inspectTile(world: World, city: City, x: number, z: number): string {
-  const map = mapOf(world, city);
+function whereabouts(map: IslandMap, city: City | null, island: IslandPlacement | null): string {
+  if (!island) return 'Open sea.';
+  const home = map.islands.indexOf(island);
+  if (city && island === map.islands[city.home]) return 'On your island.';
+  if (city) return `On island ${home}; you cannot build there.`;
+  return `On island ${home}, where found_city could claim a shore.`;
+}
+
+export function inspectTile(world: World, city: City | null, x: number, z: number): string {
+  const map = city ? mapOf(world, city) : islandFor(world.seed);
   if (x < 0 || z < 0 || x >= map.width || z >= map.depth) return `(${x},${z}) is outside the archipelago.`;
   const tile = tileIndexOn(map, x, z);
   const terrain = terrainOn(map, x, z);
-  const island = islandAt(map, x, z);
-  const home = island === map.islands[city.home];
   const lines = [
     `(${x},${z}): ${terrain}, level ${levelOn(map, x, z)}, ${buildable(terrain) ? 'buildable ground' : 'not buildable'}${terrain === 'fertile' ? ', takes a wheat farm' : ''}.`,
-    home ? 'On your island.' : island ? 'On another island; you cannot build there.' : 'Open sea.',
+    whereabouts(map, city, islandAt(map, x, z)),
   ];
-  if (city.roads.includes(tile)) lines.push('Your road runs here.');
-  const occupant = [...city.buildings, city.harbour].find((building) => footprintTiles(map, building).includes(tile));
-  if (occupant) lines.push(describeBuilding(world, city, occupant).trimStart());
-  const foreign = foreignOccupancy(world, city);
+  if (city?.roads.includes(tile)) lines.push('Your road runs here.');
+  if (city) {
+    const occupant = [...city.buildings, city.harbour].find((building) => footprintTiles(map, building).includes(tile));
+    if (occupant) lines.push(describeBuilding(world, city, occupant).trimStart());
+  }
+  const foreign = foreignOccupancy(world, city?.id ?? null);
   if (foreign.roads.has(tile)) lines.push("Another city's road holds this tile.");
   if (foreign.buildings.has(tile)) lines.push("Another city's building holds this tile.");
   return lines.join('\n');
@@ -271,24 +287,39 @@ function afford(city: City, cost: number): string {
   return `costs ${cost} dr, leaving ${Math.round(city.money) - cost} dr`;
 }
 
+function blockedTiles(map: IslandMap, blocked: number[] | undefined): string {
+  if (!blocked?.length) return '';
+  const named = blocked.map((tile) => {
+    const { x, z } = tileAtOn(map, tile);
+    return `(${x},${z}) ${terrainOn(map, x, z)}`;
+  });
+  return ` Blocked at ${named.join(', ')}.`;
+}
+
 export function describePlacement(world: World, city: City, tool: BuildTool, x: number, z: number, rotation: Rotation): string {
   const result = placement(world, city, tool, x, z, rotation);
   const { width, depth } = tool === 'road' ? { width: 1, depth: 1 } : footprint(tool, rotation);
-  const head = `${tool} at (${x},${z}) rotation ${rotation}, ${width}x${depth}`;
-  if (!result.ok) return `${head}: refused. ${result.reason}`;
+  const head = `${tool} at (${x},${z}) rotation ${rotation}, ${width}x${depth} covering (${x},${z})-(${x + width - 1},${z + depth - 1})`;
+  if (!result.ok) return `${head}: refused. ${result.reason}${blockedTiles(mapOf(world, city), result.blocked)}`;
   return `${head}: allowed, ${afford(city, result.cost)}.`;
 }
 
 export function describeRoadPath(world: World, city: City, tiles: Tile[]): string {
   const result = roadPathPlacement(world, city, tiles);
   const head = `Road from (${tiles[0].x},${tiles[0].z}) to (${tiles[tiles.length - 1].x},${tiles[tiles.length - 1].z})`;
-  if (!result.ok) return `${head}: refused. ${result.reason}`;
+  if (!result.ok) return `${head}: refused. ${result.reason}${blockedTiles(mapOf(world, city), result.blocked)}`;
   return `${head}: allowed, ${result.tiles.length} tiles of which ${result.cost / ROAD_COST} are new, ${afford(city, result.cost)}.`;
+}
+
+function rowsOf(tiles: Tile[]): string {
+  return tiles.map((tile) => `(${tile.x},${tile.z})`).join(' ');
 }
 
 export function describeHarbourSite(world: World, x: number, z: number, rotation: Rotation): string {
   const result = harbourPlacement(world, x, z, rotation);
+  const site = harbourSite(x, z, rotation);
   const head = `Harbour at (${x},${z}) facing ${rotation}`;
-  if (!result.ok) return `${head}: refused. ${result.reason}`;
-  return `${head}: allowed, free, and fixed once placed.`;
+  const tested = `Quay on ${rowsOf(site.land)}; pier over ${rowsOf(site.water)}.`;
+  if (!result.ok) return `${head}: refused. ${result.reason} ${tested}${blockedTiles(islandFor(world.seed), result.blocked)}`;
+  return `${head}: allowed, free, and fixed once placed. ${tested}`;
 }

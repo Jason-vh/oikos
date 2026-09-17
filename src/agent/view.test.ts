@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'bun:test';
-import { cityReport, cityWindow, describeHarbourSite, describePlacement, describeRoadPath, inspectBuilding, inspectTile, islandBounds, MAX_WINDOW_DEPTH, MAX_WINDOW_WIDTH, renderMap, surveyIsland, viewpointOf } from './view';
+import { cityReport, cityWindow, describeHarbourSite, describePlacement, describeRoadPath, inspectBuilding, inspectTile, islandBounds, MAX_WINDOW_DEPTH, MAX_WINDOW_WIDTH, renderMap, surveyIsland, viewpointAt, viewpointOf } from './view';
 import { primaryCity } from '../sim/city';
+import { harbourSite } from '../sim/founding';
 import { mapOf } from '../sim/grid';
-import { ISLAND_COUNT, tileIndexOn } from '../sim/island';
+import { ISLAND_COUNT, terrainOn, tileIndexOn } from '../sim/island';
+import type { Terrain } from '../sim/types';
 import { buildStarterNeighbourhood } from '../sim/scenario';
 import { foundSecondCity, spotFor } from '../sim/testing';
 import { advance, build, createWorld, placeRoadPath } from '../sim/world';
@@ -125,6 +127,33 @@ describe('the city report', () => {
 
 });
 
+describe('looking before founding', () => {
+  test('reads a window by coordinates alone, on any island', () => {
+    const world = createWorld();
+    const grid = mapOf(world, primaryCity(world));
+    const elsewhere = grid.islands[(grid.home + 1) % ISLAND_COUNT];
+    const view = viewpointAt(world, null, elsewhere.entry.x, elsewhere.entry.z)!;
+
+    expect(view.home).toBe(grid.islands.indexOf(elsewhere));
+    expect(view.city).toBeNull();
+    expect(viewpointAt(world, null, 0, 0)).toBeNull();
+    expect(surveyIsland(world, view, { x: elsewhere.entry.x, z: elsewhere.entry.z, width: 20, depth: 10 }))
+      .toContain(`Island ${grid.islands.indexOf(elsewhere)} of the archipelago`);
+  });
+
+  test('reads a tile with no city to read it from', () => {
+    const world = createWorld();
+    const grid = mapOf(world, primaryCity(world));
+    const shore = grid.islands[(grid.home + 1) % ISLAND_COUNT].entry;
+
+    const answer = inspectTile(world, null, shore.x, shore.z);
+
+    expect(answer).toContain(`(${shore.x},${shore.z})`);
+    expect(answer).toContain('found_city could claim a shore');
+    expect(inspectTile(world, null, 0, 0)).toContain('Open sea.');
+  });
+});
+
 describe('inspection', () => {
   test('reads terrain, level and ownership of a tile', () => {
     const { world, city } = starterCity();
@@ -177,11 +206,32 @@ describe('dry runs', () => {
     expect(city.money).toBe(before);
   });
 
-  test('pass on the refusal a player would be shown', () => {
+  test('pass on the refusal a player would be shown, and name the ground that refused it', () => {
     const world = createWorld();
     const city = primaryCity(world);
+    const grid = mapOf(world, city);
+    const dry = spotFor(world, 'granary')!;
 
     expect(describePlacement(world, city, 'farm', 0, 0, 0)).toContain('refused.');
+
+    const answer = describePlacement(world, city, 'farm', dry.x, dry.z, 0);
+    const named = [...answer.matchAll(/\((\d+),(\d+)\) (\w+)/g)].slice(1);
+
+    expect(answer).toContain('Farms need fertile ground.');
+    expect(answer).toContain('Blocked at');
+    expect(named.length).toBeGreaterThan(0);
+    for (const [, x, z, terrain] of named) {
+      expect(terrainOn(grid, Number(x), Number(z))).toBe(terrain as Terrain);
+    }
+  });
+
+  test('state the footprint a placement would cover', () => {
+    const world = createWorld();
+    const city = primaryCity(world);
+    const spot = spotFor(world, 'granary')!;
+
+    expect(describePlacement(world, city, 'granary', spot.x, spot.z, 0))
+      .toContain(`covering (${spot.x},${spot.z})-(${spot.x + 2},${spot.z + 2})`);
   });
 
   test('price a road path and the founding dockyard', () => {
@@ -194,6 +244,19 @@ describe('dry runs', () => {
     expect(describeRoadPath(world, city, path)).toContain('Road from');
 
     expect(describeHarbourSite(world, 0, 0, 0)).toContain('refused.');
+  });
+
+  test('show which rows a harbour would take and which of them refused it', () => {
+    const world = createWorld();
+    const grid = mapOf(world, primaryCity(world));
+    const inland = { x: grid.entry.x, z: grid.entry.z - 12 };
+
+    const answer = describeHarbourSite(world, inland.x, inland.z, 0);
+    const site = harbourSite(inland.x, inland.z, 0);
+
+    expect(answer).toContain('refused.');
+    for (const tile of [...site.land, ...site.water]) expect(answer).toContain(`(${tile.x},${tile.z})`);
+    expect(answer).toContain('Blocked at');
   });
 
   test('agree with the command that follows them', () => {

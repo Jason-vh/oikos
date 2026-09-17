@@ -19,7 +19,7 @@ import {
   neighbours,
 } from './grid';
 import { mixedEdgeAllowed, stairLayout, stairPlacementConflict, type Stair, type StairIssue } from './stairs';
-import { foreignOccupancy } from './occupancy';
+import { foreignOccupancy, type ForeignOccupancy } from './occupancy';
 import {
   AGORA_CAP,
   ARRIVAL_INTERVAL,
@@ -188,6 +188,17 @@ function stairPlacementIssue(map: IslandMap, roads: ReadonlySet<number>, newTile
   return null;
 }
 
+function footprintRefusal(world: World, city: City, foreign: ForeignOccupancy, tool: BuildTool, baseLevel: number, tile: number): string {
+  const map = mapOf(world, city);
+  const { x, z } = tileAtOn(map, tile);
+  if (levelOn(map, x, z) !== baseLevel) return REASON.unevenGround;
+  if (!terrainAllows(map, tool, x, z)) return tool === 'farm' ? REASON.needsFertileGround : REASON.unsuitableTerrain;
+  if (!onHomeIsland(map, x, z)) return REASON.unsettledIsland;
+  if (city.roads.includes(tile) || foreign.roads.has(tile)) return REASON.tileOccupiedByRoad;
+  if (buildingAt(world, city, tile) || foreign.buildings.has(tile)) return REASON.tileOccupied;
+  return '';
+}
+
 function evaluatePlacement(world: World, city: City, tool: BuildTool, x: number, z: number, rotation: Rotation): Placement {
   const map = mapOf(world, city);
   const foreign = foreignOccupancy(world, city);
@@ -224,18 +235,9 @@ function evaluatePlacement(world: World, city: City, tool: BuildTool, x: number,
     }
   }
   const baseLevel = levelOn(map, x, z);
-  for (const tile of tiles) {
-    const { x: tx, z: tz } = tileAtOn(map, tile);
-    if (levelOn(map, tx, tz) !== baseLevel) return { ok: false, reason: REASON.unevenGround, cost: definition.cost, tiles };
-    if (!terrainAllows(map, tool, tx, tz)) {
-      const reason = tool === 'farm' ? REASON.needsFertileGround : REASON.unsuitableTerrain;
-      return { ok: false, reason, cost: definition.cost, tiles };
-    }
-    if (!onHomeIsland(map, tx, tz)) return { ok: false, reason: REASON.unsettledIsland, cost: definition.cost, tiles };
-    if (city.roads.includes(tile)) return { ok: false, reason: REASON.tileOccupiedByRoad, cost: definition.cost, tiles };
-    if (foreign.roads.has(tile)) return { ok: false, reason: REASON.tileOccupiedByRoad, cost: definition.cost, tiles };
-    if (buildingAt(world, city, tile)) return { ok: false, reason: REASON.tileOccupied, cost: definition.cost, tiles };
-    if (foreign.buildings.has(tile)) return { ok: false, reason: REASON.tileOccupied, cost: definition.cost, tiles };
+  const refusals = tiles.map((tile) => ({ tile, reason: footprintRefusal(world, city, foreign, tool, baseLevel, tile) })).filter((entry) => entry.reason !== '');
+  if (refusals.length) {
+    return { ok: false, reason: refusals[0].reason, cost: definition.cost, tiles, blocked: refusals.map((entry) => entry.tile) };
   }
   if (definition.cost > city.money) return { ok: false, reason: REASON.notEnoughMoney, cost: definition.cost, tiles };
   return { ok: true, reason: '', cost: definition.cost, tiles };
@@ -296,11 +298,11 @@ function evaluateRoadPath(world: World, city: City, tiles: Tile[]): Placement {
     const tile = tileIndexOn(map, x, z);
     if (seen.has(tile)) continue;
     seen.add(tile);
-    if (!terrainAllows(map, 'road', x, z)) return { ok: false, reason: REASON.unsuitableTerrain, cost: 0, tiles: indices };
-    if (!onHomeIsland(map, x, z)) return { ok: false, reason: REASON.unsettledIsland, cost: 0, tiles: [...indices, tile] };
-    if (buildingAt(world, city, tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: indices };
-    if (foreign.buildings.has(tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: indices };
-    if (!existing.has(tile) && foreign.roads.has(tile)) return { ok: false, reason: REASON.tileOccupiedByRoad, cost: 0, tiles: indices };
+    if (!terrainAllows(map, 'road', x, z)) return { ok: false, reason: REASON.unsuitableTerrain, cost: 0, tiles: indices, blocked: [tile] };
+    if (!onHomeIsland(map, x, z)) return { ok: false, reason: REASON.unsettledIsland, cost: 0, tiles: [...indices, tile], blocked: [tile] };
+    if (buildingAt(world, city, tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: indices, blocked: [tile] };
+    if (foreign.buildings.has(tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: indices, blocked: [tile] };
+    if (!existing.has(tile) && foreign.roads.has(tile)) return { ok: false, reason: REASON.tileOccupiedByRoad, cost: 0, tiles: indices, blocked: [tile] };
     indices.push(tile);
   }
 
@@ -941,12 +943,13 @@ function houseStatus(city: City, building: Building): string[] {
   if (building.residents === 0) {
     lines.push('Waiting for settlers from the harbour.');
   } else if (!satisfiedNow) {
-    lines.push(needsWaterNow && building.water <= 0 ? 'Out of water; a fountain visit is needed.' : 'Out of food; a vendor visit is needed.');
+    if (needsWaterNow && building.water <= 0) lines.push('Out of water; a fountain visit is needed.');
+    else lines.push(vendorServing(city) ? 'Out of food; a vendor visit is needed.' : 'Out of food; no agora vendor is serving the streets.');
   } else if (building.residents < capacity) {
     lines.push('Waiting for settlers from the harbour.');
   } else if (building.tier < 3) {
     const nextTier = building.tier + 1;
-    if (nextTier >= 2 && building.food <= 0) lines.push('Needs food to grow: add an agora vendor nearby.');
+    if (nextTier >= 2 && building.food <= 0) lines.push(foodAdvice(city));
     else if (nextTier >= 3 && building.water <= 0) lines.push('Needs water to become a courtyard house.');
     else lines.push('Ready to grow.');
   } else {
@@ -955,6 +958,15 @@ function houseStatus(city: City, building: Building): string[] {
 
   if (building.condition < 50) lines.push(neglectAdvice(city));
   return lines;
+}
+
+function vendorServing(city: City): boolean {
+  return city.buildings.some((candidate) => candidate.kind === 'agora' && candidate.vendorEnabled && candidate.connected);
+}
+
+function foodAdvice(city: City): string {
+  if (vendorServing(city)) return 'Needs food to grow; the vendor has yet to call.';
+  return 'Needs food to grow: add an agora vendor nearby.';
 }
 
 function neglectAdvice(city: City): string {

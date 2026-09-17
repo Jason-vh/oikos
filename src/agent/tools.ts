@@ -2,9 +2,9 @@ import { z } from 'zod';
 import { BUILDINGS, ROAD_COST, VENDOR_COST } from '../sim/catalog';
 import { BUILD_TOOLS } from '../sim/commands';
 import { ISLAND_COUNT } from '../sim/island';
-import type { ActionResult, City, Rotation, Tile } from '../sim/types';
+import type { ActionResult, City, Rotation, Tile, World } from '../sim/types';
 import type { AgentGame } from './game';
-import { atlas, cityReport, cityWindow, describeHarbourSite, describePlacement, describeRoadPath, inspectBuilding, inspectTile, islandBounds, surveyIsland, viewpointOf, viewpointOn } from './view';
+import { atlas, cityReport, cityWindow, describeHarbourSite, describePlacement, describeRoadPath, inspectBuilding, inspectTile, islandBounds, surveyIsland, viewpointAt, viewpointOf, viewpointOn, type Viewpoint } from './view';
 
 export interface AgentTool<Shape extends z.ZodRawShape = z.ZodRawShape> {
   name: string;
@@ -18,7 +18,8 @@ const coordinates = { x: tile.describe('Tile column'), z: tile.describe('Tile ro
 const tileObject = z.object(coordinates);
 const harbourSite = { ...coordinates, rotation: z.int().min(0).max(3).describe('Which way the pier points: 0 south, 1 west, 2 north, 3 east') };
 const buildTool = z.enum([...BUILD_TOOLS].sort() as [string, ...string[]]);
-const rotation = z.int().min(0).max(3).default(0).describe('Quarter turns clockwise');
+const rotation = z.int().min(0).max(3).default(0).describe('Quarter turns clockwise, which swaps width and depth on a quarter and three-quarter turn');
+const ANCHOR = '(x,z) is the north-west corner of the footprint, which then runs east and south.';
 const bend = z.enum(['x-first', 'z-first']).default('x-first');
 const DEFAULT_WINDOW = { width: 40, depth: 28 };
 
@@ -39,6 +40,15 @@ function elbowPath(from: Tile, to: Tile, corner: 'x-first' | 'z-first'): Tile[] 
 
 const UNCLAIMED = 'You hold no city yet. survey shows the archipelago, and found_city places your harbour on a shore.';
 
+interface SurveyRequest { island?: number; x?: number; z?: number }
+
+function surveyViewpoint(world: World, city: City | null, args: SurveyRequest): Viewpoint | null {
+  if (args.island !== undefined) return viewpointOn(world, args.island, city);
+  if (args.x !== undefined && args.z !== undefined) return viewpointAt(world, city, args.x, args.z);
+  if (city) return viewpointOf(world, city);
+  return null;
+}
+
 function outcome(result: ActionResult, city: City | null): string {
   const treasury = city ? ` Treasury ${Math.round(city.money)} dr.` : '';
   return `${result.ok ? 'Done.' : 'Refused.'} ${result.reason}${treasury}`;
@@ -46,7 +56,7 @@ function outcome(result: ActionResult, city: City | null): string {
 
 const buildingCosts = Object.entries(BUILDINGS)
   .filter(([kind]) => kind !== 'harbour')
-  .map(([kind, definition]) => `${kind} ${definition.cost} dr`)
+  .map(([kind, definition]) => `${kind} ${definition.width}x${definition.depth} ${definition.cost} dr`)
   .join(', ');
 
 function tool<Shape extends z.ZodRawShape>(definition: AgentTool<Shape>): AgentTool {
@@ -56,7 +66,7 @@ function tool<Shape extends z.ZodRawShape>(definition: AgentTool<Shape>): AgentT
 export const TOOLS: AgentTool[] = [
   tool({
     name: 'survey',
-    description: 'Read the ground as a character map with tile coordinates. Without arguments it shows your city, or the archipelago if you have none; pass island to read a shore you might settle, full for a whole island, or x and z for a window elsewhere. Start here.',
+    description: 'Read the ground as a character map with tile coordinates. Without arguments it shows your city, or the archipelago if you have none; pass island to read a shore you might settle, full for a whole island, or x and z for a window anywhere, founded or not. Start here.',
     schema: {
       island: z.int().min(0).max(ISLAND_COUNT - 1).optional().describe('Island number, 0 to 7'),
       x: tile.optional(),
@@ -67,8 +77,9 @@ export const TOOLS: AgentTool[] = [
     },
     async run(game, args) {
       const { world, city } = game.view();
-      if (args.island === undefined && !city) return atlas(world);
-      const view = args.island === undefined ? viewpointOf(world, city!) : viewpointOn(world, args.island);
+      if (args.island === undefined && args.x === undefined && !city) return atlas(world);
+      const view = surveyViewpoint(world, city, args);
+      if (!view) return `Open sea: no island holds (${args.x},${args.z}).\n${atlas(world)}`;
       if (args.full) return surveyIsland(world, view, islandBounds(view));
       if (args.x === undefined || args.z === undefined) {
         return surveyIsland(world, view, view.city ? cityWindow(world, view.city) : islandBounds(view));
@@ -88,11 +99,10 @@ export const TOOLS: AgentTool[] = [
   }),
   tool({
     name: 'inspect_tile',
-    description: 'Terrain, height, ownership and occupant of one tile.',
+    description: 'Terrain, height, ownership and occupant of one tile, anywhere in the archipelago.',
     schema: coordinates,
     async run(game, args) {
       const { world, city } = game.view();
-      if (!city) return UNCLAIMED;
       return inspectTile(world, city, args.x, args.z);
     },
   }),
@@ -108,12 +118,14 @@ export const TOOLS: AgentTool[] = [
   }),
   tool({
     name: 'check_build',
-    description: `Ask whether a building may go up at a tile, and what it would cost, without spending. Costs: ${buildingCosts}, road ${ROAD_COST} dr a tile.`,
-    schema: { tool: buildTool, ...coordinates, rotation },
+    description: `Ask whether buildings may go up, and what they would cost, without spending. Answers one line a site, so plan a whole quarter in one call. ${ANCHOR} Sizes and costs: ${buildingCosts}, road ${ROAD_COST} dr a tile.`,
+    schema: { sites: z.array(z.object({ tool: buildTool, ...coordinates, rotation })).min(1).max(24).describe('The placements to try, each a tool and a tile') },
     async run(game, args) {
       const { world, city } = game.view();
       if (!city) return UNCLAIMED;
-      return describePlacement(world, city, args.tool as never, args.x, args.z, args.rotation as Rotation);
+      return args.sites
+        .map((site) => describePlacement(world, city, site.tool as never, site.x, site.z, site.rotation as Rotation))
+        .join('\n');
     },
   }),
   tool({
@@ -128,7 +140,7 @@ export const TOOLS: AgentTool[] = [
   }),
   tool({
     name: 'build',
-    description: 'Put up a building. It needs level, clear ground and a door onto a road that reaches the harbour; farms need fertile soil.',
+    description: `Put up a building. It needs level, clear ground and a door onto a road that reaches the harbour; farms need fertile soil. ${ANCHOR}`,
     schema: { tool: buildTool, ...coordinates, rotation },
     async run(game, args) {
       const result = await game.submit({ type: 'build', tool: args.tool as never, x: args.x, z: args.z, rotation: args.rotation as Rotation });

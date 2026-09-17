@@ -54,13 +54,30 @@ describe('the MCP server', () => {
     const spot = spotFor(game.view().world, 'granary')!;
     const before = game.view().city!.money;
 
-    const checked = textOf(await client.callTool({ name: 'check_build', arguments: { tool: 'granary', x: spot.x, z: spot.z } }));
+    const checked = textOf(await client.callTool({ name: 'check_build', arguments: { sites: [{ tool: 'granary', x: spot.x, z: spot.z }] } }));
     const built = textOf(await client.callTool({ name: 'build', arguments: { tool: 'granary', x: spot.x, z: spot.z } }));
 
     expect(checked).toContain('allowed, costs 120 dr');
     expect(built).toStartWith('Done.');
     expect(game.view().city!.money).toBe(before - 120);
     expect(game.view().city!.buildings).toHaveLength(1);
+  });
+
+  test('checks a whole quarter of sites in one call', async () => {
+    const { client, game } = await connected();
+    const spot = spotFor(game.view().world, 'granary')!;
+    const sites = [
+      { tool: 'granary', x: spot.x, z: spot.z },
+      { tool: 'farm', x: 0, z: 0 },
+      { tool: 'house', x: spot.x, z: spot.z },
+    ];
+
+    const lines = textOf(await client.callTool({ name: 'check_build', arguments: { sites } })).split('\n');
+
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toContain('allowed');
+    expect(lines[1]).toContain('refused.');
+    expect(game.view().city!.buildings).toHaveLength(0);
   });
 
   test('reports a refused command as an answer, not a failure', async () => {

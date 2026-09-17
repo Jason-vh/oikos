@@ -90,15 +90,24 @@ Looking costs nothing and changes nothing:
 
 - `survey` — the ground as one character a tile, with coordinate rulers. Around
   the city by default, `island` for a shore you do not own yet, `full` for a whole
-  island, `x`/`z` for anywhere else. With no city and no island, it answers with
-  the atlas of all eight. No window is ever wider than 128 tiles or deeper than 96,
-  whatever is asked for; islands outgrow that, so `full` on a large one answers
-  with a corner and says which one.
+  island, `x`/`z` for a window anywhere: the island holding those coordinates
+  answers, whether or not you have founded. With no city and no coordinates, it
+  answers with the atlas of all eight. No window is ever wider than 128 tiles or
+  deeper than 96, whatever is asked for; islands outgrow that, so `full` on a large
+  one answers with a corner and says which one.
 - `report` — treasury, population, employment, the goal, every building with the
   diagnosis its inspector panel would show, and the walkers on the roads.
-- `inspect_tile`, `inspect_building` — one tile or one building.
-- `check_build`, `check_road`, `check_found_city` — dry runs. They answer with the
+- `inspect_tile`, `inspect_building` — one tile anywhere in the archipelago, or one
+  building of your own.
+- `check_build`, `check_road`, `check_harbour_site` — dry runs. They answer with the
   cost and the treasury it would leave, or the refusal a player would be shown.
+  `check_build` takes a list of sites, so a whole quarter is priced in one call.
+
+A refusal says where as well as why: a placement names the tiles that blocked it
+and what they are made of, and a harbour site lists the quay and pier rows it
+tested. A building's `x`/`z` is the north-west corner of its footprint, which runs
+east and south from there; `rotation` turns it clockwise and swaps width and depth
+on the quarter turns.
 
 Acting goes through the same validated `CityCommand` boundary as the game and the
 private authority:

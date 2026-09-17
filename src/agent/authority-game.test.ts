@@ -99,7 +99,19 @@ describe('an agent on the shared archipelago', () => {
     const { call } = await agent(admit('Thales'));
 
     expect(await call('build', { tool: 'house', x: 10, z: 10 })).toContain('found_city');
-    expect(await call('inspect_tile', { x: 10, z: 10 })).toContain('no city yet');
+    expect(await call('check_build', { sites: [{ tool: 'house', x: 10, z: 10 }] })).toContain('no city yet');
+  });
+
+  test('reads tiles and windows of an island it has not claimed', async () => {
+    const { call } = await agent(admit('Thales'));
+    const site = siteOn(5);
+
+    const window = await call('survey', { x: site.x, z: site.z, width: 20, depth: 10 });
+    const tile = await call('inspect_tile', { x: site.x, z: site.z });
+
+    expect(window).toContain('Island 5 of the archipelago');
+    expect(tile).toContain('On island 5');
+    expect(authority.snapshot().cities).toHaveLength(0);
   });
 
   test('founds a city on a shore and then sees it', async () => {
