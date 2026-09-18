@@ -43,7 +43,7 @@ import {
   UPGRADE_GRACE,
   VENDOR_DROP_AMOUNT,
   VENDOR_TRIP_CAPACITY,
-  WALKER_SPEED,
+  walkerSpeed,
   WATER_DECAY_PER_SECOND,
 } from './balance';
 
@@ -528,7 +528,7 @@ export function setTask(world: World, walker: Walker, kind: TaskKind, seconds: n
 }
 
 export function tilesTravelled(world: World, walker: Walker): number {
-  return Math.min(WALKER_SPEED * (world.time - walker.departedAt), walker.path.length - 1);
+  return Math.min(walkerSpeed(walker.kind) * (world.time - walker.departedAt), walker.path.length - 1);
 }
 
 function updateStaffing(city: City): void {

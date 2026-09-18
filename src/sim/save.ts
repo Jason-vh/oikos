@@ -2,7 +2,7 @@ import { CURRENT_VERSION, WORLD_LABEL, type Animal, type Building, type Building
 
 
 import { BUILDINGS, HOUSE_CAPACITY, RESOURCES } from './catalog';
-import { WALKER_SPEED } from './balance';
+import { walkerSpeed } from './balance';
 import { wildlifeRoster } from './wildlife';
 import { islandFor, insideMapOn, ISLAND_COUNT, type IslandMap } from './island';
 import { harbourIslandAt } from './founding';
@@ -269,7 +269,7 @@ function validateWalker(map: IslandMap, time: number, raw: unknown, roads: Set<n
     homeId: homeId as number,
     targetId: targetId as number | null,
     path: path as number[],
-    departedAt: isFiniteNumber(departedAt) ? departedAt : time - ((step as number) + (progress as number)) / WALKER_SPEED,
+    departedAt: isFiniteNumber(departedAt) ? departedAt : time - ((step as number) + (progress as number)) / walkerSpeed(kind as WalkerKind),
     step: step as number,
     progress: progress as number,
     food: food as Resource | null,

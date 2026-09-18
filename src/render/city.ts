@@ -1,7 +1,7 @@
 import * as T from 'three';
 import { animateFigure, animateIdle, animateWork, axe, bake, box, bundle, bundleKey, chopStrikes, CHOP_SET, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, post, spear, workPeriod, type Idle, type ModelStage } from '../art';
 import { footprint } from '../sim/catalog';
-import { AGORA_SLOTS, GRANARY_SLOTS, WALKER_SPEED } from '../sim/balance';
+import { AGORA_SLOTS, GRANARY_SLOTS, walkerSpeed } from '../sim/balance';
 import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, groundHeight, insideMapOn, tileAtOn, tileIndexOn, worldPositionOn, type IslandMap } from '../sim/island';
 import { buildRoads } from '../art/roads';
 import { alive, animalAt, animalStride, SPECIES, wildlifeObstacles } from '../sim/wildlife';
@@ -36,7 +36,7 @@ function selectionTarget(building: Building | null, walkerId: number | null): Ho
 interface BuildingEntry { key: string; tier: number; model: T.Group; intro: number; from: number; construction: BuildingConstruction | null; }
 interface Departure { model: T.Group; elapsed: number; }
 interface WalkerExit { model: T.Group; elapsed: number; scale: number; }
-interface WalkerEntry { id: number; intro: number; key: string; kind: WalkerKind; model: T.Group; cart: T.Object3D | null; cartBed: T.Object3D | null; path: number[]; departedAt: number; quarry: number | null; task: WalkerTask | null; strikes: number; moving: boolean; working: boolean; waitingSince: number; spell: number; mood: Idle; aim: number; heading: number; turn: number; pace: number; cadence: number; bounce: number; stepped: boolean; stairs: ReadonlyMap<number, Stair>; }
+interface WalkerEntry { id: number; intro: number; key: string; kind: WalkerKind; model: T.Group; cart: T.Object3D | null; cartBed: T.Object3D | null; path: number[]; departedAt: number; quarry: number | null; task: WalkerTask | null; strikes: number; moving: boolean; working: boolean; waitingSince: number; spell: number; mood: Idle; aim: number; heading: number; turn: number; pace: number; travelled: number; cadence: number; bounce: number; side: number; stepped: boolean; stairs: ReadonlyMap<number, Stair>; }
 interface AnimalEntry { animal: Animal; home: T.Vector3; roam: number; position: T.Vector3; facing: number; roll: number; phase: number; moving: boolean; stride: number; dying: number; visible: boolean; drawn: boolean; }
 
 const SIGHT_MARGIN = 1.3;
@@ -78,6 +78,16 @@ const AXLE = { y: .24, z: -.62 };
 const CADENCE_SPREAD = .24;
 const BOUNCE_SPREAD = .45;
 const CADENCE_SEED = 3.1;
+const LANE_SEED = 5.3;
+const LANE_WIDTH = .2;
+const LANE_RAMP = .8;
+const PASSING_REACH = 1.1;
+const PASSING_ROOM = .34;
+const PASSING_LIMIT = .42;
+const SETTLE_RAMP = .7;
+const SETTLE_EASE = .55;
+const CORNER_SLOW = .5;
+const STEPS_PER_TILE = 3;
 const BOUNCE_SEED = 7.7;
 const INTRO_SECONDS = .45;
 const EXIT_SECONDS = .3;
@@ -150,6 +160,7 @@ export class CityScene {
   private readonly cornerAhead = new T.Vector3();
   private readonly sampleStep = new T.Vector3();
   private readonly curveTangent = new T.Vector3();
+  private readonly lane = new T.Vector3();
   private readonly edgeIn = new T.Vector3();
   private readonly edgeOut = new T.Vector3();
   private curveTurn = 0;
@@ -529,7 +540,7 @@ export class CityScene {
       const model = this.walkerModel(walker.kind, load);
       model.userData.walkerId = walker.id;
       this.stage.scene.add(model);
-      entry = { id: walker.id, intro: this.motion && settled ? 0 : WALKER_INTRO, key, kind: walker.kind, model, cart: model.getObjectByName('cart') ?? null, cartBed: model.getObjectByName('bed') ?? null, path: walker.path, departedAt: walker.departedAt, quarry: walker.quarry, task: walker.task, strikes: 0, moving: false, working: false, waitingSince: walker.departedAt, spell: -1, mood: 'breathe', aim: 0, heading: 0, turn: 0, pace: 0, cadence: 1 + (scatterOf(walker.id, CADENCE_SEED) - .5) * CADENCE_SPREAD, bounce: 1 + (scatterOf(walker.id, BOUNCE_SEED) - .5) * BOUNCE_SPREAD, stepped: false, stairs };
+      entry = { id: walker.id, intro: this.motion && settled ? 0 : WALKER_INTRO, key, kind: walker.kind, model, cart: model.getObjectByName('cart') ?? null, cartBed: model.getObjectByName('bed') ?? null, path: walker.path, departedAt: walker.departedAt, quarry: walker.quarry, task: walker.task, strikes: 0, moving: false, working: false, waitingSince: walker.departedAt, spell: -1, mood: 'breathe', aim: 0, heading: 0, turn: 0, pace: 0, travelled: 0, side: scatterOf(walker.id, LANE_SEED) * 2 - 1, cadence: 1 + (scatterOf(walker.id, CADENCE_SEED) - .5) * CADENCE_SPREAD, bounce: 1 + (scatterOf(walker.id, BOUNCE_SEED) - .5) * BOUNCE_SPREAD, stepped: false, stairs };
       this.walkers.set(walker.id, entry);
     }
     entry.path = walker.path;
@@ -592,9 +603,32 @@ export class CityScene {
     return stepped;
   }
 
+  private turnsAt(entry: WalkerEntry, corner: number): boolean {
+    const back = tileAtOn(this.map, entry.path[corner - 1]);
+    const here = tileAtOn(this.map, entry.path[corner]);
+    const ahead = tileAtOn(this.map, entry.path[corner + 1]);
+    return here.x - back.x !== ahead.x - here.x || here.z - back.z !== ahead.z - here.z;
+  }
+
+  private easedTravel(entry: WalkerEntry, covered: number, last: number): number {
+    const fromStart = covered / SETTLE_RAMP;
+    const toEnd = (last - covered) / SETTLE_RAMP;
+    let paced = covered;
+    if (fromStart < 1) paced -= SETTLE_RAMP * SETTLE_EASE * fromStart * (1 - fromStart) * (1 - fromStart);
+    if (toEnd < 1) paced += SETTLE_RAMP * SETTLE_EASE * toEnd * (1 - toEnd) * (1 - toEnd);
+    const corner = Math.round(paced);
+    if (corner <= 0 || corner >= last) return paced;
+    const u = (paced - corner) / CORNER_REACH;
+    if (Math.abs(u) >= 1 || !this.turnsAt(entry, corner)) return paced;
+    const bump = 1 - u * u;
+    return corner + CORNER_REACH * (u - CORNER_SLOW * u * bump * bump);
+  }
+
   private placeWalker(entry: WalkerEntry): void {
     const last = entry.path.length - 1;
-    const travelled = Math.min(Math.max(WALKER_SPEED * (this.worldTime - entry.departedAt), 0), last);
+    const covered = Math.min(Math.max(walkerSpeed(entry.kind) * (this.worldTime - entry.departedAt), 0), last);
+    const travelled = this.easedTravel(entry, covered, last);
+    entry.travelled = travelled;
     entry.stepped = this.roundedPoint(entry, travelled, entry.model.position);
     entry.pace = Math.min(1, travelled / STRIDE_RAMP, (last - travelled) / STRIDE_RAMP);
     entry.working = entry.task !== null && this.worldTime >= entry.task.since && this.worldTime < entry.task.until;
@@ -612,6 +646,30 @@ export class CityScene {
     const heading = headingOf(this.curveTangent);
     if (heading !== null) entry.heading = heading;
     entry.turn = T.MathUtils.clamp(this.curveTurn * TURN_GAIN, -TURN_LIMIT, TURN_LIMIT) * entry.pace;
+    this.keepLane(entry, travelled, last);
+  }
+
+  private keepLane(entry: WalkerEntry, travelled: number, last: number): void {
+    if (entry.stepped) return;
+    const taper = Math.min(1, travelled / LANE_RAMP, (last - travelled) / LANE_RAMP);
+    if (taper <= 0) return;
+    this.lane.set(Math.cos(entry.heading), 0, -Math.sin(entry.heading));
+    const aside = entry.side * LANE_WIDTH + this.roomFor(entry);
+    entry.model.position.addScaledVector(this.lane, aside * taper);
+  }
+
+  private roomFor(entry: WalkerEntry): number {
+    let aside = 0;
+    for (const other of this.walkers.values()) {
+      if (other === entry) continue;
+      const gap = other.model.position.distanceTo(entry.model.position);
+      if (gap >= PASSING_REACH) continue;
+      const crowding = 1 - gap / PASSING_REACH;
+      const oncoming = Math.cos(other.heading - entry.heading) < 0;
+      const yields = entry.side > other.side || (entry.side === other.side && entry.id > other.id);
+      aside += (yields ? 1 : -1) * crowding * crowding * PASSING_ROOM * (oncoming ? 1 : .6);
+    }
+    return T.MathUtils.clamp(aside, -PASSING_LIMIT, PASSING_LIMIT);
   }
 
   private treeFoot(tile: number): { x: number; z: number } {
@@ -728,7 +786,7 @@ export class CityScene {
     this.stepMovers();
     for (const [id, walker] of this.walkers) {
       const stride = walker.moving ? .55 * walker.pace : 0;
-      const phase = this.worldTime * 9 * walker.cadence * Math.max(1, speed) + id;
+      const phase = walker.travelled * STEPS_PER_TILE * walker.cadence + id;
       if (walker.working && walker.task) {
         const drift = scatterOf(id, WORK_SCATTER) * workPeriod('chop');
         const spent = (this.worldTime - walker.task.since) * Math.max(1, speed) + drift;

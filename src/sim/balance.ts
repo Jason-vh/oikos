@@ -1,5 +1,12 @@
+import type { WalkerKind } from './types';
+
 export const STEP = 0.25;
 export const WALKER_SPEED = 3;
+const LADEN_PACE: Partial<Record<WalkerKind, number>> = { cart: .72, porter: .8, immigrant: .82 };
+
+export function walkerSpeed(kind: WalkerKind): number {
+  return WALKER_SPEED * (LADEN_PACE[kind] ?? 1);
+}
 export const ROAD_BUDGET = 60;
 export const EMPLOYMENT_SHARE = 0.5;
 export const INCOME_PER_RESIDENT = 3;

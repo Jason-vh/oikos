@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { advance, build, createWorld, spawnWalker, tilesTravelled } from './world';
 import { primaryCity } from './city';
-import { WALKER_SPEED, STEP } from './balance';
+import { walkerSpeed, STEP } from './balance';
 import { connect, roadSpur, spotFor } from './testing';
 import { buildStarterNeighbourhood } from './scenario';
 import { tileIndexOn } from './island';
@@ -33,7 +33,7 @@ test('a walker departs on the world clock and its position follows from it', () 
   const { world, walker } = fixture();
   expect(walker.departedAt).toBe(world.time);
   advance(world, STEP * 2);
-  expect(tilesTravelled(world, walker)).toBeCloseTo(WALKER_SPEED * STEP * 2, 10);
+  expect(tilesTravelled(world, walker)).toBeCloseTo(walkerSpeed(walker.kind) * STEP * 2, 10);
   expect(walker.step + walker.progress).toBeCloseTo(tilesTravelled(world, walker), 10);
 });
 
@@ -74,7 +74,7 @@ test('a walker that has stopped is not redrawn as one still walking', () => {
     for (let frame = 0; frame < 15; frame++) {
       const seen = world.time - .43 + frame / 60;
       for (const walker of primaryCity(world).walkers) {
-        const travelled = Math.min(Math.max(WALKER_SPEED * (seen - walker.departedAt), 0), walker.path.length - 1);
+        const travelled = Math.min(Math.max(walkerSpeed(walker.kind) * (seen - walker.departedAt), 0), walker.path.length - 1);
         const plan = walker.path.join(',');
         const was = behind.get(walker.id);
         if (was && was.plan === plan && travelled < was.travelled - 1e-9) backwards += 1;
