@@ -2,7 +2,7 @@ import * as T from 'three';
 import type { BuildingKind, Stores } from '../sim/types';
 import { bake, box, colors, post } from './primitives';
 import { assemblyPart, modelAssembly, type ModelAssembly } from './assembly';
-import { dwelling, dwellingPieces } from './houses';
+import { dwelling, dwellingPieces, DWELLING_VARIANTS } from './houses';
 import { wheatFarm, wheatFarmPieces } from './vegetation';
 import { fountain as fountainModel, fountainPieces, lodge as lodgeModel, lodgePieces, maintenance as maintenanceModel, maintenancePieces, stockpile as stockpileModel, stockpilePieces, woodcutter as woodcutterModel, woodcutterPieces } from './civic';
 import { granary, granaryPieces } from './granaries';
@@ -56,19 +56,29 @@ function agoraPieces(vendorEnabled: boolean, stores: Stores): ModelAssembly {
 
 export type ModelStage = 0 | 1 | 2 | 3;
 
-export interface ModelState { tier?: 1 | 2 | 3; vendorEnabled?: boolean; stage?: ModelStage; stores?: Stores; }
+export interface ModelState { tier?: 1 | 2 | 3; vendorEnabled?: boolean; stage?: ModelStage; stores?: Stores; variant?: number; }
+
+export function modelVariants(kind: BuildingKind, tier: 1 | 2 | 3 = 1): number {
+  if (kind === 'house') return tier === 1 ? DWELLING_VARIANTS : 1;
+  return 1;
+}
+
+export function variantFor(kind: BuildingKind, tier: 1 | 2 | 3, roll: number): number {
+  const count = modelVariants(kind, tier);
+  return Math.min(count - 1, Math.floor(roll * count));
+}
 
 export function getBuildingAssembly(kind: BuildingKind, state: ModelState = {}): ModelAssembly | null {
-  const { tier = 1, vendorEnabled = false, stage = 3, stores = {} } = state;
-  const assembly = choreography(kind, tier, vendorEnabled, stage, stores);
+  const { tier = 1, vendorEnabled = false, stage = 3, stores = {}, variant = 0 } = state;
+  const assembly = choreography(kind, tier, vendorEnabled, stage, stores, variant);
   if (!assembly) return null;
   for (const part of assembly.parts) bake(part.model);
   return assembly;
 }
 
-function choreography(kind: BuildingKind, tier: 1 | 2 | 3, vendorEnabled: boolean, stage: ModelStage, stores: Stores): ModelAssembly | null {
+function choreography(kind: BuildingKind, tier: 1 | 2 | 3, vendorEnabled: boolean, stage: ModelStage, stores: Stores, variant: number): ModelAssembly | null {
   switch (kind) {
-    case 'house': return tier === 1 ? dwellingPieces() : null;
+    case 'house': return tier === 1 ? dwellingPieces(variant) : null;
     case 'farm': return wheatFarmPieces(stage);
     case 'granary': return granaryPieces(stores);
     case 'agora': return agoraPieces(vendorEnabled, stores);
@@ -82,11 +92,11 @@ function choreography(kind: BuildingKind, tier: 1 | 2 | 3, vendorEnabled: boolea
 }
 
 export function getBuildingModel(kind: BuildingKind, state: ModelState = {}): T.Group {
-  const { tier = 1, vendorEnabled = false, stage = 3, stores = {} } = state;
+  const { tier = 1, vendorEnabled = false, stage = 3, stores = {}, variant = 0 } = state;
   const model = new T.Group();
   switch (kind) {
     case 'house':
-      model.add(dwelling(tier));
+      model.add(dwelling(tier, variant));
       break;
     case 'farm':
       model.add(wheatFarm(stage));

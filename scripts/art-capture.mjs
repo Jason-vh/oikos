@@ -32,6 +32,14 @@ try {
       }
     }
   }
+  await page.getByLabel('Model', { exact: true }).selectOption('house:1');
+  for (const variant of ['1', '2']) {
+    await page.getByLabel('Variant', { exact: true }).selectOption(variant);
+    await paint(page);
+    assert.equal(await page.locator('body').getAttribute('data-variant'), variant);
+    await page.screenshot({ path: path.join(output, `model-house-1-variant-${variant}.png`) });
+  }
+  await page.getByLabel('Model', { exact: true }).selectOption('tree:stump');
   await page.getByLabel('Wireframe', { exact: true }).check();
   await page.getByRole('button', { name: 'Turn model', exact: true }).click();
   await paint(page);

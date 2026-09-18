@@ -12,7 +12,7 @@ import {
   walkerSpeed,
 } from './balance';
 
-const TRAIT = { growth: 1, pace: 2, wear: 3, appetite: 4, thirst: 5 };
+const TRAIT = { growth: 1, pace: 2, wear: 3, appetite: 4, thirst: 5, look: 6 };
 const VARIATION_SEED = 7919;
 
 function trait(id: number, salt: number, spread: number): number {
@@ -37,4 +37,8 @@ export function appetitePerResident(house: Building): number {
 
 export function thirstPerSecond(house: Building): number {
   return WATER_DECAY_PER_SECOND * trait(house.id, TRAIT.thirst, HOUSEHOLD_SPREAD);
+}
+
+export function modelRoll(building: Building): number {
+  return hash(building.id, TRAIT.look, VARIATION_SEED);
 }

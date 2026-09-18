@@ -1,8 +1,8 @@
 import * as T from 'three';
-import { animateFigure, animateHauling, animateIdle, animateWork, axe, bake, box, bundle, bundleKey, chopStrikes, CHOP_SET, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, post, spear, workPeriod, type Idle, type ModelStage } from '../art';
+import { animateFigure, animateHauling, animateIdle, animateWork, axe, bake, box, bundle, bundleKey, chopStrikes, CHOP_SET, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, post, spear, variantFor, workPeriod, type Idle, type ModelStage } from '../art';
 import { footprint } from '../sim/catalog';
 import { AGORA_SLOTS, GRANARY_SLOTS } from '../sim/balance';
-import { walkerPace } from '../sim/variation';
+import { modelRoll, walkerPace } from '../sim/variation';
 import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, groundHeight, insideMapOn, tileAtOn, tileIndexOn, worldPositionOn, type IslandMap } from '../sim/island';
 import { buildRoads } from '../art/roads';
 import { alive, animalAt, animalStride, SPECIES, wildlifeObstacles } from '../sim/wildlife';
@@ -308,14 +308,15 @@ export class CityScene {
         for (let x = building.x; x < building.x + width; x++) occupied.add(tileIndexOn(this.map, x, z));
       }
       const stage = modelStage(building);
-      const key = `${building.kind}:${building.tier}:${building.vendorEnabled}:${stage}:${storesKey(building)}:${building.rotation}:${building.x}:${building.z}`;
+      const variant = variantFor(building.kind, building.tier, modelRoll(building));
+      const key = `${building.kind}:${building.tier}:${building.vendorEnabled}:${stage}:${storesKey(building)}:${variant}:${building.rotation}:${building.x}:${building.z}`;
       const existing = this.buildings.get(building.id);
       if (existing?.key === key) continue;
       if (existing) {
         existing.model.removeFromParent();
         disposeModel(existing.model);
       }
-      const state = { tier: building.tier, vendorEnabled: building.vendorEnabled, stage, stores: building.stores };
+      const state = { tier: building.tier, vendorEnabled: building.vendorEnabled, stage, stores: building.stores, variant };
       const finished = getBuildingModel(building.kind, state);
       const animated = this.motion && this.primed && (!existing || existing.tier !== building.tier);
       const assembling = animated || (existing?.construction && existing.tier === building.tier);

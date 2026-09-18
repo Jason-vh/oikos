@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import * as T from 'three';
-import { getBuildingAssembly, getBuildingModel } from './buildings';
+import { getBuildingAssembly, getBuildingModel, modelVariants } from './buildings';
 import { bake, box, colors, disposeModel, material } from './primitives';
 import { poseAssembly, assemblyDuration } from '../render/assembly';
 import { CELL_SIZE } from '../sim/island';
@@ -41,10 +41,27 @@ describe('every assembly finishes as the model it stands in for', () => {
   }
 });
 
+describe('every dwelling variant is raised as the dwelling it becomes', () => {
+  for (let variant = 0; variant < modelVariants('house'); variant++) {
+    test(`variant ${variant}`, () => {
+      const assembly = getBuildingAssembly('house', { variant })!;
+      const finished = getBuildingModel('house', { variant });
+      poseAssembly(assembly, assemblyDuration(assembly));
+      expect(palette(assembly.model)).toEqual(palette(finished));
+      const raised = new T.Box3().setFromObject(assembly.model);
+      const built = new T.Box3().setFromObject(finished);
+      expect(raised.min.toArray()).toEqual(built.min.toArray());
+      expect(raised.max.toArray()).toEqual(built.max.toArray());
+      disposeModel(assembly.model);
+      disposeModel(finished);
+    });
+  }
+});
+
 test('the dwelling is raised foundation first and finished last', () => {
   const assembly = getBuildingAssembly('house')!;
   expect(assembly.parts.map((part) => part.model.name)).toEqual([
-    'foundation', 'back-wall', 'left-wall', 'right-wall', 'front-wall', 'cornice', 'roof', 'door', 'shutters', 'pot',
+    'foundation', 'back-wall', 'left-wall', 'right-wall', 'front-wall', 'cornice', 'roof', 'door', 'shutters', 'yard',
   ]);
   let meshes = 0;
   assembly.model.traverse((child) => { if (child instanceof T.Mesh) meshes++; });

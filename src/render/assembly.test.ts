@@ -24,7 +24,7 @@ test('foundation confirms placement immediately; walls, roof and finishes follow
   expect(assembly.parts[1].model.position.y).toBe(0);
   construction.advance(.5);
   expect(assembly.model.getObjectByName('roof')!.visible).toBe(true);
-  expect(assembly.model.getObjectByName('pot')!.visible).toBe(false);
+  expect(assembly.model.getObjectByName('yard')!.visible).toBe(false);
   expect(construction.model.scale.toArray()).toEqual([1, 1, 1]);
   disposeModel(construction.model);
 });
