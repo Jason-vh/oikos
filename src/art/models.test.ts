@@ -12,10 +12,10 @@ import { citizen } from './people';
 import { boat } from './ships';
 import { getBuildingModel } from './buildings';
 
-const KINDS: BuildingKind[] = ['house', 'farm', 'granary', 'agora', 'fountain', 'maintenance', 'lodge', 'woodcutter', 'stockpile', 'harbour'];
+const KINDS: BuildingKind[] = ['house', 'farm', 'granary', 'agora', 'fountain', 'maintenance', 'lodge', 'woodcutter', 'stockpile', 'wharf', 'harbour'];
 const FOOTPRINT_EPSILON = 0.01;
 const GROUND_EPSILON = 0.02;
-const HARBOUR_FLOOR = WATERLINE - GROUND_Y - 0.4;
+const SEABED_FLOOR = WATERLINE - GROUND_Y - 0.4;
 const TRIANGLE_BUDGET = 12000;
 const DRAW_CALL_BUDGET = 18;
 
@@ -30,7 +30,7 @@ function instances(): { kind: BuildingKind; tier: 1 | 2 | 3; vendorEnabled: bool
   for (const kind of KINDS) {
     for (const tier of tiersFor(kind)) {
       const vendorOptions = kind === 'agora' ? [false, true] : [false];
-      const stores = kind === 'granary' ? { wheat: 300, carrots: 200, fish: 100, meat: 100, olives: 200 } : kind === 'harbour' ? { lumber: 200 } : { wheat: 100, fish: 100, meat: 100 };
+      const stores = kind === 'granary' ? { wheat: 300, carrots: 200, fish: 100, meat: 100, olives: 200 } : kind === 'harbour' ? { lumber: 200 } : kind === 'wharf' ? { fish: 200 } : { wheat: 100, fish: 100, meat: 100 };
       const stages: (0 | 1 | 2 | 3)[] = kind === 'harbour' ? [0, 1, 2, 3] : [3];
       for (const vendorEnabled of vendorOptions) {
         for (const stage of stages) {
@@ -83,7 +83,7 @@ describe('getBuildingModel ground contact', () => {
   for (const { kind, tier, vendorEnabled, model } of instances()) {
     test(`${kind} tier ${tier}${vendorEnabled ? ' (vendor)' : ''} sits on y = 0`, () => {
       const bounds = new T.Box3().setFromObject(model);
-      const floor = kind === 'harbour' ? HARBOUR_FLOOR : -GROUND_EPSILON;
+      const floor = BUILDINGS[kind].shore ? SEABED_FLOOR : -GROUND_EPSILON;
       expect(bounds.min.y).toBeGreaterThanOrEqual(floor);
       expect(bounds.min.y).toBeLessThanOrEqual(GROUND_EPSILON);
     });

@@ -90,6 +90,28 @@ export function spotFor(world: World, kind: BuildTool, near?: Tile, rotation: Ro
   return spotForInCity(world, primaryCity(world), kind, near, rotation);
 }
 
+export interface ShoreSpot { x: number; z: number; rotation: Rotation }
+
+export function shoreSpotFor(world: World, kind: BuildTool, near?: Tile): ShoreSpot | null {
+  const city = primaryCity(world);
+  const map = gridMapOf(world, city);
+  const centre = near ?? map.entry;
+  const reach = Math.max(map.width, map.depth);
+  for (let radius = 0; radius <= reach; radius++) {
+    for (let dz = -radius; dz <= radius; dz++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== radius) continue;
+        for (const rotation of [0, 1, 2, 3] as Rotation[]) {
+          const x = centre.x + dx;
+          const z = centre.z + dz;
+          if (placement(world, city, kind, x, z, rotation).ok) return { x, z, rotation };
+        }
+      }
+    }
+  }
+  return null;
+}
+
 export function freshRoadSpot(world: World, near?: Tile): Tile | null {
   const city = primaryCity(world);
   const map = mapOf(world);

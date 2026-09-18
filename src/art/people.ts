@@ -103,6 +103,19 @@ export function spear(): T.Group {
   return tool;
 }
 
+export function net(): T.Group {
+  const tool = toolAt();
+  post(tool, colors.wood, 0, .2, 0, .025, .76);
+  const hoop = post(tool, colors.wood, 0, .62, 0, .28, .04);
+  hoop.rotation.x = Math.PI / 2;
+  for (let fold = 0; fold < 3; fold++) {
+    const mesh = box(tool, colors.linen, -.16 + fold * .16, .74, 0, .14, .26, .04, .02);
+    mesh.rotation.z = .2 - fold * .2;
+  }
+  bake(tool);
+  return tool;
+}
+
 export function animateFigure(model: T.Object3D, phase: number, stride: number): void {
   const [body, leftLeg, leftArm, rightLeg, rightArm] = model.children;
   const swing = Math.sin(phase) * stride;
@@ -117,20 +130,27 @@ export function animateFigure(model: T.Object3D, phase: number, stride: number):
   holdTool(model, .16 - swing * .22);
 }
 
-interface WorkPose { arms: number; blade: number; swing: number; pitch: number; lean: number; lift: number; brace: number; }
+interface WorkPose { arms: number; off: number; blade: number; swing: number; pitch: number; lean: number; lift: number; brace: number; }
+
+export type WorkKind = 'chop' | 'thrust' | 'cast';
 
 export const CHOP_SET = .94;
 export const CHOP_HEAD = new T.Vector3(.145, .79, 0);
 
-const READY: WorkPose = { arms: -1.18, blade: 1.78, swing: .68, pitch: .12, lean: .05, lift: 0, brace: 0 };
-const RAISED: WorkPose = { arms: -1.24, blade: .88, swing: -1.95, pitch: -.12, lean: -.16, lift: .05, brace: -.07 };
-const STRUCK: WorkPose = { arms: -1.16, blade: 1.9, swing: .75, pitch: .2, lean: .12, lift: -.03, brace: .13 };
-const RECOIL: WorkPose = { arms: -1.22, blade: 1.72, swing: .56, pitch: .16, lean: .07, lift: -.01, brace: .05 };
+const READY: WorkPose = { arms: -1.18, off: -1.1, blade: 1.78, swing: .68, pitch: .12, lean: .05, lift: 0, brace: 0 };
+const RAISED: WorkPose = { arms: -1.24, off: -1.1, blade: .88, swing: -1.95, pitch: -.12, lean: -.16, lift: .05, brace: -.07 };
+const STRUCK: WorkPose = { arms: -1.16, off: -1.1, blade: 1.9, swing: .75, pitch: .2, lean: .12, lift: -.03, brace: .13 };
+const RECOIL: WorkPose = { arms: -1.22, off: -1.1, blade: 1.72, swing: .56, pitch: .16, lean: .07, lift: -.01, brace: .05 };
 
-const GUARD: WorkPose = { arms: -.98, blade: 1.34, swing: -.2, pitch: .06, lean: .03, lift: 0, brace: .04 };
-const COILED: WorkPose = { arms: -.6, blade: 1.02, swing: -.64, pitch: -.13, lean: -.08, lift: .03, brace: -.08 };
-const DRIVEN: WorkPose = { arms: -1.62, blade: 1.68, swing: .04, pitch: .34, lean: .06, lift: -.05, brace: .2 };
-const HELD: WorkPose = { arms: -1.42, blade: 1.6, swing: .02, pitch: .24, lean: .05, lift: -.02, brace: .13 };
+const GUARD: WorkPose = { arms: -.98, off: -1.1, blade: 1.34, swing: -.2, pitch: .06, lean: .03, lift: 0, brace: .04 };
+const COILED: WorkPose = { arms: -.6, off: -1.1, blade: 1.02, swing: -.64, pitch: -.13, lean: -.08, lift: .03, brace: -.08 };
+const DRIVEN: WorkPose = { arms: -1.62, off: -1.1, blade: 1.68, swing: .04, pitch: .34, lean: .06, lift: -.05, brace: .2 };
+const HELD: WorkPose = { arms: -1.42, off: -1.1, blade: 1.6, swing: .02, pitch: .24, lean: .05, lift: -.02, brace: .13 };
+
+const GATHERED: WorkPose = { arms: -.72, off: -.62, blade: 1.1, swing: -.12, pitch: .1, lean: .02, lift: 0, brace: .02 };
+const WOUND: WorkPose = { arms: -.5, off: -.44, blade: .72, swing: -.86, pitch: -.1, lean: -.1, lift: .04, brace: -.06 };
+const FLUNG: WorkPose = { arms: -1.72, off: -1.5, blade: 1.94, swing: .78, pitch: .26, lean: .12, lift: -.04, brace: .16 };
+const WATCHED: WorkPose = { arms: -1.1, off: -.96, blade: 1.5, swing: .34, pitch: .2, lean: .06, lift: -.02, brace: .08 };
 
 type Ease = (t: number) => number;
 
@@ -166,6 +186,20 @@ const THRUST: Cycle = {
   ],
 };
 
+const CAST: Cycle = {
+  period: 1.6,
+  keys: [
+    { at: 0, pose: GATHERED, ease: smooth },
+    { at: .34, pose: WOUND },
+    { at: .46, pose: WOUND, ease: easeIn },
+    { at: .56, pose: FLUNG, ease: easeOut, lands: true },
+    { at: .76, pose: WATCHED, ease: smooth },
+    { at: 1, pose: GATHERED },
+  ],
+};
+
+const CYCLES: Record<WorkKind, Cycle> = { chop: CHOP, thrust: THRUST, cast: CAST };
+
 function poseAt(cycle: Cycle, elapsed: number, out: WorkPose): WorkPose {
   const spin = elapsed / cycle.period;
   const phase = spin - Math.floor(spin);
@@ -175,6 +209,7 @@ function poseAt(cycle: Cycle, elapsed: number, out: WorkPose): WorkPose {
   const to = cycle.keys[index + 1];
   const t = (from.ease ?? linear)((phase - from.at) / (to.at - from.at));
   out.arms = from.pose.arms + (to.pose.arms - from.pose.arms) * t;
+  out.off = from.pose.off + (to.pose.off - from.pose.off) * t;
   out.blade = from.pose.blade + (to.pose.blade - from.pose.blade) * t;
   out.swing = from.pose.swing + (to.pose.swing - from.pose.swing) * t;
   out.pitch = from.pose.pitch + (to.pose.pitch - from.pose.pitch) * t;
@@ -189,19 +224,19 @@ function landingsBy(cycle: Cycle, elapsed: number): number {
   return Math.max(0, Math.floor((elapsed - lands) / cycle.period) + 1);
 }
 
-export function workPeriod(kind: 'chop' | 'thrust'): number {
-  return (kind === 'chop' ? CHOP : THRUST).period;
+export function workPeriod(kind: WorkKind): number {
+  return CYCLES[kind].period;
 }
 
 export function chopStrikes(elapsed: number): number {
   return landingsBy(CHOP, elapsed);
 }
 
-const working: WorkPose = { arms: 0, blade: 0, swing: 0, pitch: 0, lean: 0, lift: 0, brace: 0 };
+const working: WorkPose = { arms: 0, off: 0, blade: 0, swing: 0, pitch: 0, lean: 0, lift: 0, brace: 0 };
 
-export function animateWork(model: T.Object3D, elapsed: number, kind: 'chop' | 'thrust'): void {
+export function animateWork(model: T.Object3D, elapsed: number, kind: WorkKind): void {
   const [body, leftLeg, leftArm, rightLeg, rightArm] = model.children;
-  const pose = poseAt(kind === 'chop' ? CHOP : THRUST, elapsed, working);
+  const pose = poseAt(CYCLES[kind], elapsed, working);
   leftLeg.rotation.set(.2 + pose.brace, pose.swing * .3, 0);
   rightLeg.rotation.set(-.17 - pose.brace * .6, pose.swing * .3, 0);
   body.rotation.set(pose.pitch, pose.swing, pose.lean);
@@ -209,6 +244,7 @@ export function animateWork(model: T.Object3D, elapsed: number, kind: 'chop' | '
   setShoulder(rightArm, 1, pose.swing);
   setShoulder(leftArm, -1, pose.swing);
   leftArm.rotation.set(pose.arms, pose.swing + TUCK, 0);
+  rightArm.rotation.set(pose.off, pose.swing - TUCK, 0);
   holdTool(model, pose.blade, pose.swing, true);
 }
 

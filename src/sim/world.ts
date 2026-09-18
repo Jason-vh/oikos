@@ -2,7 +2,7 @@ import { CURRENT_VERSION, WORLD_LABEL, type ActionResult, type Building, type Bu
 import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, SCENARIO_MONEY, VENDOR_COST, footprint, isFood } from './catalog';
 import { retireRespawned, wildlifeRoster } from './wildlife';
 import type { CityColor } from './colors';
-import { gatherArrival, gatherErrand, gatherFinished, gatherKind, GATHER_STOCK_CAP, regrowForest, updateGatherer } from './gathering';
+import { gatherArrival, gatherErrand, gatherFinished, gatherKind, GATHER_STOCK_CAP, isGatherer, regrowForest, updateGatherer, type GathererKind } from './gathering';
 import { findHarbourSite, harbourApron } from './founding';
 import { freshHarbour, HARBOUR_DOCK_CAP, harbourStatus, harbourTiles, setHarbourTrade, updateHarbour } from './harbour';
 import { buildable, insideMapOn, islandFor, levelOn, onHomeIsland, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
@@ -19,6 +19,7 @@ import {
   neighbours,
 } from './grid';
 import { mixedEdgeAllowed, stairLayout, stairPlacementConflict, type Stair, type StairIssue } from './stairs';
+import { shoreSite } from './shore';
 import { foreignOccupancy, type ForeignOccupancy } from './occupancy';
 import {
   AGORA_CAP,
@@ -117,6 +118,8 @@ const REASON = {
   stairBackland: 'A stair needs solid, dry ground to land on at the top.',
   stairSideEntry: 'Stairs can only be entered from the front or back, not the side.',
   needsFertileGround: 'Farms need fertile ground.',
+  needsOpenWater: 'The jetty needs open water behind the quay.',
+  needsShore: 'A wharf stands on flat, open shore with water behind it.',
   tileOccupied: 'That tile is occupied.',
   tileOccupiedByRoad: 'That tile is occupied by a road.',
   notEnoughMoney: 'Not enough drachmas.',
@@ -188,15 +191,36 @@ function stairPlacementIssue(map: IslandMap, roads: ReadonlySet<number>, newTile
   return null;
 }
 
+function occupancyRefusal(world: World, city: City, foreign: ForeignOccupancy, tile: number): string {
+  if (city.roads.includes(tile) || foreign.roads.has(tile)) return REASON.tileOccupiedByRoad;
+  if (buildingAt(world, city, tile) || foreign.buildings.has(tile)) return REASON.tileOccupied;
+  return '';
+}
+
 function footprintRefusal(world: World, city: City, foreign: ForeignOccupancy, tool: BuildTool, baseLevel: number, tile: number): string {
   const map = mapOf(world, city);
   const { x, z } = tileAtOn(map, tile);
   if (levelOn(map, x, z) !== baseLevel) return REASON.unevenGround;
   if (!terrainAllows(map, tool, x, z)) return tool === 'farm' ? REASON.needsFertileGround : REASON.unsuitableTerrain;
   if (!onHomeIsland(map, x, z)) return REASON.unsettledIsland;
-  if (city.roads.includes(tile) || foreign.roads.has(tile)) return REASON.tileOccupiedByRoad;
-  if (buildingAt(world, city, tile) || foreign.buildings.has(tile)) return REASON.tileOccupied;
-  return '';
+  return occupancyRefusal(world, city, foreign, tile);
+}
+
+function shoreRefusal(world: World, city: City, foreign: ForeignOccupancy, tile: number, overWater: boolean): string {
+  const map = mapOf(world, city);
+  const { x, z } = tileAtOn(map, tile);
+  if (overWater) {
+    if (terrainOn(map, x, z) !== 'water') return REASON.needsOpenWater;
+    return occupancyRefusal(world, city, foreign, tile);
+  }
+  if (!buildable(terrainOn(map, x, z)) || levelOn(map, x, z) !== 0) return REASON.needsShore;
+  if (!onHomeIsland(map, x, z)) return REASON.unsettledIsland;
+  return occupancyRefusal(world, city, foreign, tile);
+}
+
+function shoreWaterTiles(map: IslandMap, tool: BuildTool, x: number, z: number, rotation: Rotation): Set<number> | null {
+  if (tool === 'road' || !BUILDINGS[tool].shore) return null;
+  return new Set(shoreSite(tool, x, z, rotation).water.map((tile) => tileIndexOn(map, tile.x, tile.z)));
 }
 
 function evaluatePlacement(world: World, city: City, tool: BuildTool, x: number, z: number, rotation: Rotation): Placement {
@@ -235,7 +259,12 @@ function evaluatePlacement(world: World, city: City, tool: BuildTool, x: number,
     }
   }
   const baseLevel = levelOn(map, x, z);
-  const refusals = tiles.map((tile) => ({ tile, reason: footprintRefusal(world, city, foreign, tool, baseLevel, tile) })).filter((entry) => entry.reason !== '');
+  const overWater = shoreWaterTiles(map, tool, x, z, rotation);
+  const refusalOf = (tile: number): string => {
+    if (!overWater) return footprintRefusal(world, city, foreign, tool, baseLevel, tile);
+    return shoreRefusal(world, city, foreign, tile, overWater.has(tile));
+  };
+  const refusals = tiles.map((tile) => ({ tile, reason: refusalOf(tile) })).filter((entry) => entry.reason !== '');
   if (refusals.length) {
     return { ok: false, reason: refusals[0].reason, cost: definition.cost, tiles, blocked: refusals.map((entry) => entry.tile) };
   }
@@ -362,15 +391,19 @@ export function demolish(world: World, city: City, x: number, z: number): Action
   return { ok: true, reason: 'Demolished. Roads are not refunded.' };
 }
 
+function chasesQuarry(walker: Walker): boolean {
+  return walker.kind === 'hunter' || walker.kind === 'fisher';
+}
+
 function releaseRetiredQuarries(world: World, retired: Walker[]): void {
   const quarries = new Set<number>();
   for (const walker of retired) {
-    if (walker.kind === 'hunter' && walker.quarry !== null) quarries.add(walker.quarry);
+    if (chasesQuarry(walker) && walker.quarry !== null) quarries.add(walker.quarry);
   }
   if (quarries.size === 0) return;
   for (const city of world.cities) {
     for (const walker of city.walkers) {
-      if (walker.kind === 'hunter' && walker.quarry !== null && busy(world, walker) && !walker.returning) quarries.delete(walker.quarry);
+      if (chasesQuarry(walker) && walker.quarry !== null && busy(world, walker) && !walker.returning) quarries.delete(walker.quarry);
     }
   }
   for (const animal of world.wildlife) {
@@ -704,7 +737,7 @@ function serviceTileVisit(world: World, city: City, walker: Walker): void {
 }
 
 function onFinalArrival(world: World, city: City, walker: Walker): boolean {
-  if (walker.kind === 'hunter' || walker.kind === 'woodcutter') return gatherArrival(world, city, walker);
+  if (walker.kind === 'hunter' || walker.kind === 'woodcutter' || walker.kind === 'fisher') return gatherArrival(world, city, walker);
   if (walker.kind === 'immigrant') {
     const house = city.buildings.find((building) => building.id === walker.targetId);
     if (house && house.kind === 'house') house.residents = Math.min(HOUSE_CAPACITY[house.tier], house.residents + walker.cargo);
@@ -889,7 +922,7 @@ function simulationStep(world: World, dt: number): void {
     updateStaffing(city);
     for (const building of city.buildings) {
       if (building.kind === 'farm') updateFarm(world, city, building, dt);
-      else if (building.kind === 'lodge' || building.kind === 'woodcutter') updateGatherer(world, city, building);
+      else if (isGatherer(building.kind)) updateGatherer(world, city, building);
       else if (building.kind === 'agora') updateAgora(world, city, building, dt);
       else if (building.kind === 'fountain') updateCircuitDispatch(world, city, building, 'water');
       else if (building.kind === 'maintenance') updateCircuitDispatch(world, city, building, 'maintenance');
@@ -974,18 +1007,33 @@ function neglectAdvice(city: City): string {
   return caretakers ? 'Neglected; a caretaker will repair it.' : 'Neglected; build a maintenance post.';
 }
 
+const GATHERER_LINES: Record<GathererKind, { out: string; full: string; barren: string; resting: string }> = {
+  hunter: {
+    out: 'Hunter out after game.',
+    full: 'Full of meat; waiting for a cart to a granary.',
+    barren: 'No game within reach; the herds will wander back.',
+    resting: 'Hunter resting at the lodge.',
+  },
+  woodcutter: {
+    out: 'Woodcutter in the forest.',
+    full: 'Full of lumber; waiting for a cart to a stockpile.',
+    barren: 'No standing trees within reach; the forest is regrowing.',
+    resting: 'Woodcutter resting at the cabin.',
+  },
+  fisher: {
+    out: 'Boat out on the water.',
+    full: 'Full of fish; waiting for a cart to a granary.',
+    barren: 'No shoals within reach; the fish will return.',
+    resting: 'Boat tied up at the wharf.',
+  },
+};
+
 function gathererStatus(world: World, city: City, building: Building): string[] {
-  const hunting = building.kind === 'lodge';
-  if (hasActiveWalker(city, building.id, gatherKind(building))) {
-    return [hunting ? 'Hunter out after game.' : 'Woodcutter in the forest.'];
-  }
-  if (totalStock(building) >= GATHER_STOCK_CAP) {
-    return [hunting ? 'Full of meat; waiting for a cart to a granary.' : 'Full of lumber; waiting for a cart to a stockpile.'];
-  }
-  if (!gatherErrand(world, city, building)) {
-    return [hunting ? 'No game within reach; the herds will wander back.' : 'No standing trees within reach; the forest is regrowing.'];
-  }
-  return [hunting ? 'Hunter resting at the lodge.' : 'Woodcutter resting at the cabin.'];
+  const lines = GATHERER_LINES[gatherKind(building)];
+  if (hasActiveWalker(city, building.id, gatherKind(building))) return [lines.out];
+  if (totalStock(building) >= GATHER_STOCK_CAP) return [lines.full];
+  if (!gatherErrand(world, city, building)) return [lines.barren];
+  return [lines.resting];
 }
 
 export function buildingStatus(world: World, city: City, building: Building): string[] {
@@ -1013,7 +1061,7 @@ export function buildingStatus(world: World, city: City, building: Building): st
     lines.push(hasActiveWalker(city, building.id, 'water') ? 'Water carrier making the rounds.' : 'Water carrier resting at the fountain.');
   } else if (building.kind === 'maintenance') {
     lines.push(hasActiveWalker(city, building.id, 'maintenance') ? 'Caretaker doing rounds.' : 'Caretaker resting at the post.');
-  } else if (building.kind === 'woodcutter' || building.kind === 'lodge') {
+  } else if (isGatherer(building.kind)) {
     lines.push(...gathererStatus(world, city, building));
   } else if (building.kind === 'harbour') {
     lines.push(...harbourStatus(building));
@@ -1035,6 +1083,7 @@ export const WALKER_ROLES: Record<WalkerKind, string> = {
   immigrant: 'Settlers',
   hunter: 'Hunter',
   woodcutter: 'Woodcutter',
+  fisher: 'Fisher',
   porter: 'Harbour porter',
 };
 
@@ -1060,6 +1109,9 @@ export function walkerStatus(city: City, walker: Walker): string[] {
     case 'woodcutter':
       if (walker.returning) return walker.cargo > 0 ? [`Hauling ${load} back to the cabin.`] : ['Found no standing tree; heading back to the cabin.'];
       return ['Heading into the forest with an axe.'];
+    case 'fisher':
+      if (walker.returning) return walker.cargo > 0 ? [`Rowing ${load} back to the wharf.`] : ['The shoal scattered; rowing back to the wharf.'];
+      return ['Out on the water, making for a shoal.'];
     case 'buyer':
       if (walker.returning) return [`Bringing ${load} back to ${named(home)}.`];
       return [`Off to ${named(target)} to fetch food.`];

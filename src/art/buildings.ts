@@ -7,6 +7,7 @@ import { wheatFarm, wheatFarmPieces } from './vegetation';
 import { fountain as fountainModel, fountainPieces, lodge as lodgeModel, lodgePieces, maintenance as maintenanceModel, maintenancePieces, stockpile as stockpileModel, stockpilePieces, woodcutter as woodcutterModel, woodcutterPieces } from './civic';
 import { granary, granaryPieces } from './granaries';
 import { harbour as harbourModel } from './harbour';
+import { wharf as wharfModel, wharfPieces } from './wharf';
 import { stall, stallAwning, stallCounter, stallGoods, stallPosts } from './stall';
 
 const STALL_AT: [number, number, number] = [-.7, .2, .6];
@@ -77,6 +78,7 @@ function choreography(kind: BuildingKind, tier: 1 | 2 | 3, vendorEnabled: boolea
     case 'lodge': return lodgePieces();
     case 'woodcutter': return woodcutterPieces();
     case 'stockpile': return stockpilePieces(stores);
+    case 'wharf': return wharfPieces(stores);
     case 'harbour': return null;
   }
 }
@@ -111,6 +113,9 @@ export function getBuildingModel(kind: BuildingKind, state: ModelState = {}): T.
       break;
     case 'stockpile':
       model.add(stockpileModel(stores));
+      break;
+    case 'wharf':
+      model.add(wharfModel(stores));
       break;
     case 'harbour':
       model.add(harbourModel(tier === 2 ? 2 : 1, stage, stores));

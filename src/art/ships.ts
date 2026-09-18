@@ -1,6 +1,27 @@
 import * as T from 'three';
 import { bake, box, colors, mesh, post, pot } from './primitives';
 
+export function skiff(color: number): T.Group {
+  const hull = new T.Group();
+  const outline = new T.Shape();
+  outline.moveTo(0, -.95);
+  outline.lineTo(.42, -.45);
+  outline.lineTo(.46, .5);
+  outline.quadraticCurveTo(0, 1.05, -.46, .5);
+  outline.lineTo(-.42, -.45);
+  outline.closePath();
+  const shell = new T.ExtrudeGeometry(outline, { depth: .42, bevelEnabled: true, bevelSize: .08, bevelThickness: .07, bevelSegments: 1, curveSegments: 3 });
+  shell.rotateX(-Math.PI / 2);
+  mesh(hull, shell, colors.wood, 0, -.08, 0);
+  const deck = new T.ShapeGeometry(outline, 3);
+  deck.rotateX(-Math.PI / 2);
+  mesh(hull, deck, colors.cream, 0, .2, 0);
+  for (const side of [-1, 1]) box(hull, color, side * .44, .26, 0, .08, .16, 1.3, .03);
+  box(hull, colors.wood, 0, .28, -.5, .8, .07, .22, .02);
+  bake(hull);
+  return hull;
+}
+
 export function boat(color: number, large = true): T.Group {
   const ship = new T.Group();
   const hull = new T.Shape();

@@ -1,47 +1,17 @@
 import type { Building, City, Placement, Rotation, Tile, World } from './types';
-import { footprint } from './catalog';
+import { BUILDINGS } from './catalog';
+import { SEAWARD, shoreSite, type ShoreSite } from './shore';
 import { buildable, insideMapOn, islandAt, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn, type IslandMap, type IslandPlacement } from './island';
 import { foreignOccupancy } from './occupancy';
 
-export const HARBOUR_WIDTH = 2;
-export const HARBOUR_LAND_DEPTH = 2;
-export const HARBOUR_WATER_DEPTH = 3;
+export const HARBOUR_WIDTH = BUILDINGS.harbour.width;
+export const HARBOUR_LAND_DEPTH = BUILDINGS.harbour.shore!.land;
+export const HARBOUR_WATER_DEPTH = BUILDINGS.harbour.depth - HARBOUR_LAND_DEPTH;
 
-const SEAWARD: Record<Rotation, Tile> = {
-  0: { x: 0, z: 1 },
-  1: { x: -1, z: 0 },
-  2: { x: 0, z: -1 },
-  3: { x: 1, z: 0 },
-};
-
-export interface HarbourSite {
-  land: Tile[];
-  water: Tile[];
-  offshore: Tile[];
-}
+export type HarbourSite = ShoreSite;
 
 export function harbourSite(x: number, z: number, rotation: Rotation): HarbourSite {
-  const seaward = SEAWARD[rotation];
-  const along = { x: Math.abs(seaward.z), z: Math.abs(seaward.x) };
-  const { width, depth } = footprint('harbour', rotation);
-  const start = {
-    x: x + (seaward.x < 0 ? width - 1 : 0),
-    z: z + (seaward.z < 0 ? depth - 1 : 0),
-  };
-  const rows = HARBOUR_LAND_DEPTH + HARBOUR_WATER_DEPTH;
-  const site: HarbourSite = { land: [], water: [], offshore: [] };
-  for (let row = 0; row < rows; row++) {
-    for (let step = 0; step < HARBOUR_WIDTH; step++) {
-      const tile = {
-        x: start.x + seaward.x * row + along.x * step,
-        z: start.z + seaward.z * row + along.z * step,
-      };
-      if (row < HARBOUR_LAND_DEPTH) site.land.push(tile);
-      else site.water.push(tile);
-      if (row === rows - 1) site.offshore.push(tile);
-    }
-  }
-  return site;
+  return shoreSite('harbour', x, z, rotation);
 }
 
 export function harbourApron(x: number, z: number, rotation: Rotation): Tile[] {

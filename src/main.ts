@@ -594,13 +594,10 @@ export function boot(source: SharedBootSource): BootHandles {
   window.addEventListener('keydown', (event) => {
     if (event.target instanceof HTMLElement && (event.target.closest('input,select,textarea,dialog') || event.target.isContentEditable)) return;
     if (event.metaKey || event.ctrlKey || event.altKey) return;
-    const keys: Record<string, Tool> = { '1': 'road', '2': 'house', '3': 'farm', '4': 'granary', '5': 'agora', '6': 'fountain', '7': 'maintenance', '8': 'lodge', '9': 'woodcutter', '0': 'stockpile', x: 'demolish' };
     if (event.key === 'Escape') {
       escapeOpensMenu = tool === 'inspect' && !harbourArmed;
       if (!escapeOpensMenu) selectTool('inspect');
-    } else if (event.key === '1' && context.activeId === null && !watching()) selectTool('harbour');
-    else if (keys[event.key]) selectTool(keys[event.key]);
-    else if (event.key.toLowerCase() === 'g') setGrid(!showGrid);
+    } else if (event.key.toLowerCase() === 'g') setGrid(!showGrid);
     else if (event.key.toLowerCase() === 'r') { rotation = ((rotation + 1) % 4) as Rotation; hud.setTool(tool, rotation); updatePreview(); }
     else if (event.key.toLowerCase() === 'q') stage.rotate();
     else if (event.key.toLowerCase() === 'h') focusVillage();

@@ -32,14 +32,15 @@ OIKOS_DB=/tmp/oikos/world.db OIKOS_PUBLIC_ORIGIN=http://localhost:5180 npm run s
 ## Play
 
 Build four dwellings beside the harbour road. Grow wheat on the fertile striped
-fields, store it in a granary, then add a food vendor to an agora. Connect everything
+fields — or send a hunter after game and a fishing wharf after the shoals offshore —
+store it in a granary, then add a food vendor to an agora. Connect everything
 with roads. Add a fountain and maintenance post. Reliable food and water evolve
 homes into cottages and courtyard houses. Fell forest for lumber: porters carry it
 to the harbour, enough rebuilds the quay in stone, and a trade order ships it
 overseas for coin.
 
 Left-click builds or inspects. Drag to lay roads. WASD / arrow keys or right-drag
-pan; scroll zooms; Alt-drag orbits. `1`–`0` select construction tools, `X` demolishes, `R` rotates a
+pan; scroll zooms; Alt-drag orbits. Tools are chosen in the toolbar. `R` rotates a
 building, `G` toggles the grid, `Q` rotates the camera, and `H` returns to the village.
 `Shift` switches the bend while laying roads. `Escape` cancels the current tool or
 opens the menu. Shared time never pauses for a menu; a pause of your own is still to

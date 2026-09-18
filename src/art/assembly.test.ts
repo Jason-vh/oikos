@@ -3,7 +3,8 @@ import * as T from 'three';
 import { getBuildingAssembly, getBuildingModel } from './buildings';
 import { bake, box, colors, disposeModel, material } from './primitives';
 import { poseAssembly, assemblyDuration } from '../render/assembly';
-import { CELL_SIZE } from '../sim/island';
+import { CELL_SIZE, GROUND_Y } from '../sim/island';
+import { WATERLINE } from './coast';
 import { BUILDINGS, footprint } from '../sim/catalog';
 import type { BuildingKind } from '../sim/types';
 
@@ -64,13 +65,14 @@ describe('every assembly pose stays inside every rotated footprint and above gro
   for (const kind of PLACEABLE) {
     test(`${kind}`, () => {
       const assembly = getBuildingAssembly(kind)!;
+      const floor = BUILDINGS[kind].shore ? WATERLINE - GROUND_Y - .4 : -.02;
       for (const rotation of [0, 1, 2, 3] as const) {
         assembly.model.rotation.y = -rotation * Math.PI / 2;
         const { width, depth } = footprint(kind, rotation);
         for (let step = 0; step <= 30; step++) {
           poseAssembly(assembly, assemblyDuration(assembly) * step / 30);
           const bounds = new T.Box3().setFromObject(assembly.model);
-          expect(bounds.min.y).toBeGreaterThanOrEqual(-.02);
+          expect(bounds.min.y).toBeGreaterThanOrEqual(floor);
           expect(bounds.min.x).toBeGreaterThanOrEqual(-width * CELL_SIZE / 2 - .01);
           expect(bounds.max.x).toBeLessThanOrEqual(width * CELL_SIZE / 2 + .01);
           expect(bounds.min.z).toBeGreaterThanOrEqual(-depth * CELL_SIZE / 2 - .01);

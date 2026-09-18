@@ -1,9 +1,11 @@
 import * as T from 'three';
-import { animateFigure, animateIdle, animateWork, axe, bake, box, bundle, bundleKey, chopStrikes, CHOP_SET, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, post, spear, workPeriod, type Idle, type ModelStage } from '../art';
+import { animateFigure, animateIdle, animateWork, axe, bake, box, bundle, bundleKey, chopStrikes, CHOP_SET, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, net, post, skiff, spear, workPeriod, type Idle, type ModelStage, type WorkKind } from '../art';
 import { footprint } from '../sim/catalog';
 import { AGORA_SLOTS, GRANARY_SLOTS, WALKER_SPEED } from '../sim/balance';
 import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, groundHeight, insideMapOn, tileAtOn, tileIndexOn, worldPositionOn, type IslandMap } from '../sim/island';
 import { buildRoads } from '../art/roads';
+import { WATERLINE } from '../art/coast';
+import { wharfCatch } from '../art/wharf';
 import { alive, animalAt, animalStride, SPECIES, wildlifeObstacles } from '../sim/wildlife';
 import { STAIR_WIDTH } from '../art/stairs';
 import { roadHeight, stairLayout, STAIR_STEPS, type Stair } from '../sim/stairs';
@@ -39,6 +41,7 @@ const NEIGHBOUR_REACH = 3.2;
 const CHOP_REACH = .9;
 const HUNT_REACH = .95;
 const WORK_APPROACH = .5;
+const SEA_SURFACE = WATERLINE;
 const WORK_SCATTER = 5.7;
 const WORK_WITHDRAW = .4;
 
@@ -71,6 +74,25 @@ function rampHeight(from: number, to: number, progress: number): number {
   return T.MathUtils.lerp(from, to, t) + (t > 0 && t < 1 ? tread / 2 : 0);
 }
 
+function gathererTool(kind: WalkerKind): T.Group {
+  if (kind === 'hunter') return spear();
+  if (kind === 'fisher') return net();
+  return axe();
+}
+
+function skiffWithCatch(colour: number, load: Resource | null): T.Group {
+  const hull = skiff(colour);
+  if (!load) return hull;
+  const haul = new T.Group();
+  haul.position.set(0, .28, -.46);
+  haul.scale.setScalar(.66);
+  bundle(haul, load, 0, 0, 0, 2);
+  hull.add(haul);
+  return hull;
+}
+
+const WORK_CYCLE: Record<WalkerTask['kind'], WorkKind> = { chop: 'chop', hunt: 'thrust', net: 'cast' };
+
 function modelStage(building: Building): ModelStage {
   if (building.kind === 'farm') return Math.min(3, Math.floor(building.progress * 4)) as ModelStage;
   if (building.kind === 'harbour') return (building.progress === 0 ? 0 : Math.min(3, 1 + Math.floor(building.progress * 3))) as ModelStage;
@@ -80,6 +102,7 @@ function modelStage(building: Building): ModelStage {
 function storesKey(building: Building): string {
   if (building.kind === 'granary' || building.kind === 'stockpile' || building.kind === 'harbour') return bundleKey(building.stores, GRANARY_SLOTS);
   if (building.kind === 'agora') return bundleKey(building.stores, AGORA_SLOTS);
+  if (building.kind === 'wharf') return String(wharfCatch(building.stores));
   return '';
 }
 
@@ -405,12 +428,14 @@ export class CityScene {
     const key = `${kind}:${load ?? ''}`;
     const existing = this.walkerTemplates.get(key);
     if (existing) return existing.clone();
-    const colour: Record<WalkerKind, number> = { cart: colors.gold, buyer: colors.roof, vendor: colors.blue, water: colors.blueLight, maintenance: colors.oliveDark, immigrant: colors.linen, hunter: 0x6f5a3c, woodcutter: 0x8a5a3a, porter: colors.wood };
-    const gatherer = kind === 'hunter' || kind === 'woodcutter';
+    const colour: Record<WalkerKind, number> = { cart: colors.gold, buyer: colors.roof, vendor: colors.blue, water: colors.blueLight, maintenance: colors.oliveDark, immigrant: colors.linen, hunter: 0x6f5a3c, woodcutter: 0x8a5a3a, fisher: colors.blue, porter: colors.wood };
+    const gatherer = kind === 'hunter' || kind === 'woodcutter' || kind === 'fisher';
     const cartLike = kind === 'cart' || kind === 'porter';
     const carries = kind === 'water' || (load !== null && !cartLike && !gatherer);
-    const model = figure(colour[kind], carries ? 'jar' : kind === 'immigrant' || (gatherer && load !== null) ? 'bundle' : 'none').root;
-    if (gatherer) model.add(kind === 'hunter' ? spear() : axe());
+    const afoot = gatherer && kind !== 'fisher';
+    const model = figure(colour[kind], carries ? 'jar' : kind === 'immigrant' || (afoot && load !== null) ? 'bundle' : 'none').root;
+    if (gatherer) model.add(gathererTool(kind));
+    if (kind === 'fisher') model.add(skiffWithCatch(colour[kind], load));
     if (cartLike) {
       const cart = new T.Group();
       box(cart, colors.wood, 0, .4, -.62, .62, .38, .68);
@@ -488,6 +513,7 @@ export class CityScene {
     entry.stepped = entry.stairs.has(tileIndexOn(this.map, current.x, current.z)) || entry.stairs.has(tileIndexOn(this.map, next.x, next.z));
     let y = rampHeight(groundHeight(this.map, current.x, current.z), groundHeight(this.map, next.x, next.z), fraction);
     if (entry.stepped) y = roadHeight(this.map, entry.stairs, T.MathUtils.lerp(current.x, next.x, fraction) + .5, T.MathUtils.lerp(current.z, next.z, fraction) + .5);
+    if (entry.kind === 'fisher') y = SEA_SURFACE - .08;
     entry.model.position.set(T.MathUtils.lerp(a.x, b.x, fraction), y + .08, T.MathUtils.lerp(a.z, b.z, fraction));
     entry.working = entry.task !== null && this.worldTime >= entry.task.since && this.worldTime < entry.task.until;
     entry.moving = !entry.working && travelled < last;
@@ -508,7 +534,7 @@ export class CityScene {
 
   private quarryPoint(entry: WalkerEntry): { x: number; z: number } | null {
     if (entry.quarry === null) return null;
-    if (entry.kind === 'hunter') return this.animals.get(entry.quarry)?.position ?? null;
+    if (entry.kind === 'hunter' || entry.kind === 'fisher') return this.animals.get(entry.quarry)?.position ?? null;
     if (entry.kind !== 'woodcutter') return null;
     return this.treeFoot(entry.quarry);
   }
@@ -596,7 +622,7 @@ export class CityScene {
       if (walker.working && walker.task) {
         const drift = scatterOf(id, WORK_SCATTER) * workPeriod('chop');
         const spent = (this.worldTime - walker.task.since) * Math.max(1, speed) + drift;
-        animateWork(walker.model, spent, walker.task.kind === 'hunt' ? 'thrust' : 'chop');
+        animateWork(walker.model, spent, WORK_CYCLE[walker.task.kind]);
         if (walker.task.kind === 'chop') this.chopping(walker, spent, drift);
       } else if (walker.moving) animateFigure(walker.model, phase, stride);
       else animateIdle(walker.model, (this.worldTime - walker.waitingSince) * Math.max(1, speed) + id, walker.mood);

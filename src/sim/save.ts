@@ -100,8 +100,8 @@ export function serializeWorld(world: World): string {
   return JSON.stringify({ ...world, wildlife: wildlifeFates(world) });
 }
 
-const BUILDING_KINDS: BuildingKind[] = ['house', 'farm', 'granary', 'agora', 'fountain', 'maintenance', 'lodge', 'woodcutter', 'stockpile', 'harbour'];
-const WALKER_KINDS: WalkerKind[] = ['cart', 'buyer', 'vendor', 'water', 'maintenance', 'immigrant', 'hunter', 'woodcutter', 'porter'];
+const BUILDING_KINDS: BuildingKind[] = ['house', 'farm', 'granary', 'agora', 'fountain', 'maintenance', 'lodge', 'woodcutter', 'stockpile', 'wharf', 'harbour'];
+const WALKER_KINDS: WalkerKind[] = ['cart', 'buyer', 'vendor', 'water', 'maintenance', 'immigrant', 'hunter', 'woodcutter', 'fisher', 'porter'];
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
@@ -457,7 +457,7 @@ function validateTask(raw: unknown): WalkerTask | null | undefined {
   if (raw === null || raw === undefined) return null;
   if (!isPlainObject(raw)) return undefined;
   const { kind, since, until } = raw;
-  if (kind !== 'chop' && kind !== 'hunt') return undefined;
+  if (kind !== 'chop' && kind !== 'hunt' && kind !== 'net') return undefined;
   if (!isNonNegativeFinite(since) || !isNonNegativeFinite(until) || (until as number) < (since as number)) return undefined;
   return { kind, since: since as number, until: until as number };
 }

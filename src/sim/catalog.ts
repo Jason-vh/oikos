@@ -5,6 +5,8 @@ export const MATERIALS: Material[] = ['lumber', 'clay', 'stone'];
 export const RESOURCES: Resource[] = [...FOODS, ...MATERIALS];
 export function isFood(resource: Resource): resource is Food { return (FOODS as Resource[]).includes(resource); }
 
+export interface ShoreFootprint { land: number }
+
 export interface BuildingDefinition {
   name: string;
   width: number;
@@ -13,6 +15,7 @@ export interface BuildingDefinition {
   jobs: number;
   upkeep: number;
   description: string;
+  shore?: ShoreFootprint;
 }
 
 export const BUILDINGS: Record<BuildingKind, BuildingDefinition> = {
@@ -25,7 +28,8 @@ export const BUILDINGS: Record<BuildingKind, BuildingDefinition> = {
   lodge: { name: "Hunter's lodge", width: 2, depth: 2, cost: 110, jobs: 3, upkeep: 3, description: 'A hunter stalks boar and rabbits nearby and brings back meat for the granary.' },
   woodcutter: { name: "Woodcutter's cabin", width: 2, depth: 2, cost: 90, jobs: 3, upkeep: 2, description: 'A woodcutter fells nearby forest and carts lumber to a stockpile.' },
   stockpile: { name: 'Stockpile', width: 3, depth: 3, cost: 100, jobs: 2, upkeep: 2, description: 'Stores lumber, clay and stone in eight bays.' },
-  harbour: { name: 'Harbour', width: 2, depth: 5, cost: 0, jobs: 0, upkeep: 0, description: 'A quay on the shore and a pier over the water. Settlers land here, and porters bring it lumber from stockpiles; enough rebuilds the quay in stone, after which a renewable trade order ships lumber overseas for coin.' },
+  wharf: { name: 'Fishing wharf', width: 2, depth: 3, cost: 120, jobs: 3, upkeep: 3, shore: { land: 1 }, description: 'A quay on the shore with a jetty over the water. Its boat works the shoals nearby and brings back fish for the granary.' },
+  harbour: { name: 'Harbour', width: 2, depth: 5, cost: 0, jobs: 0, upkeep: 0, shore: { land: 2 }, description: 'A quay on the shore and a pier over the water. Settlers land here, and porters bring it lumber from stockpiles; enough rebuilds the quay in stone, after which a renewable trade order ships lumber overseas for coin.' },
 };
 export const HOUSE_NAMES = ['Vacant plot', 'Dwelling', 'Cottage', 'Courtyard house'];
 export const HOUSE_CAPACITY = [0, 8, 12, 20];

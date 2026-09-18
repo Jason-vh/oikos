@@ -61,23 +61,23 @@ interface ToolDef {
   label: string;
   cost: string;
   price: number;
-  key: string;
 }
 
-const HARBOUR_DEF: ToolDef = { tool: 'harbour', label: 'Harbour', cost: '', price: 0, key: '1' };
+const HARBOUR_DEF: ToolDef = { tool: 'harbour', label: 'Harbour', cost: '', price: 0 };
 
 const TOOL_DEFS: ToolDef[] = [
-  { tool: 'road', label: 'Road', cost: `${ROAD_COST} / tile`, price: ROAD_COST, key: '1' },
-  { tool: 'house', label: BUILDINGS.house.name, cost: String(BUILDINGS.house.cost), price: BUILDINGS.house.cost, key: '2' },
-  { tool: 'farm', label: BUILDINGS.farm.name, cost: String(BUILDINGS.farm.cost), price: BUILDINGS.farm.cost, key: '3' },
-  { tool: 'granary', label: BUILDINGS.granary.name, cost: String(BUILDINGS.granary.cost), price: BUILDINGS.granary.cost, key: '4' },
-  { tool: 'agora', label: BUILDINGS.agora.name, cost: String(BUILDINGS.agora.cost), price: BUILDINGS.agora.cost, key: '5' },
-  { tool: 'fountain', label: BUILDINGS.fountain.name, cost: String(BUILDINGS.fountain.cost), price: BUILDINGS.fountain.cost, key: '6' },
-  { tool: 'maintenance', label: 'Caretaker', cost: String(BUILDINGS.maintenance.cost), price: BUILDINGS.maintenance.cost, key: '7' },
-  { tool: 'lodge', label: 'Hunter', cost: String(BUILDINGS.lodge.cost), price: BUILDINGS.lodge.cost, key: '8' },
-  { tool: 'woodcutter', label: 'Woodcutter', cost: String(BUILDINGS.woodcutter.cost), price: BUILDINGS.woodcutter.cost, key: '9' },
-  { tool: 'stockpile', label: BUILDINGS.stockpile.name, cost: String(BUILDINGS.stockpile.cost), price: BUILDINGS.stockpile.cost, key: '0' },
-  { tool: 'demolish', label: 'Demolish', cost: 'half refunded', price: 0, key: 'X' },
+  { tool: 'road', label: 'Road', cost: `${ROAD_COST} / tile`, price: ROAD_COST },
+  { tool: 'house', label: BUILDINGS.house.name, cost: String(BUILDINGS.house.cost), price: BUILDINGS.house.cost },
+  { tool: 'farm', label: BUILDINGS.farm.name, cost: String(BUILDINGS.farm.cost), price: BUILDINGS.farm.cost },
+  { tool: 'granary', label: BUILDINGS.granary.name, cost: String(BUILDINGS.granary.cost), price: BUILDINGS.granary.cost },
+  { tool: 'agora', label: BUILDINGS.agora.name, cost: String(BUILDINGS.agora.cost), price: BUILDINGS.agora.cost },
+  { tool: 'fountain', label: BUILDINGS.fountain.name, cost: String(BUILDINGS.fountain.cost), price: BUILDINGS.fountain.cost },
+  { tool: 'maintenance', label: 'Caretaker', cost: String(BUILDINGS.maintenance.cost), price: BUILDINGS.maintenance.cost },
+  { tool: 'lodge', label: 'Hunter', cost: String(BUILDINGS.lodge.cost), price: BUILDINGS.lodge.cost },
+  { tool: 'wharf', label: 'Fisher', cost: String(BUILDINGS.wharf.cost), price: BUILDINGS.wharf.cost },
+  { tool: 'woodcutter', label: 'Woodcutter', cost: String(BUILDINGS.woodcutter.cost), price: BUILDINGS.woodcutter.cost },
+  { tool: 'stockpile', label: BUILDINGS.stockpile.name, cost: String(BUILDINGS.stockpile.cost), price: BUILDINGS.stockpile.cost },
+  { tool: 'demolish', label: 'Demolish', cost: 'half refunded', price: 0 },
 ];
 
 const TOAST_LIFETIME = 3200;
@@ -212,8 +212,6 @@ const SKELETON = `
         <button type="button" class="hud-menu-danger" data-action="reset-world" data-testid="reset-world" hidden>Reset world</button>
       </div>
       <dl class="hud-keys">
-        <div><dt>1\u20130</dt><dd>Build tools</dd></div>
-        <div><dt>X</dt><dd>Demolish</dd></div>
         <div><dt>R</dt><dd>Rotate building</dd></div>
         <div><dt>G</dt><dd>Toggle grid</dd></div>
         <div><dt>WASD / \u2190\u2191\u2192\u2193</dt><dd>Pan the view</dd></div>
@@ -267,9 +265,8 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
     button.className = 'hud-tool';
     button.dataset.tool = def.tool;
     button.setAttribute('aria-pressed', 'false');
-    const described = def.cost.length > 0 ? `${def.label}, ${def.cost}` : def.label;
-    button.setAttribute('aria-label', `${described}, shortcut ${def.key}`);
-    button.title = `${def.label} \u00b7 ${def.key}`;
+    button.setAttribute('aria-label', def.cost.length > 0 ? `${def.label}, ${def.cost}` : def.label);
+    button.title = def.label;
     const label = document.createElement('span');
     label.className = 'hud-tool-label';
     label.textContent = def.label;

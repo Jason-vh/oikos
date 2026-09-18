@@ -1,6 +1,6 @@
 import type { CityColor } from './colors';
 
-export type BuildingKind = 'house' | 'farm' | 'granary' | 'agora' | 'fountain' | 'maintenance' | 'lodge' | 'woodcutter' | 'stockpile' | 'harbour';
+export type BuildingKind = 'house' | 'farm' | 'granary' | 'agora' | 'fountain' | 'maintenance' | 'lodge' | 'woodcutter' | 'stockpile' | 'wharf' | 'harbour';
 export type BuildTool = Exclude<BuildingKind, 'harbour'> | 'road';
 export type Tool = BuildTool | 'inspect' | 'demolish';
 export type Rotation = 0 | 1 | 2 | 3;
@@ -42,7 +42,7 @@ export interface Animal {
   respawnAt: number | null;
   cornered: boolean;
 }
-export type WalkerKind = 'cart' | 'buyer' | 'vendor' | 'water' | 'maintenance' | 'immigrant' | 'hunter' | 'woodcutter' | 'porter';
+export type WalkerKind = 'cart' | 'buyer' | 'vendor' | 'water' | 'maintenance' | 'immigrant' | 'hunter' | 'woodcutter' | 'fisher' | 'porter';
 export interface Walker {
   id: number;
   kind: WalkerKind;
@@ -59,7 +59,7 @@ export interface Walker {
   quarry: number | null;
   task: WalkerTask | null;
 }
-export type TaskKind = 'chop' | 'hunt';
+export type TaskKind = 'chop' | 'hunt' | 'net';
 export interface WalkerTask {
   kind: TaskKind;
   since: number;

@@ -5,7 +5,7 @@ import { CELL_SIZE, groundHeight, worldPositionOn, type IslandMap } from '../sim
 import { stairLayout } from '../sim/stairs';
 import { addRoadMark } from './road-marks';
 import { deliveryRoutes, serviceRoute, walkerRoute } from '../sim/logistics';
-import { gatherReach } from '../sim/gathering';
+import { gatherReach, isGatherer } from '../sim/gathering';
 import { reachOutline } from './reach';
 import type { Building, City, Walker, World } from '../sim/types';
 
@@ -98,7 +98,7 @@ export class LogisticsOverlay {
 
   private showReach(world: World | null, found: { city: City; building: Building } | null): void {
     const building = found?.building;
-    const gatherer = building?.kind === 'woodcutter' || building?.kind === 'lodge';
+    const gatherer = building !== undefined && isGatherer(building.kind);
     const key = world && gatherer && found ? `${found.building.id}:${found.city.roads.length}:${world.felled.length}` : '';
     if (key === this.reachKey) return;
     this.reachKey = key;

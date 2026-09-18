@@ -141,7 +141,12 @@ stays `''`.
 
 Every building needs flat, unoccupied land: grass or fertile ground, never a hill
 tile or water. A farm additionally needs *every* tile of its footprint to be
-fertile. A tile can't hold both a road and a building at once. "Occupied" reads
+fertile. A shore building is the exception: its definition in `src/sim/catalog.ts`
+declares how many of its rows stand on land, and `shoreSite` in `src/sim/shore.ts`
+walks the rest out to sea in whichever of the four ways it faces, exactly as the
+harbour's quay and pier do. Those front rows need level, buildable shore; the rows
+behind them need open water. The fishing wharf is the first such building; it
+claims no island. A tile can't hold both a road and a building at once. "Occupied" reads
 globally: `placement`, `build`, `placeRoadPath`, and `harbourPlacement`
 all reject a tile already held by another city's road, building, or founded
 harbour, with no charge and no mutation, using `src/sim/occupancy.ts`. A city's
@@ -257,10 +262,10 @@ expressed as a rate per `MONTH_SECONDS` (60 simulated seconds) and settled every
 tick. `getSummary(city)` reports the current population, employment, food in
 storage, income, upkeep, balance, and how many tier-3 houses are inhabited.
 
-## Gathering: hunters and woodcutters
+## Gathering: hunters, woodcutters and fishers
 
-`src/sim/gathering.ts`. A hunter's lodge (2×2, 3 jobs) and a woodcutter's cabin
-(2×2, 3 jobs) send a walker *off the road*: `overlandPath` searches roads and then
+`src/sim/gathering.ts`. A hunter's lodge (2×2, 3 jobs), a woodcutter's cabin
+(2×2, 3 jobs) and a fishing wharf (2×3, 3 jobs, one row on the shore) send a walker *off the road*: `overlandPath` searches roads and then
 passable open ground (grass, scrub, sand, fertile, forest, cliff edges) within
 `GATHER_RANGE` (14 tiles), stepping between levels only across a cliff edge. The
 hunter targets the nearest live boar or rabbit; on arrival, if the quarry is within
@@ -284,15 +289,25 @@ rather than on the tile border, so it never hangs over a cliff or a shore. Corne
 are trimmed, abutted or extended to suit the turn, so the stroke reads as an outline
 and not as a row of rectangles. Obstacles enclosed by the reach are filled rather
 than ringed: the line shows how far the gatherer goes, not every rock he steps
-around. It is drawn while a cabin or lodge is being placed and while one is selected,
-so the player can see what ground a site would command before paying for it.
+around. It is drawn while a cabin, lodge or wharf is being placed and while one is selected,
+so the player can see what ground or water a site would command before paying for it.
+
+A fishing wharf is the same machinery over water. Its quay stands on the shore and
+its jetty over the sea; its boat casts off from the jetty, so its reach floods water
+tiles rather than land, out to `FISH_RANGE`, and stops at the shore, at rock and at
+another city's pier. The boat makes for the nearest shoal in reach, which holds
+still while it is worked, and is then taken and returns later exactly as hunted
+game does. The catch waits at the wharf until a cart carries it to a granary. Fish
+feeds houses like any other food. A boat is an ordinary walker whose path happens to
+be water, so saves, demolition and stranding need no special case: demolishing the
+wharf takes the boat with it and releases the shoal it was working.
 
 A gatherer with nothing to do says so. `buildingStatus` reports its walker out, its
 store full and waiting on a cart, or — the case that used to be silent — nothing left
 to gather in reach. That last line asks `gatherErrand`, the same query that decides
-whether to send a walker, so the cabin can never claim work it will not do. Lodge and
-cabin share all of it: the same reach, the same outline, the same four lines with game
-in place of trees.
+whether to send a walker, so the cabin can never claim work it will not do. Lodge, cabin and
+wharf share all of it: the same reach, the same outline, the same four lines with game,
+trees or shoals in their turn.
 
 ## The harbour
 

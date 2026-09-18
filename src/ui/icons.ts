@@ -13,6 +13,7 @@ const ICONS: Partial<Record<ToolIconName, string>> = {
   maintenance: '<path d="M8 25 20 13" /><path d="M20 13a4 4 0 1 1 4-4l-2 2-2-2-2 2 2 2Z" /><path d="M8 8l4 4M7 12l5-5" />',
   lodge: '<path d="M6 15 16 7l10 8" /><path d="M9 14v10h14V14" /><path d="M13 24v-5h4v5" class="fill" /><path d="M22 4 26 9M23 3l-3 3" />',
   woodcutter: '<path d="M8 26 20 12" /><path d="M20 12l3-3 4 3-3 4z" class="fill" /><path d="M5 20c2-2 5-2 7 0M5 24c2-2 5-2 7 0" />',
+  wharf: '<path d="M4 22h24" /><path d="M9 22v5M16 22v5M23 22v5" /><path d="M6 18c2-4 7-6 11-6 3 0 5 2 6 5-1 3-3 5-6 5-4 0-9-2-11-4Z" /><path d="M20 16v.5" /><path d="M6 18c0-2-1-4-3-5 0 3 0 7 0 10 2-1 3-3 3-5Z" class="fill" />',
   stockpile: '<path d="M6 24h20" /><path d="M8 24v-6h16v6M11 18v-5h10v5M14 13v-4h4v4" /><path d="M8 18h16M11 13h10" class="dash" />',
   demolish: '<path d="M8 12h16l-2 13H10Z" /><path d="M6 12h20M13 12V9h6v3" /><path d="M13 16v6M19 16v6" />',
 };

@@ -1,31 +1,47 @@
-import type { Animal, Building, BuildingKind, City, Rotation, Walker, World } from './types';
+import type { Animal, Building, BuildingKind, City, Rotation, Walker, WalkerKind, World } from './types';
 import { footprint } from './catalog';
 import { buildable, islandFor, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
-import { accessTiles, footprintTiles, mapOf, perimeterTiles, siteBuilding } from './grid';
+import { accessTiles, footprintTiles, mapOf, neighbours, perimeterTiles, siteBuilding } from './grid';
+import { shoreSite } from './shore';
 import { addStore, departOn, hasActiveWalker, sendCart, setTask, spawnWalker, totalStock } from './world';
-import { alive, animalAt, killAnimal, wildlifeObstacles } from './wildlife';
+import { alive, animalAt, animalQuarry, killAnimal, wildlifeObstacles } from './wildlife';
 import { mixedEdgeAllowed, stairLayout } from './stairs';
 
+export type GatherWay = 'land' | 'sea';
+export type GathererKind = Extract<WalkerKind, 'hunter' | 'woodcutter' | 'fisher'>;
+
+const GATHERERS: Partial<Record<BuildingKind, GathererKind>> = {
+  lodge: 'hunter',
+  woodcutter: 'woodcutter',
+  wharf: 'fisher',
+};
+
+export function gatherWay(kind: GathererKind): GatherWay {
+  return kind === 'fisher' ? 'sea' : 'land';
+}
+
 export const GATHER_RANGE = 14;
+export const FISH_RANGE = 16;
 export const GATHER_STOCK_CAP = 200;
 export const LUMBER_PER_TREE = 25;
 export const REGROW_SECONDS = 480;
 export const CATCH_RADIUS = 2;
 
-function passable(world: World, map: IslandMap, roads: Set<number>, index: number): boolean {
+function passable(world: World, map: IslandMap, roads: Set<number>, index: number, way: GatherWay): boolean {
   const { x, z } = tileAtOn(map, index);
-  const onAnyCityBuilding = world.cities.some((candidateCity) => candidateCity.buildings.some((building) => {
+  const onAnyCityBuilding = world.cities.some((candidateCity) => [...candidateCity.buildings, candidateCity.harbour].some((building) => {
     const size = footprint(building.kind, building.rotation);
     return x >= building.x && x < building.x + size.width && z >= building.z && z < building.z + size.depth;
   }));
   if (onAnyCityBuilding) return false;
-  if (roads.has(index)) return true;
   const terrain = terrainOn(map, x, z);
+  if (way === 'sea') return terrain === 'water';
+  if (roads.has(index)) return true;
   if (terrain === 'water' || terrain === 'rock') return false;
   return buildable(terrain) || terrain === 'forest' || terrain === 'cliff';
 }
 
-function walkOverland(world: World, city: City, starts: readonly number[], limit: number, isGoal: (tile: number) => boolean): Map<number, number> {
+function walkOverland(world: World, city: City, starts: readonly number[], limit: number, isGoal: (tile: number) => boolean, way: GatherWay): Map<number, number> {
   const map = mapOf(world, city);
   const roads = new Set(city.roads);
   const stairs = stairLayout(map, roads);
@@ -47,7 +63,7 @@ function walkOverland(world: World, city: City, starts: readonly number[], limit
       const nz = z + dz;
       if (nx < 0 || nz < 0 || nx >= map.width || nz >= map.depth) continue;
       const next = tileIndexOn(map, nx, nz);
-      if (cameFrom.has(next) || !passable(world, map, roads, next) || !mixedEdgeAllowed(map, roads, stairs, current, next)) continue;
+      if (cameFrom.has(next) || !passable(world, map, roads, next, way) || !mixedEdgeAllowed(map, roads, stairs, current, next)) continue;
       cameFrom.set(next, current);
       distance.set(next, (distance.get(current) ?? 0) + 1);
       queue.push(next);
@@ -56,8 +72,8 @@ function walkOverland(world: World, city: City, starts: readonly number[], limit
   return cameFrom;
 }
 
-export function overlandPath(world: World, city: City, start: number, isGoal: (tile: number) => boolean, limit: number): number[] | null {
-  const cameFrom = walkOverland(world, city, [start], limit, isGoal);
+export function overlandPath(world: World, city: City, start: number, isGoal: (tile: number) => boolean, limit: number, way: GatherWay = 'land'): number[] | null {
+  const cameFrom = walkOverland(world, city, [start], limit, isGoal, way);
   const goal = [...cameFrom.keys()].find(isGoal);
   if (goal === undefined) return null;
   const path: number[] = [];
@@ -74,15 +90,17 @@ function animalTile(world: World, map: IslandMap, occupied: ReadonlySet<number>,
   return tileIndexOn(map, Math.floor(place.x), Math.floor(place.z));
 }
 
-function huntable(world: World, animal: Animal): boolean {
-  return alive(animal, world.time) && (animal.kind === 'boar' || animal.kind === 'rabbit');
+function huntable(world: World, animal: Animal, way: GatherWay): boolean {
+  if (!alive(animal, world.time)) return false;
+  if (way === 'sea') return animal.kind === 'fish';
+  return animal.kind === 'boar' || animal.kind === 'rabbit';
 }
 
-function preyByTile(world: World, map: IslandMap): Map<number, number> {
+function preyByTile(world: World, map: IslandMap, way: GatherWay): Map<number, number> {
   const occupied = wildlifeObstacles(world);
   const grazing = new Map<number, number>();
   for (const animal of world.wildlife) {
-    if (!huntable(world, animal)) continue;
+    if (!huntable(world, animal, way)) continue;
     grazing.set(animalTile(world, map, occupied, animal), animal.id);
   }
   return grazing;
@@ -103,46 +121,78 @@ function nearestAdjacentToForest(world: World, map: IslandMap, index: number): b
   });
 }
 
-function gatherOrigins(world: World, city: City, site: Building): number[] {
-  const doors = accessTiles(world, city, site);
-  if (doors.length > 0) return [doors[0]];
+function berthTiles(map: IslandMap, site: Building): Set<number> {
+  return new Set(shoreSite(site.kind, site.x, site.z, site.rotation).water.map((tile) => tileIndexOn(map, tile.x, tile.z)));
+}
+
+function gatherOrigins(world: World, city: City, site: Building, way: GatherWay): number[] {
   const map = mapOf(world, city);
   const roads = new Set(city.roads);
-  return perimeterTiles(map, site).filter((tile) => passable(world, map, roads, tile));
+  if (way === 'sea') {
+    const berths = berthTiles(map, site);
+    return perimeterTiles(map, site)
+      .filter((tile) => passable(world, map, roads, tile, way))
+      .filter((tile) => neighbours(map, tile).some((next) => berths.has(next)));
+  }
+  const doors = accessTiles(world, city, site);
+  if (doors.length > 0) return [doors[0]];
+  return perimeterTiles(map, site).filter((tile) => passable(world, map, roads, tile, way));
+}
+
+export function gatherRange(kind: GathererKind): number {
+  return kind === 'fisher' ? FISH_RANGE : GATHER_RANGE;
 }
 
 export function gatherReach(world: World, city: City, kind: BuildingKind, x: number, z: number, rotation: Rotation): number[] {
-  if (kind !== 'woodcutter' && kind !== 'lodge') return [];
+  const gatherer = GATHERERS[kind];
+  if (!gatherer) return [];
+  const way = gatherWay(gatherer);
   const site = siteBuilding(kind, rotation, x, z);
-  const origins = gatherOrigins(world, city, site);
+  const origins = gatherOrigins(world, city, site, way);
   if (origins.length === 0) return [];
   const own = new Set(footprintTiles(mapOf(world, city), site));
-  const walked = walkOverland(world, city, origins, GATHER_RANGE, () => false);
+  const walked = walkOverland(world, city, origins, gatherRange(gatherer), () => false, way);
   return [...walked.keys()].filter((tile) => !own.has(tile));
 }
 
-export function gatherKind(building: Building): 'hunter' | 'woodcutter' {
-  return building.kind === 'lodge' ? 'hunter' : 'woodcutter';
+export function isGatherer(kind: BuildingKind): boolean {
+  return GATHERERS[kind] !== undefined;
+}
+
+export function gatherKind(building: Building): GathererKind {
+  return GATHERERS[building.kind] ?? 'woodcutter';
 }
 
 export function gatherErrand(world: World, city: City, building: Building): { path: number[]; quarry: number | null } | null {
   const kind = gatherKind(building);
+  const way = gatherWay(kind);
   const map = mapOf(world, city);
-  const doors = accessTiles(world, city, building);
-  if (doors.length === 0) return null;
-  const start = doors[0];
-  const grazing = kind === 'hunter' ? preyByTile(world, map) : new Map<number, number>();
-  const path = kind === 'hunter'
-    ? overlandPath(world, city, start, (tile) => grazing.has(tile), GATHER_RANGE)
-    : overlandPath(world, city, start, (tile) => !new Set(footprintTiles(map, building)).has(tile) && nearestAdjacentToForest(world, map, tile), GATHER_RANGE);
-  if (!path) return null;
-  if (kind === 'hunter') return { path, quarry: grazing.get(path[path.length - 1]) ?? null };
-  const goal = tileAtOn(map, path[path.length - 1]);
-  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-    const candidate = tileIndexOn(map, goal.x + dx, goal.z + dz);
-    if (standingForest(world, map, candidate)) return { path, quarry: candidate };
+  const range = gatherRange(kind);
+  const origins = gatherOrigins(world, city, building, way);
+  if (origins.length === 0) return null;
+  if (kind === 'woodcutter') {
+    const own = new Set(footprintTiles(map, building));
+    const path = overlandPath(world, city, origins[0], (tile) => !own.has(tile) && nearestAdjacentToForest(world, map, tile), range);
+    if (!path) return null;
+    const goal = tileAtOn(map, path[path.length - 1]);
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const candidate = tileIndexOn(map, goal.x + dx, goal.z + dz);
+      if (standingForest(world, map, candidate)) return { path, quarry: candidate };
+    }
+    return { path, quarry: null };
   }
-  return { path, quarry: null };
+  const grazing = preyByTile(world, map, way);
+  const cameFrom = walkOverland(world, city, origins, range, (tile) => grazing.has(tile), way);
+  const goal = [...cameFrom.keys()].find((tile) => grazing.has(tile));
+  if (goal === undefined) return null;
+  const path: number[] = [];
+  let node = goal;
+  while (node !== -1) {
+    path.push(node);
+    node = cameFrom.get(node) ?? -1;
+  }
+  path.reverse();
+  return { path, quarry: grazing.get(goal) ?? null };
 }
 
 export function updateGatherer(world: World, city: City, building: Building): void {
@@ -170,6 +220,12 @@ export function updateGatherer(world: World, city: City, building: Building): vo
 
 export const HUNT_SECONDS = 2;
 export const FELL_SECONDS = 4;
+export const NET_SECONDS = 5;
+
+function chase(kind: GathererKind): { task: 'hunt' | 'net'; seconds: number } {
+  if (kind === 'fisher') return { task: 'net', seconds: NET_SECONDS };
+  return { task: 'hunt', seconds: HUNT_SECONDS };
+}
 
 export function gatherArrival(world: World, city: City, walker: Walker): boolean {
   if (walker.returning) {
@@ -178,11 +234,13 @@ export function gatherArrival(world: World, city: City, walker: Walker): boolean
     return true;
   }
   const map = mapOf(world, city);
-  if (walker.kind === 'hunter') {
+  if (walker.kind === 'hunter' || walker.kind === 'fisher') {
+    const way = gatherWay(walker.kind);
     const prey = world.wildlife.find((animal) => animal.id === walker.quarry);
-    if (prey && huntable(world, prey) && withinReach(world, map, walker, prey)) {
+    if (prey && huntable(world, prey, way) && withinReach(world, map, walker, prey)) {
       prey.cornered = true;
-      setTask(world, walker, 'hunt', HUNT_SECONDS);
+      const { task, seconds } = chase(walker.kind);
+      setTask(world, walker, task, seconds);
       return false;
     }
   } else if (walker.quarry !== null && standingForest(world, map, walker.quarry)) {
@@ -195,11 +253,12 @@ export function gatherArrival(world: World, city: City, walker: Walker): boolean
 
 export function gatherFinished(world: World, city: City, walker: Walker): boolean {
   const map = mapOf(world, city);
-  if (walker.kind === 'hunter') {
+  if (walker.kind === 'hunter' || walker.kind === 'fisher') {
     const prey = world.wildlife.find((animal) => animal.id === walker.quarry);
-    if (prey && huntable(world, prey) && withinReach(world, map, walker, prey)) {
+    if (prey && huntable(world, prey, gatherWay(walker.kind)) && withinReach(world, map, walker, prey)) {
+      const haul = animalQuarry(prey);
       walker.cargo = killAnimal(world, prey);
-      walker.food = 'meat';
+      walker.food = haul?.food ?? null;
       city.produced += walker.cargo;
     }
     if (prey) prey.cornered = false;

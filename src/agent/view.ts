@@ -31,6 +31,7 @@ const BUILDING_GLYPHS: Record<BuildingKind, string> = {
   lodge: 'L',
   woodcutter: 'C',
   stockpile: 'S',
+  wharf: 'B',
   harbour: 'H',
 };
 
