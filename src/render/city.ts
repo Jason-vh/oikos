@@ -41,6 +41,7 @@ interface AnimalEntry { animal: Animal; home: T.Vector3; roam: number; position:
 
 const SIGHT_MARGIN = 1.3;
 const WILDLIFE_SIGHT = 220;
+const SMOOTH_HERD = 500;
 const ANIMAL_PICK_SPAN = 120;
 const ANIMAL_FACING_LOOK = .35;
 const GLOW_FADE_SECONDS = .16;
@@ -153,6 +154,7 @@ export class CityScene {
   private readonly edgeOut = new T.Vector3();
   private curveTurn = 0;
   private readonly animals = new Map<number, AnimalEntry>();
+  private readonly drawnAnimals = new Set<number>();
   private readonly wildlife: WildlifeField;
   private readonly departures: Departure[] = [];
   private readonly walkerExits: WalkerExit[] = [];
@@ -338,6 +340,7 @@ export class CityScene {
       for (const id of [...this.animals.keys()]) {
         if (animalIds.has(id)) continue;
         this.wildlife.remove(id);
+        this.drawnAnimals.delete(id);
         this.animals.delete(id);
       }
       for (const animal of world.wildlife) this.syncAnimal(animal);
@@ -407,12 +410,14 @@ export class CityScene {
     if (!this.withinSight(entry)) {
       if (!entry.drawn) return false;
       this.wildlife.remove(id);
+      this.drawnAnimals.delete(id);
       entry.drawn = false;
       return true;
     }
     if (entry.drawn) return false;
     this.placeAnimal(entry, 0);
     this.wildlife.add(id, entry.animal.kind);
+    this.drawnAnimals.add(id);
     entry.drawn = true;
     this.poseAnimal(id, entry);
     return true;
@@ -689,9 +694,10 @@ export class CityScene {
     }
   }
 
-  stepWalkers(): boolean {
+  stepMovers(): boolean {
     const turning = Math.max(0, this.worldTime - this.walkedAt);
     this.walkedAt = this.worldTime;
+    this.stepAnimals(turning);
     for (const [id, walker] of this.walkers) {
       this.placeWalker(walker);
       const idle = !walker.moving && !walker.working;
@@ -700,7 +706,18 @@ export class CityScene {
       this.groundCompanions(walker);
       this.swellWalker(walker);
     }
-    return this.walkers.size > 0;
+    return this.walkers.size > 0 || this.drawnAnimals.size > 0;
+  }
+
+  private stepAnimals(turning: number): void {
+    if (this.drawnAnimals.size > SMOOTH_HERD) return;
+    for (const id of this.drawnAnimals) {
+      const entry = this.animals.get(id);
+      if (!entry || !entry.visible || entry.dying > 0) continue;
+      this.placeAnimal(entry, turning);
+      entry.phase = this.worldTime + id;
+      this.poseAnimal(id, entry);
+    }
   }
 
   animate(time: number, delta: number, speed: number): void {
@@ -708,7 +725,7 @@ export class CityScene {
     this.clouds.drift(time);
     const turning = Math.max(0, this.worldTime - this.turnedAt) * Math.max(1, speed);
     this.turnedAt = this.worldTime;
-    this.stepWalkers();
+    this.stepMovers();
     for (const [id, walker] of this.walkers) {
       const stride = walker.moving ? .55 * walker.pace : 0;
       const phase = this.worldTime * 9 * walker.cadence * Math.max(1, speed) + id;
@@ -802,7 +819,7 @@ export class CityScene {
       entry.intro = Math.min(WALKER_INTRO, entry.intro + delta);
       active = true;
     }
-    if (this.motion && this.stepWalkers()) this.stage.invalidate();
+    if (this.motion && this.stepMovers()) this.stage.invalidate();
     for (const exit of [...this.walkerExits]) {
       exit.elapsed += delta;
       const t = Math.min(1, exit.elapsed / WALKER_EXIT);
@@ -1100,6 +1117,7 @@ export class CityScene {
     for (const exit of this.walkerExits) exit.model.removeFromParent();
     this.walkerExits.length = 0;
     this.animals.clear();
+    this.drawnAnimals.clear();
     this.wildlife.dispose();
     for (const template of this.walkerTemplates.values()) disposeModel(template);
     this.walkerTemplates.clear();

@@ -292,3 +292,29 @@ test('a walker rounds a corner instead of pivoting on the spot', () => {
     city.dispose();
   }
 });
+
+test('close wildlife is placed every frame, not only on the animation beat', () => {
+  const world = createWorld();
+  const stage = { scene: new T.Scene(), shadows() {}, invalidate() {}, world(_span: number) {} } as Stage;
+  const city = new CityScene(stage, islandFor(world.seed), true);
+  const gull = world.wildlife.find((animal) => animal.kind === 'gull')!;
+  try {
+    city.setWorldTime(12);
+    city.sync(world);
+    city.watch(city.moverPoint(gull.id)!.clone(), 40);
+    city.animate(0, 1 / 30, 1);
+    const beat = city.moverPoint(gull.id)!.clone();
+    city.setWorldTime(12 + 1 / 120);
+    city.transitions(1 / 120);
+    expect(city.moverPoint(gull.id)!.distanceTo(beat)).toBeGreaterThan(0);
+
+    city.watch(city.moverPoint(gull.id)!.clone(), 1400);
+    city.animate(0, 1 / 30, 1);
+    const far = city.moverPoint(gull.id)!.clone();
+    city.setWorldTime(12 + 2 / 120);
+    city.transitions(1 / 120);
+    expect(city.moverPoint(gull.id)!.distanceTo(far)).toBe(0);
+  } finally {
+    city.dispose();
+  }
+});
