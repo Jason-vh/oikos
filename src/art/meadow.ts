@@ -4,8 +4,8 @@ import { groundShare } from './ground';
 import { colors, lump } from './primitives';
 
 const FLOWER_RADIUS = .07;
-const FEWEST = 3;
-const MOST = 13;
+const FEWEST = 1;
+const MOST = 4;
 const MEADOW_REACH = 2;
 const FLOWER_INSET = .12;
 

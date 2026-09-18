@@ -128,8 +128,9 @@ test('deep soil blooms everywhere, in seeded patches of differing density', () =
     const bare = counts.filter((count) => count === 0).length;
     const sown = counts.reduce((total, count) => total + count, 0) / counts.length;
     expect(bare).toBe(0);
-    expect(sown).toBeGreaterThan(5);
-    expect(Math.max(...counts)).toBeGreaterThan(Math.min(...counts) + 3);
+    expect(sown).toBeGreaterThan(1.5);
+    expect(sown).toBeLessThan(3.5);
+    expect(Math.max(...counts)).toBeGreaterThan(Math.min(...counts) + 1);
     layouts.push(counts);
   }
   for (let index = 1; index < layouts.length; index++) expect(layouts[index]).not.toEqual(layouts[0]);

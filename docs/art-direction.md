@@ -269,8 +269,8 @@ wildflowers. The violet is the affordance — it is the only purple on the islan
 the placement overlay that marks open farmland (`src/render/construction.ts`) is the
 same hue, so the hint and the ground teach one colour.
 
-Wildflowers read the same field: one small violet bloom close to the ground, up to
-thirteen a tile, thicker where the patch is deeper. A bloom is kept only where the
+Wildflowers read the same field: one small violet bloom close to the ground, two or
+three a tile, thicker where the patch is deeper. A bloom is kept only where the
 soil's share is full under it *and* a tenth of a tile around it, so flowers never
 stand in the blend — they stop short of the rim, and the loam fades on alone. They
 still spill onto grass tiles wherever the soil does. Placement within the tile is
