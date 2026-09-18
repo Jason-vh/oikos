@@ -298,7 +298,10 @@ of trees. What they hold in store raises the stack and fills the crates, the way
 granary shows its bays. The crop itself is authored a tile at a time
 (`wheatRows`, `oliveSapling`): four stages from bare furrows to full ears, from
 sapling to fruiting olive, laid down by `src/render/crops.ts` and swapped as the
-field ripens.
+field ripens. Wheat carries its own bed of soil; an olive does not — a tree stands
+in the ground it grows in, and a pad under it reads as a crate. Hovering either
+lights it and says how far along it is, the way a building or a walker does, and
+only at the zoom where crops can be aimed at.
 
 The stair carver (`src/art/stairs.ts`) clips terrain triangles, so it interpolates
 vertex colour along with position; a flight cut through painted ground keeps its paint.

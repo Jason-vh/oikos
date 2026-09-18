@@ -19,6 +19,8 @@ function template(kind: CropKind, stage: number, turn: number): T.Group {
 
 interface Planted { key: string; model: T.Group; }
 
+const PICK_RADIUS = .55;
+
 export class CropField {
   private readonly root = new T.Group();
   private readonly planted = new Map<number, Planted>();
@@ -69,6 +71,21 @@ export class CropField {
       copy.add(mesh);
     }
     return copy;
+  }
+
+  pick(ray: T.Raycaster): number | null {
+    let nearest: { tile: number; distance: number } | null = null;
+    const centre = new T.Vector3();
+    for (const [tile, entry] of this.planted) {
+      centre.copy(entry.model.position).setY(entry.model.position.y + .2);
+      const distance = ray.ray.distanceToPoint(centre);
+      if (distance < PICK_RADIUS && (!nearest || distance < nearest.distance)) nearest = { tile, distance };
+    }
+    return nearest?.tile ?? null;
+  }
+
+  modelOf(tile: number): T.Object3D | null {
+    return this.planted.get(tile)?.model ?? null;
   }
 
   get count(): number {

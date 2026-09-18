@@ -21,7 +21,6 @@ function oliveTree(parent: T.Object3D, x: number, z: number, stage: number, scal
 
 export function oliveSapling(stage: number, seed = 0): T.Group {
   const plant = new T.Group();
-  box(plant, colors.earth, 0, .03, 0, 1.1, .06, 1.1, .02);
   oliveTree(plant, 0, 0, stage, .52 + stage * .13);
   plant.rotation.y = (seed % 4) * Math.PI / 2;
   return plant;

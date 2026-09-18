@@ -497,6 +497,13 @@ export function boot(source: SharedBootSource): BootHandles {
       const found = findBuildingOwner(target.id);
       return found ? buildingLabel(found.building) : null;
     }
+    if (target.kind === 'crop') {
+      const owner = world.cities.find((candidate) => candidate.crops.some((crop) => crop.tile === target.id));
+      const crop = owner?.crops.find((candidate) => candidate.tile === target.id);
+      if (!crop) return null;
+      const name = crop.kind === 'wheat' ? 'Wheat field' : 'Olive tree';
+      return { text: `${name} \u00b7 ${Math.round(crop.progress * 100)}% grown`, resource: crop.kind };
+    }
     if (target.kind === 'animal') {
       const animal = world.wildlife.find((candidate) => candidate.id === target.id);
       const quarry = animal ? animalQuarry(animal) : null;

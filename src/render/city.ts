@@ -29,7 +29,7 @@ import { glowStrength, GLOW_SWELL, ModelGlow } from './emphasis';
 
 export const gait = { stepsPerTile: 5.5, swing: .55 };
 
-export type HoverTarget = { kind: 'building' | 'walker' | 'animal'; id: number };
+export type HoverTarget = { kind: 'building' | 'walker' | 'animal' | 'crop'; id: number };
 
 function sameTarget(one: HoverTarget | null, other: HoverTarget | null): boolean {
   if (!one || !other) return one === other;
@@ -1011,6 +1011,9 @@ export class CityScene {
     if (picked.animal !== null) return { kind: 'animal', id: picked.animal };
     const building = findBuilding(world, picked.building);
     if (building) return { kind: 'building', id: building.id };
+    if (this.span > ANIMAL_PICK_SPAN) return null;
+    const crop = this.crops.pick(this.stage.pointerRay(clientX, clientY));
+    if (crop !== null) return { kind: 'crop', id: crop };
     return null;
   }
 
@@ -1046,6 +1049,7 @@ export class CityScene {
     if (!target) return null;
     if (target.kind === 'walker') return this.walkers.get(target.id)?.model ?? null;
     if (target.kind === 'building') return this.buildings.get(target.id)?.model ?? null;
+    if (target.kind === 'crop') return this.crops.modelOf(target.id);
     return null;
   }
 
