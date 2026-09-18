@@ -2,7 +2,7 @@ import * as T from 'three';
 import type { BuildingKind, Stalls, Stores } from '../sim/types';
 import { bake, box, colors, post } from './primitives';
 import { assemblyPart, modelAssembly, type ModelAssembly } from './assembly';
-import { dwelling, dwellingPieces, COTTAGE_VARIANTS, COURTYARD_VARIANTS, DWELLING_VARIANTS } from './houses';
+import { dwelling, dwellingPieces, COTTAGE_VARIANTS, COURTYARD_VARIANTS, DWELLING_VARIANTS, TOWNHOUSE_VARIANTS } from './houses';
 import { wheatFarm, wheatFarmPieces, FARM_VARIANTS } from './vegetation';
 import { fountain as fountainModel, fountainPieces, lodge as lodgeModel, lodgePieces, maintenance as maintenanceModel, maintenancePieces, stockpile as stockpileModel, stockpilePieces, woodcutter as woodcutterModel, woodcutterPieces } from './civic';
 import { granary, granaryPieces } from './granaries';
@@ -81,7 +81,7 @@ export type ModelStage = 0 | 1 | 2 | 3;
 export interface ModelState { tier?: 1 | 2 | 3 | 4; stalls?: Stalls; stage?: ModelStage; stores?: Stores; variant?: number; }
 
 export function modelVariants(kind: BuildingKind, tier: 1 | 2 | 3 | 4 = 1): number {
-  if (kind === 'house') return [DWELLING_VARIANTS, COTTAGE_VARIANTS, COURTYARD_VARIANTS, 1][tier - 1];
+  if (kind === 'house') return [DWELLING_VARIANTS, COTTAGE_VARIANTS, COURTYARD_VARIANTS, TOWNHOUSE_VARIANTS][tier - 1];
   if (kind === 'farm') return FARM_VARIANTS;
   return 1;
 }

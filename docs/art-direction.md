@@ -68,8 +68,8 @@ A kind may have several looks so a street is not wallpaper. `modelVariants(kind,
 tier)` says how many; `getBuildingModel(kind, { variant })` picks one, and the
 renderer derives it from the building's id (`modelRoll` in `src/sim/variation.ts`),
 so a building keeps its look for life on every client. The dwelling has three: roof
-tone, door and window mirrored, and what stands in the yard. Cottage and courtyard
-house have two each: roof tone, awning colour, and the front mirrored. The farm has
+tone, door and window mirrored, and what stands in the yard. Cottage, courtyard
+house and townhouse have two each: roof tone, awning colour, and the front mirrored. The farm has
 three: which corner the shed holds, and whether the furrows run across the plot or
 up it. Kinds a city has one or two of — agora, fountain, granary, the rest — have a
 single look; variation is for what repeats.
