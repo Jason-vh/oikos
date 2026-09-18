@@ -322,6 +322,7 @@ export function build(world: World, city: City, tool: BuildTool, x: number, z: n
 function evaluateRoadPath(world: World, city: City, tiles: Tile[]): Placement {
   const map = mapOf(world, city);
   const foreign = foreignOccupancy(world, city);
+  const sown = cropTiles(world);
   const existing = new Set(city.roads);
   const seen = new Set<number>();
   const indices: number[] = [];
@@ -335,6 +336,7 @@ function evaluateRoadPath(world: World, city: City, tiles: Tile[]): Placement {
     if (buildingAt(world, city, tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: indices, blocked: [tile] };
     if (foreign.buildings.has(tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: indices, blocked: [tile] };
     if (!existing.has(tile) && foreign.roads.has(tile)) return { ok: false, reason: REASON.tileOccupiedByRoad, cost: 0, tiles: indices, blocked: [tile] };
+    if (sown.has(tile)) return { ok: false, reason: REASON.tileSown, cost: 0, tiles: indices, blocked: [tile] };
     indices.push(tile);
   }
 

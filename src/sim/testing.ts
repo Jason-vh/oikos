@@ -8,7 +8,7 @@ import { build, placement, placeRoadPath, recomputeConnectivity } from './world'
 import { HOUSE_CAPACITY } from './catalog';
 import { HOUSE_FOOD_CAP, HOUSE_OIL_CAP, HOUSE_WATER_CAP } from './balance';
 import { unlockRefusal } from './unlocks';
-import { fieldCapacity, openFieldsAt, sowFields } from './crops';
+import { cropTiles, fieldCapacity, openFieldsAt, sowFields } from './crops';
 import { primaryCity } from './city';
 import type { CityColor } from './colors';
 
@@ -234,6 +234,7 @@ function passableForRoad(world: World, city: City, map: IslandMap, roads: Set<nu
   const { x, z } = tileAtOn(map, tile);
   const terrain = terrainOn(map, x, z);
   if (!(buildable(terrain) || terrain === 'forest')) return false;
+  if (cropTiles(world).has(tile)) return false;
   return !city.buildings.some((candidate) => footprintTiles(map, candidate).includes(tile));
 }
 

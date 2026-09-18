@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { advance, build, buildingStatus, createWorld, demolish, placement } from './world';
+import { advance, build, buildingStatus, createWorld, demolish, placement, placeRoadPath, roadPathPlacement } from './world';
 import { primaryCity } from './city';
 import { connect, growerSpotFor, settleHouses, sow, spotFor } from './testing';
 import { fieldCapacity, fieldReach, fieldReport, openFields, plant, plantPlacement, tendedFields } from './crops';
@@ -49,6 +49,9 @@ describe('sowing fields', () => {
 
     expect(placement(world, city, 'house', field.x, field.z).reason).toBe('A field is sown there; clear it first.');
     expect(placement(world, city, 'road', field.x, field.z).reason).toBe('A field is sown there; clear it first.');
+    expect(roadPathPlacement(world, city, [field, { x: field.x + 2, z: field.z }]).reason).toBe('A field is sown there; clear it first.');
+    expect(placeRoadPath(world, city, [field]).ok).toBe(false);
+    expect(city.roads).not.toContain(tileIndexOn(mapOf(world, city), field.x, field.z));
     expect(plantPlacement(world, city, farm, [field]).reason).toBe('Something already grows there.');
 
     expect(demolish(world, city, field.x, field.z).reason).toBe('Field cleared.');
