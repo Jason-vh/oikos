@@ -4,7 +4,7 @@ export {
 } from './primitives';
 export { litterFor, stump, tree, type Litter } from './vegetation';
 export { houseSupplies } from './houses';
-export { axe, chopStrikes, CHOP_HEAD, CHOP_SET, citizen, figure, spear, animateFigure, animateHauling, animateIdle, animateWork, workPeriod, type Idle, type Load } from './people';
+export { axe, chopStrikes, CHOP_HEAD, CHOP_SET, citizen, figure, headOf, spear, animateFigure, animateHauling, animateIdle, animateWork, workPeriod, type Idle, type Load } from './people';
 export { boat } from './ships';
 export { stall } from './stall';
 export { getBuildingModel, getBuildingAssembly, type ModelStage, type ModelState } from './buildings';

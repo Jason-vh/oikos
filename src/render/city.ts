@@ -38,7 +38,7 @@ function selectionTarget(building: Building | null, walkerId: number | null): Ho
 interface BuildingEntry { key: string; tier: number; model: T.Group; intro: number; from: number; construction: BuildingConstruction | null; }
 interface Departure { model: T.Group; elapsed: number; }
 interface WalkerExit { model: T.Group; elapsed: number; scale: number; }
-interface WalkerEntry { id: number; intro: number; key: string; kind: WalkerKind; model: T.Group; cart: T.Object3D | null; cartBed: T.Object3D | null; wheels: T.Object3D[]; path: number[]; departedAt: number; quarry: number | null; task: WalkerTask | null; strikes: number; moving: boolean; working: boolean; waitingSince: number; spell: number; mood: Idle; aim: number; heading: number; turn: number; pace: number; travelled: number; cadence: number; bounce: number; side: number; stepped: boolean; stairs: ReadonlyMap<number, Stair>; }
+interface WalkerEntry { id: number; intro: number; key: string; kind: WalkerKind; model: T.Group; cart: T.Object3D | null; cartBed: T.Object3D | null; wheels: T.Object3D[]; path: number[]; departedAt: number; quarry: number | null; task: WalkerTask | null; strikes: number; moving: boolean; working: boolean; waitingSince: number; spell: number; mood: Idle; aim: number; heading: number; turn: number; gaze: number; pace: number; travelled: number; cadence: number; bounce: number; side: number; stepped: boolean; stairs: ReadonlyMap<number, Stair>; }
 interface AnimalEntry { animal: Animal; home: T.Vector3; roam: number; position: T.Vector3; facing: number; roll: number; phase: number; moving: boolean; stride: number; dying: number; visible: boolean; drawn: boolean; }
 
 const SIGHT_MARGIN = 1.3;
@@ -57,6 +57,9 @@ const IDLE_SETTLE = 1.2;
 const IDLE_SPELL = 3.4;
 const IDLE_SWEEP = 1.8;
 const NEIGHBOUR_REACH = 3.2;
+const GAZE_REACH = 3.4;
+const GAZE_LIMIT = .7;
+const GAZE_RATE = 5;
 const CHOP_REACH = .9;
 const HUNT_REACH = .95;
 const WORK_APPROACH = .5;
@@ -556,7 +559,7 @@ export class CityScene {
       const model = this.walkerModel(walker.kind, load);
       model.userData.walkerId = walker.id;
       this.stage.scene.add(model);
-      entry = { id: walker.id, intro: this.motion && settled ? 0 : WALKER_INTRO, key, kind: walker.kind, model, cart: model.getObjectByName('cart') ?? null, cartBed: model.getObjectByName('bed') ?? null, wheels: wheelsOf(model), path: walker.path, departedAt: walker.departedAt, quarry: walker.quarry, task: walker.task, strikes: 0, moving: false, working: false, waitingSince: walker.departedAt, spell: -1, mood: 'breathe', aim: 0, heading: 0, turn: 0, pace: 0, travelled: 0, side: scatterOf(walker.id, LANE_SEED) * 2 - 1, cadence: 1 + (scatterOf(walker.id, CADENCE_SEED) - .5) * CADENCE_SPREAD, bounce: 1 + (scatterOf(walker.id, BOUNCE_SEED) - .5) * BOUNCE_SPREAD, stepped: false, stairs };
+      entry = { id: walker.id, intro: this.motion && settled ? 0 : WALKER_INTRO, key, kind: walker.kind, model, cart: model.getObjectByName('cart') ?? null, cartBed: model.getObjectByName('bed') ?? null, wheels: wheelsOf(model), path: walker.path, departedAt: walker.departedAt, quarry: walker.quarry, task: walker.task, strikes: 0, moving: false, working: false, waitingSince: walker.departedAt, spell: -1, mood: 'breathe', aim: 0, heading: 0, turn: 0, gaze: 0, pace: 0, travelled: 0, side: scatterOf(walker.id, LANE_SEED) * 2 - 1, cadence: 1 + (scatterOf(walker.id, CADENCE_SEED) - .5) * CADENCE_SPREAD, bounce: 1 + (scatterOf(walker.id, BOUNCE_SEED) - .5) * BOUNCE_SPREAD, stepped: false, stairs };
       this.walkers.set(walker.id, entry);
     }
     entry.path = walker.path;
@@ -755,6 +758,31 @@ export class CityScene {
     return nearest;
   }
 
+  private glanceAt(entry: WalkerEntry): T.Vector3 | null {
+    let nearest: T.Vector3 | null = null;
+    let closest = GAZE_REACH * GAZE_REACH;
+    for (const other of this.walkers.values()) {
+      if (other === entry) continue;
+      const gap = other.model.position.distanceToSquared(entry.model.position);
+      if (gap >= closest || gap < 1e-6) continue;
+      closest = gap;
+      nearest = other.model.position;
+    }
+    if (entry.kind !== 'hunter' || entry.quarry === null) return nearest;
+    return this.animals.get(entry.quarry)?.position ?? nearest;
+  }
+
+  private gazeFor(entry: WalkerEntry, turning: number): void {
+    const seen = this.glanceAt(entry);
+    let wanted = 0;
+    if (seen) {
+      const towards = Math.atan2(seen.x - entry.model.position.x, seen.z - entry.model.position.z);
+      const off = towards - entry.model.rotation.y;
+      wanted = T.MathUtils.clamp(Math.atan2(Math.sin(off), Math.cos(off)), -GAZE_LIMIT, GAZE_LIMIT);
+    }
+    entry.gaze += (wanted - entry.gaze) * Math.min(1, turning * GAZE_RATE);
+  }
+
   private groundCompanions(walker: WalkerEntry): void {
     for (const companion of walker.model.children.slice(5)) {
       if (companion.children.length < 5) continue;
@@ -777,6 +805,7 @@ export class CityScene {
       const idle = !walker.moving && !walker.working;
       if (idle) this.idling(id, walker);
       walker.model.rotation.y = turnToward(walker.model.rotation.y, idle ? walker.aim : walker.heading, turning);
+      this.gazeFor(walker, turning);
       this.groundCompanions(walker);
       this.swellWalker(walker);
     }
@@ -808,9 +837,9 @@ export class CityScene {
         const spent = (this.worldTime - walker.task.since) * Math.max(1, speed) + drift;
         animateWork(walker.model, spent, walker.task.kind === 'hunt' ? 'thrust' : 'chop');
         if (walker.task.kind === 'chop') this.chopping(walker, spent, drift);
-      } else if (walker.moving && walker.cart) animateHauling(walker.model, phase, stride, walker.bounce);
-      else if (walker.moving) animateFigure(walker.model, phase, stride, walker.bounce);
-      else animateIdle(walker.model, (this.worldTime - walker.waitingSince) * Math.max(1, speed) + id, walker.mood);
+      } else if (walker.moving && walker.cart) animateHauling(walker.model, phase, stride, walker.bounce, walker.gaze);
+      else if (walker.moving) animateFigure(walker.model, phase, stride, walker.bounce, walker.gaze);
+      else animateIdle(walker.model, (this.worldTime - walker.waitingSince) * Math.max(1, speed) + id, walker.mood, walker.gaze);
       if (walker.cart) walker.cart.rotation.y = -walker.turn * CART_TRAIL;
       if (walker.cartBed) walker.cartBed.rotation.x = -Math.cos(phase * 2) * CART_ROCK * (stride / .55);
       for (const wheel of walker.wheels) wheel.rotation.x = -walker.travelled * WHEEL_SPIN;

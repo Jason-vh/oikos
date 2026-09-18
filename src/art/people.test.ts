@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import * as T from 'three';
-import { animateFigure, animateHauling, animateIdle, animateWork, axe, chopStrikes, CHOP_HEAD, CHOP_SET, citizen, figure, spear, workPeriod } from './people';
+import { animateFigure, animateHauling, animateIdle, headOf, animateWork, axe, chopStrikes, CHOP_HEAD, CHOP_SET, citizen, figure, spear, workPeriod } from './people';
 
 function parts(model: T.Object3D) {
   const [body, leftLeg, leftArm] = model.children;
@@ -284,4 +284,24 @@ test('a carter keeps both hands on the handles while its legs walk on', () => {
   animateFigure(model, 1.2, .55);
   expect(Math.abs(body.rotation.y)).toBeGreaterThan(Math.abs(poses[0].twist));
   expect(leftArm.rotation.x).not.toBe(rightArm.rotation.x);
+});
+
+test('the head turns on its own neck, and holds its line while the torso works', () => {
+  const model = citizen(0xb2c7bb, false);
+  const head = headOf(model)!;
+  expect(head).toBeDefined();
+  expect(head.parent).toBe(model.children[0]);
+
+  animateFigure(model, Math.PI / 2, .55);
+  const [body] = model.children;
+  expect(body.rotation.y).not.toBe(0);
+  expect(Math.abs(head.rotation.y + body.rotation.y)).toBeLessThan(Math.abs(body.rotation.y));
+
+  animateFigure(model, 1.2, .55, 1, .6);
+  expect(head.rotation.y).toBeGreaterThan(.3);
+  animateFigure(model, 1.2, .55, 1, -.6);
+  expect(head.rotation.y).toBeLessThan(-.3);
+
+  animateIdle(model, .4, 'breathe', .5);
+  expect(head.rotation.y).toBeCloseTo(.5, 6);
 });

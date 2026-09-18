@@ -7,6 +7,14 @@ export interface Figure {
   root: T.Group;
   legs: [T.Group, T.Group];
   arms: [T.Group, T.Group];
+  head: T.Group;
+}
+
+const HEAD_NAME = 'head';
+const NECK = .82;
+
+export function headOf(model: T.Object3D): T.Object3D | undefined {
+  return model.children[0]?.children.find((part) => part.name === HEAD_NAME);
 }
 
 export function figure(color: number, load: Load = 'none'): Figure {
@@ -16,13 +24,19 @@ export function figure(color: number, load: Load = 'none'): Figure {
   root.add(body);
   box(body, color, 0, .48, 0, .32, .49, .25, .065);
   box(body, colors.linen, 0, .26, 0, .36, .12, .29);
-  lump(body, 0xc9966b, 0, .91, .01, .19, .2, .18);
-  lump(body, colors.wood, 0, 1.02, -.025, .19, .1, .18);
   if (load === 'bundle') {
     box(body, colors.linen, 0, .78, -.24, .34, .3, .22, .08);
     box(body, colors.roof, 0, .78, -.24, .06, .34, .26, .02);
   }
   bake(body);
+  const head = new T.Group();
+  head.name = HEAD_NAME;
+  head.rotation.order = 'YXZ';
+  head.position.set(0, NECK, 0);
+  lump(head, 0xc9966b, 0, .91 - NECK, .01, .19, .2, .18);
+  lump(head, colors.wood, 0, 1.02 - NECK, -.025, .19, .1, .18);
+  bake(head);
+  body.add(head);
   const legs: T.Group[] = [];
   const arms: T.Group[] = [];
   for (const side of [-1, 1]) {
@@ -37,7 +51,7 @@ export function figure(color: number, load: Load = 'none'): Figure {
     bake(arm);
     arms.push(arm);
   }
-  return { root, legs: [legs[0], legs[1]], arms: [arms[0], arms[1]] };
+  return { root, legs: [legs[0], legs[1]], arms: [arms[0], arms[1]], head };
 }
 
 export function citizen(color: number, cargo: boolean): T.Group {
@@ -105,8 +119,16 @@ export function spear(): T.Group {
 
 const TORSO_TWIST = .15;
 const WALK_PITCH = .09;
+const HEAD_STEADY = .7;
+const HEAD_NOD = .035;
 
-export function animateFigure(model: T.Object3D, phase: number, stride: number, bounce = 1): void {
+function turnHead(model: T.Object3D, twist: number, gaze: number, nod = 0): void {
+  const head = headOf(model);
+  if (!head) return;
+  head.rotation.set(nod, gaze - twist * HEAD_STEADY, 0);
+}
+
+export function animateFigure(model: T.Object3D, phase: number, stride: number, bounce = 1, gaze = 0): void {
   const [body, leftLeg, leftArm, rightLeg, rightArm] = model.children;
   const swing = Math.sin(phase) * stride;
   const twist = -swing * TORSO_TWIST;
@@ -118,6 +140,7 @@ export function animateFigure(model: T.Object3D, phase: number, stride: number, 
   rightArm.rotation.set(swing * .7, 0, 0);
   body.rotation.set(stride * WALK_PITCH, twist, 0);
   body.position.set(0, Math.abs(Math.cos(phase)) * .035 * bounce * (stride / .6), 0);
+  turnHead(model, twist, gaze, -Math.abs(Math.cos(phase)) * HEAD_NOD * stride);
   holdTool(model, .16 - swing * .22);
 }
 
@@ -212,6 +235,7 @@ export function animateWork(model: T.Object3D, elapsed: number, kind: 'chop' | '
   body.position.set(0, pose.lift, 0);
   setShoulder(rightArm, 1, pose.swing);
   setShoulder(leftArm, -1, pose.swing);
+  turnHead(model, pose.swing, pose.swing * .25, pose.pitch * .5);
   leftArm.rotation.set(pose.arms, pose.swing + TUCK, 0);
   holdTool(model, pose.blade, pose.swing, true);
 }
@@ -219,17 +243,18 @@ export function animateWork(model: T.Object3D, elapsed: number, kind: 'chop' | '
 const HAUL_REACH = .34;
 const HAUL_TWIST = .3;
 
-export function animateHauling(model: T.Object3D, phase: number, stride: number, bounce = 1): void {
-  animateFigure(model, phase, stride, bounce);
+export function animateHauling(model: T.Object3D, phase: number, stride: number, bounce = 1, gaze = 0): void {
+  animateFigure(model, phase, stride, bounce, gaze);
   const [body, , leftArm, , rightArm] = model.children;
   leftArm.rotation.set(HAUL_REACH, 0, 0);
   rightArm.rotation.set(HAUL_REACH, 0, 0);
   body.rotation.y *= HAUL_TWIST;
+  turnHead(model, body.rotation.y, gaze);
 }
 
 export type Idle = 'breathe' | 'shift' | 'stretch';
 
-export function animateIdle(model: T.Object3D, spent: number, mood: Idle): void {
+export function animateIdle(model: T.Object3D, spent: number, mood: Idle, gaze = 0): void {
   const [body, leftLeg, leftArm, rightLeg, rightArm] = model.children;
   const breath = Math.sin(spent * 1.6) * .012;
   setShoulder(leftArm, -1, 0);
@@ -255,5 +280,6 @@ export function animateIdle(model: T.Object3D, spent: number, mood: Idle): void 
     leftArm.rotation.x = -reach * 2.1;
     rightArm.rotation.x = -reach * 2.1;
   }
+  turnHead(model, 0, gaze, Math.sin(spent * 1.6) * .02);
   holdTool(model, .14);
 }
