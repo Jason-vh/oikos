@@ -1,4 +1,4 @@
-import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, footprint } from '../sim/catalog';
+import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, footprint, storesGoods } from '../sim/catalog';
 import { harbourPlacement, harbourSite } from '../sim/founding';
 import { footprintTiles, mapOf } from '../sim/grid';
 import { harbourStatus } from '../sim/harbour';
@@ -30,12 +30,14 @@ const BUILDING_GLYPHS: Record<BuildingKind, string> = {
   maintenance: 'M',
   lodge: 'L',
   woodcutter: 'C',
+  orchard: 'O',
+  press: 'P',
   stockpile: 'S',
   wharf: 'B',
   harbour: 'H',
 };
 
-const STOCKED_KINDS = new Set<BuildingKind>(['farm', 'granary', 'agora', 'stockpile', 'harbour']);
+
 const OWN_ROAD_GLYPH = '+';
 const FOREIGN_ROAD_GLYPH = '=';
 const MIN_WINDOW_WIDTH = 24;
@@ -192,10 +194,10 @@ function describeBuilding(world: World, city: City, building: Building): string 
   const facts: string[] = [];
   if (building.kind === 'house') {
     facts.push(HOUSE_NAMES[building.tier], `${building.residents} of ${HOUSE_CAPACITY[building.tier]} residents`);
-    facts.push(`food ${Math.round(building.food)}, water ${Math.round(building.water)}`);
+    facts.push(`food ${Math.round(building.food)}, water ${Math.round(building.water)}, oil ${Math.round(building.oil)}`);
   } else {
     if (definition.jobs > 0) facts.push(`workers ${Math.round(building.workers)} of ${definition.jobs}`);
-    if (STOCKED_KINDS.has(building.kind)) facts.push(`stock ${stockLine(building)}`);
+    if (storesGoods(building.kind)) facts.push(`stock ${stockLine(building)}`);
   }
   facts.push(`condition ${Math.round(building.condition)}%`);
   if (!building.connected) facts.push('no road');
@@ -220,6 +222,7 @@ export function cityReport(world: World, city: City): string {
     `Population ${summary.population}, employment ${Math.round(summary.workers)} of ${summary.jobs} jobs, food in store ${Math.round(summary.food)}.`,
     `Harvested ${Math.round(city.produced)} food, delivered ${Math.round(city.delivered)} to homes.`,
     `Goal: ${summary.prosperous} of 4 courtyard houses thriving with a balanced budget; ${summary.goal ? 'met' : 'not met yet'}.`,
+    `Townhouses: ${summary.townhouses}.`,
     describeBuilding(world, city, city.harbour).trimStart(),
   ];
   if (city.buildings.length) {

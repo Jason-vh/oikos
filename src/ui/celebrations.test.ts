@@ -3,7 +3,7 @@ import { createWorld } from '../sim/world';
 import { primaryCity } from '../sim/city';
 import { celebration, cityMilestones, rememberMilestones, type CityMilestones } from './celebrations';
 
-const empty: CityMilestones = { settled: false, delivered: false, courtyard: false, thriving: false };
+const empty: CityMilestones = { settled: false, delivered: false, courtyard: false, townhouse: false, thriving: false };
 
 test('an empty island has no achievements', () => {
   expect(cityMilestones(primaryCity(createWorld()))).toEqual(empty);
@@ -17,12 +17,19 @@ test('settlers trigger one welcome, not one per household', () => {
 });
 
 test('celebrates only the most significant simultaneous achievement', () => {
-  const completed = { settled: true, delivered: true, courtyard: true, thriving: true };
+  const completed = { settled: true, delivered: true, courtyard: true, townhouse: false, thriving: true };
   expect(celebration(empty, completed)?.sound).toBe('goal');
 });
 
+test('the first townhouse is celebrated once', () => {
+  const thriving = { settled: true, delivered: true, courtyard: true, townhouse: false, thriving: true };
+  const risen = { ...thriving, townhouse: true };
+  expect(celebration(thriving, risen)?.message).toContain('townhouse');
+  expect(celebration(risen, risen)).toBeNull();
+});
+
 test('a recovered neighbourhood does not repeatedly celebrate the same milestone', () => {
-  const completed = { settled: true, delivered: true, courtyard: true, thriving: true };
+  const completed = { settled: true, delivered: true, courtyard: true, townhouse: true, thriving: true };
   const remembered = rememberMilestones(completed, empty);
   expect(celebration(remembered, completed)).toBeNull();
 });

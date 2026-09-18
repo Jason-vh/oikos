@@ -1,12 +1,13 @@
 import { BUILDINGS } from './catalog';
-import type { ActionResult, BuildTool, Rotation, Tile, World } from './types';
+import type { ActionResult, BuildTool, Rotation, StallGood, Tile, World } from './types';
+import { STALL_GOODS } from './stalls';
 import { build, demolish, placeRoadPath, setVendor } from './world';
 
 export type CityCommand =
   | { type: 'build'; tool: BuildTool; x: number; z: number; rotation: Rotation }
   | { type: 'roadPath'; tiles: Tile[] }
   | { type: 'demolish'; x: number; z: number }
-  | { type: 'vendor'; id: number; enabled: boolean };
+  | { type: 'vendor'; id: number; enabled: boolean; stall: StallGood };
 
 export const MAX_ROAD_PATH = 1024;
 
@@ -46,7 +47,9 @@ export function parseCommand(raw: unknown): CityCommand | null {
   }
   if (raw.type === 'vendor') {
     if (!integer(raw.id) || raw.id < 0 || typeof raw.enabled !== 'boolean') return null;
-    return { type: 'vendor', id: raw.id, enabled: raw.enabled };
+    const stall = raw.stall ?? 'food';
+    if (typeof stall !== 'string' || !STALL_GOODS.includes(stall as StallGood)) return null;
+    return { type: 'vendor', id: raw.id, enabled: raw.enabled, stall: stall as StallGood };
   }
   return null;
 }
@@ -60,6 +63,6 @@ export function applyCommand(world: World, cityId: number, raw: unknown): Action
     case 'build': return build(world, city, command.tool, command.x, command.z, command.rotation);
     case 'roadPath': return placeRoadPath(world, city, command.tiles);
     case 'demolish': return demolish(world, city, command.x, command.z);
-    case 'vendor': return setVendor(city, command.id, command.enabled);
+    case 'vendor': return setVendor(city, command.id, command.enabled, command.stall);
   }
 }

@@ -1,5 +1,6 @@
-import type { Building, City, Resource, Rotation, Summary, Tool, World } from '../sim/types';
-import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, VENDOR_COST } from '../sim/catalog';
+import type { Building, City, Resource, Rotation, StallGood, Summary, Tool, World } from '../sim/types';
+import { STALL_GOODS, STALL_TRADES, stallServing } from '../sim/stalls';
+import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, VENDOR_COST, storesGoods } from '../sim/catalog';
 import { FOOD_CONSUMPTION_PER_RESIDENT, WATER_DECAY_PER_SECOND } from '../sim/balance';
 import { cityColors } from '../art/primitives';
 import type { CityColor } from '../sim/colors';
@@ -11,7 +12,7 @@ export type Stance = 'founding' | 'watching' | 'building';
 export interface HudActions {
   tool(tool: HudTool): void;
   rotate(): void;
-  vendor(id: number, enabled: boolean): void;
+  vendor(id: number, enabled: boolean, stall: StallGood): void;
   focus(x: number, z: number): void;
   grid(enabled: boolean): void;
   menu(open: boolean): void;
@@ -74,6 +75,8 @@ const TOOL_DEFS: ToolDef[] = [
   { tool: 'fountain', label: BUILDINGS.fountain.name, cost: String(BUILDINGS.fountain.cost), price: BUILDINGS.fountain.cost },
   { tool: 'maintenance', label: 'Caretaker', cost: String(BUILDINGS.maintenance.cost), price: BUILDINGS.maintenance.cost },
   { tool: 'lodge', label: 'Hunter', cost: String(BUILDINGS.lodge.cost), price: BUILDINGS.lodge.cost },
+  { tool: 'orchard', label: 'Olives', cost: String(BUILDINGS.orchard.cost), price: BUILDINGS.orchard.cost },
+  { tool: 'press', label: 'Press', cost: String(BUILDINGS.press.cost), price: BUILDINGS.press.cost },
   { tool: 'wharf', label: 'Fisher', cost: String(BUILDINGS.wharf.cost), price: BUILDINGS.wharf.cost },
   { tool: 'woodcutter', label: 'Woodcutter', cost: String(BUILDINGS.woodcutter.cost), price: BUILDINGS.woodcutter.cost },
   { tool: 'stockpile', label: BUILDINGS.stockpile.name, cost: String(BUILDINGS.stockpile.cost), price: BUILDINGS.stockpile.cost },
@@ -130,7 +133,7 @@ function computeMilestones(city: City, summary: Summary): Milestones {
   const houses = connected.filter((building) => building.kind === 'house');
   const farms = connected.some((building) => building.kind === 'farm');
   const granaries = connected.some((building) => building.kind === 'granary');
-  const agoraVendor = connected.some((building) => building.kind === 'agora' && building.vendorEnabled);
+  const agoraVendor = connected.some((building) => stallServing(building, 'food'));
   const fountains = connected.some((building) => building.kind === 'fountain');
   const maintenance = connected.some((building) => building.kind === 'maintenance');
   return {
@@ -170,7 +173,7 @@ const SKELETON = `
     <ol class="hud-milestones" data-testid="milestones">
       <li><label><input type="checkbox" disabled data-milestone="houses" /> Four homes linked to the harbour</label></li>
       <li><label><input type="checkbox" disabled data-milestone="farmGranary" /> A wheat farm and a granary</label></li>
-      <li><label><input type="checkbox" disabled data-milestone="agoraVendor" /> An agora with a vendor</label></li>
+      <li><label><input type="checkbox" disabled data-milestone="agoraVendor" /> An agora with a food stall</label></li>
       <li><label><input type="checkbox" disabled data-milestone="foodDelivered" /> Food delivered to your houses</label></li>
       <li><label><input type="checkbox" disabled data-milestone="services" /> A fountain and a maintenance post</label></li>
       <li><label><input type="checkbox" disabled data-milestone="courtyards" /> Four courtyard houses, thriving</label></li>
@@ -192,6 +195,7 @@ const SKELETON = `
     </dl>
     <p class="hud-inspector-note" data-field="inspector-status"></p>
     <button type="button" class="hud-vendor" data-action="vendor" hidden data-testid="vendor-toggle"></button>
+    <button type="button" class="hud-vendor" data-action="oil-stall" hidden data-testid="oil-stall-toggle"></button>
   </details>
   <div class="hud-bottom">
     <p class="hud-hint" data-field="hint" role="note" hidden></p>
@@ -345,32 +349,42 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
   const rowFood = row(root, 'food');
   const rowWater = row(root, 'water');
   const vendorButton = action(root, 'vendor');
+  const oilButton = action(root, 'oil-stall');
+  const stallButtons: Record<StallGood, HTMLButtonElement> = { food: vendorButton, oil: oilButton };
+
+  function updateStall(building: Building, good: StallGood, editable: boolean): void {
+    const button = stallButtons[good];
+    const stall = building.stalls[good] ?? { installed: false, enabled: false };
+    const trade = STALL_TRADES[good];
+    button.hidden = false;
+    button.disabled = !editable;
+    if (!stall.installed) {
+      button.textContent = `Add ${trade.name} \u00b7 ${VENDOR_COST}`;
+      button.setAttribute('aria-pressed', 'false');
+      button.onclick = () => actions.vendor(building.id, true, good);
+      return;
+    }
+    button.textContent = stall.enabled ? `Close ${trade.name}` : `Open ${trade.name}`;
+    button.setAttribute('aria-pressed', String(stall.enabled));
+    button.onclick = () => actions.vendor(building.id, !stall.enabled, good);
+  }
 
   function updateVendor(building: Building, editable: boolean): void {
+    oilButton.hidden = true;
     if (building.kind === 'harbour') {
       vendorButton.hidden = building.tier < 2;
       if (vendorButton.hidden) return;
       vendorButton.disabled = !editable;
       vendorButton.textContent = building.vendorEnabled ? 'Pause lumber trade' : 'Start lumber trade';
       vendorButton.setAttribute('aria-pressed', String(building.vendorEnabled));
-      vendorButton.onclick = () => actions.vendor(building.id, !building.vendorEnabled);
+      vendorButton.onclick = () => actions.vendor(building.id, !building.vendorEnabled, 'food');
       return;
     }
     if (building.kind !== 'agora') {
       vendorButton.hidden = true;
       return;
     }
-    vendorButton.hidden = false;
-    vendorButton.disabled = !editable;
-    if (!building.vendorInstalled) {
-      vendorButton.textContent = `Add food vendor \u00b7 ${VENDOR_COST}`;
-      vendorButton.setAttribute('aria-pressed', 'false');
-      vendorButton.onclick = () => actions.vendor(building.id, true);
-      return;
-    }
-    vendorButton.textContent = building.vendorEnabled ? 'Pause vendor' : 'Resume vendor';
-    vendorButton.setAttribute('aria-pressed', String(building.vendorEnabled));
-    vendorButton.onclick = () => actions.vendor(building.id, !building.vendorEnabled);
+    for (const good of STALL_GOODS) updateStall(building, good, editable);
   }
 
   function showPerson(selection: Extract<Selection, { kind: 'person' }>): void {
@@ -379,6 +393,7 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
     inspectorTier.textContent = selection.role;
     for (const element of [rowResidents, rowCondition, rowStock, rowWorkers, rowFood, rowWater]) element.hidden = true;
     vendorButton.hidden = true;
+    oilButton.hidden = true;
     inspectorStatus.textContent = selection.status.join(' ');
   }
 
@@ -416,7 +431,7 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
     rowCondition.hidden = false;
     field(rowCondition, 'inspector-condition').textContent = `${Math.round(selected.condition)}%`;
 
-    const hasStock = selected.kind === 'farm' || selected.kind === 'granary' || selected.kind === 'agora' || selected.kind === 'lodge' || selected.kind === 'woodcutter' || selected.kind === 'stockpile' || selected.kind === 'harbour';
+    const hasStock = storesGoods(selected.kind);
     rowStock.hidden = !hasStock;
     if (hasStock) field(rowStock, 'inspector-stock').replaceChildren(...describeStores(selected));
 

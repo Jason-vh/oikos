@@ -1,7 +1,7 @@
 import * as T from 'three';
 import type { Stores } from '../sim/types';
 import { bundle, bundlesOf } from './food';
-import { box, colors, group, post } from './primitives';
+import { box, colors, group, post, pot } from './primitives';
 
 export function stallCounter(parent: T.Object3D): void {
   box(parent, colors.wood, 0, .49, 0, 1.9, .85, 1.05);
@@ -32,6 +32,42 @@ export function stallGoods(parent: T.Object3D, stores: Stores): void {
     crate.scale.setScalar(.95);
     bundle(crate, food, 0, 0, 0, i);
   }
+}
+
+export function jarCounter(parent: T.Object3D): void {
+  box(parent, colors.wood, 0, .42, 0, 1.15, .72, .8);
+  box(parent, colors.plaster, 0, .82, 0, 1.28, .1, .88);
+}
+
+export function jarPosts(parent: T.Object3D): void {
+  for (const px of [-.56, .56]) {
+    for (const pz of [-.36, .42]) post(parent, colors.wood, px, .9, pz, .045, 1.8);
+  }
+}
+
+export function jarAwning(parent: T.Object3D): void {
+  for (let stripe = 0; stripe < 5; stripe++) {
+    const cloth = box(parent, stripe % 2 ? colors.linen : colors.oliveDark, -.5 + stripe * .25, 1.76, .03, .25, .07, 1.1, .025);
+    cloth.rotation.x = .12;
+  }
+}
+
+export function jarGoods(parent: T.Object3D, stores: Stores): void {
+  const oil = stores.oil ?? 0;
+  const jars = Math.min(3, Math.ceil(oil / 40));
+  const slots: [number, number][] = [[-.38, .02], [0, -.12], [.38, .02]];
+  slots.forEach(([x, z], index) => {
+    if (index >= jars) return;
+    pot(parent, x, .88, z, .7, colors.oliveDark);
+  });
+}
+
+export function oilStall(parent: T.Object3D, x: number, y: number, z: number, stores: Stores): void {
+  const shop = group(parent, x, y, z);
+  jarCounter(shop);
+  jarPosts(shop);
+  jarAwning(shop);
+  jarGoods(shop, stores);
 }
 
 export function stall(parent: T.Object3D, x: number, y: number, z: number, color: number, stores: Stores = { wheat: 300 }): void {

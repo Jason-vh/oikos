@@ -288,10 +288,11 @@ describe('human-readable action results', () => {
     const spot = spotFor(world, 'agora')!;
     build(world, primaryCity(world), 'agora', spot.x, spot.z);
     const agora = findByKind(world, 'agora');
-    expect(setVendor(primaryCity(world), agora.id, true).reason).toBe('Food vendor added.');
-    expect(setVendor(primaryCity(world), agora.id, true).reason).toBe('Vendor already active.');
-    expect(setVendor(primaryCity(world), agora.id, false).reason).toBe('Vendor paused.');
-    expect(setVendor(primaryCity(world), agora.id, true).reason).toBe('Vendor resumed.');
+    expect(setVendor(primaryCity(world), agora.id, true).reason).toBe('A food stall joins the agora.');
+    expect(setVendor(primaryCity(world), agora.id, true).reason).toBe('The food stall is already open.');
+    expect(setVendor(primaryCity(world), agora.id, false).reason).toBe('The food stall is closed.');
+    expect(setVendor(primaryCity(world), agora.id, true).reason).toBe('The food stall is open again.');
+    expect(setVendor(primaryCity(world), agora.id, true, 'oil').reason).toBe('An oil stall joins the agora.');
   });
 });
 
@@ -655,7 +656,7 @@ describe('player-facing building status', () => {
     expect(buildingStatus(world, primaryCity(world), house)).toEqual(['Out of water; a fountain visit is needed.']);
   });
 
-  test('a full, satisfied tier-3 house is described as thriving', () => {
+  test('a full courtyard house wants oil, and a supplied townhouse is prosperous', () => {
     const world = createWorld();
     const spot = spotFor(world, 'house')!;
     build(world, primaryCity(world), 'house', spot.x, spot.z);
@@ -664,7 +665,11 @@ describe('player-facing building status', () => {
     house.residents = 20;
     house.food = 5;
     house.water = 5;
-    expect(buildingStatus(world, primaryCity(world), house)).toEqual(['A thriving courtyard house.']);
+    expect(buildingStatus(world, primaryCity(world), house)).toEqual(['Needs oil to become a townhouse: add an oil stall to an agora.']);
+    house.tier = 4;
+    house.residents = 28;
+    house.oil = 5;
+    expect(buildingStatus(world, primaryCity(world), house)).toEqual(['A prosperous townhouse.']);
   });
 
   test('low condition adds a neglect warning alongside the primary line', () => {
@@ -672,12 +677,13 @@ describe('player-facing building status', () => {
     const spot = spotFor(world, 'house')!;
     build(world, primaryCity(world), 'house', spot.x, spot.z);
     const house = findByKind(world, 'house');
-    house.tier = 3;
-    house.residents = 20;
+    house.tier = 4;
+    house.residents = 28;
     house.food = 5;
     house.water = 5;
+    house.oil = 5;
     house.condition = 20;
-    expect(buildingStatus(world, primaryCity(world), house)).toEqual(['A thriving courtyard house.', 'Neglected; build a maintenance post.']);
+    expect(buildingStatus(world, primaryCity(world), house)).toEqual(['A prosperous townhouse.', 'Neglected; build a maintenance post.']);
     const maintenanceSpot = spotFor(world, 'maintenance')!;
     build(world, primaryCity(world), 'maintenance', maintenanceSpot.x, maintenanceSpot.z);
     connect(world, findByKind(world, 'maintenance'));
@@ -717,16 +723,16 @@ describe('player-facing building status', () => {
     expect(buildingStatus(world, primaryCity(world), granary)).toEqual(['Stocked and ready for buyers.']);
   });
 
-  test('an agora without a vendor asks for one', () => {
+  test('an agora without a stall asks for one', () => {
     const world = createWorld();
     const spot = spotFor(world, 'agora')!;
     build(world, primaryCity(world), 'agora', spot.x, spot.z);
     const agora = findByKind(world, 'agora');
     agora.workers = BUILDINGS.agora.jobs;
-    expect(buildingStatus(world, primaryCity(world), agora)).toEqual(['Add a food vendor to start deliveries.']);
+    expect(buildingStatus(world, primaryCity(world), agora)).toEqual(['Add a food stall to start deliveries.']);
   });
 
-  test('an installed but idle vendor is resting, an active one is on the streets', () => {
+  test('an installed but idle stall is resting, an active one is on the streets', () => {
     const world = createWorld();
     buildStarterNeighbourhood(world, primaryCity(world));
     const agora = findByKind(world, 'agora');
@@ -736,8 +742,8 @@ describe('player-facing building status', () => {
     for (let i = 0; i < 300 && !(sawResting && sawActive); i++) {
       advance(world, 1);
       const line = buildingStatus(world, primaryCity(world), agora)[0];
-      if (line === 'Vendor resting at market.') sawResting = true;
-      if (line === 'Vendor on the streets.') sawActive = true;
+      if (line === 'Food stall resting at market.') sawResting = true;
+      if (line === 'Food stall out on the streets.') sawActive = true;
     }
     expect(sawResting).toBe(true);
     expect(sawActive).toBe(true);
@@ -776,7 +782,7 @@ describe('building status', () => {
     build(world, primaryCity(world), 'agora', spot.x, spot.z);
     const agora = primaryCity(world).buildings[0];
     agora.workers = BUILDINGS.agora.jobs;
-    expect(buildingStatus(world, primaryCity(world), agora)).toEqual(['Add a food vendor to start deliveries.']);
+    expect(buildingStatus(world, primaryCity(world), agora)).toEqual(['Add a food stall to start deliveries.']);
     agora.condition = 20;
     expect(buildingStatus(world, primaryCity(world), agora).at(-1)).toBe('Neglected; build a maintenance post.');
   });
@@ -993,8 +999,8 @@ describe('carved stairs', () => {
 
 function minimalBuilding(kind: BuildingKind, x: number, z: number): Building {
   return {
-    id: 0, x, z, kind, rotation: 0, tier: 1, residents: 0, food: 0, water: 0, condition: 100, stores: {},
-    progress: 0, workers: 0, vendorEnabled: false, vendorInstalled: false, connected: false, serviceTimer: 0, upgradeTimer: 0,
+    id: 0, x, z, kind, rotation: 0, tier: 1, residents: 0, food: 0, water: 0, oil: 0, condition: 100, stores: {},
+    progress: 0, workers: 0, vendorEnabled: false, vendorInstalled: false, stalls: {}, connected: false, serviceTimer: 0, upgradeTimer: 0,
   };
 }
 

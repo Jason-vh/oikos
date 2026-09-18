@@ -69,9 +69,9 @@ describe('construction commands act only on the targeted City', () => {
     const city2 = secondCity(world, city1.id + 1);
 
     expect(setVendor(city2, agora.id, true).reason).toBe('No such building.');
-    expect(agora.vendorInstalled).toBe(false);
+    expect(agora.stalls.food?.installed ?? false).toBe(false);
     expect(setVendor(city1, agora.id, true).ok).toBe(true);
-    expect(agora.vendorInstalled).toBe(true);
+    expect(agora.stalls.food?.installed).toBe(true);
   });
 });
 

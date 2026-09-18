@@ -1,5 +1,5 @@
 import * as T from 'three';
-import type { BuildingKind, Stores } from '../sim/types';
+import type { BuildingKind, Stalls, Stores } from '../sim/types';
 import { bake, box, colors, post } from './primitives';
 import { assemblyPart, modelAssembly, type ModelAssembly } from './assembly';
 import { dwelling, dwellingPieces } from './houses';
@@ -8,9 +8,20 @@ import { fountain as fountainModel, fountainPieces, lodge as lodgeModel, lodgePi
 import { granary, granaryPieces } from './granaries';
 import { harbour as harbourModel } from './harbour';
 import { wharf as wharfModel, wharfPieces } from './wharf';
-import { stall, stallAwning, stallCounter, stallGoods, stallPosts } from './stall';
+import { oliveOrchard, oliveOrchardPieces, olivePress, olivePressPieces } from './olives';
+import { jarAwning, jarCounter, jarGoods, jarPosts, oilStall, stall, stallAwning, stallCounter, stallGoods, stallPosts } from './stall';
 
 const STALL_AT: [number, number, number] = [-.7, .2, .6];
+const OIL_STALL_AT: [number, number, number] = [.95, .2, -1.05];
+
+function foodOf(stores: Stores): Stores {
+  const { oil: _oil, ...rest } = stores;
+  return rest;
+}
+
+function oilOf(stores: Stores): Stores {
+  return stores.oil ? { oil: stores.oil } : {};
+}
 
 function agoraBed(parent: T.Object3D): void {
   box(parent, colors.paving, 0, .09, 0, 3.55, .18, 3.55);
@@ -26,53 +37,65 @@ function agoraPosts(parent: T.Object3D): void {
   }
 }
 
-function agora(vendorEnabled: boolean, stores: Stores): T.Group {
+function agora(stalls: Stalls, stores: Stores): T.Group {
   const market = new T.Group();
   agoraBed(market);
   agoraPaving(market);
   agoraPosts(market);
-  if (vendorEnabled) stall(market, ...STALL_AT, colors.blue, stores);
+  if (stalls.food?.installed) stall(market, ...STALL_AT, colors.blue, foodOf(stores));
+  if (stalls.oil?.installed) oilStall(market, ...OIL_STALL_AT, oilOf(stores));
   return market;
 }
 
-function agoraPieces(vendorEnabled: boolean, stores: Stores): ModelAssembly {
+function agoraPieces(stalls: Stalls, stores: Stores): ModelAssembly {
   const assembly = modelAssembly(false);
   agoraBed(assemblyPart(assembly, { name: 'bed', at: 0, lift: 0, dust: true }));
   agoraPaving(assemblyPart(assembly, { name: 'paving', at: .14, lift: .16, duration: .26, dust: true }));
   agoraPosts(assemblyPart(assembly, { name: 'corner-posts', at: .3, lift: .24, duration: .26 }));
-  if (!vendorEnabled) return assembly;
-  const shop = (name: string, at: number, lift = .3, duration = .28, dust = false) => {
-    const part = assemblyPart(assembly, { name, at, lift, duration, dust });
+  const shop = (at: [number, number, number]) => (name: string, delay: number, lift = .3, duration = .28, dust = false) => {
+    const part = assemblyPart(assembly, { name, at: delay, lift, duration, dust });
     const anchor = new T.Group();
-    anchor.position.set(...STALL_AT);
+    anchor.position.set(...at);
     part.add(anchor);
     return anchor;
   };
-  stallCounter(shop('stall-counter', .46, .3, .28, true));
-  stallPosts(shop('stall-posts', .66, .4));
-  stallAwning(shop('awning', .86, .3, .3), colors.blue);
-  stallGoods(shop('goods', 1.06, .14, .22), stores);
+  if (stalls.food?.installed) {
+    const bench = shop(STALL_AT);
+    stallCounter(bench('stall-counter', .46, .3, .28, true));
+    stallPosts(bench('stall-posts', .66, .4));
+    stallAwning(bench('awning', .86, .3, .3), colors.blue);
+    stallGoods(bench('goods', 1.06, .14, .22), foodOf(stores));
+  }
+  if (stalls.oil?.installed) {
+    const bench = shop(OIL_STALL_AT);
+    jarCounter(bench('oil-counter', 1.24, .3, .28, true));
+    jarPosts(bench('oil-posts', 1.44, .4));
+    jarAwning(bench('oil-awning', 1.62, .3, .3));
+    jarGoods(bench('jars', 1.8, .14, .22), oilOf(stores));
+  }
   return assembly;
 }
 
 export type ModelStage = 0 | 1 | 2 | 3;
 
-export interface ModelState { tier?: 1 | 2 | 3; vendorEnabled?: boolean; stage?: ModelStage; stores?: Stores; }
+export interface ModelState { tier?: 1 | 2 | 3 | 4; stalls?: Stalls; stage?: ModelStage; stores?: Stores; }
 
 export function getBuildingAssembly(kind: BuildingKind, state: ModelState = {}): ModelAssembly | null {
-  const { tier = 1, vendorEnabled = false, stage = 3, stores = {} } = state;
-  const assembly = choreography(kind, tier, vendorEnabled, stage, stores);
+  const { tier = 1, stalls = {}, stage = 3, stores = {} } = state;
+  const assembly = choreography(kind, tier, stalls, stage, stores);
   if (!assembly) return null;
   for (const part of assembly.parts) bake(part.model);
   return assembly;
 }
 
-function choreography(kind: BuildingKind, tier: 1 | 2 | 3, vendorEnabled: boolean, stage: ModelStage, stores: Stores): ModelAssembly | null {
+function choreography(kind: BuildingKind, tier: 1 | 2 | 3 | 4, stalls: Stalls, stage: ModelStage, stores: Stores): ModelAssembly | null {
   switch (kind) {
     case 'house': return tier === 1 ? dwellingPieces() : null;
     case 'farm': return wheatFarmPieces(stage);
+    case 'orchard': return oliveOrchardPieces(stage);
+    case 'press': return olivePressPieces(stores);
     case 'granary': return granaryPieces(stores);
-    case 'agora': return agoraPieces(vendorEnabled, stores);
+    case 'agora': return agoraPieces(stalls, stores);
     case 'fountain': return fountainPieces();
     case 'maintenance': return maintenancePieces();
     case 'lodge': return lodgePieces();
@@ -84,7 +107,7 @@ function choreography(kind: BuildingKind, tier: 1 | 2 | 3, vendorEnabled: boolea
 }
 
 export function getBuildingModel(kind: BuildingKind, state: ModelState = {}): T.Group {
-  const { tier = 1, vendorEnabled = false, stage = 3, stores = {} } = state;
+  const { tier = 1, stalls = {}, stage = 3, stores = {} } = state;
   const model = new T.Group();
   switch (kind) {
     case 'house':
@@ -93,11 +116,17 @@ export function getBuildingModel(kind: BuildingKind, state: ModelState = {}): T.
     case 'farm':
       model.add(wheatFarm(stage));
       break;
+    case 'orchard':
+      model.add(oliveOrchard(stage));
+      break;
+    case 'press':
+      model.add(olivePress(stores));
+      break;
     case 'granary':
       model.add(granary(stores));
       break;
     case 'agora':
-      model.add(agora(vendorEnabled, stores));
+      model.add(agora(stalls, stores));
       break;
     case 'fountain':
       model.add(fountainModel());

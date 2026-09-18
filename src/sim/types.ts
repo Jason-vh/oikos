@@ -1,29 +1,35 @@
 import type { CityColor } from './colors';
 
-export type BuildingKind = 'house' | 'farm' | 'granary' | 'agora' | 'fountain' | 'maintenance' | 'lodge' | 'woodcutter' | 'stockpile' | 'wharf' | 'harbour';
+export type BuildingKind = 'house' | 'farm' | 'orchard' | 'press' | 'granary' | 'agora' | 'fountain' | 'maintenance' | 'lodge' | 'woodcutter' | 'stockpile' | 'wharf' | 'harbour';
 export type BuildTool = Exclude<BuildingKind, 'harbour'> | 'road';
 export type Tool = BuildTool | 'inspect' | 'demolish';
 export type Rotation = 0 | 1 | 2 | 3;
 export type Terrain = 'water' | 'sand' | 'grass' | 'fertile' | 'scrub' | 'forest' | 'rock' | 'cliff';
 export type Food = 'wheat' | 'carrots' | 'fish' | 'meat' | 'olives';
 export type Material = 'lumber' | 'clay' | 'stone';
-export type Resource = Food | Material;
+export type Good = 'oil';
+export type Resource = Food | Material | Good;
 export type Stores = Partial<Record<Resource, number>>;
+export type StallGood = 'food' | 'oil';
+export interface Stall { installed: boolean; enabled: boolean; }
+export type Stalls = Partial<Record<StallGood, Stall>>;
 export interface Tile { x: number; z: number; }
 export interface Building extends Tile {
   id: number;
   kind: BuildingKind;
   rotation: Rotation;
-  tier: 1 | 2 | 3;
+  tier: 1 | 2 | 3 | 4;
   residents: number;
   food: number;
   water: number;
+  oil: number;
   condition: number;
   stores: Stores;
   progress: number;
   workers: number;
   vendorEnabled: boolean;
   vendorInstalled: boolean;
+  stalls: Stalls;
   connected: boolean;
   serviceTimer: number;
   upgradeTimer: number;
@@ -78,7 +84,7 @@ export interface City {
   buildings: Building[];
   walkers: Walker[];
 }
-export const CURRENT_VERSION = 17 as const;
+export const CURRENT_VERSION = 18 as const;
 export const WORLD_LABEL = 'archipelago' as const;
 export interface World {
   version: typeof CURRENT_VERSION;
@@ -104,5 +110,6 @@ export interface Summary {
   upkeep: number;
   balance: number;
   prosperous: number;
+  townhouses: number;
   goal: boolean;
 }

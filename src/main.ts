@@ -11,7 +11,7 @@ import { CELL_SIZE, groundHeight, islandFor, ISLAND_COUNT, terrainOn, tileIndexO
 import { buildingStatus, getSummary, placement, roadPathPlacement, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
 import { animalQuarry } from './sim/wildlife';
 import { gatherReach } from './sim/gathering';
-import type { Building, BuildingKind, City, Placement, Rotation, Tile, Tool, Walker, World } from './sim/types';
+import type { Building, BuildingKind, City, Placement, Rotation, StallGood, Tile, Tool, Walker, World } from './sim/types';
 import { createHud, type CityScope, type HudTool, type Stance } from './ui/hud';
 import { createSound } from './ui/sound';
 import { celebration, cityMilestones, NO_MILESTONES, rememberMilestones } from './ui/celebrations';
@@ -298,7 +298,7 @@ export function boot(source: SharedBootSource): BootHandles {
   const hud = createHud(document.querySelector<HTMLElement>('#ui')!, {
     tool: selectTool,
     rotate: () => { rotation = ((rotation + 1) % 4) as Rotation; hud.setTool(tool, rotation); updatePreview(); },
-    vendor: (id, enabled) => dispatchShared({ type: 'vendor', id, enabled }),
+    vendor: (id, enabled, stall) => dispatchShared({ type: 'vendor', id, enabled, stall }),
     focus: (x, z) => { const point = worldPositionOn(map(), x + .5, z + .5); stage.focus(point.x, point.z); },
     grid: setGrid,
     menu: (open) => {
@@ -866,7 +866,7 @@ export function boot(source: SharedBootSource): BootHandles {
       build: (kind: Exclude<Tool, 'inspect' | 'demolish' | 'road'>, x: number, z: number, turn: Rotation = 0) => seamCommand({ type: 'build', tool: kind, x, z, rotation: turn }),
       road: (tiles: Tile[]) => seamCommand({ type: 'roadPath', tiles }),
       demolish: (x: number, z: number) => seamCommand({ type: 'demolish', x, z }),
-      vendor: (id: number, enabled: boolean) => seamCommand({ type: 'vendor', id, enabled }),
+      vendor: (id: number, enabled: boolean, stall: StallGood = 'food') => seamCommand({ type: 'vendor', id, enabled, stall }),
       checkClaim: (x: number, z: number, turn: Rotation = 0) => harbourPlacement(world, x, z, turn),
       checkBuild: (kind: Exclude<Tool, 'inspect' | 'demolish'>, x: number, z: number, turn: Rotation = 0) => {
         const home = activeCity(world, context);

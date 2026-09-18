@@ -35,7 +35,9 @@ Build four dwellings beside the harbour road. Grow wheat on the fertile striped
 fields — or send a hunter after game and a fishing wharf after the shoals offshore —
 store it in a granary, then add a food vendor to an agora. Connect everything
 with roads. Add a fountain and maintenance post. Reliable food and water evolve
-homes into cottages and courtyard houses. Fell forest for lumber: porters carry it
+homes into cottages and courtyard houses. Plant olives on ground a farm cannot use,
+press them into oil, and sell it from a second agora stall: houses with oil become
+townhouses. Fell forest for lumber: porters carry it
 to the harbour, enough rebuilds the quay in stone, and a trade order ships it
 overseas for coin.
 

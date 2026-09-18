@@ -284,13 +284,21 @@ describe('corruption rejection', () => {
     expect(deserializeWorld(JSON.stringify(raw))).toBeNull();
   });
 
-  test('rejects a vendor marked enabled but never installed', () => {
+  test('rejects a stall marked open but never installed', () => {
     const world = advancedWorld();
     const raw = JSON.parse(serializeWorld(world));
     const agora = raw.cities[0].buildings.find((building: { kind: string }) => building.kind === 'agora');
     if (!agora) return;
-    agora.vendorEnabled = true;
-    agora.vendorInstalled = false;
+    agora.stalls = { food: { installed: false, enabled: true } };
+    expect(deserializeWorld(JSON.stringify(raw))).toBeNull();
+  });
+
+  test('rejects a stall on anything but an agora', () => {
+    const world = advancedWorld();
+    const raw = JSON.parse(serializeWorld(world));
+    const house = raw.cities[0].buildings.find((building: { kind: string }) => building.kind === 'house');
+    if (!house) return;
+    house.stalls = { food: { installed: true, enabled: true } };
     expect(deserializeWorld(JSON.stringify(raw))).toBeNull();
   });
 

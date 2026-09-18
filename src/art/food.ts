@@ -3,7 +3,7 @@ import type { Resource, Stores } from '../sim/types';
 import { box, colors, group, lump, post } from './primitives';
 
 export const BUNDLE_SIZE = 100;
-export const FOOD_ORDER: Resource[] = ['wheat', 'carrots', 'fish', 'meat', 'olives', 'lumber', 'clay', 'stone'];
+export const FOOD_ORDER: Resource[] = ['wheat', 'carrots', 'fish', 'meat', 'olives', 'oil', 'lumber', 'clay', 'stone'];
 
 export function bundlesOf(stores: Stores, slots: number): Resource[] {
   const result: Resource[] = [];
@@ -53,6 +53,13 @@ export function bundle(parent: T.Object3D, food: Resource, x: number, y: number,
         lump(pile, colors.oliveDark, px, .17, pz, .13, .2, .13);
         post(pile, colors.oliveDark, px, .34, pz, .06, .08);
       }
+      break;
+    case 'oil':
+      for (const [px, pz] of [[-.14, 0], [.14, -.04]]) {
+        lump(pile, colors.oliveDark, px, .2, pz, .13, .26, .13);
+        post(pile, colors.oliveDark, px, .38, pz, .05, .12);
+      }
+      box(pile, colors.linen, 0, .42, -.02, .34, .05, .2, .02);
       break;
     case 'lumber':
       for (let row = 0; row < 3; row++) {

@@ -63,7 +63,41 @@ export function dwellingPieces(): ModelAssembly {
   return assembly;
 }
 
-export function dwelling(tier: 1 | 2 | 3): T.Group {
+function townhouse(): T.Group {
+  const home = new T.Group();
+  const width = 2.4, depth = 2.25, height = 3.95;
+  box(home, colors.stone, 0, .13, 0, 2.9, .26, 2.75);
+  box(home, 0xe2cfa7, 0, height / 2 + .24, 0, width, height, depth, .07);
+  box(home, colors.plaster, 0, 1.78, 0, width + .06, .14, depth + .06);
+  box(home, colors.cream, 0, height + .18, 0, width + .16, .22, depth + .16);
+  roof(home, width + .52, depth + .58, height + .26, .82);
+  box(home, colors.cream, -.36, .6, depth / 2 + .01, .74, 1.12, .12);
+  box(home, colors.wood, -.36, .56, depth / 2 + .09, .52, 1, .07);
+  windowFrame(home, .7, 1.12, depth / 2 + .01);
+  for (const y of [2.4, 3.35]) {
+    windowFrame(home, -.62, y, depth / 2 + .01);
+    windowFrame(home, .7, y, depth / 2 + .01);
+  }
+  const balcony = group(home, 0, 0, depth / 2 + .25);
+  box(balcony, colors.cream, 0, 1.94, 0, width + .1, .14, .5);
+  for (let baluster = 0; baluster < 7; baluster++) post(balcony, colors.blue, -1.05 + baluster * .35, 2.2, .18, .055, .38);
+  box(balcony, colors.cream, 0, 2.42, .18, width + .1, .1, .12);
+  for (const [sx, sz, angle] of [[width / 2 + .01, -.15, Math.PI / 2], [-width / 2 - .01, .15, -Math.PI / 2]]) {
+    const side = group(home, sx, 0, sz, angle);
+    windowFrame(side, 0, 1.12, 0);
+    windowFrame(side, 0, 2.4, 0);
+    windowFrame(side, 0, 3.35, 0);
+  }
+  const yardDepth = .5;
+  const yardZ = -(depth / 2 + yardDepth / 2);
+  box(home, colors.paving, 0, .1, yardZ, width - .1, .2, yardDepth);
+  box(home, colors.plaster, -(width - .1) / 2, .36, yardZ, .1, .5, yardDepth);
+  box(home, colors.plaster, (width - .1) / 2, .36, yardZ, .1, .5, yardDepth);
+  pot(home, 1.02, .22, depth / 2 + .3, .8);
+  return home;
+}
+
+export function dwelling(tier: 1 | 2 | 3 | 4): T.Group {
   const home = new T.Group();
   if (tier === 1) {
     dwellingPlinth(home);
@@ -75,6 +109,7 @@ export function dwelling(tier: 1 | 2 | 3): T.Group {
     dwellingPot(home);
     return home;
   }
+  if (tier === 4) return townhouse();
   if (tier === 2) {
     const width = 2.15, depth = 2.05, height = 1.7;
     box(home, colors.stone, 0, .11, 0, 2.6, .22, 2.5);
@@ -134,18 +169,20 @@ function basket(parent: T.Object3D, x: number, z: number, full: boolean): void {
   }
 }
 
-const SUPPLIES_LAYOUT: Record<1 | 2 | 3, { depth: number; basketX: number; jarX: number; frontGap: number }> = {
+const SUPPLIES_LAYOUT: Record<1 | 2 | 3 | 4, { depth: number; basketX: number; jarX: number; frontGap: number }> = {
   1: { depth: 1.65, basketX: .05, jarX: .38, frontGap: .28 },
   2: { depth: 2.05, basketX: .15, jarX: .5, frontGap: .32 },
   3: { depth: 2.2, basketX: .15, jarX: .5, frontGap: .28 },
+  4: { depth: 2.25, basketX: -.05, jarX: .34, frontGap: .3 },
 };
 
-export function houseSupplies(tier: 1 | 2 | 3, hasFood: boolean, hasWater: boolean): T.Group {
+export function houseSupplies(tier: 1 | 2 | 3 | 4, hasFood: boolean, hasWater: boolean, hasOil = false): T.Group {
   const supplies = new T.Group();
   const { depth, basketX, jarX, frontGap } = SUPPLIES_LAYOUT[tier];
   const z = depth / 2 + frontGap;
   basket(supplies, basketX, z, hasFood);
   pot(supplies, jarX, 0, z, hasWater ? .5 : .32, hasWater ? colors.blueLight : colors.stone);
+  if (tier === 4) pot(supplies, jarX + .42, 0, z - .06, hasOil ? .46 : .3, hasOil ? colors.oliveDark : colors.stone);
   bake(supplies);
   return supplies;
 }

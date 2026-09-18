@@ -54,7 +54,7 @@ test('state-key replacement preserves construction progress; tier changes remove
     city.transitions(.8);
     const previous = model(house.id);
     const roofHeight = previous.getObjectByName('roof')!.position.y;
-    house.vendorEnabled = true;
+    house.stalls = { food: { installed: true, enabled: true } };
     city.sync(world);
     expect(previous.parent).toBeNull();
     expect(model(house.id).getObjectByName('roof')!.position.y).toBe(roofHeight);

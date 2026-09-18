@@ -46,7 +46,7 @@ function disconnectedMark(depth: number): T.Group {
 
 export function syncHouseSupplies(model: T.Group, building: Building): void {
   if (building.kind !== 'house') return;
-  const key = building.residents > 0 ? `${building.tier}:${building.food > 0}:${building.water > 0}` : '';
+  const key = building.residents > 0 ? `${building.tier}:${building.food > 0}:${building.water > 0}:${building.oil > 0}` : '';
   if (model.userData.suppliesKey === key) return;
   const previous = model.userData.suppliesGroup as T.Group | undefined;
   if (previous) {
@@ -56,7 +56,7 @@ export function syncHouseSupplies(model: T.Group, building: Building): void {
   model.userData.suppliesKey = key;
   model.userData.suppliesGroup = undefined;
   if (key === '') return;
-  const supplies = houseSupplies(building.tier, building.food > 0, building.water > 0);
+  const supplies = houseSupplies(building.tier, building.food > 0, building.water > 0, building.oil > 0);
   model.add(supplies);
   model.userData.suppliesGroup = supplies;
 }

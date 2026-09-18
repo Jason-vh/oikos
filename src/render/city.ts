@@ -6,6 +6,8 @@ import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, groundHeight, insideMapOn, tileAtOn,
 import { buildRoads } from '../art/roads';
 import { WATERLINE } from '../art/coast';
 import { wharfCatch } from '../art/wharf';
+import { pressJars } from '../art/olives';
+import { STALL_GOODS } from '../sim/stalls';
 import { alive, animalAt, animalStride, SPECIES, wildlifeObstacles } from '../sim/wildlife';
 import { STAIR_WIDTH } from '../art/stairs';
 import { roadHeight, stairLayout, STAIR_STEPS, type Stair } from '../sim/stairs';
@@ -94,15 +96,20 @@ function skiffWithCatch(colour: number, load: Resource | null): T.Group {
 const WORK_CYCLE: Record<WalkerTask['kind'], WorkKind> = { chop: 'chop', hunt: 'thrust', net: 'cast' };
 
 function modelStage(building: Building): ModelStage {
-  if (building.kind === 'farm') return Math.min(3, Math.floor(building.progress * 4)) as ModelStage;
+  if (building.kind === 'farm' || building.kind === 'orchard') return Math.min(3, Math.floor(building.progress * 4)) as ModelStage;
   if (building.kind === 'harbour') return (building.progress === 0 ? 0 : Math.min(3, 1 + Math.floor(building.progress * 3))) as ModelStage;
   return 3;
+}
+
+function stallKey(building: Building): string {
+  return STALL_GOODS.filter((good) => building.stalls[good]?.installed).join(',');
 }
 
 function storesKey(building: Building): string {
   if (building.kind === 'granary' || building.kind === 'stockpile' || building.kind === 'harbour') return bundleKey(building.stores, GRANARY_SLOTS);
   if (building.kind === 'agora') return bundleKey(building.stores, AGORA_SLOTS);
   if (building.kind === 'wharf') return String(wharfCatch(building.stores));
+  if (building.kind === 'press') return String(pressJars(building.stores));
   return '';
 }
 
@@ -256,14 +263,14 @@ export class CityScene {
         for (let x = building.x; x < building.x + width; x++) occupied.add(tileIndexOn(this.map, x, z));
       }
       const stage = modelStage(building);
-      const key = `${building.kind}:${building.tier}:${building.vendorEnabled}:${stage}:${storesKey(building)}:${building.rotation}:${building.x}:${building.z}`;
+      const key = `${building.kind}:${building.tier}:${stallKey(building)}:${stage}:${storesKey(building)}:${building.rotation}:${building.x}:${building.z}`;
       const existing = this.buildings.get(building.id);
       if (existing?.key === key) continue;
       if (existing) {
         existing.model.removeFromParent();
         disposeModel(existing.model);
       }
-      const state = { tier: building.tier, vendorEnabled: building.vendorEnabled, stage, stores: building.stores };
+      const state = { tier: building.tier, stalls: building.stalls, stage, stores: building.stores };
       const finished = getBuildingModel(building.kind, state);
       const animated = this.motion && this.primed && (!existing || existing.tier !== building.tier);
       const assembling = animated || (existing?.construction && existing.tier === building.tier);
@@ -818,7 +825,7 @@ export class CityScene {
       }
       this.ghost = null;
       if (tool !== 'road' && tool !== 'demolish') {
-        this.ghost = getBuildingModel(tool, { vendorEnabled: tool === 'agora', stores: tool === 'agora' ? { wheat: 300 } : {} });
+        this.ghost = getBuildingModel(tool, { stalls: tool === 'agora' ? { food: { installed: true, enabled: true } } : {}, stores: tool === 'agora' ? { wheat: 300 } : {} });
         this.ghost.traverse((child) => {
           if (!(child instanceof T.Mesh)) return;
           const material = (child.material as T.MeshStandardMaterial).clone();

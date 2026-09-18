@@ -167,10 +167,10 @@ export const TOOLS: AgentTool[] = [
   }),
   tool({
     name: 'set_vendor',
-    description: `Install or stand down a vendor. An agora needs one to distribute food along the roads; the first costs ${VENDOR_COST} dr. The rebuilt harbour needs one to trade lumber.`,
-    schema: { id: tile, enabled: z.boolean() },
+    description: `Open or close a stall. An agora hosts a food stall and an oil stall, each costing ${VENDOR_COST} dr the first time and free thereafter; pass stall to say which. The rebuilt harbour takes the same call for its lumber trade.`,
+    schema: { id: tile, enabled: z.boolean(), stall: z.enum(['food', 'oil']).default('food') },
     async run(game, args) {
-      const result = await game.submit({ type: 'vendor', id: args.id, enabled: args.enabled });
+      const result = await game.submit({ type: 'vendor', id: args.id, enabled: args.enabled, stall: args.stall });
       return outcome(result, game.view().city);
     },
   }),

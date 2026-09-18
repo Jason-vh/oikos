@@ -285,7 +285,7 @@ describe('ids and allocators must be safe integers', () => {
     const raw = JSON.parse(serializeWorld(world));
     raw.cities[0].buildings.push({
       id: Number.MAX_SAFE_INTEGER - 1, x: 0, z: 0, kind: 'house', rotation: 0, tier: 1, residents: 0, food: 0, water: 0,
-      condition: 100, stores: {}, progress: 0, workers: 0, vendorEnabled: false, vendorInstalled: false,
+      oil: 0, condition: 100, stores: {}, progress: 0, workers: 0, vendorEnabled: false, vendorInstalled: false, stalls: {},
       connected: false, serviceTimer: 0, upgradeTimer: 0,
     });
     raw.nextId = Number.MAX_SAFE_INTEGER;

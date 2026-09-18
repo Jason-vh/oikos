@@ -133,9 +133,10 @@ function boot(): void {
       return { model: boat(colors.blue, tierValue !== 'small'), footprint: null, description: 'A merchant boat with a striped sail.' };
     }
     const kind = kindValue as BuildingKind;
-    const tier = Number(tierValue) as 1 | 2 | 3;
+    const tier = Number(tierValue) as 1 | 2 | 3 | 4;
     const stores = STORE_VARIANTS[variant] ?? {};
-    const state: ModelState = { tier, vendorEnabled: kind === 'agora' && tier === 2, stage: Number(variant || 3) as ModelStage, stores };
+    const stalls = kind === 'agora' && tier >= 2 ? { food: { installed: true, enabled: true }, oil: { installed: tier >= 3, enabled: tier >= 3 } } : {};
+    const state: ModelState = { tier, stalls, stage: Number(variant || 3) as ModelStage, stores };
     return { model: getBuildingModel(kind, state), footprint: footprint(kind), description: BUILDINGS[kind].description, site: { kind, state } };
   }
 

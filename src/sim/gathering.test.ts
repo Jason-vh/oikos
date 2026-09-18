@@ -202,8 +202,8 @@ describe('cross-city occupancy', () => {
     expect(overlandPath(world, city1, downIndex, (candidate) => candidate === upIndex, 4)).not.toBeNull();
 
     const foreignBuilding: Building = {
-      id: world.nextId++, x: tile.x, z: tile.z, kind: 'fountain', rotation: 0, tier: 1, residents: 0, food: 0, water: 0,
-      condition: 100, stores: {}, progress: 0, workers: 0, vendorEnabled: false, vendorInstalled: false,
+      id: world.nextId++, x: tile.x, z: tile.z, kind: 'fountain', rotation: 0, tier: 1, residents: 0, food: 0, water: 0, oil: 0,
+      condition: 100, stores: {}, progress: 0, workers: 0, vendorEnabled: false, vendorInstalled: false, stalls: {},
       connected: false, serviceTimer: 0, upgradeTimer: 0,
     };
     const foreignCity: City = { ...structuredClone(city1), id: city1.id + 1, roads: [], walkers: [], buildings: [foreignBuilding] };

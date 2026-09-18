@@ -102,7 +102,7 @@ through the complete neighbourhood loop and save/load continuation.
   charged. Tiles that are already roads cost nothing, whether placed one at a time
   or as part of a path.
 - `demolish(world, city, x, z)` removes whatever is on that tile. Demolishing a building
-  refunds half its base cost (plus half the vendor fee, if one was installed on an
+  refunds half its base cost (plus half the fee of every stall installed on an
   agora being torn down). Demolishing a road never refunds anything — including the
   starter roads — so there's no way to profit by paving and immediately tearing up
   a tile.
@@ -128,8 +128,8 @@ direct simulation utilities; local undo remains a checkpoint operation.
 Every `ActionResult` carries a human-readable `reason`, suitable for a HUD toast
 as-is:
 
-- Success: `'Dwelling built.'`, `'Road laid.'`, `'Food vendor added.'`,
-  `'Vendor paused.'` / `'Vendor resumed.'` / `'Vendor already active.'`,
+- Success: `'Dwelling built.'`, `'Road laid.'`, `'A food stall joins the agora.'`,
+  `'The food stall is closed.'` / `'The food stall is open again.'` / `'The oil stall is already open.'`,
   `'Demolished, 70 drachmas refunded.'` (or `'Demolished. Roads are not
   refunded.'` for a road).
 - Failure: a full sentence too — `'Farms need fertile ground.'`,
@@ -165,7 +165,7 @@ links it back to the entry.
 searches the ground near the harbour road for a legal spot for each building (farm
 first, then granary, four houses, agora, fountain, maintenance post) and the road
 needed to connect each one, and `buildStarterNeighbourhood(world, city)` which
-builds that plan and enables the vendor. Both read and build for the given `City`
+builds that plan and opens its food stall. Both read and build for the given `City`
 explicitly; planning clones the `World` and resolves that city's trial copy by
 its stable id, so it never mutates the original. Seeds 1–8 all yield a plan that reaches its first food in under
 a minute and the goal in two to three simulated minutes. The browser walkthrough
@@ -173,8 +173,8 @@ builds the plan through the real UI.
 
 ## Food and storage
 
-Food comes in kinds (`Food`: wheat, carrots, fish, meat, olives) and materials
-(`Material`: lumber, clay, stone); `Resource` is either. Wheat, meat and lumber are
+Food comes in kinds (`Food`: wheat, carrots, fish, meat, olives), materials
+(`Material`: lumber, clay, stone) and made goods (`Good`: oil); `Resource` is any of them. Wheat, meat and lumber are
 produced in this slice. Every storing building keeps `stores`, a map of food →
 units. Capacity is physical: a granary has eight slots around its tower and an agora three, each
 holding one bundle of 100 units of a single food, so the model shows exactly what
@@ -189,9 +189,17 @@ that has to actually reach its destination.
 - **Farm → granary.** A farm with workers grows food; when a harvest completes, it
   loads a cart with up to 100 units and sends it, by the shortest road route, to the
   nearest connected granary with room. The cart drops its cargo and walks home.
-- **Granary → agora.** An agora with an enabled vendor sends a buyer to the nearest
-  connected granary that has stock, who carries a cartload back to the agora.
-- **Agora → houses.** Once the agora holds food, its vendor sets out on foot along
+- **Orchard → press.** An olive orchard grows like a farm, slower, on grass, scrub
+  or fertile ground. Its cart carries olives to the nearest connected press with
+  room; olives never reach a granary and never reach a house.
+- **Press → oil.** A staffed press takes a batch of olives off its own store and
+  works it into oil over `PRESS_SECONDS`, scaled by how well it is staffed. It
+  holds olives and oil together, up to `PRESS_CAP`.
+- **Granary → agora.** An agora hosts stalls rather than one vendor: a food stall
+  and an oil stall, each installed once for `VENDOR_COST` and free to pause and
+  resume. Each stall sends its own buyer to the nearest connected source with
+  stock — a granary for food, a press for oil.
+- **Agora → houses.** Once the agora holds a stall's goods, that stall's seller sets out on foot along
   a deterministic circuit of the reachable road network — a depth-first walk capped
   at a distance budget (60 tiles) rather than a random wander, so every house on a
   short network is reliably served every trip. It drops food at each house it
@@ -207,9 +215,10 @@ Every workplace needs staff to do any of this: about half the population is
 available for work, split across every connected workplace's job slots in
 proportion to how many it offers. A disconnected workplace never gets workers.
 
-A vendor is a one-time purchase: `setVendor(city, agora.id, true)` charges
-`VENDOR_COST` only the first time it's switched on for a given agora. Turning it
-off and back on again doesn't charge a second time.
+A stall is a one-time purchase: `setVendor(city, agora.id, true, stall)` charges
+`VENDOR_COST` only the first time that stall is opened on a given agora. Closing it
+and opening it again doesn't charge a second time. The harbour's trade order takes
+the same call, keeps its own `vendorEnabled` switch, and is not a stall.
 
 ## Living in a house
 
@@ -217,9 +226,14 @@ A house starts empty. Once it's connected to the road network, parties of settle
 walk in from the harbour flag along the roads; they count as residents only when
 they arrive. A house fills to 8 (tier 1, no requirements) quite quickly. From there:
 
-- **Tier 2** (12 settlers) needs food. A house with food in store keeps growing
-  toward 12; once full and fed for a short confirmation window, it upgrades.
-- **Tier 3** (20 settlers) needs food *and* water, on the same terms.
+- **Tier 2**, a cottage (12 settlers), needs food. A house with food in store keeps
+  growing toward 12; once full and fed for a short confirmation window, it upgrades.
+- **Tier 3**, a courtyard house (20 settlers), needs food *and* water, on the same terms.
+- **Tier 4**, a townhouse (28 settlers), needs food, water *and* olive oil.
+
+Needs are cumulative: a tier never drops an earlier one. Oil is consumed slowly, like
+food; a house that stops being called on by an oil stall falls back to a courtyard
+house under the same grace rules as any other shortfall.
 
 Food is consumed continuously by the residents; water isn't consumed so much as it
 evaporates over time — either way, a house that stops being served will eventually
@@ -245,22 +259,24 @@ building only ever reports that:
 
 Otherwise it says what a house is waiting on or growing into — `'Waiting for
 settlers from the harbour.'`, `'Needs food to grow: add an agora vendor
-nearby.'`, `'Needs water to become a courtyard house.'`, `'Out of food; a vendor
-visit is needed.'`, `'A thriving courtyard house.'` — or what a workplace is doing
+nearby.'`, `'Needs water to become a courtyard house.'`, `'Needs oil to become a
+townhouse: add an oil stall to an agora.'`, `'Out of food; a vendor
+visit is needed.'`, `'A prosperous townhouse.'` — or what a workplace is doing
 — `'Unstaffed; settlers are needed for work.'` / `'Short of workers; more settlers are needed.'`, `'Growing wheat, 40% to harvest.'`,
-`'Empty; waiting for a farm cart.'`, `'Add a food vendor to start deliveries.'`,
-`'Vendor on the streets.'` / `'Vendor resting at market.'` — with a trailing
+`'Empty; waiting for a farm cart.'`, `'Add a food stall to start deliveries.'`,
+`'Food stall out on the streets.'` / `'Oil stall resting at market.'`, `'Pressing oil, 40% of this batch.'` — with a trailing
 `'Neglected; a caretaker will repair it.'` (or `'Neglected; build a maintenance post.'` when no connected post exists) appended whenever condition has dropped
 below half.
 
 ## Money
 
-Building, paving and the vendor's installation fee are one-off costs. Ongoing
+Building, paving and each stall's installation fee are one-off costs. Ongoing
 income and upkeep are applied continuously (no tax walker): each resident brings in
 a small, steady income, and every standing workplace has a modest upkeep, both
 expressed as a rate per `MONTH_SECONDS` (60 simulated seconds) and settled every
 tick. `getSummary(city)` reports the current population, employment, food in
-storage, income, upkeep, balance, and how many tier-3 houses are inhabited.
+storage, income, upkeep, balance, how many houses are courtyard houses or better,
+and how many of those are townhouses.
 
 ## Gathering: hunters, woodcutters and fishers
 
@@ -319,7 +335,7 @@ cartload to the harbour, the same way a farm cart reaches a granary. Once
 (`tier` 2) and the lumber is spent.
 
 A rebuilt harbour can host one renewable export order. Switching it on (the same
-`setVendor` action used for an agora's vendor, at no cost) sends porters to keep the
+`setVendor` action used for an agora's stalls, at no cost) sends porters to keep the
 dock stocked; once it holds at least `HARBOUR_MIN_CARGO` (100) lumber, a ship departs
 with the whole load, the lumber is sold at `HARBOUR_LUMBER_PRICE` per unit, and the
 money lands immediately — the voyage itself (`HARBOUR_VOYAGE_SECONDS`, shown as the
@@ -441,8 +457,8 @@ are retired on load; those edges no longer provide access.
 ## Tests
 
 `bun test src/sim` covers placement and cost rules, connectivity, employment,
-the full farm-to-house supply chain and its timing targets, vendor enable/disable
-billing, water and maintenance service, housing grace and devolution, road breaks
+the full farm-to-house supply chain and its timing targets, the olive chain from
+grove to oil stall to townhouse, stall enable/disable billing, water and maintenance service, housing grace and devolution, road breaks
 and demolition mid-delivery, the harbour's rebuild and renewable trade with the
 same robustness guarantees as every other delivery, save/load round-trips and
 corruption rejection, and determinism of the fixed timestep (one big `advance()`

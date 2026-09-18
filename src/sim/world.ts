@@ -1,10 +1,12 @@
-import { CURRENT_VERSION, WORLD_LABEL, type ActionResult, type Building, type BuildTool, type City, type Food, type Placement, type Resource, type Rotation, type Stores, type Summary, type TaskKind, type Tile, type Walker, type WalkerKind, type World } from './types';
-import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, SCENARIO_MONEY, VENDOR_COST, footprint, isFood } from './catalog';
+import { CURRENT_VERSION, WORLD_LABEL, type ActionResult, type Building, type BuildingKind, type BuildTool, type City, type Food, type Placement, type Resource, type Rotation, type StallGood, type Stores, type Summary, type TaskKind, type Tile, type Walker, type WalkerKind, type World } from './types';
+import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, SCENARIO_MONEY, TOP_TIER, VENDOR_COST, footprint, isFood } from './catalog';
 import { retireRespawned, wildlifeRoster } from './wildlife';
 import type { CityColor } from './colors';
 import { gatherArrival, gatherErrand, gatherFinished, gatherKind, GATHER_STOCK_CAP, isGatherer, regrowForest, updateGatherer, type GathererKind } from './gathering';
 import { findHarbourSite, harbourApron } from './founding';
 import { freshHarbour, HARBOUR_DOCK_CAP, harbourStatus, harbourTiles, setHarbourTrade, updateHarbour } from './harbour';
+import { pressStatus, updatePress } from './olives';
+import { setStall, stallGoodOf, stallOf, stallServing, stallsInstalled, STALL_GOODS, STALL_TRADES } from './stalls';
 import { buildable, insideMapOn, islandFor, levelOn, onHomeIsland, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import {
   accessDoors,
@@ -31,18 +33,19 @@ import {
   EMPLOYMENT_SHARE,
   FARM_GROW_SECONDS,
   FARM_STOCK_CAP,
+  ORCHARD_GROW_SECONDS,
+  PRESS_CAP,
   FOOD_CONSUMPTION_PER_RESIDENT,
   GRACE_SECONDS,
   GRANARY_CAP,
   HARVEST_UNITS,
-  HOUSE_FOOD_CAP,
   HOUSE_WATER_CAP,
+  OIL_CONSUMPTION_PER_RESIDENT,
   INCOME_PER_RESIDENT,
   REPAIR_AMOUNT,
   ROAD_BUDGET,
   STEP,
   UPGRADE_GRACE,
-  VENDOR_DROP_AMOUNT,
   VENDOR_TRIP_CAPACITY,
   WALKER_SPEED,
   WATER_DECAY_PER_SECOND,
@@ -118,6 +121,7 @@ const REASON = {
   stairBackland: 'A stair needs solid, dry ground to land on at the top.',
   stairSideEntry: 'Stairs can only be entered from the front or back, not the side.',
   needsFertileGround: 'Farms need fertile ground.',
+  needsGrove: 'Olives root in grass, scrub or fertile ground.',
   needsOpenWater: 'The jetty needs open water behind the quay.',
   needsShore: 'A wharf stands on flat, open shore with water behind it.',
   tileOccupied: 'That tile is occupied.',
@@ -138,8 +142,10 @@ function buildingAt(world: World, city: City, tile: number): Building | undefine
 
 function terrainAllows(map: IslandMap, kind: BuildTool, x: number, z: number): boolean {
   const terrain = terrainOn(map, x, z);
-  if (kind === 'farm') return terrain === 'fertile';
   if (kind === 'road') return buildable(terrain) || terrain === 'forest' || terrain === 'cliff';
+  const ground = BUILDINGS[kind].ground ?? 'buildable';
+  if (ground === 'fertile') return terrain === 'fertile';
+  if (ground === 'grove') return terrain === 'grass' || terrain === 'scrub' || terrain === 'fertile';
   return buildable(terrain);
 }
 
@@ -151,6 +157,13 @@ function gradeAllowed(map: IslandMap, ax: number, az: number, bx: number, bz: nu
   if (difference > 1) return false;
   const higherTerrain = levelA > levelB ? terrainOn(map, ax, az) : terrainOn(map, bx, bz);
   return higherTerrain === 'cliff';
+}
+
+function groundRefusal(tool: BuildTool): string {
+  const ground = tool === 'road' ? 'buildable' : BUILDINGS[tool].ground ?? 'buildable';
+  if (ground === 'fertile') return REASON.needsFertileGround;
+  if (ground === 'grove') return REASON.needsGrove;
+  return REASON.unsuitableTerrain;
 }
 
 function stairReason(issue: StairIssue): string {
@@ -201,7 +214,7 @@ function footprintRefusal(world: World, city: City, foreign: ForeignOccupancy, t
   const map = mapOf(world, city);
   const { x, z } = tileAtOn(map, tile);
   if (levelOn(map, x, z) !== baseLevel) return REASON.unevenGround;
-  if (!terrainAllows(map, tool, x, z)) return tool === 'farm' ? REASON.needsFertileGround : REASON.unsuitableTerrain;
+  if (!terrainAllows(map, tool, x, z)) return groundRefusal(tool);
   if (!onHomeIsland(map, x, z)) return REASON.unsettledIsland;
   return occupancyRefusal(world, city, foreign, tile);
 }
@@ -299,12 +312,14 @@ export function build(world: World, city: City, tool: BuildTool, x: number, z: n
       residents: 0,
       food: 0,
       water: 0,
+      oil: 0,
       condition: 100,
       stores: {},
       progress: 0,
       workers: 0,
       vendorEnabled: false,
       vendorInstalled: false,
+      stalls: {},
       connected: false,
       serviceTimer: 0,
       upgradeTimer: 0,
@@ -375,7 +390,7 @@ export function demolish(world: World, city: City, x: number, z: number): Action
   const building = buildingAt(world, city, tile);
   if (building) {
     if (building.kind === 'harbour') return { ok: false, reason: REASON.harbourPermanent };
-    const refund = Math.floor((BUILDINGS[building.kind].cost + (building.vendorInstalled ? VENDOR_COST : 0)) / 2);
+    const refund = Math.floor((BUILDINGS[building.kind].cost + stallsInstalled(building.stalls) * VENDOR_COST) / 2);
     city.money += refund;
     removeBuilding(world, city, building.id);
     recomputeConnectivity(world, city);
@@ -463,26 +478,12 @@ export function dropInvalidWalkers(world: World, city: City, beforeStairs?: Read
   releaseRetiredQuarries(world, retired);
 }
 
-export function setVendor(city: City, id: number, enabled: boolean): ActionResult {
+export function setVendor(city: City, id: number, enabled: boolean, stall: StallGood = 'food'): ActionResult {
   if (id === city.harbour.id) return setHarbourTrade(city.harbour, enabled);
   const building = city.buildings.find((candidate) => candidate.id === id);
   if (!building) return { ok: false, reason: REASON.noSuchBuilding };
   if (building.kind !== 'agora') return { ok: false, reason: REASON.onlyAgoraHostsVendor };
-
-  if (!enabled) {
-    building.vendorEnabled = false;
-    return { ok: true, reason: 'Vendor paused.' };
-  }
-  if (building.vendorEnabled) return { ok: true, reason: 'Vendor already active.' };
-  if (!building.vendorInstalled) {
-    if (city.money < VENDOR_COST) return { ok: false, reason: REASON.notEnoughMoney };
-    city.money -= VENDOR_COST;
-    building.vendorInstalled = true;
-    building.vendorEnabled = true;
-    return { ok: true, reason: 'Food vendor added.' };
-  }
-  building.vendorEnabled = true;
-  return { ok: true, reason: 'Vendor resumed.' };
+  return setStall(city, building, stall, enabled);
 }
 
 export function harbourGate(world: World, city: City): number | null {
@@ -580,18 +581,24 @@ function updateStaffing(city: City): void {
   }
 }
 
-function updateFarm(world: World, city: City, farm: Building, dt: number): void {
-  if (farm.connected && farm.workers > 0) {
-    const ratio = farm.workers / jobsOf(farm);
-    farm.progress += (dt / FARM_GROW_SECONDS) * ratio;
-    if (farm.progress >= 1) {
-      farm.progress -= 1;
-      addStore(farm, 'wheat', Math.min(HARVEST_UNITS, FARM_STOCK_CAP - totalStock(farm)));
+const CROPS: Partial<Record<BuildingKind, { crop: Food; seconds: number }>> = {
+  farm: { crop: 'wheat', seconds: FARM_GROW_SECONDS },
+  orchard: { crop: 'olives', seconds: ORCHARD_GROW_SECONDS },
+};
+
+function updateGrower(world: World, city: City, field: Building, dt: number): void {
+  const growing = CROPS[field.kind]!;
+  if (field.connected && field.workers > 0) {
+    const ratio = field.workers / jobsOf(field);
+    field.progress += (dt / growing.seconds) * ratio;
+    if (field.progress >= 1) {
+      field.progress -= 1;
+      addStore(field, growing.crop, Math.min(HARVEST_UNITS, FARM_STOCK_CAP - totalStock(field)));
       city.produced += HARVEST_UNITS;
     }
   }
 
-  sendCart(world, city, farm);
+  sendCart(world, city, field);
 }
 
 export function sendCart(world: World, city: City, producer: Building): void {
@@ -601,7 +608,7 @@ export function sendCart(world: World, city: City, producer: Building): void {
   const resource = (Object.keys(producer.stores) as Resource[])[0];
   const exit = exitTile(world, city, producer);
   if (exit === -1) return;
-  const storeKind = isFood(resource) ? 'granary' : 'stockpile';
+  const storeKind = storeKindFor(resource);
   const stores = city.buildings.filter((building) => building.kind === storeKind && building.connected && totalStock(building) < storeCapacity(building));
   const found = findNearestConnected(world, city, exit, stores);
   if (!found) return;
@@ -621,63 +628,84 @@ export function sendCart(world: World, city: City, producer: Building): void {
   });
 }
 
+export function storeKindFor(resource: Resource): BuildingKind {
+  if (resource === 'olives') return 'press';
+  return isFood(resource) ? 'granary' : 'stockpile';
+}
+
 export function storeCapacity(building: Building): number {
   if (building.kind === 'agora') return AGORA_CAP;
   if (building.kind === 'harbour') return HARBOUR_DOCK_CAP;
+  if (building.kind === 'press') return PRESS_CAP;
   return GRANARY_CAP;
+}
+
+function stallWalking(city: City, agora: Building, kind: WalkerKind, good: StallGood): boolean {
+  return city.walkers.some((walker) => walker.homeId === agora.id && walker.kind === kind && stallGoodOf(walker.food) === good);
+}
+
+function heldForStall(stores: Stores, good: StallGood): Resource | null {
+  const trade = STALL_TRADES[good];
+  if (good === 'food') return richestFood(stores);
+  return (Object.keys(stores) as Resource[]).find((resource) => trade.carries(resource) && (stores[resource] ?? 0) > 0) ?? null;
+}
+
+function fetchForStall(world: World, city: City, agora: Building, good: StallGood): void {
+  if (stallWalking(city, agora, 'buyer', good) || totalStock(agora) >= AGORA_CAP) return;
+  const exit = exitTile(world, city, agora);
+  if (exit === -1) return;
+  const trade = STALL_TRADES[good];
+  const sources = city.buildings.filter((building) => building.kind === trade.source && building.connected && heldForStall(building.stores, good) !== null);
+  const found = findNearestConnected(world, city, exit, sources);
+  if (!found) return;
+  const resource = heldForStall(found.building.stores, good);
+  if (!resource) return;
+  const cargo = Math.min(found.building.stores[resource] ?? 0, BUYER_FETCH_CAPACITY, AGORA_CAP - totalStock(agora));
+  if (cargo <= 0) return;
+  addStore(found.building, resource, -cargo);
+  spawnWalker(world, city, {
+    kind: 'buyer',
+    homeId: agora.id,
+    targetId: found.building.id,
+    path: found.path,
+    step: 0,
+    progress: 0,
+    food: resource,
+    cargo,
+    returning: false,
+  });
+}
+
+function sellFromStall(world: World, city: City, agora: Building, good: StallGood): void {
+  if (!stallOf(agora, good).enabled || stallWalking(city, agora, 'vendor', good)) return;
+  const resource = heldForStall(agora.stores, good);
+  if (!resource) return;
+  const exit = exitTile(world, city, agora);
+  if (exit === -1) return;
+  const path = buildServiceCircuit(world, city, exit, ROAD_BUDGET);
+  if (path.length <= 1) return;
+  const cargo = Math.min(agora.stores[resource] ?? 0, VENDOR_TRIP_CAPACITY);
+  addStore(agora, resource, -cargo);
+  spawnWalker(world, city, {
+    kind: 'vendor',
+    homeId: agora.id,
+    targetId: null,
+    path,
+    step: 0,
+    progress: 0,
+    food: resource,
+    cargo,
+    returning: false,
+  });
 }
 
 function updateAgora(world: World, city: City, agora: Building, dt: number): void {
   void dt;
   if (!agora.connected || agora.workers <= 0) return;
-
-  if (!hasActiveWalker(city, agora.id, 'buyer') && totalStock(agora) < AGORA_CAP) {
-    const exit = exitTile(world, city, agora);
-    const granaries = city.buildings.filter((building) => building.kind === 'granary' && building.connected && totalStock(building) > 0);
-    if (exit !== -1 && granaries.length > 0) {
-      const found = findNearestConnected(world, city, exit, granaries);
-      if (found) {
-        const food = richestFood(found.building.stores);
-        const cargo = food ? Math.min(found.building.stores[food] ?? 0, BUYER_FETCH_CAPACITY, AGORA_CAP - totalStock(agora)) : 0;
-        if (food && cargo > 0) {
-          addStore(found.building, food, -cargo);
-          spawnWalker(world, city, {
-            kind: 'buyer',
-            homeId: agora.id,
-            targetId: found.building.id,
-            path: found.path,
-            step: 0,
-            progress: 0,
-            food,
-            cargo,
-            returning: false,
-          });
-        }
-      }
-    }
-  }
-
-  if (agora.vendorEnabled && totalStock(agora) > 0 && !hasActiveWalker(city, agora.id, 'vendor')) {
-    const exit = exitTile(world, city, agora);
-    if (exit !== -1) {
-      const food = richestFood(agora.stores);
-      const cargo = food ? Math.min(agora.stores[food] ?? 0, VENDOR_TRIP_CAPACITY) : 0;
-      const path = buildServiceCircuit(world, city, exit, ROAD_BUDGET);
-      if (path.length > 1) {
-        addStore(agora, food!, -cargo);
-        spawnWalker(world, city, {
-          kind: 'vendor',
-          homeId: agora.id,
-          targetId: null,
-          path,
-          step: 0,
-          progress: 0,
-          food,
-          cargo,
-          returning: false,
-        });
-      }
-    }
+  for (const good of STALL_GOODS) {
+    if (!stallOf(agora, good).installed) continue;
+    fetchForStall(world, city, agora, good);
+    sellFromStall(world, city, agora, good);
   }
 }
 
@@ -720,11 +748,14 @@ function serviceTileVisit(world: World, city: City, walker: Walker): void {
 
   for (const building of buildingsAdjacentToTile(world, city, tile)) {
     if (walker.kind === 'vendor') {
-      if (building.kind !== 'house' || walker.cargo <= 0) continue;
-      const room = HOUSE_FOOD_CAP - building.food;
-      const deliver = Math.min(walker.cargo, VENDOR_DROP_AMOUNT, room);
+      const good = stallGoodOf(walker.food);
+      if (building.kind !== 'house' || walker.cargo <= 0 || !good) continue;
+      const trade = STALL_TRADES[good];
+      const held = good === 'oil' ? building.oil : building.food;
+      const deliver = Math.min(walker.cargo, trade.drop, trade.houseCap - held);
       if (deliver <= 0) continue;
-      building.food += deliver;
+      if (good === 'oil') building.oil += deliver;
+      else building.food += deliver;
       walker.cargo -= deliver;
       city.delivered += deliver;
     } else if (walker.kind === 'water') {
@@ -847,20 +878,22 @@ function sendImmigrants(world: World, city: City, house: Building, party: number
   });
 }
 
-function meetsTierNeed(tier: number, food: number, water: number): boolean {
-  const needsFood = tier >= 2;
-  const needsWater = tier >= 3;
-  return (!needsFood || food > 0) && (!needsWater || water > 0);
+function meetsTierNeed(tier: number, house: Building): boolean {
+  if (tier >= 2 && house.food <= 0) return false;
+  if (tier >= 3 && house.water <= 0) return false;
+  if (tier >= 4 && house.oil <= 0) return false;
+  return true;
 }
 
 function tickHouse(world: World, city: City, house: Building, dt: number): void {
   if (house.residents > 0) {
     house.food = Math.max(0, house.food - FOOD_CONSUMPTION_PER_RESIDENT * house.residents * dt);
+    house.oil = Math.max(0, house.oil - OIL_CONSUMPTION_PER_RESIDENT * house.residents * dt);
   }
   house.water = Math.max(0, house.water - WATER_DECAY_PER_SECOND * dt);
   house.condition = Math.max(0, house.condition - CONDITION_DECAY_PER_SECOND * dt);
 
-  const satisfied = meetsTierNeed(house.tier, house.food, house.water);
+  const satisfied = meetsTierNeed(house.tier, house);
 
   if (!satisfied) {
     house.serviceTimer += dt;
@@ -868,7 +901,7 @@ function tickHouse(world: World, city: City, house: Building, dt: number): void 
     if (house.serviceTimer >= GRACE_SECONDS) {
       house.serviceTimer = 0;
       if (house.tier > 1) {
-        house.tier = (house.tier - 1) as 1 | 2 | 3;
+        house.tier = (house.tier - 1) as Building['tier'];
         house.residents = Math.min(house.residents, HOUSE_CAPACITY[house.tier]);
       }
     }
@@ -893,13 +926,13 @@ function tickHouse(world: World, city: City, house: Building, dt: number): void 
   }
   if (house.residents < capacity) return;
 
-  if (house.tier >= 3) {
+  if (house.tier >= TOP_TIER) {
     house.upgradeTimer = 0;
     return;
   }
 
   const nextTier = house.tier + 1;
-  if (!meetsTierNeed(nextTier, house.food, house.water)) {
+  if (!meetsTierNeed(nextTier, house)) {
     house.upgradeTimer = 0;
     return;
   }
@@ -907,7 +940,7 @@ function tickHouse(world: World, city: City, house: Building, dt: number): void 
   house.upgradeTimer += dt;
   if (house.upgradeTimer >= UPGRADE_GRACE) {
     house.upgradeTimer = 0;
-    house.tier = nextTier as 1 | 2 | 3;
+    house.tier = nextTier as Building['tier'];
   }
 }
 
@@ -921,7 +954,8 @@ function simulationStep(world: World, dt: number): void {
   for (const city of world.cities) {
     updateStaffing(city);
     for (const building of city.buildings) {
-      if (building.kind === 'farm') updateFarm(world, city, building, dt);
+      if (CROPS[building.kind]) updateGrower(world, city, building, dt);
+      else if (building.kind === 'press') updatePress(city, building, dt);
       else if (isGatherer(building.kind)) updateGatherer(world, city, building);
       else if (building.kind === 'agora') updateAgora(world, city, building, dt);
       else if (building.kind === 'fountain') updateCircuitDispatch(world, city, building, 'water');
@@ -961,40 +995,77 @@ export function getSummary(city: City): Summary {
   const income = houses.reduce((sum, house) => sum + house.residents * INCOME_PER_RESIDENT, 0);
   const upkeep = workplaces.reduce((sum, building) => sum + BUILDINGS[building.kind].upkeep, 0);
   const balance = income - upkeep;
-  const prosperous = houses.filter((house) => house.tier === 3 && house.residents > 0).length;
+  const prosperous = houses.filter((house) => house.tier >= 3 && house.residents > 0).length;
+  const townhouses = houses.filter((house) => house.tier >= 4 && house.residents > 0).length;
   const goal = prosperous >= 4 && balance >= 0 && city.produced > 0 && city.delivered > 0;
-  return { population, workers, jobs, food, income, upkeep, balance, prosperous, goal };
+  return { population, workers, jobs, food, income, upkeep, balance, prosperous, townhouses, goal };
 }
 
 function houseStatus(city: City, building: Building): string[] {
   const lines: string[] = [];
   const capacity = HOUSE_CAPACITY[building.tier];
-  const needsFoodNow = building.tier >= 2;
-  const needsWaterNow = building.tier >= 3;
-  const satisfiedNow = (!needsFoodNow || building.food > 0) && (!needsWaterNow || building.water > 0);
 
   if (building.residents === 0) {
     lines.push('Waiting for settlers from the harbour.');
-  } else if (!satisfiedNow) {
-    if (needsWaterNow && building.water <= 0) lines.push('Out of water; a fountain visit is needed.');
-    else lines.push(vendorServing(city) ? 'Out of food; a vendor visit is needed.' : 'Out of food; no agora vendor is serving the streets.');
+  } else if (!meetsTierNeed(building.tier, building)) {
+    lines.push(shortfallAdvice(city, building));
   } else if (building.residents < capacity) {
     lines.push('Waiting for settlers from the harbour.');
-  } else if (building.tier < 3) {
-    const nextTier = building.tier + 1;
-    if (nextTier >= 2 && building.food <= 0) lines.push(foodAdvice(city));
-    else if (nextTier >= 3 && building.water <= 0) lines.push('Needs water to become a courtyard house.');
-    else lines.push('Ready to grow.');
+  } else if (building.tier < TOP_TIER) {
+    lines.push(growthAdvice(city, building));
   } else {
-    lines.push('A thriving courtyard house.');
+    lines.push('A prosperous townhouse.');
   }
 
   if (building.condition < 50) lines.push(neglectAdvice(city));
   return lines;
 }
 
+function shortfallAdvice(city: City, house: Building): string {
+  if (house.tier >= 4 && house.oil <= 0) return oilServed(city) ? 'Out of oil; an oil stall visit is needed.' : 'Out of oil; no agora oil stall is serving the streets.';
+  if (house.tier >= 3 && house.water <= 0) return 'Out of water; a fountain visit is needed.';
+  return vendorServing(city) ? 'Out of food; a vendor visit is needed.' : 'Out of food; no agora vendor is serving the streets.';
+}
+
+function growthAdvice(city: City, house: Building): string {
+  const nextTier = house.tier + 1;
+  if (nextTier >= 2 && house.food <= 0) return foodAdvice(city);
+  if (nextTier >= 3 && house.water <= 0) return 'Needs water to become a courtyard house.';
+  if (nextTier >= 4 && house.oil <= 0) return oilAdvice(city);
+  return 'Ready to grow.';
+}
+
+function oilServed(city: City): boolean {
+  return city.buildings.some((candidate) => stallServing(candidate, 'oil'));
+}
+
+function oilAdvice(city: City): string {
+  if (oilServed(city)) return 'Needs oil to become a townhouse; the oil stall has yet to call.';
+  return 'Needs oil to become a townhouse: add an oil stall to an agora.';
+}
+
+function agoraStatus(city: City, agora: Building): string[] {
+  const open = STALL_GOODS.filter((good) => stallOf(agora, good).installed);
+  if (open.length === 0) return ['Add a food stall to start deliveries.'];
+  return open.map((good) => {
+    const trade = STALL_TRADES[good];
+    const name = trade.name.charAt(0).toUpperCase() + trade.name.slice(1);
+    if (!stallOf(agora, good).enabled) return `${name} closed.`;
+    const walking = city.walkers.some((walker) => walker.homeId === agora.id && walker.kind === 'vendor' && stallGoodOf(walker.food) === good);
+    return walking ? `${name} out on the streets.` : `${name} resting at market.`;
+  });
+}
+
+function growerStatus(city: City, field: Building): string[] {
+  const growing = CROPS[field.kind]!;
+  if (totalStock(field) > 0 && !hasActiveWalker(city, field.id, 'cart')) {
+    return [`Harvest ready, but no ${BUILDINGS[storeKindFor(growing.crop)].name.toLowerCase()} to send it to.`];
+  }
+  return [`Growing ${growing.crop}, ${Math.round(field.progress * 100)}% to harvest.`];
+}
+
 function vendorServing(city: City): boolean {
-  return city.buildings.some((candidate) => candidate.kind === 'agora' && candidate.vendorEnabled && candidate.connected);
+  return city.buildings.some((candidate) => stallServing(candidate, 'food'));
 }
 
 function foodAdvice(city: City): string {
@@ -1045,18 +1116,14 @@ export function buildingStatus(world: World, city: City, building: Building): st
 
   if (building.workers < definition.jobs * .999) {
     lines.push(building.workers > 0 ? 'Short of workers; more settlers are needed.' : 'Unstaffed; settlers are needed for work.');
-  } else if (building.kind === 'farm') {
-    if (totalStock(building) > 0 && !hasActiveWalker(city, building.id, 'cart')) {
-      lines.push('Harvest ready, but no granary to send it to.');
-    } else {
-      lines.push(`Growing wheat, ${Math.round(building.progress * 100)}% to harvest.`);
-    }
+  } else if (CROPS[building.kind]) {
+    lines.push(...growerStatus(city, building));
+  } else if (building.kind === 'press') {
+    lines.push(...pressStatus(building));
   } else if (building.kind === 'granary') {
     lines.push(totalStock(building) > 0 ? 'Stocked and ready for buyers.' : 'Empty; waiting for a farm cart.');
   } else if (building.kind === 'agora') {
-    if (!building.vendorInstalled) lines.push('Add a food vendor to start deliveries.');
-    else if (hasActiveWalker(city, building.id, 'vendor')) lines.push('Vendor on the streets.');
-    else lines.push('Vendor resting at market.');
+    lines.push(...agoraStatus(city, building));
   } else if (building.kind === 'fountain') {
     lines.push(hasActiveWalker(city, building.id, 'water') ? 'Water carrier making the rounds.' : 'Water carrier resting at the fountain.');
   } else if (building.kind === 'maintenance') {

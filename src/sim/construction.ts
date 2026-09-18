@@ -5,6 +5,7 @@ import { bfsShortest, footprintTiles as buildingFootprintTiles, mapOf } from './
 import { harbourGate } from './world';
 import { doorTiles, stairLayout } from './stairs';
 import { foreignOccupancy } from './occupancy';
+import { stallsInstalled } from './stalls';
 
 export interface FootprintTile extends Tile { blocked: boolean; }
 
@@ -98,7 +99,7 @@ export function demolitionPreview(world: World, city: City, x: number, z: number
   const tile = tileIndexOn(map, x, z);
   const building = city.buildings.find((candidate) => buildingFootprintTiles(map, candidate).includes(tile));
   if (building) {
-    const refund = Math.floor((BUILDINGS[building.kind].cost + (building.vendorInstalled ? VENDOR_COST : 0)) / 2);
+    const refund = Math.floor((BUILDINGS[building.kind].cost + stallsInstalled(building.stalls) * VENDOR_COST) / 2);
     return { tile, buildingId: building.id, kind: building.kind, refund, footprint: buildingFootprintTiles(map, building) };
   }
   if (city.roads.includes(tile)) return { tile, buildingId: null, kind: 'road', refund: 0, footprint: [tile] };

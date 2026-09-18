@@ -28,7 +28,7 @@ function subjects(): Array<{ name: string; model: T.Object3D }> {
   stump(scene, 6, 0, 0, 1, .4, 'logged');
   const map = generateIsland(1);
   return [
-    ...KINDS.map((kind) => ({ name: kind, model: getBuildingModel(kind, { tier: 1, vendorEnabled: false, stage: 3, stores: { wheat: 100, lumber: 100 } }) })),
+    ...KINDS.map((kind) => ({ name: kind, model: getBuildingModel(kind, { tier: 1, stage: 3, stores: { wheat: 100, lumber: 100 } }) })),
     ...ANIMALS.map((kind) => ({ name: kind, model: animalModel(kind) })),
     { name: 'vegetation', model: scene },
     { name: 'citizen', model: citizen(0xb2c7bb, true) },

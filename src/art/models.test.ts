@@ -12,29 +12,31 @@ import { citizen } from './people';
 import { boat } from './ships';
 import { getBuildingModel } from './buildings';
 
-const KINDS: BuildingKind[] = ['house', 'farm', 'granary', 'agora', 'fountain', 'maintenance', 'lodge', 'woodcutter', 'stockpile', 'wharf', 'harbour'];
+const KINDS = Object.keys(BUILDINGS) as BuildingKind[];
+const GROWN = new Set<BuildingKind>(['farm', 'orchard', 'harbour']);
 const FOOTPRINT_EPSILON = 0.01;
 const GROUND_EPSILON = 0.02;
 const SEABED_FLOOR = WATERLINE - GROUND_Y - 0.4;
 const TRIANGLE_BUDGET = 12000;
 const DRAW_CALL_BUDGET = 18;
 
-function tiersFor(kind: BuildingKind): (1 | 2 | 3)[] {
-  if (kind === 'house') return [1, 2, 3];
+function tiersFor(kind: BuildingKind): (1 | 2 | 3 | 4)[] {
+  if (kind === 'house') return [1, 2, 3, 4];
   if (kind === 'harbour') return [1, 2];
   return [1];
 }
 
-function instances(): { kind: BuildingKind; tier: 1 | 2 | 3; vendorEnabled: boolean; model: T.Group }[] {
-  const result: { kind: BuildingKind; tier: 1 | 2 | 3; vendorEnabled: boolean; model: T.Group }[] = [];
+function instances(): { kind: BuildingKind; tier: 1 | 2 | 3 | 4; trading: boolean; model: T.Group }[] {
+  const result: { kind: BuildingKind; tier: 1 | 2 | 3 | 4; trading: boolean; model: T.Group }[] = [];
   for (const kind of KINDS) {
     for (const tier of tiersFor(kind)) {
-      const vendorOptions = kind === 'agora' ? [false, true] : [false];
-      const stores = kind === 'granary' ? { wheat: 300, carrots: 200, fish: 100, meat: 100, olives: 200 } : kind === 'harbour' ? { lumber: 200 } : kind === 'wharf' ? { fish: 200 } : { wheat: 100, fish: 100, meat: 100 };
-      const stages: (0 | 1 | 2 | 3)[] = kind === 'harbour' ? [0, 1, 2, 3] : [3];
-      for (const vendorEnabled of vendorOptions) {
+      const stallOptions = kind === 'agora' ? [false, true] : [false];
+      const stores = kind === 'granary' ? { wheat: 300, carrots: 200, fish: 100, meat: 100, olives: 200 } : kind === 'harbour' ? { lumber: 200 } : kind === 'wharf' ? { fish: 200 } : kind === 'press' ? { olives: 100, oil: 90 } : { wheat: 100, fish: 100, meat: 100 };
+      const stages: (0 | 1 | 2 | 3)[] = GROWN.has(kind) ? [0, 1, 2, 3] : [3];
+      for (const trading of stallOptions) {
+        const stalls = trading ? { food: { installed: true, enabled: true }, oil: { installed: true, enabled: true } } : {};
         for (const stage of stages) {
-          result.push({ kind, tier, vendorEnabled, model: getBuildingModel(kind, { tier, vendorEnabled, stores, stage }) });
+          result.push({ kind, tier, trading, model: getBuildingModel(kind, { tier, stalls, stores, stage }) });
         }
       }
     }
@@ -64,8 +66,8 @@ function assertFiniteVertices(root: T.Object3D): void {
 }
 
 describe('getBuildingModel footprints', () => {
-  for (const { kind, tier, vendorEnabled, model } of instances()) {
-    test(`${kind} tier ${tier}${vendorEnabled ? ' (vendor)' : ''} fits its catalog footprint`, () => {
+  for (const { kind, tier, trading, model } of instances()) {
+    test(`${kind} tier ${tier}${trading ? ' (stalls)' : ''} fits its catalog footprint`, () => {
       const definition = BUILDINGS[kind];
       const halfWidth = (definition.width * CELL_SIZE) / 2;
       const halfDepth = (definition.depth * CELL_SIZE) / 2;
@@ -80,8 +82,8 @@ describe('getBuildingModel footprints', () => {
 });
 
 describe('getBuildingModel ground contact', () => {
-  for (const { kind, tier, vendorEnabled, model } of instances()) {
-    test(`${kind} tier ${tier}${vendorEnabled ? ' (vendor)' : ''} sits on y = 0`, () => {
+  for (const { kind, tier, trading, model } of instances()) {
+    test(`${kind} tier ${tier}${trading ? ' (stalls)' : ''} sits on y = 0`, () => {
       const bounds = new T.Box3().setFromObject(model);
       const floor = BUILDINGS[kind].shore ? SEABED_FLOOR : -GROUND_EPSILON;
       expect(bounds.min.y).toBeGreaterThanOrEqual(floor);
@@ -91,16 +93,16 @@ describe('getBuildingModel ground contact', () => {
 });
 
 describe('getBuildingModel vertex integrity', () => {
-  for (const { kind, tier, vendorEnabled, model } of instances()) {
-    test(`${kind} tier ${tier}${vendorEnabled ? ' (vendor)' : ''} has only finite vertices`, () => {
+  for (const { kind, tier, trading, model } of instances()) {
+    test(`${kind} tier ${tier}${trading ? ' (stalls)' : ''} has only finite vertices`, () => {
       assertFiniteVertices(model);
     });
   }
 });
 
 describe('getBuildingModel drawcall and triangle budgets', () => {
-  for (const { kind, tier, vendorEnabled, model } of instances()) {
-    test(`${kind} tier ${tier}${vendorEnabled ? ' (vendor)' : ''} stays within budget`, () => {
+  for (const { kind, tier, trading, model } of instances()) {
+    test(`${kind} tier ${tier}${trading ? ' (stalls)' : ''} stays within budget`, () => {
       const stats = meshStats(model);
       expect(stats.meshes).toBeLessThanOrEqual(DRAW_CALL_BUDGET);
       expect(stats.triangles).toBeLessThanOrEqual(TRIANGLE_BUDGET);

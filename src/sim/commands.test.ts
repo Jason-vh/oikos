@@ -60,7 +60,7 @@ test('JSON commands found and grow exactly the same city as the direct simulatio
   expect(plan).not.toBeNull();
   for (const building of plan.buildings) execute({ type: 'build', tool: building.kind, x: building.x, z: building.z, rotation: 0 });
   execute({ type: 'roadPath', tiles: plan.roads });
-  execute({ type: 'vendor', id: primaryCity(world).buildings.find((building) => building.kind === 'agora')!.id, enabled: true });
+  execute({ type: 'vendor', id: primaryCity(world).buildings.find((building) => building.kind === 'agora')!.id, enabled: true, stall: 'food' });
   for (const command of commands) expect(applyCommand(replay, primaryCity(replay).id, command).ok).toBe(true);
   const direct = createWorld(2, 0);
   expect(buildStarterNeighbourhood(direct, primaryCity(direct)).ok).toBe(true);

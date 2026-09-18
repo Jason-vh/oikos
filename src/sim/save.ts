@@ -1,4 +1,5 @@
-import { CURRENT_VERSION, WORLD_LABEL, type Animal, type Building, type BuildingKind, type City, type Resource, type Rotation, type Stores, type Walker, type WalkerKind, type WalkerTask, type World } from './types';
+import { CURRENT_VERSION, WORLD_LABEL, type Animal, type Building, type BuildingKind, type City, type Resource, type Rotation, type StallGood, type Stalls, type Stores, type Walker, type WalkerKind, type WalkerTask, type World } from './types';
+import { STALL_GOODS, stallsInstalled } from './stalls';
 
 
 import { BUILDINGS, HOUSE_CAPACITY, RESOURCES } from './catalog';
@@ -65,11 +66,37 @@ function citiesColoured(parsed: Record<string, unknown>): Record<string, unknown
   };
 }
 
+function vendorsBecameStalls(parsed: Record<string, unknown>): Record<string, unknown> {
+  const cities = Array.isArray(parsed.cities) ? parsed.cities : [];
+  return {
+    ...parsed,
+    version: 18,
+    cities: cities.map((city) => {
+      if (!isPlainObject(city) || !Array.isArray(city.buildings)) return city;
+      return {
+        ...city,
+        buildings: city.buildings.map((entry) => {
+          if (!isPlainObject(entry)) return entry;
+          const raised = { oil: 0, stalls: {} as Record<string, unknown>, ...entry };
+          if (entry.kind !== 'agora' || entry.vendorInstalled !== true) return raised;
+          return {
+            ...raised,
+            vendorInstalled: false,
+            vendorEnabled: false,
+            stalls: { food: { installed: true, enabled: entry.vendorEnabled === true } },
+          };
+        }),
+      };
+    }),
+  };
+}
+
 const MIGRATIONS: Array<[number, (parsed: Record<string, unknown>) => Record<string, unknown>]> = [
   [12, rosterForgotten],
   [13, countdownsScheduled],
   [15, archipelagoRelabelled],
   [16, citiesColoured],
+  [17, vendorsBecameStalls],
 ];
 
 function raise(parsed: Record<string, unknown>): Record<string, unknown> {
@@ -100,7 +127,7 @@ export function serializeWorld(world: World): string {
   return JSON.stringify({ ...world, wildlife: wildlifeFates(world) });
 }
 
-const BUILDING_KINDS: BuildingKind[] = ['house', 'farm', 'granary', 'agora', 'fountain', 'maintenance', 'lodge', 'woodcutter', 'stockpile', 'wharf', 'harbour'];
+const BUILDING_KINDS: BuildingKind[] = ['house', 'farm', 'orchard', 'press', 'granary', 'agora', 'fountain', 'maintenance', 'lodge', 'woodcutter', 'stockpile', 'wharf', 'harbour'];
 const WALKER_KINDS: WalkerKind[] = ['cart', 'buyer', 'vendor', 'water', 'maintenance', 'immigrant', 'hunter', 'woodcutter', 'fisher', 'porter'];
 
 function isFiniteNumber(value: unknown): value is number {
@@ -158,16 +185,17 @@ function footprintFor(map: IslandMap, kind: BuildingKind, rotation: number, x: n
 
 function validateBuilding(map: IslandMap, raw: unknown, roads: Set<number>, occupied: Set<number>): Building | null {
   if (!isPlainObject(raw)) return null;
-  const { id, x, z, kind, rotation, tier, residents, food, water, condition, stores, progress, workers, vendorEnabled, vendorInstalled, connected, serviceTimer, upgradeTimer } = raw;
+  const { id, x, z, kind, rotation, tier, residents, food, water, oil, condition, stores, progress, workers, vendorEnabled, vendorInstalled, stalls, connected, serviceTimer, upgradeTimer } = raw;
 
   if (!isSafeInteger(id) || id <= 0) return null;
   if (!isInteger(x) || !isInteger(z)) return null;
   if (typeof kind !== 'string' || !BUILDING_KINDS.includes(kind as BuildingKind)) return null;
   if (![0, 1, 2, 3].includes(rotation as number)) return null;
-  if (![1, 2, 3].includes(tier as number)) return null;
+  if (![1, 2, 3, 4].includes(tier as number)) return null;
   if (!isNonNegativeFinite(residents)) return null;
   if (!isNonNegativeFinite(food)) return null;
   if (!isNonNegativeFinite(water)) return null;
+  if (!isNonNegativeFinite(oil)) return null;
   if (!isFiniteNumber(condition) || condition < 0 || condition > 100) return null;
   const parsedStores = parseStores(stores);
   if (!parsedStores) return null;
@@ -176,12 +204,15 @@ function validateBuilding(map: IslandMap, raw: unknown, roads: Set<number>, occu
   if (typeof vendorEnabled !== 'boolean') return null;
   if (typeof vendorInstalled !== 'boolean') return null;
   if (vendorEnabled && !vendorInstalled) return null;
+  const parsedStalls = parseStalls(stalls);
+  if (!parsedStalls) return null;
+  if (kind !== 'agora' && stallsInstalled(parsedStalls) > 0) return null;
   if (typeof connected !== 'boolean') return null;
   if (!isNonNegativeFinite(serviceTimer)) return null;
   if (!isNonNegativeFinite(upgradeTimer)) return null;
 
   const builtKind = kind as BuildingKind;
-  const builtTier = tier as 1 | 2 | 3;
+  const builtTier = tier as Building['tier'];
   if (builtKind === 'house' && (residents as number) > HOUSE_CAPACITY[builtTier]) return null;
 
   const tiles = footprintFor(map, builtKind, rotation as number, x as number, z as number);
@@ -202,12 +233,14 @@ function validateBuilding(map: IslandMap, raw: unknown, roads: Set<number>, occu
     residents: residents as number,
     food: food as number,
     water: water as number,
+    oil: oil as number,
     condition: condition as number,
     stores: parsedStores,
     progress: progress as number,
     workers: workers as number,
     vendorEnabled: vendorEnabled as boolean,
     vendorInstalled: vendorInstalled as boolean,
+    stalls: parsedStalls,
     connected: connected as boolean,
     serviceTimer: serviceTimer as number,
     upgradeTimer: upgradeTimer as number,
@@ -441,6 +474,20 @@ export function deserializeWildlife(world: World, raw: unknown): Animal[] | null
     for (const walker of city.walkers) used.add(walker.id);
   }
   return rosterWithFates(world.seed, world.nextId, used, raw);
+}
+
+export function parseStalls(raw: unknown): Stalls | null {
+  if (raw === undefined) return {};
+  if (!isPlainObject(raw)) return null;
+  const stalls: Stalls = {};
+  for (const [good, state] of Object.entries(raw)) {
+    if (!STALL_GOODS.includes(good as StallGood) || !isPlainObject(state)) return null;
+    const { installed, enabled } = state;
+    if (typeof installed !== 'boolean' || typeof enabled !== 'boolean') return null;
+    if (enabled && !installed) return null;
+    stalls[good as StallGood] = { installed, enabled };
+  }
+  return stalls;
 }
 
 export function parseStores(raw: unknown): Stores | null {

@@ -5,7 +5,12 @@ export const EMPLOYMENT_SHARE = 0.5;
 export const INCOME_PER_RESIDENT = 3;
 
 export const FARM_GROW_SECONDS = 40;
+export const ORCHARD_GROW_SECONDS = 70;
 export const HARVEST_UNITS = 100;
+export const PRESS_CAP = 200;
+export const PRESS_BATCH_OLIVES = 50;
+export const PRESS_BATCH_OIL = 30;
+export const PRESS_SECONDS = 24;
 export const FARM_STOCK_CAP = 300;
 export const CART_CAPACITY = 100;
 export const BUNDLE = 100;
@@ -19,7 +24,10 @@ export const VENDOR_DROP_AMOUNT = 8;
 
 export const HOUSE_FOOD_CAP = 24;
 export const HOUSE_WATER_CAP = 24;
+export const HOUSE_OIL_CAP = 16;
+export const OIL_DROP_AMOUNT = 6;
 export const FOOD_CONSUMPTION_PER_RESIDENT = 0.02;
+export const OIL_CONSUMPTION_PER_RESIDENT = 0.004;
 export const WATER_DECAY_PER_SECOND = 0.15;
 
 export const REPAIR_AMOUNT = 20;

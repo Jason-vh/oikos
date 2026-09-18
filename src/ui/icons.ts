@@ -13,6 +13,8 @@ const ICONS: Partial<Record<ToolIconName, string>> = {
   maintenance: '<path d="M8 25 20 13" /><path d="M20 13a4 4 0 1 1 4-4l-2 2-2-2-2 2 2 2Z" /><path d="M8 8l4 4M7 12l5-5" />',
   lodge: '<path d="M6 15 16 7l10 8" /><path d="M9 14v10h14V14" /><path d="M13 24v-5h4v5" class="fill" /><path d="M22 4 26 9M23 3l-3 3" />',
   woodcutter: '<path d="M8 26 20 12" /><path d="M20 12l3-3 4 3-3 4z" class="fill" /><path d="M5 20c2-2 5-2 7 0M5 24c2-2 5-2 7 0" />',
+  orchard: '<path d="M5 27h22" /><path d="M11 27v-7M21 27v-9" /><path d="M6 15a5 5 0 0 1 5-5 5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5Z" /><path d="M16 13a5 5 0 0 1 5-5 5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5Z" /><circle cx="11" cy="15" r="1.4" class="fill" /><circle cx="21" cy="13" r="1.4" class="fill" />',
+  press: '<path d="M5 26h22" /><path d="M8 26v-6h16v6" /><path d="M10 20a6 6 0 0 1 12 0" /><path d="M16 14V5" /><path d="M10 5h12" /><path d="M13 26v-4h6v4" class="fill" />',
   wharf: '<path d="M4 22h24" /><path d="M9 22v5M16 22v5M23 22v5" /><path d="M6 18c2-4 7-6 11-6 3 0 5 2 6 5-1 3-3 5-6 5-4 0-9-2-11-4Z" /><path d="M20 16v.5" /><path d="M6 18c0-2-1-4-3-5 0 3 0 7 0 10 2-1 3-3 3-5Z" class="fill" />',
   stockpile: '<path d="M6 24h20" /><path d="M8 24v-6h16v6M11 18v-5h10v5M14 13v-4h4v4" /><path d="M8 18h16M11 13h10" class="dash" />',
   demolish: '<path d="M8 12h16l-2 13H10Z" /><path d="M6 12h20M13 12V9h6v3" /><path d="M13 16v6M19 16v6" />',
@@ -26,6 +28,7 @@ const RESOURCE_ICONS: Record<Resource, string> = {
   clay: '<path d="M10 2v5.632c0 .424-.272.795-.653.982A6 6 0 0 0 6 14c.006 4 3 7 5 8" /><path d="M10 5H8a2 2 0 0 0 0 4h.68" /><path d="M14 2v5.632c0 .424.272.795.652.982A6 6 0 0 1 18 14c0 4-3 7-5 8" /><path d="M14 5h2a2 2 0 0 1 0 4h-.68" /><path d="M18 22H6" /><path d="M9 2h6" />',
   stone: '<rect width="18" height="18" x="3" y="3" rx="2" /><path d="M12 9v6" /><path d="M16 15v6" /><path d="M16 3v6" /><path d="M3 15h18" /><path d="M3 9h18" /><path d="M8 15v6" /><path d="M8 3v6" />',
   meat: '<path d="M16.4 13.7A6.5 6.5 0 1 0 6.28 6.6c-1.1 3.13-.78 3.9-3.18 6.08A3 3 0 0 0 5 18c4 0 8.4-1.8 11.4-4.3" /><path d="m18.5 6 1.754 3.5a6.48 6.48 0 0 1-1.854 8.2C15.4 20.2 11 22 7 22a3 3 0 0 1-2.68-1.66L2.4 16.5" /><circle cx="12.5" cy="8.5" r="2.5" />',
+  oil: '<path d="M10 3h4" /><path d="M12 3v3" /><path d="M8.5 9.5C8.5 7.6 10.1 6 12 6s3.5 1.6 3.5 3.5c0 1.2 1.5 2.3 1.5 4.5a5 5 0 0 1-10 0c0-2.2 1.5-3.3 1.5-4.5Z" /><path d="M9 15c1.5 1.5 4.5 1.5 6 0" /><path d="M17 7c2 1 3 2.5 3 4" />',
   fish: '<path d="M6.5 12c.94-3.46 4.94-6 8.5-6 3.56 0 6.06 2.54 7 6-.94 3.47-3.44 6-7 6s-7.56-2.53-8.5-6Z" /><path d="M18 12v.5" /><path d="M16 17.93a9.77 9.77 0 0 1 0-11.86" /><path d="M7 10.67C7 8 5.58 5.97 2.73 5.5c-1 1.5-1 5 .23 6.5-1.24 1.5-1.24 5-.23 6.5C5.58 18.03 7 16 7 13.33" /><path d="M10.46 7.26C10.2 5.88 9.17 4.24 8 3h5.8a2 2 0 0 1 1.98 1.67l.23 1.4" /><path d="m16.01 17.93-.23 1.4A2 2 0 0 1 13.8 21H9.5a5.96 5.96 0 0 0 1.49-3.98" />',
 };
 
