@@ -1,5 +1,6 @@
 import * as T from 'three';
 import { CELL_SIZE, fractal, hash, levelOn, terrainOn, type IslandMap } from '../sim/island';
+import { BUSH_RADIUS, bush } from './bushes';
 import { groundShare } from './ground';
 import { colors, lump } from './primitives';
 
@@ -8,6 +9,7 @@ const FEWEST = 1;
 const MOST = 4;
 const MEADOW_REACH = 2;
 const FLOWER_INSET = .12;
+const BUSH_CHANCE = .07;
 
 export function soilAt(map: IslandMap, x: number, z: number, level: number): number {
   return groundShare(map, x, z, level, 'fertile');
@@ -33,12 +35,26 @@ export function meadowHalo(map: IslandMap): Uint8Array {
   return halo;
 }
 
-function rooted(map: IslandMap, x: number, z: number, level: number): boolean {
+function rooted(map: IslandMap, x: number, z: number, level: number, inset = FLOWER_INSET): boolean {
   if (soilAt(map, x, z, level) < 1) return false;
-  for (const [dx, dz] of [[FLOWER_INSET, 0], [-FLOWER_INSET, 0], [0, FLOWER_INSET], [0, -FLOWER_INSET]]) {
+  for (const [dx, dz] of [[inset, 0], [-inset, 0], [0, inset], [0, -inset]]) {
     if (soilAt(map, x + dx, z + dz, level) < 1) return false;
   }
   return true;
+}
+
+function meadowBush(map: IslandMap, x: number, z: number, level: number): T.Group | null {
+  if (hash(x, z, map.seed + 1511) >= BUSH_CHANCE) return null;
+  const scale = .48 + hash(x, z, map.seed + 1523) * .22;
+  const margin = CELL_SIZE / 2 - BUSH_RADIUS * scale - .04;
+  const offsetX = (hash(x, z, map.seed + 1531) * 2 - 1) * margin;
+  const offsetZ = (hash(x, z, map.seed + 1543) * 2 - 1) * margin;
+  if (!rooted(map, x + .5 + offsetX / CELL_SIZE, z + .5 + offsetZ / CELL_SIZE, level, BUSH_RADIUS * scale / CELL_SIZE)) return null;
+  const plant = bush(hash(x, z, map.seed + 1553) > .5 ? 'cushion' : 'paired', hash(x, z, map.seed + 1559) > .78);
+  plant.position.set(offsetX, 0, offsetZ);
+  plant.rotation.y = hash(x, z, map.seed + 1567) * Math.PI * 2;
+  plant.scale.set(scale, scale * (.85 + hash(x, z, map.seed + 1571) * .3), scale);
+  return plant;
 }
 
 export function wildflower(accent = false): T.Group {
@@ -47,7 +63,7 @@ export function wildflower(accent = false): T.Group {
   return plant;
 }
 
-export function wildflowersForTile(map: IslandMap, x: number, z: number): T.Group | null {
+export function meadowForTile(map: IslandMap, x: number, z: number): T.Group | null {
   const terrain = terrainOn(map, x, z);
   if (terrain !== 'fertile' && terrain !== 'grass') return null;
   const level = levelOn(map, x, z);
@@ -70,6 +86,8 @@ export function wildflowersForTile(map: IslandMap, x: number, z: number): T.Grou
     flower.scale.set(scale, scale * (.7 + hash(x, z, salt + 5) * .6), scale);
     root.add(flower);
   }
+  const shrub = meadowBush(map, x, z, level);
+  if (shrub) root.add(shrub);
   if (root.children.length === 0) return null;
   return root;
 }

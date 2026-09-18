@@ -8,8 +8,10 @@ const BLEND_EDGE = .5;
 const BLEND_BAND = .2;
 const WARP = 1.1;
 const WARP_SCALE = 2.6;
-const FRAY = .34;
-const FRAY_SCALE = .9;
+const FRAY = .7;
+const FRAY_SCALE = 1.3;
+const RAG = .34;
+const RAG_SCALE = .55;
 const WANDER = .5;
 
 const kindIndex = new Map(GROUND_KINDS.map((kind, index) => [kind, index]));
@@ -19,8 +21,10 @@ function ease(t: number): number {
   return t * t * (3 - 2 * t);
 }
 
-function wander(map: IslandMap, x: number, z: number, broad: number, fine: number): number {
-  const drift = (fractal(x, z, map.seed + broad, 2, WARP_SCALE) - .5) * WARP + (fractal(x, z, map.seed + fine, 1, FRAY_SCALE) - .5) * FRAY;
+function wander(map: IslandMap, x: number, z: number, broad: number, fine: number, ragged: number): number {
+  const drift = (fractal(x, z, map.seed + broad, 2, WARP_SCALE) - .5) * WARP
+    + (fractal(x, z, map.seed + fine, 1, FRAY_SCALE) - .5) * FRAY
+    + (fractal(x, z, map.seed + ragged, 1, RAG_SCALE) - .5) * RAG;
   return Math.max(-WANDER, Math.min(WANDER, drift));
 }
 
@@ -32,8 +36,8 @@ function kindAt(map: IslandMap, x: number, z: number, level: number): number {
 
 export function groundMix(map: IslandMap, x: number, z: number, level: number, shares: Float32Array): boolean {
   shares.fill(0);
-  const warpX = x + wander(map, x, z, 2203, 2221);
-  const warpZ = z + wander(map, x, z, 2213, 2237);
+  const warpX = x + wander(map, x, z, 2203, 2221, 2251);
+  const warpZ = z + wander(map, x, z, 2213, 2237, 2267);
   const west = Math.floor(warpX - .5);
   const north = Math.floor(warpZ - .5);
   const alongX = ease(warpX - .5 - west);

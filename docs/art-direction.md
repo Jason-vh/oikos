@@ -246,18 +246,22 @@ A walker steps up to whatever it is working, and back out before it is finished:
 **Terrain is a landscape, not a chequerboard.** The simulation thinks in tiles and
 must; the ground must not look like it. `src/art/ground.ts` holds the field that
 turns one into the other. For any point it takes the kinds of the four tile centres
-around it, weights them smoothly, displaces the sample first by a broad warp and
-then by a finer fray of noise, and sharpens each kind's weight into a narrow band
-before normalising. Deep inside a kind its share is 1, so grass stays grass and sand
-stays sand; across a border the shares cross over within about half a tile, wherever
-the noise has put that border. Nothing in the field runs along a tile edge.
+around it, weights them smoothly, displaces the sample by three octaves of
+noise — a broad warp, a fray about a tile across and a fine rag under one — and
+sharpens each kind's weight into a narrow band before normalising. The finest octave
+is what keeps a small patch from reading as a diamond: without detail below a tile,
+a lone patch is only the bilinear contour of its own square, moved sideways.
+
+Deep inside a kind its share is 1, so grass stays grass and sand stays sand; across
+a border the shares cross over within about half a tile, wherever the noise has put
+that border. Nothing in the field runs along a tile edge.
 
 `src/render/terrain.ts` paints it. A tile with a different kind within two
-(`blendedTiles`) is drawn as a vertex-coloured surface rather than a flat quad: four
-by four, each vertex the blend of the `SURFACE` colours by their shares. A tile whose
-whole grid comes out one colour collapses back to a single quad, so only borders cost
-geometry, and the built surfaces are cached per island — a stair rebuild re-cuts them
-rather than resampling the field. The field never crosses a terrace: it counts only
+(`blendedTiles`) is drawn as a vertex-coloured surface rather than a flat quad: five
+by five, each vertex the blend of the `SURFACE` colours by their shares. A tile whose
+grid comes out flat within a shade collapses back to a single quad carrying its four
+corner colours, so only borders cost geometry, and the built surfaces are cached per
+island — a stair rebuild re-cuts them rather than resampling the field. The field never crosses a terrace: it counts only
 tiles on the level being drawn, so a cliff edge keeps its line. Water counts for
 nothing, so the shore keeps the coast's own profile.
 
@@ -277,6 +281,10 @@ still spill onto grass tiles wherever the soil does. Placement within the tile i
 free rather than one bloom to a sub-cell: even spacing reads as a printed pattern,
 and it is the clumps and the gaps that read as a meadow. They are deliberately tiny
 — a flower the size of a bush is a painted blot, and the ground has to stay ground.
+
+About one meadow tile in fifteen also carries a low bush, scaled down from the scrub
+cushions and held to the same full-soil rule, so a patch is not only speckle: at
+close zoom something stands up out of it.
 
 Flowers are decoration like any other: they clear under a building and return when
 it is demolished. A farm therefore turns violet meadow into the lighter earth and

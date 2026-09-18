@@ -50,15 +50,20 @@ test('ground away from a border is its own colour, and the border is a band that
   const map = patchwork();
   expect(groundShare(map, 3.5, 8.5, 0, 'grass')).toBe(1);
   expect(groundShare(map, 12.5, 8.5, 0, 'sand')).toBe(1);
-  let crossings = 0;
-  for (let z = 2; z < 14; z++) {
-    const inside = groundShare(map, 7.6, z + .5, 0, 'sand');
-    const beyond = groundShare(map, 8.4, z + .5, 0, 'grass');
-    if (inside > 0) crossings++;
-    if (beyond > 0) crossings++;
-    expect(groundShare(map, 8, z + .5, 0, 'grass') + groundShare(map, 8, z + .5, 0, 'sand')).toBeCloseTo(1, 6);
+  const border: number[] = [];
+  for (let z = 2; z < 14; z += .5) {
+    for (let x = 6.5; x < 9.5; x += .02) {
+      expect(groundShare(map, x, z, 0, 'grass') + groundShare(map, x, z, 0, 'sand')).toBeCloseTo(1, 6);
+      if (groundShare(map, x, z, 0, 'sand') >= .5) {
+        border.push(x);
+        break;
+      }
+    }
   }
-  expect(crossings).toBeGreaterThan(0);
+  expect(border.length).toBeGreaterThan(20);
+  expect(Math.max(...border) - Math.min(...border)).toBeGreaterThan(.3);
+  expect(border.some((x) => x < 8)).toBe(true);
+  expect(border.some((x) => x > 8)).toBe(true);
 });
 
 test('a terrace edge keeps its line: ground never blends across levels', () => {

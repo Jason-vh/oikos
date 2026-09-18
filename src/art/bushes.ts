@@ -4,7 +4,7 @@ import { colors, lump } from './primitives';
 
 export const BUSH_SHAPES = ['cushion', 'upright', 'paired'] as const;
 export type BushShape = typeof BUSH_SHAPES[number];
-const BUSH_RADIUS = .5;
+export const BUSH_RADIUS = .5;
 
 export function bush(shape: BushShape, sunlit = false): T.Group {
   const plant = new T.Group();

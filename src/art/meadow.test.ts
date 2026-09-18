@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import * as T from 'three';
 import { CELL_SIZE, generateIsland, soleIsland, terrainOn, type IslandMap } from '../sim/island';
-import { meadowHalo, soilAt, wildflower, wildflowersForTile } from './meadow';
+import { meadowForTile, meadowHalo, soilAt, wildflower } from './meadow';
 import { bake, colors, disposeModel, material } from './primitives';
 
 const FLOWER_SPAN = .24;
@@ -80,23 +80,26 @@ test('wildflowers stand only in full soil, spill past the fertile tiles and stay
     let onFertile = 0;
     for (let z = 0; z < map.depth; z++) {
       for (let x = 0; x < map.width; x++) {
-        const plants = wildflowersForTile(map, x, z);
+        const plants = meadowForTile(map, x, z);
         const terrain = terrainOn(map, x, z);
         if (!plants) continue;
         expect(['fertile', 'grass']).toContain(terrain);
         if (terrain === 'fertile') onFertile++;
         else beyondFertile++;
         const level = map.level[z * map.width + x];
-        for (const flower of plants.children) {
-          expect(soilAt(map, x + .5 + flower.position.x / CELL_SIZE, z + .5 + flower.position.z / CELL_SIZE, level)).toBe(1);
+        for (const plant of plants.children) {
+          expect(soilAt(map, x + .5 + plant.position.x / CELL_SIZE, z + .5 + plant.position.z / CELL_SIZE, level)).toBe(1);
+          const height = new T.Box3().setFromObject(plant).max.y;
+          if (plant.children.length === 1) expect(height).toBeLessThan(.15);
+          else expect(height).toBeLessThan(.45);
         }
-        const repeated = wildflowersForTile(map, x, z)!;
+        const repeated = meadowForTile(map, x, z)!;
         bake(plants);
         bake(repeated);
         try {
           expect(vertices(plants)).toEqual(vertices(repeated));
           const bounds = new T.Box3().setFromObject(plants);
-          expect(bounds.max.y).toBeLessThan(.15);
+          expect(bounds.max.y).toBeLessThan(.45);
           for (const axis of ['x', 'z'] as const) {
             expect(bounds.min[axis]).toBeGreaterThan(-CELL_SIZE / 2);
             expect(bounds.max[axis]).toBeLessThan(CELL_SIZE / 2);
@@ -113,6 +116,23 @@ test('wildflowers stand only in full soil, spill past the fertile tiles and stay
   expect(beyondFertile).toBeGreaterThan(10);
 });
 
+test('a bush stands in the meadow now and then, never often', () => {
+  const map = generateIsland(1);
+  let tiles = 0;
+  let bushes = 0;
+  for (let z = 0; z < map.depth; z++) {
+    for (let x = 0; x < map.width; x++) {
+      const plants = meadowForTile(map, x, z);
+      if (!plants) continue;
+      tiles++;
+      if (plants.children.some((plant) => plant.children.length > 1)) bushes++;
+      disposeModel(plants);
+    }
+  }
+  expect(bushes / tiles).toBeGreaterThan(.01);
+  expect(bushes / tiles).toBeLessThan(.1);
+});
+
 test('deep soil blooms everywhere, in seeded patches of differing density', () => {
   const layouts: number[][] = [];
   for (const seed of [1, 2, 8, 37]) {
@@ -120,7 +140,7 @@ test('deep soil blooms everywhere, in seeded patches of differing density', () =
     const counts: number[] = [];
     for (let z = 4; z < map.depth - 4; z++) {
       for (let x = 4; x < map.width - 4; x++) {
-        const plants = wildflowersForTile(map, x, z);
+        const plants = meadowForTile(map, x, z);
         counts.push(plants?.children.length ?? 0);
         if (plants) disposeModel(plants);
       }

@@ -9,7 +9,7 @@ import { Sea } from './sea';
 import { CoastalFoam } from '../art/foam';
 import { cliffOutcrop } from '../art/cliffs';
 import { bushForTile } from '../art/bushes';
-import { meadowHalo, wildflowersForTile } from '../art/meadow';
+import { meadowForTile, meadowHalo } from '../art/meadow';
 import { hide, InstanceField, piecesAround, release, write, type InstanceSlot } from './instances';
 import type { DustField } from './dust';
 
@@ -269,7 +269,7 @@ export class IslandScenery {
       if (!rocks.children.length) return;
       this.absorb(tile, cx, y, cz, rocks);
     } else if (terrain === 'fertile' || (terrain === 'grass' && levelOn(map, x, z) === 0)) {
-      const meadow = wildflowersForTile(map, x, z);
+      const meadow = meadowForTile(map, x, z);
       if (!meadow) return;
       meadow.position.set(cx, y, cz);
       this.absorb(tile, cx, y, cz, meadow);

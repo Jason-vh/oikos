@@ -18,7 +18,8 @@ const SURFACE: Record<Terrain, number> = {
   rock: 0xb9ad8c,
   cliff: colors.stone,
 };
-const BLEND_STEPS = 4;
+const BLEND_STEPS = 5;
+const BLEND_FLAT = .012;
 
 interface Batch { positions: number[]; normals: number[]; }
 interface BlendBatch extends Batch { tints: number[]; }
@@ -50,6 +51,20 @@ function groundColor(map: IslandMap, x: number, z: number, level: number, home: 
   return paint;
 }
 
+function spread(paints: T.Color[]): number {
+  let widest = 0;
+  for (const channel of ['r', 'g', 'b'] as const) {
+    let low = paints[0][channel];
+    let high = low;
+    for (const paint of paints) {
+      low = Math.min(low, paint[channel]);
+      high = Math.max(high, paint[channel]);
+    }
+    widest = Math.max(widest, high - low);
+  }
+  return widest;
+}
+
 function blendGround(map: IslandMap, x: number, z: number, batch: BlendBatch, top: number): void {
   const origin = worldPositionOn(map, x, z);
   const level = levelOn(map, x, z);
@@ -58,11 +73,11 @@ function blendGround(map: IslandMap, x: number, z: number, batch: BlendBatch, to
   for (let row = 0; row <= BLEND_STEPS; row++) {
     for (let column = 0; column <= BLEND_STEPS; column++) corners.push(groundColor(map, x + column / BLEND_STEPS, z + row / BLEND_STEPS, level, home));
   }
-  const even = corners.every((paint) => paint.equals(corners[0]));
-  if (even) {
+  const at = (r: number, c: number) => corners[r * (BLEND_STEPS + 1) + c];
+  if (spread(corners) < BLEND_FLAT) {
     const x1 = origin.x + CELL_SIZE;
     const z1 = origin.z + CELL_SIZE;
-    blendTriangle(batch, [[origin.x, top, origin.z], [x1, top, origin.z], [x1, top, z1], [origin.x, top, z1]], [corners[0], corners[0], corners[0], corners[0]]);
+    blendTriangle(batch, [[origin.x, top, origin.z], [x1, top, origin.z], [x1, top, z1], [origin.x, top, z1]], [at(0, 0), at(0, BLEND_STEPS), at(BLEND_STEPS, BLEND_STEPS), at(BLEND_STEPS, 0)]);
     return;
   }
   const step = CELL_SIZE / BLEND_STEPS;
@@ -72,7 +87,6 @@ function blendGround(map: IslandMap, x: number, z: number, batch: BlendBatch, to
       const x1 = x0 + step;
       const z0 = origin.z + row * step;
       const z1 = z0 + step;
-      const at = (r: number, c: number) => corners[r * (BLEND_STEPS + 1) + c];
       blendTriangle(batch, [[x0, top, z0], [x1, top, z0], [x1, top, z1], [x0, top, z1]], [at(row, column), at(row, column + 1), at(row + 1, column + 1), at(row + 1, column)]);
     }
   }
