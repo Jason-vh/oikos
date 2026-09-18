@@ -813,7 +813,7 @@ export class CityScene {
       else animateIdle(walker.model, (this.worldTime - walker.waitingSince) * Math.max(1, speed) + id, walker.mood);
       if (walker.cart) walker.cart.rotation.y = -walker.turn * CART_TRAIL;
       if (walker.cartBed) walker.cartBed.rotation.x = -Math.cos(phase * 2) * CART_ROCK * (stride / .55);
-      for (const wheel of walker.wheels) wheel.rotation.x = walker.travelled * WHEEL_SPIN;
+      for (const wheel of walker.wheels) wheel.rotation.x = -walker.travelled * WHEEL_SPIN;
       for (const companion of walker.model.children.slice(5)) {
         if (companion.children.length >= 5) animateFigure(companion, phase + 1.3, stride, walker.bounce);
       }

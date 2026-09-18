@@ -393,7 +393,7 @@ test('two walkers on one road do not stand in the same place', () => {
   }
 });
 
-test('a cart rolls on its wheels: they turn with the ground it covers', () => {
+test('a cart rolls forward on its wheels, by the ground it covers', () => {
   const world = createWorld();
   const stage = { scene: new T.Scene(), shadows() {}, invalidate() {}, world(_span: number) {} } as Stage;
   const city = new CityScene(stage, islandFor(world.seed), true);
@@ -418,9 +418,9 @@ test('a cart rolls on its wheels: they turn with the ground it covers', () => {
     };
     const first = turnAt(1);
     const second = turnAt(2);
-    expect(second[0]).toBeGreaterThan(first[0]);
+    expect(second[0]).toBeLessThan(first[0]);
     expect(second[0]).toBe(second[1]);
-    const rolled = second[0] - first[0];
+    const rolled = first[0] - second[0];
     expect(rolled).toBeCloseTo(CELL_SIZE / .19, 1);
   } finally {
     city.dispose();
