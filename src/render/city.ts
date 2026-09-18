@@ -54,6 +54,8 @@ const SMOOTH_HERD = 500;
 const ANIMAL_PICK_SPAN = 120;
 const ANIMAL_FACING_LOOK = .35;
 const GLOW_FADE_SECONDS = .16;
+const RING_FADE_SECONDS = .22;
+const RING_FROM = .985;
 const WALKER_SCALE = .83;
 const WALKER_INTRO = .28;
 const WALKER_PUFF = .42;
@@ -233,7 +235,9 @@ export class CityScene {
   private stairMeshes: T.Object3D[] = [];
   private previewKey = '';
   private ghost: T.Group | null = null;
-  private reachMark: T.Mesh | null = null;
+  private readonly reachGroup = new T.Group();
+  private rings: { mesh: T.Mesh; fade: number; leaving: boolean }[] = [];
+  private reachKey = '';
   private ring: number[] = [];
   private selected: HoverTarget | null = null;
   private focus: T.Vector3 | null = null;
@@ -266,7 +270,7 @@ export class CityScene {
     const span = worldSpan(map);
     this.clouds = new CloudLayer(stage.scene, span, map.seed);
     stage.world(span);
-    stage.scene.add(this.roads, this.preview);
+    stage.scene.add(this.roads, this.preview, this.reachGroup);
   }
 
   private roadModels(world: World): void {
@@ -938,6 +942,10 @@ export class CityScene {
 
   transitions(delta: number): boolean {
     let active = this.scenery.fadeGrid(delta, this.span);
+    if (this.fadeRings(delta)) {
+      active = true;
+      this.stage.invalidate();
+    }
     if (active) this.stage.invalidate();
     for (const entry of this.buildings.values()) {
       if (entry.construction) {
@@ -1177,14 +1185,43 @@ export class CityScene {
   }
 
   private setReach(reach: readonly number[]): void {
-    if (this.reachMark) {
-      this.reachMark.removeFromParent();
-      this.reachMark.geometry.dispose();
-      this.reachMark = null;
+    const key = [...reach].sort((one, other) => one - other).join(',');
+    if (key === this.reachKey) return;
+    this.reachKey = key;
+    for (const ring of this.rings) ring.leaving = true;
+    if (reach.length > 0) {
+      const mesh = reachOutline(this.map, reach);
+      if (mesh) {
+        (mesh.material as T.MeshBasicMaterial).opacity = 0;
+        mesh.scale.setScalar(RING_FROM);
+        this.reachGroup.add(mesh);
+        this.rings.push({ mesh, fade: 0, leaving: false });
+      }
     }
-    if (reach.length === 0) return;
-    this.reachMark = reachOutline(this.map, reach);
-    if (this.reachMark) this.preview.add(this.reachMark);
+    if (!this.motion) this.fadeRings(RING_FADE_SECONDS);
+    this.stage.invalidate();
+  }
+
+  private fadeRings(delta: number): boolean {
+    if (this.rings.length === 0) return false;
+    const step = delta / RING_FADE_SECONDS;
+    let active = false;
+    for (const ring of [...this.rings]) {
+      const wanted = ring.leaving ? 0 : 1;
+      ring.fade = wanted > ring.fade ? Math.min(1, ring.fade + step) : Math.max(0, ring.fade - step);
+      const eased = ring.fade * ring.fade * (3 - 2 * ring.fade);
+      (ring.mesh.material as T.MeshBasicMaterial).opacity = eased;
+      ring.mesh.scale.setScalar(RING_FROM + (1 - RING_FROM) * eased);
+      if (ring.leaving && ring.fade === 0) {
+        ring.mesh.removeFromParent();
+        ring.mesh.geometry.dispose();
+        (ring.mesh.material as T.MeshBasicMaterial).dispose();
+        this.rings = this.rings.filter((other) => other !== ring);
+        continue;
+      }
+      if (ring.fade !== wanted) active = true;
+    }
+    return active;
   }
 
   tileAtPointer(clientX: number, clientY: number): Tile | null {
@@ -1294,6 +1331,12 @@ export class CityScene {
     this.hoverGlow.detach();
     this.selectGlow.detach();
     this.preview.removeFromParent();
+    for (const ring of this.rings) {
+      ring.mesh.geometry.dispose();
+      (ring.mesh.material as T.MeshBasicMaterial).dispose();
+    }
+    this.rings = [];
+    this.reachGroup.removeFromParent();
     this.tileGeometry.dispose();
     this.validStairMaterial.dispose();
     this.invalidStairMaterial.dispose();

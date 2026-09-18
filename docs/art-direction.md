@@ -305,6 +305,12 @@ bearing without competing with it. Hovering either
 lights it and says how far along it is, the way a building or a walker does, and
 only at the zoom where crops can be aimed at.
 
+A tending or gathering ring eases in and out rather than blinking: the outline is
+keyed on the tiles it traces, so hovering a tool holds one ring steady instead of
+rebuilding it every frame, and a ring on its way out keeps fading while its
+replacement comes up. It fades over opacity and settles from 98.5% of its size —
+enough to read as arriving, not as a pulse. Under reduced motion it snaps.
+
 The stair carver (`src/art/stairs.ts`) clips terrain triangles, so it interpolates
 vertex colour along with position; a flight cut through painted ground keeps its paint.
 

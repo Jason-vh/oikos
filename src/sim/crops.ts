@@ -1,5 +1,5 @@
 import type { Building, BuildingKind, City, Crop, CropKind, Placement, Rotation, Tile, World } from './types';
-import { BUILDINGS } from './catalog';
+import { BUILDINGS, footprint } from './catalog';
 import { CROP_GROW_SECONDS, CROP_YIELD, FARM_STOCK_CAP, FIELD_RANGE, FIELDS_TENDED } from './balance';
 import { buildable, hash, insideMapOn, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import { footprintTiles, mapOf, perimeterTiles, siteBuilding } from './grid';
@@ -9,6 +9,7 @@ import { addStore, totalStock } from './world';
 export const CROP_KINDS: CropKind[] = ['wheat', 'olives'];
 
 const GROWERS: Record<CropKind, BuildingKind> = { wheat: 'farm', olives: 'orchard' };
+const WANDER_ALLOWANCE = 1.6;
 
 export const CROP_REASON = {
   needsFertileGround: 'Crops root only in fertile soil.',
@@ -111,10 +112,20 @@ function walkedTiles(ground: Tending, origins: readonly number[], range: number)
   return distance;
 }
 
+function withinRing(map: IslandMap, building: Building, tile: number): boolean {
+  const { width, depth } = footprint(building.kind, building.rotation);
+  const centre = { x: building.x + width / 2, z: building.z + depth / 2 };
+  const { x, z } = tileAtOn(map, tile);
+  return Math.hypot(x + .5 - centre.x, z + .5 - centre.z) <= FIELD_RANGE;
+}
+
 function reachOf(building: Building, ground: Tending): Map<number, number> {
   const origins = fieldOrigins(building, ground);
   if (origins.length === 0) return new Map();
-  const walked = walkedTiles(ground, origins, FIELD_RANGE);
+  const walked = walkedTiles(ground, origins, Math.round(FIELD_RANGE * WANDER_ALLOWANCE));
+  for (const tile of [...walked.keys()]) {
+    if (!withinRing(ground.map, building, tile)) walked.delete(tile);
+  }
   for (const tile of footprintTiles(ground.map, building)) walked.delete(tile);
   return walked;
 }

@@ -89,7 +89,11 @@ export function reachOutline(map: IslandMap, tiles: readonly number[]): T.Mesh |
   const geometry = new T.BufferGeometry();
   geometry.setAttribute('position', new T.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('normal', new T.Float32BufferAttribute(positions.map((_, index) => index % 3 === 1 ? 1 : 0), 3));
-  const mesh = new T.Mesh(geometry, bandMaterial);
+  geometry.computeBoundingSphere();
+  const centre = geometry.boundingSphere!.center.clone();
+  geometry.translate(-centre.x, -centre.y, -centre.z);
+  const mesh = new T.Mesh(geometry, bandMaterial.clone());
+  mesh.position.copy(centre);
   mesh.renderOrder = 2;
   return mesh;
 }

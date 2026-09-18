@@ -234,10 +234,13 @@ on the ground around them. `src/sim/crops.ts` owns the whole of it.
   is `{ type: 'plant', id, tiles }`, validated by `plantPlacement`: every tile must
   be fertile, unsown, unbuilt, unpaved, and inside that yard's reach. A mixed
   selection sows what it can and reports the rest as blocked.
-- The **tending ring** is walked, not drawn with a compass: a breadth-first walk out
-  of the yard's perimeter over open ground and roads, `FIELD_RANGE` steps, refusing
-  to cross a terrace except by a stair. It is what the ring on the ground shows, and
-  it is recomputed rather than stored.
+- The **tending ring** is a circle a farmhand can actually walk to: a breadth-first
+  walk out of the yard's perimeter over open ground and roads, refusing to cross a
+  terrace except by a stair, then clipped to `FIELD_RANGE` tiles as the crow flies
+  from the yard's centre. The walk is allowed half again as many steps as the
+  radius, so a field behind a copse or around a wall still counts, while the edge
+  stays round rather than the diamond a step count alone would draw. It is what the
+  ring on the ground shows, and it is recomputed rather than stored.
 - **Tending** is capped by hands, not by land: a farm works `FIELDS_TENDED.farm`
   fields and an orchard `FIELDS_TENDED.orchard`, nearest first. Fields are shared
   between yards — each crop is claimed by exactly one yard per tick, so a second
