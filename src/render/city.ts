@@ -20,6 +20,8 @@ import { CloudLayer } from './clouds';
 import { worldSpan } from './extent';
 import { glowStrength, GLOW_SWELL, ModelGlow } from './emphasis';
 
+export const gait = { stepsPerTile: 5.5, swing: .55 };
+
 export type HoverTarget = { kind: 'building' | 'walker' | 'animal'; id: number };
 
 function sameTarget(one: HoverTarget | null, other: HoverTarget | null): boolean {
@@ -87,7 +89,7 @@ const PASSING_LIMIT = .42;
 const SETTLE_RAMP = .7;
 const SETTLE_EASE = .55;
 const CORNER_SLOW = .5;
-const STEPS_PER_TILE = 3;
+
 const BOUNCE_SEED = 7.7;
 const INTRO_SECONDS = .45;
 const EXIT_SECONDS = .3;
@@ -785,8 +787,8 @@ export class CityScene {
     this.turnedAt = this.worldTime;
     this.stepMovers();
     for (const [id, walker] of this.walkers) {
-      const stride = walker.moving ? .55 * walker.pace : 0;
-      const phase = walker.travelled * STEPS_PER_TILE * walker.cadence + id;
+      const stride = walker.moving ? gait.swing * walker.pace : 0;
+      const phase = walker.travelled * gait.stepsPerTile * walker.cadence + id;
       if (walker.working && walker.task) {
         const drift = scatterOf(id, WORK_SCATTER) * workPeriod('chop');
         const spent = (this.worldTime - walker.task.since) * Math.max(1, speed) + drift;

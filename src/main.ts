@@ -1,7 +1,7 @@
 import * as T from 'three';
 import { Stage } from './render/stage';
 import type { View } from './render/stage';
-import { CityScene, type HoverTarget } from './render/city';
+import { CityScene, gait, type HoverTarget } from './render/city';
 import { ConstructionOverlay } from './render/construction';
 import { ClaimOverlay } from './render/claims';
 import { ClaimLabels } from './ui/claim-labels';
@@ -21,6 +21,7 @@ import { parseCommand, type CityCommand } from './sim/commands';
 import { activeCity, canWrite, contextForOwnedCity, reconcileContext, resolveCity, viewedCity, withViewed, type CityContext } from './ui/city-context';
 import { cadence, debugEnabled, meterEnabled, protocolLog, snapshotLog } from './ui/debug';
 import { FrameMeter } from './ui/meter';
+import { Tuner } from './ui/tuner';
 import { SharedSession, type SendOutcome, type SharedRequestOutcome, type SharedSessionStatus, type SharedSnapshot } from './ui/shared-session';
 import { SharedIntent } from './ui/shared-intent';
 import { PredictedWorld } from './ui/predicted-world';
@@ -656,6 +657,12 @@ export function boot(source: SharedBootSource): BootHandles {
   let lastRender = 0;
   let visualDelta = 0;
   const meter = meterEnabled(location.search) ? new FrameMeter(document.body) : null;
+  if (scripting) {
+    new Tuner(document.body, [
+      { label: 'steps / tile', of: gait, key: 'stepsPerTile', min: 1.5, max: 6, step: .05 },
+      { label: 'stride swing', of: gait, key: 'swing', min: .2, max: 1, step: .01 },
+    ] as never);
+  }
   function frame(now: number): void {
     const delta = previous === 0 || document.hidden ? 0 : Math.min((now - previous) / 1000, .25);
     previous = now;

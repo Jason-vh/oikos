@@ -356,3 +356,23 @@ body[data-error] .boot-progress { display: none; }
   border-radius: 8px;
   pointer-events: none;
 }
+
+.tuner {
+  position: fixed;
+  right: 12px;
+  bottom: 150px;
+  z-index: 40;
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 11px;
+  color: var(--ink);
+  background: var(--cream-glass);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+.tuner-dial { display: grid; grid-template-columns: 82px 120px 34px; align-items: center; gap: 8px; white-space: nowrap; }
+.tuner-dial input { width: 120px; accent-color: var(--sage); }
+.tuner-dial b { text-align: right; font-weight: 600; }
