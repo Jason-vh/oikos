@@ -643,6 +643,8 @@ export function boot(source: SharedBootSource): BootHandles {
       if (!escapeOpensMenu) selectTool('inspect');
     } else if (event.key.toLowerCase() === 'g') setGrid(!showGrid);
     else if (event.key.toLowerCase() === 'r') { rotation = ((rotation + 1) % 4) as Rotation; hud.setTool(tool, rotation); updatePreview(); }
+    else if (event.key.toLowerCase() === 'b') selectTool('road');
+    else if (event.key.toLowerCase() === 'x') selectTool('demolish');
     else if (event.key.toLowerCase() === 'q') stage.rotate();
     else if (event.key.toLowerCase() === 'h') focusVillage();
   });

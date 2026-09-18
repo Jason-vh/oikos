@@ -1,5 +1,5 @@
 import type { Building, BuildingKind, BuildTool, City, Resource, Rotation, StallGood, Summary, Tool, World } from '../sim/types';
-import { nextUnlock, requirementOf, tierNoun, unlockRefusal } from '../sim/unlocks';
+import { nextUnlock, tierNoun, unlocked } from '../sim/unlocks';
 import { STALL_GOODS, STALL_TRADES, stallServing } from '../sim/stalls';
 import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, VENDOR_COST, storesGoods } from '../sim/catalog';
 import { appetitePerResident, thirstPerSecond } from '../sim/variation';
@@ -63,37 +63,67 @@ interface ToolDef {
   label: string;
   cost: string;
   price: number;
+  key?: string;
+}
+
+interface ToolGroup {
+  name: string;
+  tools: ToolDef[];
 }
 
 const HARBOUR_DEF: ToolDef = { tool: 'harbour', label: 'Harbour', cost: '', price: 0 };
 
-const TOOL_DEFS: ToolDef[] = [
-  { tool: 'road', label: 'Road', cost: `${ROAD_COST} / tile`, price: ROAD_COST },
-  { tool: 'house', label: BUILDINGS.house.name, cost: String(BUILDINGS.house.cost), price: BUILDINGS.house.cost },
-  { tool: 'farm', label: BUILDINGS.farm.name, cost: String(BUILDINGS.farm.cost), price: BUILDINGS.farm.cost },
-  { tool: 'granary', label: BUILDINGS.granary.name, cost: String(BUILDINGS.granary.cost), price: BUILDINGS.granary.cost },
-  { tool: 'agora', label: BUILDINGS.agora.name, cost: String(BUILDINGS.agora.cost), price: BUILDINGS.agora.cost },
-  { tool: 'fountain', label: BUILDINGS.fountain.name, cost: String(BUILDINGS.fountain.cost), price: BUILDINGS.fountain.cost },
-  { tool: 'maintenance', label: 'Caretaker', cost: String(BUILDINGS.maintenance.cost), price: BUILDINGS.maintenance.cost },
-  { tool: 'lodge', label: 'Hunter', cost: String(BUILDINGS.lodge.cost), price: BUILDINGS.lodge.cost },
-  { tool: 'orchard', label: 'Olives', cost: String(BUILDINGS.orchard.cost), price: BUILDINGS.orchard.cost },
-  { tool: 'press', label: 'Press', cost: String(BUILDINGS.press.cost), price: BUILDINGS.press.cost },
-  { tool: 'wharf', label: 'Fisher', cost: String(BUILDINGS.wharf.cost), price: BUILDINGS.wharf.cost },
-  { tool: 'woodcutter', label: 'Woodcutter', cost: String(BUILDINGS.woodcutter.cost), price: BUILDINGS.woodcutter.cost },
-  { tool: 'stockpile', label: BUILDINGS.stockpile.name, cost: String(BUILDINGS.stockpile.cost), price: BUILDINGS.stockpile.cost },
-  { tool: 'demolish', label: 'Demolish', cost: 'half refunded', price: 0 },
+const TOOL_GROUPS: ToolGroup[] = [
+  {
+    name: 'Build',
+    tools: [
+      { tool: 'road', label: 'Road', cost: `${ROAD_COST} / tile`, price: ROAD_COST, key: 'B' },
+      { tool: 'house', label: BUILDINGS.house.name, cost: String(BUILDINGS.house.cost), price: BUILDINGS.house.cost },
+    ],
+  },
+  {
+    name: 'Food',
+    tools: [
+      { tool: 'farm', label: BUILDINGS.farm.name, cost: String(BUILDINGS.farm.cost), price: BUILDINGS.farm.cost },
+      { tool: 'wharf', label: 'Fisher', cost: String(BUILDINGS.wharf.cost), price: BUILDINGS.wharf.cost },
+      { tool: 'lodge', label: 'Hunter', cost: String(BUILDINGS.lodge.cost), price: BUILDINGS.lodge.cost },
+    ],
+  },
+  {
+    name: 'Goods',
+    tools: [
+      { tool: 'orchard', label: 'Olives', cost: String(BUILDINGS.orchard.cost), price: BUILDINGS.orchard.cost },
+      { tool: 'press', label: 'Press', cost: String(BUILDINGS.press.cost), price: BUILDINGS.press.cost },
+      { tool: 'woodcutter', label: 'Woodcutter', cost: String(BUILDINGS.woodcutter.cost), price: BUILDINGS.woodcutter.cost },
+    ],
+  },
+  {
+    name: 'Distribution',
+    tools: [
+      { tool: 'granary', label: BUILDINGS.granary.name, cost: String(BUILDINGS.granary.cost), price: BUILDINGS.granary.cost },
+      { tool: 'agora', label: BUILDINGS.agora.name, cost: String(BUILDINGS.agora.cost), price: BUILDINGS.agora.cost },
+      { tool: 'stockpile', label: BUILDINGS.stockpile.name, cost: String(BUILDINGS.stockpile.cost), price: BUILDINGS.stockpile.cost },
+    ],
+  },
+  {
+    name: 'Services',
+    tools: [
+      { tool: 'fountain', label: BUILDINGS.fountain.name, cost: String(BUILDINGS.fountain.cost), price: BUILDINGS.fountain.cost },
+      { tool: 'maintenance', label: 'Caretaker', cost: String(BUILDINGS.maintenance.cost), price: BUILDINGS.maintenance.cost },
+    ],
+  },
+  {
+    name: 'Clear',
+    tools: [{ tool: 'demolish', label: 'Demolish', cost: 'half refunded', price: 0, key: 'X' }],
+  },
 ];
+
+const TOOL_DEFS: ToolDef[] = TOOL_GROUPS.flatMap((group) => group.tools);
 
 const TOAST_LIFETIME = 3200;
 const BANNER_LIFETIME = 3600;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const FOUNDING_YEAR_BC = 421;
-
-function lockLabel(tool: HudTool): string {
-  const requirement = requirementOf(tool as BuildTool);
-  if (!requirement) return '';
-  return `\u{1F512} ${requirement.residents} ${tierNoun(requirement.tier)}`;
-}
 
 function formatDrachma(value: number): string {
   return `${Math.round(value).toLocaleString('en-US')} dr`;
@@ -225,6 +255,7 @@ const SKELETON = `
       </div>
       <dl class="hud-keys">
         <div><dt>R</dt><dd>Rotate building</dd></div>
+        <div><dt>B / X</dt><dd>Road / demolish</dd></div>
         <div><dt>G</dt><dd>Toggle grid</dd></div>
         <div><dt>WASD / \u2190\u2191\u2192\u2193</dt><dd>Pan the view</dd></div>
         <div><dt>Q / H</dt><dd>Rotate / return to village</dd></div>
@@ -271,15 +302,15 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
 
   const toolbar = root.querySelector<HTMLElement>('.hud-toolbar')!;
   const toolButtons = new Map<HudTool, HTMLButtonElement>();
-  const toolCosts = new Map<HudTool, HTMLElement>();
-  function addToolButton(def: ToolDef): HTMLButtonElement {
+  function addToolButton(def: ToolDef, parent: HTMLElement): HTMLButtonElement {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'hud-tool';
     button.dataset.tool = def.tool;
     button.setAttribute('aria-pressed', 'false');
-    button.setAttribute('aria-label', def.cost.length > 0 ? `${def.label}, ${def.cost}` : def.label);
-    button.title = def.label;
+    const described = def.cost.length > 0 ? `${def.label}, ${def.cost}` : def.label;
+    button.setAttribute('aria-label', def.key ? `${described}, shortcut ${def.key}` : described);
+    button.title = def.key ? `${def.label} (${def.key})` : def.label;
     const label = document.createElement('span');
     label.className = 'hud-tool-label';
     label.textContent = def.label;
@@ -289,16 +320,30 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
       cost.className = 'hud-tool-cost';
       cost.textContent = def.cost;
       button.append(cost);
-      toolCosts.set(def.tool, cost);
     }
     button.addEventListener('click', () => actions.tool(def.tool));
-    toolbar.appendChild(button);
+    parent.appendChild(button);
     toolButtons.set(def.tool, button);
     return button;
   }
-  const harbourButton = addToolButton(HARBOUR_DEF);
+  const harbourButton = addToolButton(HARBOUR_DEF, toolbar);
   harbourButton.hidden = true;
-  for (const def of TOOL_DEFS) addToolButton(def);
+  const groupPanels = TOOL_GROUPS.map((group) => {
+    const panel = document.createElement('div');
+    panel.className = 'hud-tool-group';
+    panel.dataset.group = group.name.toLowerCase();
+    panel.setAttribute('role', 'group');
+    panel.setAttribute('aria-label', group.name);
+    const caption = document.createElement('span');
+    caption.className = 'hud-tool-group-name';
+    caption.textContent = group.name;
+    const tools = document.createElement('div');
+    tools.className = 'hud-tool-group-tools';
+    panel.append(caption, tools);
+    for (const def of group.tools) addToolButton(def, tools);
+    toolbar.appendChild(panel);
+    return { panel, tools: group.tools.map((def) => def.tool) };
+  });
 
   action(root, 'discard-pending').addEventListener('click', () => {
     if (window.confirm('This may abandon an action that already applied to the shared city. Discard the unresolved request?')) actions.discardPending();
@@ -332,6 +377,30 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
   const resources = root.querySelector<HTMLElement>('.hud-resources')!;
   let lastSelectedId: number | string | null = null;
   let stance: Stance = 'building';
+  let lastActive: CityScope | null = null;
+  const shownTools = new Set<HudTool>();
+  const stillMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let toolbarSettled = false;
+
+  function revealTool(button: HTMLButtonElement): void {
+    button.classList.add('hud-tool-entering');
+    button.addEventListener('animationend', () => button.classList.remove('hud-tool-entering'), { once: true });
+  }
+
+  function applyAvailability(): void {
+    const building = stance === 'building';
+    for (const def of TOOL_DEFS) {
+      const button = toolButtons.get(def.tool)!;
+      const available = building && (!lastActive || unlocked(lastActive.city, def.tool as BuildTool));
+      if (available && !shownTools.has(def.tool) && toolbarSettled && !stillMotion.matches) revealTool(button);
+      button.hidden = !available;
+      if (available) shownTools.add(def.tool);
+      else shownTools.delete(def.tool);
+    }
+    for (const group of groupPanels) group.panel.hidden = group.tools.every((tool) => !shownTools.has(tool));
+    toolbarSettled = building;
+  }
+
   const narrow = window.matchMedia('(max-width: 860px)');
   if (narrow.matches) guidePanel.open = false;
 
@@ -536,16 +605,13 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
     treasuryField.textContent = formatDrachma(money);
     treasuryField.classList.toggle('hud-debt', money < 0);
     foodField.textContent = Math.round(viewed?.summary.food ?? 0).toLocaleString('en-US');
+    lastActive = active;
     for (const def of TOOL_DEFS) {
       const button = toolButtons.get(def.tool)!;
-      const locked = active && def.tool !== 'demolish' ? unlockRefusal(active.city, def.tool as BuildTool) : '';
-      button.disabled = !writable || !active || locked !== '';
-      button.classList.toggle('hud-tool-locked', locked !== '');
-      button.classList.toggle('hud-tool-unaffordable', !locked && !!active && def.price > active.city.money);
-      button.title = locked || def.label;
-      const cost = toolCosts.get(def.tool);
-      if (cost) cost.textContent = locked ? lockLabel(def.tool) : def.cost;
+      button.disabled = !writable || !active;
+      button.classList.toggle('hud-tool-unaffordable', !!active && def.price > active.city.money);
     }
+    applyAvailability();
     balanceField.textContent = formatSigned(viewed?.summary.balance ?? 0);
     employedField.textContent = `${viewed?.summary.workers ?? 0} / ${viewed?.summary.jobs ?? 0}`;
     bannerDate = formatDate(world);
@@ -637,7 +703,7 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
     stance = next;
     harbourButton.hidden = stance !== 'founding';
     harbourButton.disabled = !ready;
-    for (const def of TOOL_DEFS) toolButtons.get(def.tool)!.hidden = stance !== 'building';
+    applyAvailability();
     toolbar.hidden = stance === 'watching';
     resources.hidden = stance === 'watching';
     showGuide(lastSelectedId !== null && narrow.matches);

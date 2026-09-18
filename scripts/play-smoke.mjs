@@ -56,6 +56,18 @@ try {
   assert.equal(await page.evaluate(() => window.oikos.state.cities.length >= 1), true);
   await page.screenshot({ path: path.join(output, 'founded.png') });
 
+  const visibleTools = () => page.evaluate(() => [...document.querySelectorAll('.hud-tool')].filter((button) => button.offsetParent !== null).map((button) => button.dataset.tool));
+  const tools = await visibleTools();
+  assert.equal(tools.includes('road') && tools.includes('house') && tools.includes('demolish'), true, 'The always-available tools are missing from the toolbar');
+  assert.equal(tools.includes('press'), false, 'A locked tool is still shown in the toolbar');
+  assert.equal(await page.locator('.hud-tool-group[data-group="goods"]').isVisible(), false, 'A group with only locked tools is still shown');
+
+  await page.keyboard.press('x');
+  assert.equal(await page.locator('.hud-tool[data-tool="demolish"]').getAttribute('aria-pressed'), 'true', 'X did not arm the demolish tool');
+  await page.keyboard.press('b');
+  assert.equal(await page.locator('.hud-tool[data-tool="road"]').getAttribute('aria-pressed'), 'true', 'B did not arm the road tool');
+  await page.keyboard.press('Escape');
+
   const plot = await page.evaluate(() => {
     const harbour = window.oikos.state.cities.find((city) => city.id === window.oikos.session.activeCityId).harbour;
     for (let radius = 2; radius < 14; radius++) {

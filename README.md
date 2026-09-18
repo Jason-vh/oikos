@@ -39,11 +39,13 @@ homes into cottages and courtyard houses. Plant olives on ground a farm cannot u
 press them into oil, and sell it from a second agora stall: houses with oil become
 townhouses. Fell forest for lumber: porters carry it
 to the harbour, enough rebuilds the quay in stone, and a trade order ships it
-overseas for coin. The catalogue is earned rather than given: a tool stays locked
-until enough people live at the tier it asks for, and the guide names the next one.
+overseas for coin. The catalogue is earned rather than given: a tool stays out of the
+toolbar until enough people live at the tier it asks for, then slides into its group;
+the guide names the next one.
 
 Left-click builds or inspects. Drag to lay roads. WASD / arrow keys or right-drag
-pan; scroll zooms; Alt-drag orbits. Tools are chosen in the toolbar. `R` rotates a
+pan; scroll zooms; Alt-drag orbits. Tools are chosen in the toolbar, grouped by trade.
+`B` takes the road and `X` the wrecking tool. `R` rotates a
 building, `G` toggles the grid, `Q` rotates the camera, and `H` returns to the village.
 `Shift` switches the bend while laying roads. `Escape` cancels the current tool or
 opens the menu. Shared time never pauses for a menu; a pause of your own is still to
