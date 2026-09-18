@@ -38,7 +38,7 @@ function selectionTarget(building: Building | null, walkerId: number | null): Ho
 interface BuildingEntry { key: string; tier: number; model: T.Group; intro: number; from: number; construction: BuildingConstruction | null; }
 interface Departure { model: T.Group; elapsed: number; }
 interface WalkerExit { model: T.Group; elapsed: number; scale: number; }
-interface WalkerEntry { id: number; intro: number; key: string; kind: WalkerKind; model: T.Group; cart: T.Object3D | null; cartBed: T.Object3D | null; path: number[]; departedAt: number; quarry: number | null; task: WalkerTask | null; strikes: number; moving: boolean; working: boolean; waitingSince: number; spell: number; mood: Idle; aim: number; heading: number; turn: number; pace: number; travelled: number; cadence: number; bounce: number; side: number; stepped: boolean; stairs: ReadonlyMap<number, Stair>; }
+interface WalkerEntry { id: number; intro: number; key: string; kind: WalkerKind; model: T.Group; cart: T.Object3D | null; cartBed: T.Object3D | null; wheels: T.Object3D[]; path: number[]; departedAt: number; quarry: number | null; task: WalkerTask | null; strikes: number; moving: boolean; working: boolean; waitingSince: number; spell: number; mood: Idle; aim: number; heading: number; turn: number; pace: number; travelled: number; cadence: number; bounce: number; side: number; stepped: boolean; stairs: ReadonlyMap<number, Stair>; }
 interface AnimalEntry { animal: Animal; home: T.Vector3; roam: number; position: T.Vector3; facing: number; roll: number; phase: number; moving: boolean; stride: number; dying: number; visible: boolean; drawn: boolean; }
 
 const SIGHT_MARGIN = 1.3;
@@ -77,6 +77,8 @@ const TURN_LIMIT = .16;
 const CART_TRAIL = 1.4;
 const CART_ROCK = .035;
 const AXLE = { y: .24, z: -.78 };
+const WHEEL_RADIUS = .19;
+const WHEEL_SPIN = CELL_SIZE / WHEEL_RADIUS;
 const GRIP = { x: .21, y: .076, z: .7 };
 const CADENCE_SPREAD = .24;
 const BOUNCE_SPREAD = .45;
@@ -89,7 +91,7 @@ const PASSING_ROOM = .34;
 const PASSING_LIMIT = .42;
 const SETTLE_RAMP = .7;
 const SETTLE_EASE = .55;
-const CORNER_SLOW = .5;
+const CORNER_SLOW = .22;
 
 const BOUNCE_SEED = 7.7;
 const INTRO_SECONDS = .45;
@@ -105,6 +107,10 @@ function backOut(t: number): number {
   const overshoot = 1.6;
   const shifted = t - 1;
   return 1 + shifted * shifted * ((overshoot + 1) * shifted + overshoot);
+}
+
+function wheelsOf(model: T.Object3D): T.Object3D[] {
+  return model.getObjectByName('cart')?.children.filter((part) => part.name === 'wheel') ?? [];
 }
 
 function headingOf(step: T.Vector3): number | null {
@@ -488,12 +494,14 @@ export class CityScene {
     if (cartLike) {
       const cart = new T.Group();
       cart.name = 'cart';
-      const wheels = new T.Group();
-      for (const side of [-1, 1]) {
-        const wheel = post(wheels, colors.dark, side * .36, AXLE.y, AXLE.z, .19, .09);
-        wheel.rotation.z = Math.PI / 2;
-      }
-      bake(wheels);
+      const wheels = [-1, 1].map((side) => {
+        const wheel = new T.Group();
+        wheel.name = 'wheel';
+        wheel.position.set(side * .36, AXLE.y, AXLE.z);
+        post(wheel, colors.dark, 0, 0, 0, WHEEL_RADIUS, .09).rotation.z = Math.PI / 2;
+        bake(wheel);
+        return wheel;
+      });
       const bed = new T.Group();
       bed.name = 'bed';
       bed.position.set(0, AXLE.y, AXLE.z);
@@ -510,7 +518,7 @@ export class CityScene {
         bed.add(heap);
       }
       bake(bed);
-      cart.add(wheels, bed);
+      cart.add(...wheels, bed);
       model.add(cart);
     }
     if (kind === 'immigrant') {
@@ -539,6 +547,7 @@ export class CityScene {
       entry.model = replacement;
       entry.cart = replacement.getObjectByName('cart') ?? null;
       entry.cartBed = replacement.getObjectByName('bed') ?? null;
+      entry.wheels = wheelsOf(replacement);
       entry.key = key;
       this.stage.scene.add(replacement);
     }
@@ -547,7 +556,7 @@ export class CityScene {
       const model = this.walkerModel(walker.kind, load);
       model.userData.walkerId = walker.id;
       this.stage.scene.add(model);
-      entry = { id: walker.id, intro: this.motion && settled ? 0 : WALKER_INTRO, key, kind: walker.kind, model, cart: model.getObjectByName('cart') ?? null, cartBed: model.getObjectByName('bed') ?? null, path: walker.path, departedAt: walker.departedAt, quarry: walker.quarry, task: walker.task, strikes: 0, moving: false, working: false, waitingSince: walker.departedAt, spell: -1, mood: 'breathe', aim: 0, heading: 0, turn: 0, pace: 0, travelled: 0, side: scatterOf(walker.id, LANE_SEED) * 2 - 1, cadence: 1 + (scatterOf(walker.id, CADENCE_SEED) - .5) * CADENCE_SPREAD, bounce: 1 + (scatterOf(walker.id, BOUNCE_SEED) - .5) * BOUNCE_SPREAD, stepped: false, stairs };
+      entry = { id: walker.id, intro: this.motion && settled ? 0 : WALKER_INTRO, key, kind: walker.kind, model, cart: model.getObjectByName('cart') ?? null, cartBed: model.getObjectByName('bed') ?? null, wheels: wheelsOf(model), path: walker.path, departedAt: walker.departedAt, quarry: walker.quarry, task: walker.task, strikes: 0, moving: false, working: false, waitingSince: walker.departedAt, spell: -1, mood: 'breathe', aim: 0, heading: 0, turn: 0, pace: 0, travelled: 0, side: scatterOf(walker.id, LANE_SEED) * 2 - 1, cadence: 1 + (scatterOf(walker.id, CADENCE_SEED) - .5) * CADENCE_SPREAD, bounce: 1 + (scatterOf(walker.id, BOUNCE_SEED) - .5) * BOUNCE_SPREAD, stepped: false, stairs };
       this.walkers.set(walker.id, entry);
     }
     entry.path = walker.path;
@@ -804,6 +813,7 @@ export class CityScene {
       else animateIdle(walker.model, (this.worldTime - walker.waitingSince) * Math.max(1, speed) + id, walker.mood);
       if (walker.cart) walker.cart.rotation.y = -walker.turn * CART_TRAIL;
       if (walker.cartBed) walker.cartBed.rotation.x = -Math.cos(phase * 2) * CART_ROCK * (stride / .55);
+      for (const wheel of walker.wheels) wheel.rotation.x = walker.travelled * WHEEL_SPIN;
       for (const companion of walker.model.children.slice(5)) {
         if (companion.children.length >= 5) animateFigure(companion, phase + 1.3, stride, walker.bounce);
       }

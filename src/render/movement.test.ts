@@ -7,7 +7,7 @@ import { createWorld } from '../sim/world';
 import { primaryCity } from '../sim/city';
 import { roadSpur } from '../sim/testing';
 import { mapOf } from '../sim/grid';
-import { tileAtOn, tileIndexOn, worldPositionOn } from '../sim/island';
+import { CELL_SIZE, tileAtOn, tileIndexOn, worldPositionOn } from '../sim/island';
 import { walkerSpeed } from '../sim/balance';
 import type { Walker } from '../sim/types';
 
@@ -388,6 +388,40 @@ test('two walkers on one road do not stand in the same place', () => {
     city.animate(0, 1 / 60, 1);
     const [one, other] = pair.map((walker) => city.moverPoint(walker.id)!.clone());
     expect(one.distanceTo(other)).toBeGreaterThan(.15);
+  } finally {
+    city.dispose();
+  }
+});
+
+test('a cart rolls on its wheels: they turn with the ground it covers', () => {
+  const world = createWorld();
+  const stage = { scene: new T.Scene(), shadows() {}, invalidate() {}, world(_span: number) {} } as Stage;
+  const city = new CityScene(stage, islandFor(world.seed), true);
+  const owner = primaryCity(world);
+  const spur = roadSpur(world, 5).map((tile) => tileIndexOn(mapOf(world, owner), tile.x, tile.z));
+  const carter: Walker = {
+    id: world.nextId++, kind: 'cart', homeId: owner.harbour.id, targetId: null,
+    path: spur, departedAt: 0, step: 0, progress: 0, food: 'wheat', cargo: 40,
+    returning: false, overland: [], quarry: null, task: null,
+  };
+  owner.walkers.push(carter);
+  city.setWorldTime(0);
+  city.sync(world);
+  try {
+    const model = stage.scene.children.find((child) => child.userData.walkerId === carter.id)!;
+    const wheels = model.getObjectByName('cart')!.children.filter((part) => part.name === 'wheel');
+    expect(wheels).toHaveLength(2);
+    const turnAt = (tiles: number) => {
+      city.setWorldTime(tiles / walkerSpeed('cart'));
+      city.animate(0, 1 / 60, 1);
+      return wheels.map((wheel) => wheel.rotation.x);
+    };
+    const first = turnAt(1);
+    const second = turnAt(2);
+    expect(second[0]).toBeGreaterThan(first[0]);
+    expect(second[0]).toBe(second[1]);
+    const rolled = second[0] - first[0];
+    expect(rolled).toBeCloseTo(CELL_SIZE / .19, 1);
   } finally {
     city.dispose();
   }
