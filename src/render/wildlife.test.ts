@@ -38,7 +38,7 @@ test('posing an animal places every part of its model', () => {
   const field = new WildlifeField(scene);
   try {
     field.add(7, 'boar');
-    field.pose(7, 'boar', { position: new T.Vector3(4, 1, -2), facing: .5, roll: 0, phase: 3, moving: true, stride: .5 });
+    field.pose(7, 'boar', { position: new T.Vector3(4, 1, -2), facing: .5, roll: 0, phase: 3, moving: true, stride: .5, swell: 1 });
     const placed = batches(field).flatMap((mesh) => {
       const matrices: T.Matrix4[] = [];
       for (let index = 0; index < mesh.count; index++) {
@@ -64,7 +64,7 @@ test('concealed and removed animals leave nothing drawn', () => {
   try {
     for (const [index, kind] of KINDS.entries()) {
       field.add(index + 1, kind);
-      field.pose(index + 1, kind, { position: new T.Vector3(index, 0, 0), facing: 0, roll: 0, phase: 1, moving: false, stride: .5 });
+      field.pose(index + 1, kind, { position: new T.Vector3(index, 0, 0), facing: 0, roll: 0, phase: 1, moving: false, stride: .5, swell: 1 });
     }
     field.conceal(1);
     field.remove(2);
@@ -93,6 +93,29 @@ test('a removed animal hands its instance slots to the next one', () => {
     for (let id = 1; id <= 40; id++) field.remove(id);
     for (let id = 41; id <= 80; id++) field.add(id, 'rabbit');
     expect(batches(field).map((mesh) => mesh.count)).toEqual(before);
+  } finally {
+    field.dispose();
+  }
+});
+
+test('an emphasised animal moves to lit batches and back, staying wholly drawn', () => {
+  const scene = new T.Scene();
+  const field = new WildlifeField(scene);
+  const pose = { position: new T.Vector3(1, 0, 1), facing: 0, roll: 0, phase: 0, moving: false, stride: 0, swell: 1 };
+  try {
+    for (const id of [1, 2]) {
+      field.add(id, 'rabbit');
+      field.pose(id, 'rabbit', pose);
+    }
+    const plain = batches(field).length;
+    field.emphasise(1);
+    field.pose(1, 'rabbit', pose);
+    expect(batches(field).length).toBeGreaterThan(plain);
+    const drawn = batches(field).reduce((sum, mesh) => sum + mesh.count, 0);
+    expect(drawn).toBe(2 * plain);
+    field.emphasise(null);
+    field.pose(1, 'rabbit', pose);
+    expect(batches(field).reduce((sum, mesh) => sum + mesh.count, 0)).toBe(2 * plain);
   } finally {
     field.dispose();
   }

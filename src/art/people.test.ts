@@ -220,7 +220,7 @@ test('walking and idling put the work pose down again', () => {
   expect(body.rotation.y).not.toBe(0);
   expect(body.rotation.z).not.toBe(0);
   animateFigure(model, 1.2, .55);
-  expect(body.rotation.toArray().slice(0, 3)).toEqual([0, 0, 0]);
+  for (const angle of body.rotation.toArray().slice(0, 3) as number[]) expect(Math.abs(angle)).toBeLessThan(.12);
   expect(blade.rotation.x).not.toBe(struck);
   expect(blade.rotation.y).toBe(0);
   animateIdle(model, .4, 'breathe');
@@ -246,4 +246,19 @@ test('the same person idles the same way twice, and two people differently', () 
   expect(parts(one)).toEqual(first);
   animateIdle(other, 2.4, 'stretch');
   expect(parts(other)).not.toEqual(first);
+});
+
+test('a walking torso turns against the legs and stands square when still', () => {
+  const model = citizen(0xb2c7bb, false);
+  const [body, leftLeg] = model.children;
+  animateFigure(model, Math.PI / 2, .55);
+  expect(leftLeg.rotation.x).toBeGreaterThan(0);
+  expect(body.rotation.y).toBeLessThan(0);
+  animateFigure(model, -Math.PI / 2, .55);
+  expect(leftLeg.rotation.x).toBeLessThan(0);
+  expect(body.rotation.y).toBeGreaterThan(0);
+  animateFigure(model, 1.2, 0);
+  expect(body.rotation.y).toBeCloseTo(0, 12);
+  expect(body.rotation.z).toBeCloseTo(0, 12);
+  expect(body.position.x).toBeCloseTo(0, 12);
 });

@@ -7,7 +7,7 @@ import { createWorld } from '../sim/world';
 import { primaryCity } from '../sim/city';
 import { roadSpur } from '../sim/testing';
 import { mapOf } from '../sim/grid';
-import { tileIndexOn } from '../sim/island';
+import { tileAtOn, tileIndexOn, worldPositionOn } from '../sim/island';
 import { WALKER_SPEED } from '../sim/balance';
 import type { Walker } from '../sim/types';
 
@@ -184,14 +184,14 @@ test('a walker kept waiting looks about, of its own accord', () => {
     const model = stage.scene.children.find((child) => child.userData.walkerId === walker.id);
     return model ? Number(model.rotation.y.toFixed(4)) : 0;
   });
-  for (let frame = 0; frame < 60; frame++) {
-    city.setWorldTime(frame / 30);
-    city.animate(0, 1 / 30, 1);
+  for (let frame = 0; frame < 20; frame++) {
+    city.setWorldTime(frame / 10);
+    city.animate(0, 1 / 10, 1);
   }
   const settled = facing();
-  for (let frame = 0; frame < 300; frame++) {
-    city.setWorldTime(2 + frame / 30);
-    city.animate(0, 1 / 30, 1);
+  for (let frame = 0; frame < 100; frame++) {
+    city.setWorldTime(2 + frame / 10);
+    city.animate(0, 1 / 10, 1);
   }
   const looked = facing();
   expect(looked).not.toEqual(settled);
@@ -227,11 +227,68 @@ test('two people left standing together eventually turn to face one another', ()
     });
   };
   let met = false;
-  for (let frame = 0; frame < 3000 && !met; frame++) {
-    city.setWorldTime(frame / 30);
-    city.animate(0, 1 / 30, 1);
+  for (let frame = 0; frame < 1000 && !met; frame++) {
+    city.setWorldTime(frame / 10);
+    city.animate(0, 1 / 10, 1);
     met = facingEachOther();
   }
   expect(met).toBe(true);
   city.dispose();
+});
+
+function corner(world: ReturnType<typeof createWorld>): Walker {
+  const owner = primaryCity(world);
+  const map = mapOf(world, owner);
+  const spur = roadSpur(world, 3);
+  const step = { x: spur[1].x - spur[0].x, z: spur[1].z - spur[0].z };
+  const turn = { x: spur[1].x + step.z, z: spur[1].z + step.x };
+  const tiles = [spur[0], spur[1], turn, { x: turn.x + step.z, z: turn.z + step.x }];
+  return {
+    id: world.nextId++,
+    kind: 'porter',
+    homeId: owner.harbour.id,
+    targetId: null,
+    path: tiles.map((tile) => tileIndexOn(map, tile.x, tile.z)),
+    departedAt: 0,
+    step: 0,
+    progress: 0,
+    food: null,
+    cargo: 0,
+    returning: false,
+    overland: [],
+    quarry: null,
+    task: null,
+  };
+}
+
+test('a walker rounds a corner instead of pivoting on the spot', () => {
+  const world = createWorld();
+  const stage = { scene: new T.Scene(), shadows() {}, invalidate() {}, world(_span: number) {} } as Stage;
+  const city = new CityScene(stage, islandFor(world.seed), true);
+  const walker = corner(world);
+  primaryCity(world).walkers.push(walker);
+  city.setWorldTime(0);
+  city.sync(world);
+  try {
+    const track: T.Vector3[] = [];
+    for (let travelled = 0; travelled <= 3; travelled += .05) {
+      city.setWorldTime(travelled / WALKER_SPEED);
+      city.animate(0, 1 / 60, 1);
+      track.push(city.moverPoint(walker.id)!.clone());
+    }
+    let sharpest = 0;
+    for (let index = 2; index < track.length; index++) {
+      const before = Math.atan2(track[index - 1].x - track[index - 2].x, track[index - 1].z - track[index - 2].z);
+      const after = Math.atan2(track[index].x - track[index - 1].x, track[index].z - track[index - 1].z);
+      sharpest = Math.max(sharpest, Math.abs(Math.atan2(Math.sin(after - before), Math.cos(after - before))));
+    }
+    expect(sharpest).toBeLessThan(Math.PI / 6);
+
+    const middle = tileAtOn(islandFor(world.seed), walker.path[1]);
+    const inside = worldPositionOn(islandFor(world.seed), middle.x + .5, middle.z + .5);
+    const closest = track.reduce((best, point) => Math.min(best, Math.hypot(point.x - inside.x, point.z - inside.z)), Infinity);
+    expect(closest).toBeGreaterThan(.1);
+  } finally {
+    city.dispose();
+  }
 });

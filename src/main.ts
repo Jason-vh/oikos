@@ -1,17 +1,17 @@
 import * as T from 'three';
 import { Stage } from './render/stage';
 import type { View } from './render/stage';
-import { CityScene } from './render/city';
+import { CityScene, type HoverTarget } from './render/city';
 import { ConstructionOverlay } from './render/construction';
 import { ClaimOverlay } from './render/claims';
 import { ClaimLabels } from './ui/claim-labels';
-import { BUILDINGS } from './sim/catalog';
+import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES } from './sim/catalog';
 import { demolitionPreview, footprintTileIssues, harbourRoute, suitableFarmGround } from './sim/construction';
 import { CELL_SIZE, groundHeight, islandFor, ISLAND_COUNT, terrainOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
 import { buildingStatus, getSummary, placement, roadPathPlacement, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
 import { animalQuarry } from './sim/wildlife';
 import { gatherReach } from './sim/gathering';
-import type { Building, BuildingKind, City, Placement, Rotation, Tile, Tool, Walker, World } from './sim/types';
+import type { Building, BuildingKind, City, Placement, Resource, Rotation, Tile, Tool, Walker, World } from './sim/types';
 import { createHud, type CityScope, type HudTool, type Stance } from './ui/hud';
 import { createSound } from './ui/sound';
 import { celebration, cityMilestones, NO_MILESTONES, rememberMilestones } from './ui/celebrations';
@@ -37,6 +37,7 @@ const CONNECTION_NOTICE_DELAY = 900;
 const OVERVIEW_MARGIN = 1.04;
 const ANIMATION_INTERVAL = 1000 / 30;
 const TOOLTIP_DELAY = 360;
+const DRAG_SLOP = 9;
 const CITY_VIEW_SIZE = 36;
 
 function isSettling(status: SharedSessionStatus): boolean {
@@ -138,7 +139,7 @@ export function boot(source: SharedBootSource): BootHandles {
   let selectedId: number | null = null;
   let hover: Tile | null = null;
   let pointer: { x: number; y: number } | null = null;
-  let hoveredAnimal: number | null = null;
+  let hoveredTarget: HoverTarget | null = null;
   let tooltipRevealed = false;
   let tooltipTimer = 0;
   let drag: { tile: Tile; x: number; y: number; pointer: number; gestureWritable: boolean; gestureGeneration: number } | null = null;
@@ -428,30 +429,67 @@ export function boot(source: SharedBootSource): BootHandles {
 
   function forgetTooltip(): void {
     window.clearTimeout(tooltipTimer);
-    hoveredAnimal = null;
+    hoveredTarget = null;
     tooltipRevealed = false;
     hud.setTooltip(null);
   }
 
+  function buildingLabel(building: Building): { text: string; resource: Resource | null } {
+    if (building.kind === 'house') {
+      return { text: `${HOUSE_NAMES[building.tier]} \u00b7 ${building.residents} of ${HOUSE_CAPACITY[building.tier]}`, resource: null };
+    }
+    const name = BUILDINGS[building.kind].name;
+    const stored = (Object.entries(building.stores) as [Resource, number][])
+      .filter(([, amount]) => amount > 0)
+      .sort((one, other) => other[1] - one[1])[0];
+    if (!stored) return { text: name, resource: null };
+    return { text: `${name} \u00b7 ${Math.round(stored[1])}`, resource: stored[0] };
+  }
+
+  function hoverLabel(target: HoverTarget): { text: string; resource: Resource | null } | null {
+    if (target.kind === 'building') {
+      const found = findBuildingOwner(target.id);
+      return found ? buildingLabel(found.building) : null;
+    }
+    if (target.kind === 'animal') {
+      const animal = world.wildlife.find((candidate) => candidate.id === target.id);
+      const quarry = animal ? animalQuarry(animal) : null;
+      if (!quarry) return null;
+      return { text: `${quarry.name} \u00b7 ${quarry.yield}`, resource: quarry.food };
+    }
+    if (target.kind !== 'walker') return null;
+    const found = findWalkerOwner(target.id);
+    if (!found) return null;
+    const { walker } = found;
+    const carried = walker.cargo > 0 && walker.food ? ` \u00b7 ${Math.round(walker.cargo)}` : '';
+    return {
+      text: `${walkerName(walker)} \u00b7 ${WALKER_ROLES[walker.kind]}${carried}`,
+      resource: carried ? walker.food : null,
+    };
+  }
+
+  function dragMoved(x: number, y: number): number {
+    return drag ? Math.hypot(x - drag.x, y - drag.y) : 0;
+  }
+
   function updateHoverFeedback(): void {
-    if (!pointer || drag) {
+    if (!pointer || dragMoved(pointer.x, pointer.y) >= DRAG_SLOP) {
       city.clearHover();
       forgetTooltip();
       return;
     }
     const target = city.hover(pointer.x, pointer.y, world);
     if (target && target.kind !== 'animal') stage.canvas.style.cursor = 'pointer';
-    const animal = target?.kind === 'animal' ? world.wildlife.find((candidate) => candidate.id === target.id) ?? null : null;
-    const quarry = animal ? animalQuarry(animal) : null;
-    if (!animal || !quarry) {
-      city.markAnimal(null);
+    const label = target ? hoverLabel(target) : null;
+    if (!target || !label) {
+      city.emphasise(null);
       forgetTooltip();
       return;
     }
-    city.markAnimal(animal.id);
-    if (animal.id !== hoveredAnimal) {
+    city.emphasise(target);
+    if (!hoveredTarget || hoveredTarget.kind !== target.kind || hoveredTarget.id !== target.id) {
       forgetTooltip();
-      hoveredAnimal = animal.id;
+      hoveredTarget = target;
       tooltipTimer = window.setTimeout(() => {
         tooltipRevealed = true;
         updateHoverFeedback();
@@ -459,7 +497,7 @@ export function boot(source: SharedBootSource): BootHandles {
       return;
     }
     if (!tooltipRevealed) return;
-    hud.setTooltip({ text: `${quarry.name} \u00b7 ${quarry.yield}`, resource: quarry.food, x: pointer.x, y: pointer.y });
+    hud.setTooltip({ ...label, x: pointer.x, y: pointer.y });
   }
 
   function updatePreview(): void {
@@ -550,8 +588,8 @@ export function boot(source: SharedBootSource): BootHandles {
   stage.canvas.addEventListener('pointerup', (event) => {
     if (!drag || drag.pointer !== event.pointerId) return;
     hover = atPointer(event);
-    const moved = Math.hypot(event.clientX - drag.x, event.clientY - drag.y);
-    if (hover && (tool === 'road' || moved < 9)) {
+    const moved = dragMoved(event.clientX, event.clientY);
+    if (hover && (tool === 'road' || moved < DRAG_SLOP)) {
       const gestureStillValid = drag.gestureWritable && drag.gestureGeneration === stateGeneration;
       const home = gestureStillValid && writable() ? activeCity(world, context) : null;
       if (gestureStillValid && harbourArmed && siting()) {

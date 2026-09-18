@@ -12,3 +12,4 @@ export type { AssemblyPart, ModelAssembly } from './assembly';
 export { scaffolding } from './scaffolding';
 export { bundle, bundleKey, bundlesOf, FOOD_ORDER } from './food';
 export { animalModel, animateAnimal } from './animals';
+export { errandToken } from './tokens';

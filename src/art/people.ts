@@ -103,17 +103,21 @@ export function spear(): T.Group {
   return tool;
 }
 
-export function animateFigure(model: T.Object3D, phase: number, stride: number): void {
+const TORSO_TWIST = .15;
+const WALK_PITCH = .09;
+
+export function animateFigure(model: T.Object3D, phase: number, stride: number, bounce = 1): void {
   const [body, leftLeg, leftArm, rightLeg, rightArm] = model.children;
   const swing = Math.sin(phase) * stride;
+  const twist = -swing * TORSO_TWIST;
   setShoulder(leftArm, -1, 0);
   setShoulder(rightArm, 1, 0);
   leftLeg.rotation.set(swing, 0, 0);
   rightLeg.rotation.set(-swing, 0, 0);
   leftArm.rotation.set(-swing * .7, 0, 0);
   rightArm.rotation.set(swing * .7, 0, 0);
-  body.rotation.set(0, 0, 0);
-  body.position.y = Math.abs(Math.cos(phase)) * .035 * (stride / .6);
+  body.rotation.set(stride * WALK_PITCH, twist, 0);
+  body.position.set(0, Math.abs(Math.cos(phase)) * .035 * bounce * (stride / .6), 0);
   holdTool(model, .16 - swing * .22);
 }
 
@@ -205,7 +209,7 @@ export function animateWork(model: T.Object3D, elapsed: number, kind: 'chop' | '
   leftLeg.rotation.set(.2 + pose.brace, pose.swing * .3, 0);
   rightLeg.rotation.set(-.17 - pose.brace * .6, pose.swing * .3, 0);
   body.rotation.set(pose.pitch, pose.swing, pose.lean);
-  body.position.y = pose.lift;
+  body.position.set(0, pose.lift, 0);
   setShoulder(rightArm, 1, pose.swing);
   setShoulder(leftArm, -1, pose.swing);
   leftArm.rotation.set(pose.arms, pose.swing + TUCK, 0);
@@ -220,7 +224,7 @@ export function animateIdle(model: T.Object3D, spent: number, mood: Idle): void 
   setShoulder(leftArm, -1, 0);
   setShoulder(rightArm, 1, 0);
   body.rotation.set(0, 0, 0);
-  body.position.y = breath;
+  body.position.set(0, breath, 0);
   leftLeg.rotation.set(0, 0, 0);
   rightLeg.rotation.set(0, 0, 0);
   leftArm.rotation.set(0, 0, 0);

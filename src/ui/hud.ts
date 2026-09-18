@@ -31,7 +31,7 @@ export interface CityScope {
 
 export interface Tooltip {
   text: string;
-  resource: Resource;
+  resource: Resource | null;
   x: number;
   y: number;
 }
@@ -565,7 +565,8 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
     }
     const key = `${tooltip.resource}:${tooltip.text}`;
     if (key !== tooltipShape.key) {
-      tooltipElement.replaceChildren(tooltip.text, resourceIcon(tooltip.resource));
+      if (tooltip.resource) tooltipElement.replaceChildren(tooltip.text, resourceIcon(tooltip.resource));
+      else tooltipElement.replaceChildren(tooltip.text);
       tooltipShape = { key, halfWidth: tooltipElement.offsetWidth / 2 };
     }
     const margin = tooltipShape.halfWidth + 8;

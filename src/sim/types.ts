@@ -9,6 +9,7 @@ export type Food = 'wheat' | 'carrots' | 'fish' | 'meat' | 'olives';
 export type Material = 'lumber' | 'clay' | 'stone';
 export type Resource = Food | Material;
 export type Stores = Partial<Record<Resource, number>>;
+export type Errand = 'water' | 'food' | 'repair' | 'goods';
 export interface Tile { x: number; z: number; }
 export interface Building extends Tile {
   id: number;
