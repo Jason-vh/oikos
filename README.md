@@ -67,6 +67,7 @@ also explains why browser automation here must not use Playwright's headless she
 - [The development loop](docs/dev-loop.md)
 - [Vision and roadmap](roadmap.md)
 - [Gameplay and first-island scope](docs/gameplay.md)
+- [What makes Anno and Zeus addictive](docs/addiction-notes.md)
 - [Art direction](docs/art-direction.md)
 - [Model authoring and visual checks](docs/art-tooling.md)
 - [Deployment](deploy/README.md)
