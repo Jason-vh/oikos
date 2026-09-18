@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { advance, build, buildingStatus, createWorld, demolish, placement, placeRoadPath, roadPathPlacement } from './world';
+import { deserializeWorld, serializeWorld } from './save';
 import { primaryCity } from './city';
 import { connect, growerSpotFor, settleHouses, sow, spotFor } from './testing';
 import { fieldCapacity, fieldReach, fieldReport, openFields, plant, plantPlacement, tendedFields } from './crops';
@@ -159,6 +160,25 @@ describe('the harvest', () => {
     advance(world, 30);
 
     expect(wheat.progress - sownWheat).toBeGreaterThan(olives.progress - sownOlives);
+  });
+});
+
+describe('a world that went wrong', () => {
+  test('a field found under a road is cleared when the world is loaded', () => {
+    const world = createWorld();
+    const city = primaryCity(world);
+    const farm = farmstead(world);
+    const field = tileOf(world, city, openFields(world, city, farm)[0]);
+    expect(plant(world, city, farm.id, [field]).ok).toBe(true);
+    const tile = tileIndexOn(mapOf(world, city), field.x, field.z);
+    city.roads.push(tile);
+
+    const raw = JSON.parse(serializeWorld(world));
+    const stale = JSON.stringify({ ...raw, version: 19 });
+    const loaded = deserializeWorld(stale)!;
+    expect(loaded).not.toBeNull();
+    expect(loaded.cities[0].crops.some((crop) => crop.tile === tile)).toBe(false);
+    expect(loaded.cities[0].roads).toContain(tile);
   });
 });
 

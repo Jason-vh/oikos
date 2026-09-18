@@ -137,6 +137,27 @@ function fieldsSown(parsed: Record<string, unknown>): Record<string, unknown> {
   };
 }
 
+function fieldsUnderRoadsCleared(parsed: Record<string, unknown>): Record<string, unknown> {
+  const seed = isInteger(parsed.seed) ? parsed.seed : 0;
+  const cities = Array.isArray(parsed.cities) ? parsed.cities : [];
+  return {
+    ...parsed,
+    version: 20,
+    cities: cities.map((city) => {
+      if (!isPlainObject(city) || !Array.isArray(city.crops) || !isInteger(city.home)) return city;
+      const map = islandFor(seed, city.home);
+      const taken = new Set<number>(Array.isArray(city.roads) ? city.roads as number[] : []);
+      for (const entry of Array.isArray(city.buildings) ? city.buildings : []) {
+        if (!isPlainObject(entry) || typeof entry.kind !== 'string' || !isInteger(entry.x) || !isInteger(entry.z)) continue;
+        if (!isInteger(entry.rotation)) continue;
+        const tiles = footprintFor(map, entry.kind as BuildingKind, entry.rotation, entry.x, entry.z);
+        for (const tile of tiles ?? []) taken.add(tile);
+      }
+      return { ...city, crops: city.crops.filter((crop) => isPlainObject(crop) && isInteger(crop.tile) && !taken.has(crop.tile)) };
+    }),
+  };
+}
+
 const MIGRATIONS: Array<[number, (parsed: Record<string, unknown>) => Record<string, unknown>]> = [
   [12, rosterForgotten],
   [13, countdownsScheduled],
@@ -144,6 +165,7 @@ const MIGRATIONS: Array<[number, (parsed: Record<string, unknown>) => Record<str
   [16, citiesColoured],
   [17, vendorsBecameStalls],
   [18, fieldsSown],
+  [19, fieldsUnderRoadsCleared],
 ];
 
 function raise(parsed: Record<string, unknown>): Record<string, unknown> {

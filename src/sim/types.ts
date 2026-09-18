@@ -88,7 +88,7 @@ export interface City {
   crops: Crop[];
   walkers: Walker[];
 }
-export const CURRENT_VERSION = 19 as const;
+export const CURRENT_VERSION = 20 as const;
 export const WORLD_LABEL = 'archipelago' as const;
 export interface World {
   version: typeof CURRENT_VERSION;
