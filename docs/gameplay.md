@@ -186,7 +186,8 @@ and vendors take whichever food the source has most of.
 Nothing is delivered by radius. Every good moves along roads, carried by a walker
 that has to actually reach its destination.
 
-- **Farm → granary.** A farm with workers grows food; when a harvest completes, it
+- **Farm → granary.** A farm with workers grows food on its own cycle, and when a
+  harvest completes, it
   loads a cart with up to 100 units and sends it, by the shortest road route, to the
   nearest connected granary with room. The cart drops its cargo and walks home.
 - **Orchard → press.** An olive orchard grows like a farm, slower, on grass, scrub
@@ -247,6 +248,27 @@ terms it grew by.
 Building condition decays slowly regardless of tier, and is repaired by a
 maintenance caretaker's visits; nothing about condition alone forces a house to
 devolve in this slice.
+
+## Variation between individuals
+
+No two farms, walkers or households behave identically. `src/sim/variation.ts`
+derives each rate from the entity's id with the island `hash`, so a trait is fixed
+for the life of that entity, survives saving, and is the same on every client
+without storing anything. The base values live in `balance.ts`; the spread is the
+full width around them:
+
+- **Farm growth** (`FARM_GROW_SPREAD`, ±15%) — neighbouring farms drift out of
+  step, so harvests and the field's model stages stagger.
+- **Walker pace** (`WALKER_PACE_SPREAD`, ±10%) — kinds keep their order (a laden
+  cart is still slower than a vendor), but walkers no longer march in lockstep.
+  Both the simulation clock and the renderer's extrapolation use `walkerPace`, so
+  they agree.
+- **Household wear, appetite and thirst** (`WEAR_SPREAD` ±20%,
+  `HOUSEHOLD_SPREAD` ±15% each) — houses fall due for a caretaker, a vendor and a
+  water carrier at different moments. The inspector's reserves are computed from
+  the selected house's own rates.
+
+Traits are independent: a hungry house is not automatically a thirsty one.
 
 ## Status messages
 

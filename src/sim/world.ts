@@ -9,6 +9,7 @@ import { pressStatus, updatePress } from './olives';
 import { setStall, stallGoodOf, stallOf, stallServing, stallsInstalled, STALL_GOODS, STALL_TRADES } from './stalls';
 import { unlockRefusal } from './unlocks';
 import { buildable, insideMapOn, islandFor, levelOn, onHomeIsland, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
+import { appetitePerResident, growSeconds, oilDrawPerResident, thirstPerSecond, walkerPace, wearPerSecond } from './variation';
 import {
   accessDoors,
   accessTiles,
@@ -30,26 +31,21 @@ import {
   IMMIGRANT_PARTY,
   BUYER_FETCH_CAPACITY,
   CART_CAPACITY,
-  CONDITION_DECAY_PER_SECOND,
   EMPLOYMENT_SHARE,
-  FARM_GROW_SECONDS,
   FARM_STOCK_CAP,
   ORCHARD_GROW_SECONDS,
   PRESS_CAP,
-  FOOD_CONSUMPTION_PER_RESIDENT,
+  FARM_GROW_SECONDS,
   GRACE_SECONDS,
   GRANARY_CAP,
   HARVEST_UNITS,
   HOUSE_WATER_CAP,
-  OIL_CONSUMPTION_PER_RESIDENT,
   INCOME_PER_RESIDENT,
   REPAIR_AMOUNT,
   ROAD_BUDGET,
   STEP,
   UPGRADE_GRACE,
   VENDOR_TRIP_CAPACITY,
-  WALKER_SPEED,
-  WATER_DECAY_PER_SECOND,
 } from './balance';
 
 export const DEFAULT_SEED = 1;
@@ -565,7 +561,7 @@ export function setTask(world: World, walker: Walker, kind: TaskKind, seconds: n
 }
 
 export function tilesTravelled(world: World, walker: Walker): number {
-  return Math.min(WALKER_SPEED * (world.time - walker.departedAt), walker.path.length - 1);
+  return Math.min(walkerPace(walker) * (world.time - walker.departedAt), walker.path.length - 1);
 }
 
 function updateStaffing(city: City): void {
@@ -593,7 +589,7 @@ function updateGrower(world: World, city: City, field: Building, dt: number): vo
   const growing = CROPS[field.kind]!;
   if (field.connected && field.workers > 0) {
     const ratio = field.workers / jobsOf(field);
-    field.progress += (dt / growing.seconds) * ratio;
+    field.progress += (dt / growSeconds(field, growing.seconds)) * ratio;
     if (field.progress >= 1) {
       field.progress -= 1;
       addStore(field, growing.crop, Math.min(HARVEST_UNITS, FARM_STOCK_CAP - totalStock(field)));
@@ -890,11 +886,11 @@ function meetsTierNeed(tier: number, house: Building): boolean {
 
 function tickHouse(world: World, city: City, house: Building, dt: number): void {
   if (house.residents > 0) {
-    house.food = Math.max(0, house.food - FOOD_CONSUMPTION_PER_RESIDENT * house.residents * dt);
-    house.oil = Math.max(0, house.oil - OIL_CONSUMPTION_PER_RESIDENT * house.residents * dt);
+    house.food = Math.max(0, house.food - appetitePerResident(house) * house.residents * dt);
+    house.oil = Math.max(0, house.oil - oilDrawPerResident(house) * house.residents * dt);
   }
-  house.water = Math.max(0, house.water - WATER_DECAY_PER_SECOND * dt);
-  house.condition = Math.max(0, house.condition - CONDITION_DECAY_PER_SECOND * dt);
+  house.water = Math.max(0, house.water - thirstPerSecond(house) * dt);
+  house.condition = Math.max(0, house.condition - wearPerSecond(house) * dt);
 
   const satisfied = meetsTierNeed(house.tier, house);
 

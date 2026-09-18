@@ -10,7 +10,7 @@ import { stall } from './stall';
 import { stump, tree } from './vegetation';
 import { citizen } from './people';
 import { boat } from './ships';
-import { getBuildingModel } from './buildings';
+import { getBuildingModel, modelVariants, variantFor } from './buildings';
 
 const KINDS = Object.keys(BUILDINGS) as BuildingKind[];
 const GROWN = new Set<BuildingKind>(['farm', 'orchard', 'harbour']);
@@ -26,8 +26,8 @@ function tiersFor(kind: BuildingKind): (1 | 2 | 3 | 4)[] {
   return [1];
 }
 
-function instances(): { kind: BuildingKind; tier: 1 | 2 | 3 | 4; trading: boolean; model: T.Group }[] {
-  const result: { kind: BuildingKind; tier: 1 | 2 | 3 | 4; trading: boolean; model: T.Group }[] = [];
+function instances(): { kind: BuildingKind; tier: 1 | 2 | 3 | 4; trading: boolean; variant: number; model: T.Group }[] {
+  const result: { kind: BuildingKind; tier: 1 | 2 | 3 | 4; trading: boolean; variant: number; model: T.Group }[] = [];
   for (const kind of KINDS) {
     for (const tier of tiersFor(kind)) {
       const stallOptions = kind === 'agora' ? [false, true] : [false];
@@ -36,7 +36,9 @@ function instances(): { kind: BuildingKind; tier: 1 | 2 | 3 | 4; trading: boolea
       for (const trading of stallOptions) {
         const stalls = trading ? { food: { installed: true, enabled: true }, oil: { installed: true, enabled: true } } : {};
         for (const stage of stages) {
-          result.push({ kind, tier, trading, model: getBuildingModel(kind, { tier, stalls, stores, stage }) });
+          for (let variant = 0; variant < modelVariants(kind, tier); variant++) {
+            result.push({ kind, tier, trading, variant, model: getBuildingModel(kind, { tier, stalls, stores, stage, variant }) });
+          }
         }
       }
     }
@@ -66,8 +68,8 @@ function assertFiniteVertices(root: T.Object3D): void {
 }
 
 describe('getBuildingModel footprints', () => {
-  for (const { kind, tier, trading, model } of instances()) {
-    test(`${kind} tier ${tier}${trading ? ' (stalls)' : ''} fits its catalog footprint`, () => {
+  for (const { kind, tier, trading, variant, model } of instances()) {
+    test(`${kind} tier ${tier}${trading ? ' (stalls)' : ''} variant ${variant} fits its catalog footprint`, () => {
       const definition = BUILDINGS[kind];
       const halfWidth = (definition.width * CELL_SIZE) / 2;
       const halfDepth = (definition.depth * CELL_SIZE) / 2;
@@ -82,8 +84,8 @@ describe('getBuildingModel footprints', () => {
 });
 
 describe('getBuildingModel ground contact', () => {
-  for (const { kind, tier, trading, model } of instances()) {
-    test(`${kind} tier ${tier}${trading ? ' (stalls)' : ''} sits on y = 0`, () => {
+  for (const { kind, tier, trading, variant, model } of instances()) {
+    test(`${kind} tier ${tier}${trading ? ' (stalls)' : ''} variant ${variant} sits on y = 0`, () => {
       const bounds = new T.Box3().setFromObject(model);
       const floor = BUILDINGS[kind].shore ? SEABED_FLOOR : -GROUND_EPSILON;
       expect(bounds.min.y).toBeGreaterThanOrEqual(floor);
@@ -93,21 +95,60 @@ describe('getBuildingModel ground contact', () => {
 });
 
 describe('getBuildingModel vertex integrity', () => {
-  for (const { kind, tier, trading, model } of instances()) {
-    test(`${kind} tier ${tier}${trading ? ' (stalls)' : ''} has only finite vertices`, () => {
+  for (const { kind, tier, trading, variant, model } of instances()) {
+    test(`${kind} tier ${tier}${trading ? ' (stalls)' : ''} variant ${variant} has only finite vertices`, () => {
       assertFiniteVertices(model);
     });
   }
 });
 
 describe('getBuildingModel drawcall and triangle budgets', () => {
-  for (const { kind, tier, trading, model } of instances()) {
-    test(`${kind} tier ${tier}${trading ? ' (stalls)' : ''} stays within budget`, () => {
+  for (const { kind, tier, trading, variant, model } of instances()) {
+    test(`${kind} tier ${tier}${trading ? ' (stalls)' : ''} variant ${variant} stays within budget`, () => {
       const stats = meshStats(model);
       expect(stats.meshes).toBeLessThanOrEqual(DRAW_CALL_BUDGET);
       expect(stats.triangles).toBeLessThanOrEqual(TRIANGLE_BUDGET);
     });
   }
+});
+
+describe('model variants', () => {
+  test('a kind with several looks gives each of them a distinct model', () => {
+    const count = modelVariants('house', 1);
+    expect(count).toBeGreaterThan(1);
+    const silhouettes = new Set<string>();
+    for (let variant = 0; variant < count; variant++) {
+      const model = getBuildingModel('house', { tier: 1, variant });
+      const palette = new Set<string>();
+      model.traverse((child) => { if (child instanceof T.Mesh) palette.add((child.material as T.MeshStandardMaterial).color.getHexString()); });
+      silhouettes.add([...palette].sort().join() + meshStats(model).triangles);
+      disposeModel(model);
+    }
+    expect(silhouettes.size).toBe(count);
+  });
+
+  test('a variant repeats past the last look rather than falling off it', () => {
+    const count = modelVariants('house', 1);
+    const wrapped = getBuildingModel('house', { tier: 1, variant: count });
+    const first = getBuildingModel('house', { tier: 1, variant: 0 });
+    expect(meshStats(wrapped).triangles).toBe(meshStats(first).triangles);
+    disposeModel(wrapped);
+    disposeModel(first);
+  });
+
+  test('a roll picks a look, and every roll picks a legal one', () => {
+    const count = modelVariants('house', 1);
+    const picked = new Set<number>();
+    for (let step = 0; step < 100; step++) {
+      const variant = variantFor('house', 1, step / 100);
+      expect(variant).toBeGreaterThanOrEqual(0);
+      expect(variant).toBeLessThan(count);
+      picked.add(variant);
+    }
+    expect(picked.size).toBe(count);
+    expect(variantFor('house', 2, .99)).toBe(0);
+    expect(variantFor('granary', 1, .99)).toBe(0);
+  });
 });
 
 describe('decorative models still build', () => {

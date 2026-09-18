@@ -62,6 +62,20 @@ existing one reads correctly at city zoom.
 - Storage shows its contents: granary and stockpile expose eight bays, agora stall
   three; one bundle per 100 units, in that resource's signature (`food.ts`).
 
+## Variants
+
+A kind may have several looks so a street is not wallpaper. `modelVariants(kind,
+tier)` says how many; `getBuildingModel(kind, { variant })` picks one, and the
+renderer derives it from the building's id (`modelRoll` in `src/sim/variation.ts`),
+so a building keeps its look for life on every client. The dwelling has three: roof
+tone, door and window mirrored, and what stands in the yard.
+
+A variant is a repaint, never a redesign. It keeps the kind's silhouette, footprint
+and `+Z` front — the entrance belongs to the simulation's access tiles. Variants are
+authored alternatives, not jitter: `box()` caches geometry by dimensions, so
+continuously varied sizes would grow that cache once per building. Every variant is
+held to the same footprint, ground-contact and budget tests as the original.
+
 ## Lighting and camera (`src/render/stage.ts`)
 
 Orthographic camera; hemisphere light `e7f1ee`/`b4a075` at 2.1; sun `ffe6bd` at 3.5

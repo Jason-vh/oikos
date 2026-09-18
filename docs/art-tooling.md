@@ -119,13 +119,17 @@ derive one by hand.
 1. Build it from primitives in the relevant file, front facing `+Z`, ground at `y=0`.
 2. Wire it in `buildings.ts` (or the walker/animal switch in `city.ts`).
 3. Add an option to `art.html` and to the list in `scripts/art-capture.mjs`.
+   A new look for an existing kind is a variant instead: raise its count in
+   `modelVariants`, author the alternative beside the original, and capture it.
 4. `npm run art:check` — footprint and budget tests cover every catalog kind.
 5. Look at it in `/art.html` and in the game; compare captures.
 
 ## Tools
 
 - **`/art.html`** (`src/art-viewer.ts`): the atelier. Footprint border, grid, scale
-  citizen, wireframe, turntable, golden hour, animated walk/flap cycles. The chosen
+  citizen, wireframe, turntable, golden hour, animated walk/flap cycles. A **Variant**
+  picker appears for kinds that have more than one look (`modelVariants`), so each is
+  judged on its own. The chosen
   model is kept in `?model=…` so reloads and links preserve it. `artStudy.pose(seconds)`
   scrubs an animated model to one instant and stops the clock there, the way the
   construction slider does; changing model starts it again.  Every placeable

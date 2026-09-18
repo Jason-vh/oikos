@@ -25,6 +25,8 @@ nav a:hover { background: #d7e1d8; border-radius: 5px; }
 .atelier { position: absolute; top: 155px; left: 38px; width: 225px; padding: 22px; border-radius: 8px; background: #f7f2e6e8; box-shadow: 0 3px 24px #36564a12; }
 .atelier > label { font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
 select { width: 100%; margin-top: 9px; padding: 11px 7px; border: 1px solid #b3bcb0; border-radius: 5px; background: #fffaf1; color: #294b4a; font: inherit; font-size: 12px; }
+.atelier .variant { margin-top: 13px; }
+.atelier .variant label { font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
 .atelier p { font-size: 11px; line-height: 1.65; }
 dl { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 15px 0; font-size: 11px; border-block: 1px solid #36564a22; }
 dt { opacity: .75; } dd { margin: 0; font-variant-numeric: tabular-nums; }

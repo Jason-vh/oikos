@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import * as T from 'three';
-import { animateFigure, animateIdle, animateWork, axe, chopStrikes, CHOP_HEAD, CHOP_SET, citizen, figure, spear, workPeriod } from './people';
+import { animateFigure, animateHauling, animateIdle, headOf, animateWork, axe, chopStrikes, CHOP_HEAD, CHOP_SET, citizen, figure, spear, workPeriod } from './people';
 
 function parts(model: T.Object3D) {
   const [body, leftLeg, leftArm] = model.children;
@@ -220,7 +220,7 @@ test('walking and idling put the work pose down again', () => {
   expect(body.rotation.y).not.toBe(0);
   expect(body.rotation.z).not.toBe(0);
   animateFigure(model, 1.2, .55);
-  expect(body.rotation.toArray().slice(0, 3)).toEqual([0, 0, 0]);
+  for (const angle of body.rotation.toArray().slice(0, 3) as number[]) expect(Math.abs(angle)).toBeLessThan(.12);
   expect(blade.rotation.x).not.toBe(struck);
   expect(blade.rotation.y).toBe(0);
   animateIdle(model, .4, 'breathe');
@@ -246,4 +246,62 @@ test('the same person idles the same way twice, and two people differently', () 
   expect(parts(one)).toEqual(first);
   animateIdle(other, 2.4, 'stretch');
   expect(parts(other)).not.toEqual(first);
+});
+
+test('a walking torso turns against the legs and stands square when still', () => {
+  const model = citizen(0xb2c7bb, false);
+  const [body, leftLeg] = model.children;
+  animateFigure(model, Math.PI / 2, .55);
+  expect(leftLeg.rotation.x).toBeGreaterThan(0);
+  expect(body.rotation.y).toBeLessThan(0);
+  animateFigure(model, -Math.PI / 2, .55);
+  expect(leftLeg.rotation.x).toBeLessThan(0);
+  expect(body.rotation.y).toBeGreaterThan(0);
+  animateFigure(model, 1.2, 0);
+  expect(body.rotation.y).toBeCloseTo(0, 12);
+  expect(body.rotation.z).toBeCloseTo(0, 12);
+  expect(body.position.x).toBeCloseTo(0, 12);
+});
+
+test('a carter keeps both hands on the handles while its legs walk on', () => {
+  const model = citizen(0xd6ab53, false);
+  const [body, leftLeg, leftArm, rightLeg, rightArm] = model.children;
+  const poses = [1.2, 2.4, 3.9].map((phase) => {
+    animateHauling(model, phase, .55);
+    return {
+      arms: [leftArm.rotation.x, rightArm.rotation.x],
+      legs: [leftLeg.rotation.x, rightLeg.rotation.x],
+      twist: body.rotation.y,
+    };
+  });
+  for (const pose of poses) {
+    expect(pose.arms[0]).toBe(poses[0].arms[0]);
+    expect(pose.arms[0]).toBe(pose.arms[1]);
+    expect(pose.arms[0]).toBeGreaterThan(0);
+  }
+  expect(poses[0].legs).not.toEqual(poses[1].legs);
+
+  animateFigure(model, 1.2, .55);
+  expect(Math.abs(body.rotation.y)).toBeGreaterThan(Math.abs(poses[0].twist));
+  expect(leftArm.rotation.x).not.toBe(rightArm.rotation.x);
+});
+
+test('the head turns on its own neck, and holds its line while the torso works', () => {
+  const model = citizen(0xb2c7bb, false);
+  const head = headOf(model)!;
+  expect(head).toBeDefined();
+  expect(head.parent).toBe(model.children[0]);
+
+  animateFigure(model, Math.PI / 2, .55);
+  const [body] = model.children;
+  expect(body.rotation.y).not.toBe(0);
+  expect(Math.abs(head.rotation.y + body.rotation.y)).toBeLessThan(Math.abs(body.rotation.y));
+
+  animateFigure(model, 1.2, .55, 1, .6);
+  expect(head.rotation.y).toBeGreaterThan(.3);
+  animateFigure(model, 1.2, .55, 1, -.6);
+  expect(head.rotation.y).toBeLessThan(-.3);
+
+  animateIdle(model, .4, 'breathe', .5);
+  expect(head.rotation.y).toBeCloseTo(.5, 6);
 });

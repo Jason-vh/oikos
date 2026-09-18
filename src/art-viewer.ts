@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { animalModel, animateAnimal, animateFigure, animateWork, axe, bake, boat, CHOP_SET, citizen, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, spear, stump, tree, workPeriod, type ModelStage, type ModelState } from './art';
+import { animalModel, animateAnimal, animateFigure, animateWork, axe, bake, boat, CHOP_SET, citizen, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, modelVariants, spear, stump, tree, workPeriod, type ModelStage, type ModelState } from './art';
 import { cliffOutcrop } from './art/cliffs';
 import { bush, type BushShape } from './art/bushes';
 import { buildRoads } from './art/roads';
@@ -44,6 +44,8 @@ function boot(): void {
   let model: T.Group | null = null;
   let golden = false;
   const select = document.querySelector<HTMLSelectElement>('#model')!;
+  const variantSelect = document.querySelector<HTMLSelectElement>('#variant')!;
+  const variantField = document.querySelector<HTMLElement>('#variant-field')!;
   const wireframe = document.querySelector<HTMLInputElement>('#wireframe')!;
   const constructionControls = document.querySelector<HTMLElement>('#construction')!;
   const replay = document.querySelector<HTMLButtonElement>('#replay-construction')!;
@@ -139,7 +141,7 @@ function boot(): void {
     const tier = Number(tierValue) as 1 | 2 | 3 | 4;
     const stores = STORE_VARIANTS[variant] ?? {};
     const stalls = kind === 'agora' && tier >= 2 ? { food: { installed: true, enabled: true }, oil: { installed: tier >= 3, enabled: tier >= 3 } } : {};
-    const state: ModelState = { tier, stalls, stage: Number(variant || 3) as ModelStage, stores };
+    const state: ModelState = { tier, stalls, stage: Number(variant || 3) as ModelStage, stores, variant: Number(variantSelect.value) || 0 };
     return { model: getBuildingModel(kind, state), footprint: footprint(kind), description: BUILDINGS[kind].description, site: { kind, state } };
   }
 
@@ -190,6 +192,20 @@ function boot(): void {
     styleStudy(construction.model);
     stage.scene.add(construction.model);
     poseConstruction(0);
+  }
+
+  function offeredVariants(id: string): number {
+    const [kindValue, tierValue] = id.split(':');
+    if (!(kindValue in BUILDINGS)) return 1;
+    return modelVariants(kindValue as BuildingKind, Number(tierValue) as 1 | 2 | 3);
+  }
+
+  function offerVariants(id: string, keep: boolean): void {
+    const count = offeredVariants(id);
+    const chosen = keep ? Math.min(Number(variantSelect.value) || 0, count - 1) : 0;
+    variantSelect.replaceChildren(...Array.from({ length: count }, (_, index) => new Option(`Variant ${index + 1}`, String(index))));
+    variantSelect.value = String(chosen);
+    variantField.hidden = count < 2;
   }
 
   function showModel(): void {
@@ -243,12 +259,17 @@ function boot(): void {
     }
     document.querySelector('#description')!.textContent = selected.description;
     document.body.dataset.model = select.value;
+    document.body.dataset.variant = variantSelect.value || '0';
     const url = new URL(location.href);
     url.searchParams.set('model', select.value);
     history.replaceState(null, '', url);
     stage.shadows();
   }
-  select.addEventListener('change', showModel);
+  select.addEventListener('change', () => {
+    offerVariants(select.value, false);
+    showModel();
+  });
+  variantSelect.addEventListener('change', showModel);
   wireframe.addEventListener('change', showModel);
   document.querySelector<HTMLInputElement>('#reference')!.addEventListener('change', (event) => {
     reference.visible = (event.target as HTMLInputElement).checked && !select.value.startsWith('person');
@@ -277,6 +298,7 @@ function boot(): void {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) stage.invalidate(); });
   const requested = new URLSearchParams(location.search).get('model');
   if (requested && Array.from(select.options).some((option) => option.value === requested)) select.value = requested;
+  offerVariants(select.value, false);
   showModel();
   let previous = 0;
   let elapsed = 0;

@@ -1,19 +1,23 @@
 import * as T from 'three';
-import { bake, colors, disposeModel, houseSupplies, post } from '../art';
+import { bake, colors, disposeModel, errandToken, houseSupplies, post } from '../art';
 import { footprint } from '../sim/catalog';
 import { CELL_SIZE, groundHeight, worldPositionOn, type IslandMap } from '../sim/island';
-import { stairLayout } from '../sim/stairs';
-import { addRoadMark } from './road-marks';
-import { deliveryRoutes, serviceRoute, walkerRoute } from '../sim/logistics';
+import { serviceCoverage, tradePartners, walkerDelivery, type Delivery } from '../sim/logistics';
+import { fadedMaterial } from './emphasis';
 import { gatherReach, isGatherer } from '../sim/gathering';
 import { reachOutline } from './reach';
 import type { Building, City, Walker, World } from '../sim/types';
 
-const ROUTE_COLOR = colors.blueLight;
-const DELIVERY_COLOR = colors.roof;
-const SERVED_COLOR = colors.gold;
+const TOKEN_LIFT = .62;
+const TOKEN_BOB = .09;
+const TOKEN_BOB_RATE = 1.7;
+const TOKEN_BOB_STAGGER = .8;
 
-type RouteStyle = 'planned' | 'live' | 'delivery';
+interface FloatingToken {
+  model: T.Group;
+  restY: number;
+  phase: number;
+}
 
 function findBuilding(world: World, id: number): { city: City; building: Building } | null {
   for (const city of world.cities) {
@@ -80,20 +84,41 @@ export function syncDisconnectedMark(model: T.Group, building: Building): void {
 
 export class LogisticsOverlay {
   private readonly root = new T.Group();
-  private readonly routeTiles = new T.Group();
-  private readonly servedMarks = new T.Group();
+  private readonly tokens = new T.Group();
+  private readonly floating: FloatingToken[] = [];
+  private readonly tokenTemplates = new Map<string, T.Group>();
   private readonly reachBand = new T.Group();
   private reachKey = '';
-  private readonly unitPlane = new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
-  private readonly plannedMaterial = new T.MeshBasicMaterial({ color: ROUTE_COLOR, transparent: true, opacity: .48, depthWrite: false });
-  private readonly liveMaterial = new T.MeshBasicMaterial({ color: ROUTE_COLOR, transparent: true, opacity: .68, depthWrite: false });
-  private readonly deliveryMaterial = new T.MeshBasicMaterial({ color: DELIVERY_COLOR, transparent: true, opacity: .55, depthWrite: false });
-  private readonly servedMaterial = new T.MeshBasicMaterial({ color: SERVED_COLOR, transparent: true, opacity: .4, depthWrite: false });
   private key = '';
 
-  constructor(scene: T.Scene, private readonly map: IslandMap) {
-    this.root.add(this.routeTiles, this.servedMarks, this.reachBand);
+  constructor(scene: T.Scene, private readonly map: IslandMap, private readonly buildingTop: (id: number) => number) {
+    this.root.add(this.tokens, this.reachBand);
     scene.add(this.root);
+  }
+
+  private tokenFor(delivery: Delivery): T.Group {
+    const key = `${delivery.errand}:${delivery.resource ?? ''}:${delivery.stocked}`;
+    let template = this.tokenTemplates.get(key);
+    if (!template) {
+      template = errandToken(delivery.errand, delivery.resource);
+      if (!delivery.stocked) {
+        template.traverse((child) => {
+          if (child instanceof T.Mesh && !Array.isArray(child.material)) child.material = fadedMaterial(child.material);
+        });
+      }
+      this.tokenTemplates.set(key, template);
+    }
+    const token = template.clone();
+    token.traverse((child) => { child.castShadow = false; });
+    return token;
+  }
+
+  bob(time: number): boolean {
+    if (this.floating.length === 0) return false;
+    for (const token of this.floating) {
+      token.model.position.y = token.restY + Math.sin(time * TOKEN_BOB_RATE + token.phase) * TOKEN_BOB;
+    }
+    return true;
   }
 
   private showReach(world: World | null, found: { city: City; building: Building } | null): void {
@@ -117,83 +142,64 @@ export class LogisticsOverlay {
     const found = world && buildingId !== null ? findBuilding(world, buildingId) : null;
     this.showReach(world, found);
     if (!world) {
-      this.clearRoutes();
+      this.clearMarks();
       return;
     }
     if (found) {
       const { city, building } = found;
-      const circuit = serviceRoute(world, city, building);
-      if (circuit) {
-        const key = `b:${building.id}:${circuit.live}:${circuit.path.join(',')}`;
-        this.apply(city, key, [circuit.path], circuit.servedIds, circuit.live ? 'live' : 'planned');
-        return;
-      }
-      const deliveries = deliveryRoutes(city, building);
-      if (deliveries.length > 0) {
-        const key = `d:${building.id}:${deliveries.map((route) => `${route.walkerId}=${route.path.join('-')}`).join(',')}`;
-        this.apply(city, key, deliveries.map((route) => route.path), deliveries.map((route) => route.otherId), 'delivery');
-        return;
-      }
-      this.clearRoutes();
+      const covered = serviceCoverage(world, city, building);
+      this.apply(city, `b:${building.id}`, covered.length > 0 ? covered : tradePartners(city, building));
       return;
     }
     const foundWalker = walkerId !== null ? findWalker(world, walkerId) : null;
     if (foundWalker) {
-      const path = walkerRoute(foundWalker.walker);
-      const key = `w:${foundWalker.walker.id}:${path.join(',')}`;
-      this.apply(foundWalker.city, key, [path], [], 'live');
+      const delivery = walkerDelivery(foundWalker.walker);
+      this.apply(foundWalker.city, `w:${foundWalker.walker.id}`, delivery ? [delivery] : []);
       return;
     }
-    this.clearRoutes();
+    this.clearMarks();
   }
 
-  private apply(city: City, key: string, paths: number[][], servedIds: number[], style: RouteStyle): void {
-    const layoutKey = `${key}:${city.roads.join(',')}`;
-    if (layoutKey === this.key) return;
-    this.key = layoutKey;
-    this.routeTiles.clear();
-    this.servedMarks.clear();
-    if (key === '') return;
-    const routeMaterial = style === 'live' ? this.liveMaterial : style === 'delivery' ? this.deliveryMaterial : this.plannedMaterial;
-    const tiles = new Set<number>();
-    for (const path of paths) for (const index of path) tiles.add(index);
-    const stairs = stairLayout(this.map, new Set(city.roads));
-    for (const index of tiles) addRoadMark(this.routeTiles, this.map, stairs, index, this.unitPlane, routeMaterial, .2);
-    for (const id of new Set(servedIds)) {
-      const served = city.harbour.id === id ? city.harbour : city.buildings.find((candidate) => candidate.id === id);
+  private apply(city: City, key: string, deliveries: Delivery[]): void {
+    const marksKey = deliveries.length === 0 ? '' : `${key}:${deliveries.map((one) => `${one.id}=${one.errand}${one.resource ?? ''}${one.stocked ? '' : '-'}`).join(',')}`;
+    if (marksKey === this.key) return;
+    this.key = marksKey;
+    this.tokens.clear();
+    this.floating.length = 0;
+    for (const delivery of deliveries) {
+      const served = city.harbour.id === delivery.id ? city.harbour : city.buildings.find((candidate) => candidate.id === delivery.id);
       if (!served) continue;
+      const token = this.tokenFor(delivery);
       const { width, depth } = footprint(served.kind, served.rotation);
       const point = worldPositionOn(this.map, served.x + width / 2, served.z + depth / 2);
-      const mark = new T.Mesh(this.unitPlane, this.servedMaterial);
-      mark.scale.set(width * CELL_SIZE + .12, 1, depth * CELL_SIZE + .12);
-      mark.position.set(point.x, groundHeight(this.map, served.x, served.z) + .07, point.z);
-      this.servedMarks.add(mark);
+      const top = Math.max(this.buildingTop(served.id), groundHeight(this.map, served.x, served.z));
+      token.position.set(point.x, top + TOKEN_LIFT, point.z);
+      token.rotation.y = -served.rotation * Math.PI / 2;
+      this.tokens.add(token);
+      this.floating.push({ model: token, restY: token.position.y, phase: this.floating.length * TOKEN_BOB_STAGGER });
     }
   }
 
   clear(): void {
     this.showReach(null, null);
-    this.clearRoutes();
+    this.clearMarks();
   }
 
-  private clearRoutes(): void {
+  private clearMarks(): void {
     if (this.key === '') return;
     this.key = '';
-    this.routeTiles.clear();
-    this.servedMarks.clear();
+    this.tokens.clear();
+    this.floating.length = 0;
   }
 
   dispose(): void {
     this.clear();
     this.root.removeFromParent();
-    this.unitPlane.dispose();
-    this.plannedMaterial.dispose();
-    this.liveMaterial.dispose();
-    this.deliveryMaterial.dispose();
-    this.servedMaterial.dispose();
+    for (const template of this.tokenTemplates.values()) disposeModel(template);
+    this.tokenTemplates.clear();
   }
 
-  get counts(): { route: number; served: number; reach: number } {
-    return { route: this.routeTiles.children.length, served: this.servedMarks.children.length, reach: this.reachBand.children.length };
+  get counts(): { served: number; reach: number } {
+    return { served: this.tokens.children.length, reach: this.reachBand.children.length };
   }
 }

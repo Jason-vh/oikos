@@ -7,8 +7,9 @@ import { createWorld } from '../sim/world';
 import { primaryCity } from '../sim/city';
 import { roadSpur } from '../sim/testing';
 import { mapOf } from '../sim/grid';
-import { tileIndexOn } from '../sim/island';
-import { WALKER_SPEED } from '../sim/balance';
+import { CELL_SIZE, tileAtOn, tileIndexOn, worldPositionOn } from '../sim/island';
+import { walkerSpeed } from '../sim/balance';
+import { walkerPace } from '../sim/variation';
 import type { Walker } from '../sim/types';
 
 function fixture() {
@@ -21,7 +22,7 @@ function fixture() {
     kind: 'porter',
     homeId: owner.harbour.id,
     targetId: null,
-    path: roadSpur(world, 4).map((tile) => tileIndexOn(mapOf(world, owner), tile.x, tile.z)),
+    path: roadSpur(world, 5).map((tile) => tileIndexOn(mapOf(world, owner), tile.x, tile.z)),
     departedAt: 0,
     step: 0,
     progress: 0,
@@ -39,20 +40,23 @@ function fixture() {
 }
 
 test('a walker stands where the world clock puts it, not where a tween left it', () => {
-  const { city, at } = fixture();
-  const start = at();
-  city.setWorldTime(1 / WALKER_SPEED);
+  const { city, at, walker } = fixture();
+  const pace = walkerPace(walker);
+  city.setWorldTime(1 / pace);
   city.animate(0, 1 / 60, 1);
-  const afterOneTile = at();
-  expect(afterOneTile.distanceTo(start)).toBeGreaterThan(0);
-  city.setWorldTime(2 / WALKER_SPEED);
+  const first = at();
+  city.setWorldTime(2 / pace);
   city.animate(0, 1 / 60, 1);
-  expect(at().distanceTo(afterOneTile)).toBeCloseTo(afterOneTile.distanceTo(start), 6);
+  const second = at();
+  expect(second.distanceTo(first)).toBeGreaterThan(0);
+  city.setWorldTime(3 / pace);
+  city.animate(0, 1 / 60, 1);
+  expect(at().distanceTo(second)).toBeCloseTo(second.distanceTo(first), 6);
 });
 
 test('a repeated sync at the same instant moves nothing', () => {
-  const { city, world, at } = fixture();
-  city.setWorldTime(.5 / WALKER_SPEED);
+  const { city, world, at, walker } = fixture();
+  city.setWorldTime(.5 / walkerPace(walker));
   city.animate(0, 1 / 60, 1);
   const placed = at();
   for (let repeat = 0; repeat < 3; repeat++) city.sync(world);
@@ -184,14 +188,14 @@ test('a walker kept waiting looks about, of its own accord', () => {
     const model = stage.scene.children.find((child) => child.userData.walkerId === walker.id);
     return model ? Number(model.rotation.y.toFixed(4)) : 0;
   });
-  for (let frame = 0; frame < 60; frame++) {
-    city.setWorldTime(frame / 30);
-    city.animate(0, 1 / 30, 1);
+  for (let frame = 0; frame < 20; frame++) {
+    city.setWorldTime(frame / 10);
+    city.animate(0, 1 / 10, 1);
   }
   const settled = facing();
-  for (let frame = 0; frame < 300; frame++) {
-    city.setWorldTime(2 + frame / 30);
-    city.animate(0, 1 / 30, 1);
+  for (let frame = 0; frame < 100; frame++) {
+    city.setWorldTime(2 + frame / 10);
+    city.animate(0, 1 / 10, 1);
   }
   const looked = facing();
   expect(looked).not.toEqual(settled);
@@ -227,11 +231,199 @@ test('two people left standing together eventually turn to face one another', ()
     });
   };
   let met = false;
-  for (let frame = 0; frame < 3000 && !met; frame++) {
-    city.setWorldTime(frame / 30);
-    city.animate(0, 1 / 30, 1);
+  for (let frame = 0; frame < 1000 && !met; frame++) {
+    city.setWorldTime(frame / 10);
+    city.animate(0, 1 / 10, 1);
     met = facingEachOther();
   }
   expect(met).toBe(true);
   city.dispose();
+});
+
+function corner(world: ReturnType<typeof createWorld>): Walker {
+  const owner = primaryCity(world);
+  const map = mapOf(world, owner);
+  const spur = roadSpur(world, 3);
+  const step = { x: spur[1].x - spur[0].x, z: spur[1].z - spur[0].z };
+  const turn = { x: spur[1].x + step.z, z: spur[1].z + step.x };
+  const tiles = [spur[0], spur[1], turn, { x: turn.x + step.z, z: turn.z + step.x }];
+  return {
+    id: world.nextId++,
+    kind: 'porter',
+    homeId: owner.harbour.id,
+    targetId: null,
+    path: tiles.map((tile) => tileIndexOn(map, tile.x, tile.z)),
+    departedAt: 0,
+    step: 0,
+    progress: 0,
+    food: null,
+    cargo: 0,
+    returning: false,
+    overland: [],
+    quarry: null,
+    task: null,
+  };
+}
+
+test('a walker rounds a corner instead of pivoting on the spot', () => {
+  const world = createWorld();
+  const stage = { scene: new T.Scene(), shadows() {}, invalidate() {}, world(_span: number) {} } as Stage;
+  const city = new CityScene(stage, islandFor(world.seed), true);
+  const walker = corner(world);
+  primaryCity(world).walkers.push(walker);
+  city.setWorldTime(0);
+  city.sync(world);
+  try {
+    const track: T.Vector3[] = [];
+    for (let travelled = 0; travelled <= 3; travelled += .05) {
+      city.setWorldTime(travelled / walkerPace(walker));
+      city.animate(0, 1 / 60, 1);
+      track.push(city.moverPoint(walker.id)!.clone());
+    }
+    let sharpest = 0;
+    for (let index = 2; index < track.length; index++) {
+      const before = Math.atan2(track[index - 1].x - track[index - 2].x, track[index - 1].z - track[index - 2].z);
+      const after = Math.atan2(track[index].x - track[index - 1].x, track[index].z - track[index - 1].z);
+      sharpest = Math.max(sharpest, Math.abs(Math.atan2(Math.sin(after - before), Math.cos(after - before))));
+    }
+    expect(sharpest).toBeLessThan(Math.PI / 6);
+
+    const middle = tileAtOn(islandFor(world.seed), walker.path[1]);
+    const inside = worldPositionOn(islandFor(world.seed), middle.x + .5, middle.z + .5);
+    const closest = track.reduce((best, point) => Math.min(best, Math.hypot(point.x - inside.x, point.z - inside.z)), Infinity);
+    expect(closest).toBeGreaterThan(.1);
+  } finally {
+    city.dispose();
+  }
+});
+
+test('close wildlife is placed every frame, not only on the animation beat', () => {
+  const world = createWorld();
+  const stage = { scene: new T.Scene(), shadows() {}, invalidate() {}, world(_span: number) {} } as Stage;
+  const city = new CityScene(stage, islandFor(world.seed), true);
+  const gull = world.wildlife.find((animal) => animal.kind === 'gull')!;
+  try {
+    city.setWorldTime(12);
+    city.sync(world);
+    city.watch(city.moverPoint(gull.id)!.clone(), 40);
+    city.animate(0, 1 / 30, 1);
+    const beat = city.moverPoint(gull.id)!.clone();
+    city.setWorldTime(12 + 1 / 120);
+    city.transitions(1 / 120);
+    expect(city.moverPoint(gull.id)!.distanceTo(beat)).toBeGreaterThan(0);
+
+    city.watch(city.moverPoint(gull.id)!.clone(), 1400);
+    city.animate(0, 1 / 30, 1);
+    const far = city.moverPoint(gull.id)!.clone();
+    city.setWorldTime(12 + 2 / 120);
+    city.transitions(1 / 120);
+    expect(city.moverPoint(gull.id)!.distanceTo(far)).toBe(0);
+  } finally {
+    city.dispose();
+  }
+});
+
+test('a laden carter is slower than an empty-handed one, and still arrives on its own clock', () => {
+  expect(walkerSpeed('cart')).toBeLessThan(walkerSpeed('vendor'));
+  expect(walkerSpeed('porter')).toBeLessThan(walkerSpeed('vendor'));
+
+  const world = createWorld();
+  const stage = { scene: new T.Scene(), shadows() {}, invalidate() {}, world(_span: number) {} } as Stage;
+  const city = new CityScene(stage, islandFor(world.seed), true);
+  const owner = primaryCity(world);
+  const spur = roadSpur(world, 5).map((tile) => tileIndexOn(mapOf(world, owner), tile.x, tile.z));
+  const walker: Walker = {
+    id: world.nextId++, kind: 'cart', homeId: owner.harbour.id, targetId: null,
+    path: spur, departedAt: 0, step: 0, progress: 0, food: null, cargo: 0,
+    returning: false, overland: [], quarry: null, task: null,
+  };
+  owner.walkers.push(walker);
+  city.setWorldTime(0);
+  city.sync(world);
+  try {
+    const last = spur.length - 1;
+    city.setWorldTime(last / walkerPace(walker));
+    city.animate(0, 1 / 60, 1);
+    const arrived = city.moverPoint(walker.id)!.clone();
+    const end = tileAtOn(islandFor(world.seed), spur[last]);
+    const centre = worldPositionOn(islandFor(world.seed), end.x + .5, end.z + .5);
+    expect(Math.hypot(arrived.x - centre.x, arrived.z - centre.z)).toBeLessThan(.01);
+  } finally {
+    city.dispose();
+  }
+});
+
+test('a walker eases off a standstill rather than leaving at full speed', () => {
+  const { city, at, walker } = fixture();
+  const pace = walkerPace(walker);
+  const sample = (tiles: number) => {
+    city.setWorldTime(tiles / pace);
+    city.animate(0, 1 / 60, 1);
+    return at();
+  };
+  const start = sample(0);
+  const opening = sample(.2).distanceTo(start);
+  const settled = sample(2.2).distanceTo(sample(2));
+  expect(opening).toBeLessThan(settled);
+});
+
+test('two walkers on one road do not stand in the same place', () => {
+  const world = createWorld();
+  const stage = { scene: new T.Scene(), shadows() {}, invalidate() {}, world(_span: number) {} } as Stage;
+  const city = new CityScene(stage, islandFor(world.seed), true);
+  const owner = primaryCity(world);
+  const spur = roadSpur(world, 5).map((tile) => tileIndexOn(mapOf(world, owner), tile.x, tile.z));
+  const pair = [0, 1].map(() => {
+    const walker: Walker = {
+      id: world.nextId++, kind: 'porter', homeId: owner.harbour.id, targetId: null,
+      path: spur, departedAt: 0, step: 0, progress: 0, food: null, cargo: 0,
+      returning: false, overland: [], quarry: null, task: null,
+    };
+    owner.walkers.push(walker);
+    return walker;
+  });
+  city.setWorldTime(0);
+  city.sync(world);
+  try {
+    city.setWorldTime(2 / walkerPace(pair[0]));
+    city.animate(0, 1 / 60, 1);
+    const [one, other] = pair.map((walker) => city.moverPoint(walker.id)!.clone());
+    expect(one.distanceTo(other)).toBeGreaterThan(.15);
+  } finally {
+    city.dispose();
+  }
+});
+
+test('a cart rolls forward on its wheels, by the ground it covers', () => {
+  const world = createWorld();
+  const stage = { scene: new T.Scene(), shadows() {}, invalidate() {}, world(_span: number) {} } as Stage;
+  const city = new CityScene(stage, islandFor(world.seed), true);
+  const owner = primaryCity(world);
+  const spur = roadSpur(world, 5).map((tile) => tileIndexOn(mapOf(world, owner), tile.x, tile.z));
+  const carter: Walker = {
+    id: world.nextId++, kind: 'cart', homeId: owner.harbour.id, targetId: null,
+    path: spur, departedAt: 0, step: 0, progress: 0, food: 'wheat', cargo: 40,
+    returning: false, overland: [], quarry: null, task: null,
+  };
+  owner.walkers.push(carter);
+  city.setWorldTime(0);
+  city.sync(world);
+  try {
+    const model = stage.scene.children.find((child) => child.userData.walkerId === carter.id)!;
+    const wheels = model.getObjectByName('cart')!.children.filter((part) => part.name === 'wheel');
+    expect(wheels).toHaveLength(2);
+    const turnAt = (tiles: number) => {
+      city.setWorldTime(tiles / walkerPace(carter));
+      city.animate(0, 1 / 60, 1);
+      return wheels.map((wheel) => wheel.rotation.x);
+    };
+    const first = turnAt(1);
+    const second = turnAt(2);
+    expect(second[0]).toBeLessThan(first[0]);
+    expect(second[0]).toBe(second[1]);
+    const rolled = first[0] - second[0];
+    expect(rolled).toBeCloseTo(CELL_SIZE / .19, 1);
+  } finally {
+    city.dispose();
+  }
 });

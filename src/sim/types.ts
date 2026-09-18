@@ -13,6 +13,7 @@ export type Stores = Partial<Record<Resource, number>>;
 export type StallGood = 'food' | 'oil';
 export interface Stall { installed: boolean; enabled: boolean; }
 export type Stalls = Partial<Record<StallGood, Stall>>;
+export type Errand = 'water' | 'food' | 'repair' | 'goods';
 export interface Tile { x: number; z: number; }
 export interface Building extends Tile {
   id: number;

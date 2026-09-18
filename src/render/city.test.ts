@@ -3,8 +3,8 @@ import * as T from 'three';
 import { CityScene } from './city';
 import type { Stage } from './stage';
 import { islandFor } from '../sim/island';
-import { build, createWorld, demolish } from '../sim/world';
-import { planStarterNeighbourhood } from '../sim/scenario';
+import { advance, build, createWorld, demolish } from '../sim/world';
+import { buildStarterNeighbourhood, planStarterNeighbourhood } from '../sim/scenario';
 import { primaryCity } from '../sim/city';
 
 function fixture(motion = true) {
@@ -130,3 +130,96 @@ test('loaded buildings and reduced-motion placement appear complete', () => {
     reduced.city.dispose();
   }
 });
+
+function glowingParts(model: T.Object3D): number {
+  let count = 0;
+  model.traverse((child) => {
+    const mesh = child as T.Mesh;
+    if (!mesh.isMesh) return;
+    if ((mesh.material as T.MeshStandardMaterial).emissive.getHex() !== 0) count++;
+  });
+  return count;
+}
+
+test('only what the cursor or the inspector holds is ever lit', () => {
+  const { city, world, placeHouse, model } = fixture(false);
+  try {
+    const house = placeHouse();
+    const harbour = world.cities[0].harbour;
+    const parts = glowingParts(model(house.id));
+    expect(parts).toBe(0);
+
+    city.emphasise({ kind: 'building', id: house.id });
+    city.transitions(1);
+    expect(glowingParts(model(house.id))).toBeGreaterThan(0);
+
+    city.select(house, null);
+    city.emphasise(null);
+    city.transitions(1);
+    expect(glowingParts(model(house.id))).toBeGreaterThan(0);
+    expect(glowingParts(model(harbour.id))).toBe(0);
+
+    city.select(null, null);
+    city.transitions(1);
+    expect(glowingParts(model(house.id))).toBe(0);
+
+    city.emphasise({ kind: 'building', id: harbour.id });
+    city.transitions(1);
+    expect(glowingParts(model(house.id))).toBe(0);
+    expect(glowingParts(model(harbour.id))).toBeGreaterThan(0);
+  } finally {
+    city.dispose();
+  }
+});
+
+test('a walker grows into the street and shrinks away again, never popping', () => {
+  const world = createWorld();
+  expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
+  const scene = new T.Scene();
+  const stage = { scene, shadows() {}, invalidate() {}, world(_span: number) {} } as Stage;
+  const city = new CityScene(stage, islandFor(world.seed), true);
+  try {
+    city.setWorldTime(world.time);
+    city.sync(world);
+    for (let elapsed = 0; elapsed < 2000 && primaryCity(world).walkers.length === 0; elapsed++) advance(world, 1);
+    const walker = primaryCity(world).walkers[0];
+    expect(walker).toBeDefined();
+    city.setWorldTime(world.time);
+    city.sync(world);
+
+    const model = scene.children.find((child) => child.userData.walkerId === walker.id)!;
+    expect(model).toBeDefined();
+    expect(model.scale.x).toBeLessThan(.8);
+    city.transitions(.5);
+    expect(model.scale.x).toBeCloseTo(.83, 2);
+
+    primaryCity(world).walkers = [];
+    city.sync(world);
+    city.transitions(.1);
+    expect(model.parent).not.toBeNull();
+    expect(model.scale.y).toBeLessThan(.83);
+    city.transitions(.3);
+    expect(model.parent).toBeNull();
+  } finally {
+    city.dispose();
+  }
+});
+
+test('a reloaded city stands its walkers up without an entrance', () => {
+  const world = createWorld();
+  expect(buildStarterNeighbourhood(world, primaryCity(world)).ok).toBe(true);
+  for (let elapsed = 0; elapsed < 2000 && primaryCity(world).walkers.length === 0; elapsed++) advance(world, 1);
+  const scene = new T.Scene();
+  const stage = { scene, shadows() {}, invalidate() {}, world(_span: number) {} } as Stage;
+  const city = new CityScene(stage, islandFor(world.seed), true);
+  try {
+    city.setWorldTime(world.time);
+    city.sync(world);
+    const walker = primaryCity(world).walkers[0];
+    const model = scene.children.find((child) => child.userData.walkerId === walker.id)!;
+    expect(model.scale.x).toBeCloseTo(.83, 2);
+  } finally {
+    city.dispose();
+  }
+});
+
