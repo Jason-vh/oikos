@@ -4,7 +4,7 @@ import { STAIR_STEPS, type Stair } from '../sim/stairs';
 import { box, colors, group, mesh } from './primitives';
 
 export const STAIR_WIDTH = CELL_SIZE - .24;
-type Point = [number, number, number];
+type Point = number[];
 type Polygon = Point[];
 interface Plane { axis: 0 | 1 | 2; at: number; sign: number; }
 
@@ -41,7 +41,7 @@ function clip(polygon: Polygon, plane: Plane, inside: boolean): Polygon {
     if (da >= 0) result.push(a);
     if ((da >= 0) !== (db >= 0)) {
       const t = da / (da - db);
-      result.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]);
+      result.push(a.map((value, index) => value + (b[index] - value) * t));
     }
   }
   return result;
@@ -78,24 +78,35 @@ export function carveStairs(terrain: T.Group, map: IslandMap, stairs: ReadonlyMa
     const source = child.geometry;
     const positions = source.attributes.position;
     const normals = source.attributes.normal;
+    const painted = source.attributes.color;
     const vertices: number[] = [];
     const facing: number[] = [];
+    const tints: number[] = [];
     for (let i = 0; i < positions.count; i += 3) {
-      let polygons: Polygon[] = [[0, 1, 2].map((offset): Point => [positions.getX(i + offset), positions.getY(i + offset), positions.getZ(i + offset)])];
+      let polygons: Polygon[] = [[0, 1, 2].map((offset): Point => {
+        const point = [positions.getX(i + offset), positions.getY(i + offset), positions.getZ(i + offset)];
+        if (painted) point.push(painted.getX(i + offset), painted.getY(i + offset), painted.getZ(i + offset));
+        return point;
+      })];
       for (const cut of cuts) polygons = polygons.flatMap((polygon) => outside(polygon, cut));
       for (const polygon of polygons) {
         for (let j = 1; j < polygon.length - 1; j++) {
-          const a = new T.Vector3(...polygon[j]).sub(new T.Vector3(...polygon[0]));
-          const b = new T.Vector3(...polygon[j + 1]).sub(new T.Vector3(...polygon[0]));
+          const corners = [polygon[0], polygon[j], polygon[j + 1]];
+          const a = new T.Vector3(corners[1][0] - corners[0][0], corners[1][1] - corners[0][1], corners[1][2] - corners[0][2]);
+          const b = new T.Vector3(corners[2][0] - corners[0][0], corners[2][1] - corners[0][1], corners[2][2] - corners[0][2]);
           if (a.cross(b).lengthSq() < 1e-16) continue;
-          vertices.push(...polygon[0], ...polygon[j], ...polygon[j + 1]);
-          for (let corner = 0; corner < 3; corner++) facing.push(normals.getX(i), normals.getY(i), normals.getZ(i));
+          for (const corner of corners) {
+            vertices.push(corner[0], corner[1], corner[2]);
+            facing.push(normals.getX(i), normals.getY(i), normals.getZ(i));
+            if (painted) tints.push(corner[3], corner[4], corner[5]);
+          }
         }
       }
     }
     const geometry = new T.BufferGeometry();
     geometry.setAttribute('position', new T.Float32BufferAttribute(vertices, 3));
     geometry.setAttribute('normal', new T.Float32BufferAttribute(facing, 3));
+    if (painted) geometry.setAttribute('color', new T.Float32BufferAttribute(tints, 3));
     child.geometry = geometry;
     source.dispose();
   });

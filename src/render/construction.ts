@@ -17,7 +17,7 @@ export class ConstructionOverlay {
   private readonly blockedGroup = new T.Group();
   private readonly routeGroup = new T.Group();
   private readonly demolitionGroup = new T.Group();
-  private readonly fertileMaterial = new T.MeshBasicMaterial({ color: colors.blueLight, transparent: true, opacity: .48, depthWrite: false });
+  private readonly fertileMaterial = new T.MeshBasicMaterial({ color: colors.bloomLight, transparent: true, opacity: .48, depthWrite: false });
   private readonly blockedMaterial = new T.MeshBasicMaterial({ color: 0xd3664e, transparent: true, opacity: .5, depthWrite: false });
   private readonly routeMaterial = new T.MeshBasicMaterial({ color: colors.gold, transparent: true, opacity: .58, depthWrite: false });
   private readonly demolitionMaterial = new T.MeshBasicMaterial({ color: colors.roofDark, transparent: true, opacity: .55, depthWrite: false });

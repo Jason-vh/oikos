@@ -4,8 +4,11 @@ import { CELL_SIZE, generateIsland, groundHeight, soleIsland, terrainOn, worldPo
 import { disposeModel } from '../art/primitives';
 import { buildTerrain } from './terrain';
 
-function triangleKey(points: T.Vector3[]): string {
-  return points.map((point) => point.toArray().map((value) => value.toFixed(5)).join(',')).sort().join(':');
+function tileOf(map: ReturnType<typeof generateIsland>, point: T.Vector3): number {
+  const origin = worldPositionOn(map, 0, 0);
+  const x = Math.floor((point.x - origin.x) / CELL_SIZE);
+  const z = Math.floor((point.z - origin.z) / CELL_SIZE);
+  return z * map.width + x;
 }
 
 for (const seed of [1, 2, 8, 37]) {
@@ -13,36 +16,34 @@ for (const seed of [1, 2, 8, 37]) {
     const map = generateIsland(seed);
     const before = structuredClone(map);
     const terrain = buildTerrain(map);
-    const triangles = new Map<string, number>();
+    const covered = new Map<number, number>();
     try {
       for (const surface of terrain.children) {
         if (!(surface instanceof T.Mesh)) continue;
         const positions = surface.geometry.attributes.position;
         for (let index = 0; index < positions.count; index += 3) {
           const points = [0, 1, 2].map((offset) => new T.Vector3().fromBufferAttribute(positions, index + offset));
-          const normal = new T.Triangle(points[0], points[1], points[2]).getNormal(new T.Vector3());
-          expect(normal.y).toBe(1);
-          const key = triangleKey(points);
-          triangles.set(key, (triangles.get(key) ?? 0) + 1);
+          const triangle = new T.Triangle(points[0], points[1], points[2]);
+          expect(triangle.getNormal(new T.Vector3()).y).toBeCloseTo(1, 12);
+          const middle = triangle.getMidpoint(new T.Vector3());
+          const tile = tileOf(map, middle);
+          expect(points.every((point) => point.y === points[0].y)).toBe(true);
+          expect(points[0].y).toBeCloseTo(groundHeight(map, tile % map.width, Math.floor(tile / map.width)), 6);
+          covered.set(tile, (covered.get(tile) ?? 0) + triangle.getArea());
         }
       }
       for (let z = 0; z < map.depth; z++) {
         for (let x = 0; x < map.width; x++) {
-          if (terrainOn(map, x, z) === 'water') continue;
-          const origin = worldPositionOn(map, x, z);
-          const y = groundHeight(map, x, z);
-          const a = new T.Vector3(origin.x, y, origin.z);
-          const b = new T.Vector3(origin.x + CELL_SIZE, y, origin.z);
-          const c = new T.Vector3(origin.x + CELL_SIZE, y, origin.z + CELL_SIZE);
-          const d = new T.Vector3(origin.x, y, origin.z + CELL_SIZE);
-          for (const points of [[a, d, c], [a, c, b]]) {
-            const key = triangleKey(points);
-            expect(triangles.get(key)).toBe(1);
-            triangles.delete(key);
+          const tile = z * map.width + x;
+          if (terrainOn(map, x, z) === 'water') {
+            expect(covered.has(tile)).toBe(false);
+            continue;
           }
+          expect(covered.get(tile)).toBeCloseTo(CELL_SIZE * CELL_SIZE, 6);
+          covered.delete(tile);
         }
       }
-      expect(triangles.size).toBe(0);
+      expect(covered.size).toBe(0);
       expect(map).toEqual(before);
     } finally {
       disposeModel(terrain);

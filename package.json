@@ -20,6 +20,7 @@
     "coast:capture": "node scripts/coast-capture.mjs",
     "terrace:capture": "node scripts/terrace-capture.mjs",
     "road:capture": "node scripts/road-capture.mjs",
+    "meadow:capture": "node scripts/meadow-capture.mjs",
     "zoom:capture": "node scripts/zoom-capture.mjs",
     "overview:capture": "node scripts/overview-capture.mjs",
     "sea:capture": "node scripts/sea-capture.mjs",

@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { box, colors, disposeModel, litterFor, lump, stump, tree, type Litter } from '../art';
+import { colors, disposeModel, litterFor, lump, stump, tree, type Litter } from '../art';
 import type { Stair } from '../sim/stairs';
 import { CELL_SIZE, buildable, groundHeight, levelOn, terrainOn, worldPositionOn, type IslandMap } from '../sim/island';
 import { fractal } from '../sim/island';
@@ -9,6 +9,7 @@ import { Sea } from './sea';
 import { CoastalFoam } from '../art/foam';
 import { cliffOutcrop } from '../art/cliffs';
 import { bushForTile } from '../art/bushes';
+import { meadowHalo, wildflowersForTile } from '../art/meadow';
 import { hide, InstanceField, piecesAround, release, write, type InstanceSlot } from './instances';
 import type { DustField } from './dust';
 
@@ -83,6 +84,7 @@ export class IslandScenery {
 
   constructor(scene: T.Scene, readonly map: IslandMap, private readonly dust: DustField | null = null, private readonly motion = true) {
     this.foam = new CoastalFoam(map);
+    const meadows = meadowHalo(map);
     this.terrain.add(buildTerrain(map));
     this.root.add(this.terrain, this.foam.mesh);
     const gridPoints: number[] = [];
@@ -96,7 +98,7 @@ export class IslandScenery {
           gridPoints.push(origin.x, y + .025, origin.z, origin.x + CELL_SIZE, y + .025, origin.z);
           gridPoints.push(origin.x, y + .025, origin.z, origin.x, y + .025, origin.z + CELL_SIZE);
         }
-        if (terrain === 'forest' || terrain === 'scrub' || terrain === 'cliff' || terrain === 'rock' || terrain === 'fertile' || (terrain === 'grass' && levelOn(map, x, z) >= 1 && seeded(map, x, z, 18) > .93)) {
+        if (terrain === 'forest' || terrain === 'scrub' || terrain === 'cliff' || terrain === 'rock' || terrain === 'fertile' || meadows[z * map.width + x] === 1 || (terrain === 'grass' && levelOn(map, x, z) >= 1 && seeded(map, x, z, 18) > .93)) {
           const tile = z * map.width + x;
           const key = this.chunkKey(x, z);
           const waiting = this.unrevealed.get(key);
@@ -249,11 +251,6 @@ export class IslandScenery {
       lump(rubble, seeded(map, x, z, 14) > .5 ? colors.stone : colors.cream, cx + jitterX, y + .18, cz + jitterZ, .3 + seeded(map, x, z, 15) * .3, .22 + seeded(map, x, z, 16) * .2, .28 + seeded(map, x, z, 17) * .3);
       this.settle(tile, cx, y, cz, rubble);
       return;
-    } else if (terrain === 'fertile') {
-      const stripes = new T.Group();
-      box(stripes, (x + z) % 2 === 0 ? 0xb9b47a : 0xb2ad74, cx, y - .03, cz, CELL_SIZE, .04, CELL_SIZE, 0);
-      this.settle(tile, cx, y, cz, stripes);
-      return;
     } else if (terrain === 'cliff') {
       const outcrops = fractal(x, z, map.seed + 967, 2, 4);
       const rocks = new T.Group();
@@ -271,6 +268,11 @@ export class IslandScenery {
       }
       if (!rocks.children.length) return;
       this.absorb(tile, cx, y, cz, rocks);
+    } else if (terrain === 'fertile' || (terrain === 'grass' && levelOn(map, x, z) === 0)) {
+      const meadow = wildflowersForTile(map, x, z);
+      if (!meadow) return;
+      meadow.position.set(cx, y, cz);
+      this.absorb(tile, cx, y, cz, meadow);
     } else {
       const plant = new T.Group();
       tree(plant, cx + jitterX, y, cz + jitterZ, .6, seeded(map, x, z, 19) > .5);

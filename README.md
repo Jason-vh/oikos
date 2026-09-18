@@ -31,8 +31,8 @@ OIKOS_DB=/tmp/oikos/world.db OIKOS_PUBLIC_ORIGIN=http://localhost:5180 npm run s
 
 ## Play
 
-Build four dwellings beside the harbour road. Grow wheat on the fertile striped
-fields — or send a hunter after game and a fishing wharf after the shoals offshore —
+Build four dwellings beside the harbour road. Grow wheat on the flowering loam of
+fertile ground — or send a hunter after game and a fishing wharf after the shoals offshore —
 store it in a granary, then add a food vendor to an agora. Connect everything
 with roads. Add a fountain and maintenance post. Reliable food and water evolve
 homes into cottages and courtyard houses. Plant olives on ground a farm cannot use,

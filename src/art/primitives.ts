@@ -9,6 +9,7 @@ export const colors = {
   blue: 0x426f83, blueLight: 0x68919c, dark: 0x364d48, wood: 0x846347,
   olive: 0x879557, oliveLight: 0xa2ae70, oliveDark: 0x627a50,
   grass: 0xa7ac73, earth: 0xb0a17b, gold: 0xd6ab53, linen: 0xffedc5,
+  bloom: 0x8f6a9e, bloomLight: 0xb489c0,
 };
 
 export const cityColors: Record<CityColor, number> = {

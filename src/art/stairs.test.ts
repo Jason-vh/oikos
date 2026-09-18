@@ -90,6 +90,29 @@ test('cliff cuts expose every tread, retain solid shoulders and leave the lower 
   }
 });
 
+test('a cut through blended soil keeps its painted ground', () => {
+  const map = fixture(1, 0);
+  for (let index = 0; index < 25; index++) {
+    if (map.level[index] === 1 && map.terrain[index] === 'grass') map.terrain[index] = 'fertile';
+  }
+  const stairs = stairLayout(map, new Set([11, 12, 13]));
+  const original = buildTerrain(map);
+  const terrain = buildTerrain(map, stairs);
+  try {
+    const painted = geometry(original).filter((part) => part.attributes.color);
+    expect(painted).not.toHaveLength(0);
+    for (const part of geometry(terrain)) {
+      if (!part.attributes.color) continue;
+      expect(part.attributes.color.count).toBe(part.attributes.position.count);
+      expect(Array.from(part.attributes.color.array as Float32Array).every((value) => value >= 0 && value <= 1)).toBe(true);
+    }
+    expect(geometry(terrain).filter((part) => part.attributes.color)).not.toHaveLength(0);
+  } finally {
+    disposeModel(original);
+    disposeModel(terrain);
+  }
+});
+
 test('terrain is rebuilt only for changed stair cuts and demolition restores the exact geometry', () => {
   const map = fixture(1, 0);
   const scene = new T.Scene();

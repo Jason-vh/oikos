@@ -27,12 +27,14 @@ silhouette and colour, second by a single distinguishing feature, never by detai
 | olive / oliveLight / oliveDark | `879557` / `a2ae70` / `627a50` | foliage |
 | grass / earth | `a7ac73` / `b0a17b` | ground |
 | gold / linen | `d6ab53` / `ffedc5` | grain, cloth |
+| bloom / bloomLight | `8f6a9e` / `b489c0` | wildflowers on fertile ground |
 
 City colours — what a player picks when joining — are `cityColors` in the same
 file, one muted hue per name in `src/sim/colors.ts`: terracotta, saffron, olive,
 verdigris, aegean, lapis, plum, crimson. They mark a player, never a building.
 
-Terrain surface colours live in `src/render/terrain.ts` (`SURFACE`). Food and
+Terrain surface colours live in `src/render/terrain.ts` (`SURFACE`); they are mixed
+across tile borders by the ground field (see Ground). Food and
 material bundle colours live in `src/art/food.ts`. Add a colour only when no
 existing one reads correctly at city zoom.
 
@@ -238,6 +240,52 @@ cycle stands still.
 
 A walker steps up to whatever it is working, and back out before it is finished:
 `CHOP_REACH` puts the blade on the bark, `HUNT_REACH` puts the spear in the flank.
+
+## Ground
+
+**Terrain is a landscape, not a chequerboard.** The simulation thinks in tiles and
+must; the ground must not look like it. `src/art/ground.ts` holds the field that
+turns one into the other. For any point it takes the kinds of the four tile centres
+around it, weights them smoothly, displaces the sample first by a broad warp and
+then by a finer fray of noise, and sharpens each kind's weight into a narrow band
+before normalising. Deep inside a kind its share is 1, so grass stays grass and sand
+stays sand; across a border the shares cross over within about half a tile, wherever
+the noise has put that border. Nothing in the field runs along a tile edge.
+
+`src/render/terrain.ts` paints it. A tile with a different kind within two
+(`blendedTiles`) is drawn as a vertex-coloured surface rather than a flat quad: four
+by four, each vertex the blend of the `SURFACE` colours by their shares. A tile whose
+whole grid comes out one colour collapses back to a single quad, so only borders cost
+geometry, and the built surfaces are cached per island — a stair rebuild re-cuts them
+rather than resampling the field. The field never crosses a terrace: it counts only
+tiles on the level being drawn, so a cliff edge keeps its line. Water counts for
+nothing, so the shore keeps the coast's own profile.
+
+## Fertile ground
+
+Fertile soil is the one terrain a player must find before they can act on it, so it
+is named twice over: a darker loam than the sun-bleached grass, strewn with violet
+wildflowers. The violet is the affordance — it is the only purple on the island, and
+the placement overlay that marks open farmland (`src/render/construction.ts`) is the
+same hue, so the hint and the ground teach one colour.
+
+Wildflowers read the same field: one small violet bloom close to the ground, up to
+thirteen a tile, thicker where the patch is deeper. A bloom is kept only where the
+soil's share is full under it *and* a tenth of a tile around it, so flowers never
+stand in the blend — they stop short of the rim, and the loam fades on alone. They
+still spill onto grass tiles wherever the soil does. Placement within the tile is
+free rather than one bloom to a sub-cell: even spacing reads as a printed pattern,
+and it is the clumps and the gaps that read as a meadow. They are deliberately tiny
+— a flower the size of a bush is a painted blot, and the ground has to stay ground.
+
+Flowers are decoration like any other: they clear under a building and return when
+it is demolished. A farm therefore turns violet meadow into the lighter earth and
+gold furrows of its plot, and a city's unused fertile land can be read at a glance.
+Because the painted edge no longer follows the grid, the farm tool's overlay is what
+says which tiles can actually take a farm.
+
+The stair carver (`src/art/stairs.ts`) clips terrain triangles, so it interpolates
+vertex colour along with position; a flight cut through painted ground keeps its paint.
 
 ## Scrub
 
