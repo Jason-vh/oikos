@@ -6,11 +6,12 @@ import { ConstructionOverlay } from './render/construction';
 import { ClaimOverlay } from './render/claims';
 import { ClaimLabels } from './ui/claim-labels';
 import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES } from './sim/catalog';
-import { demolitionPreview, footprintTileIssues, harbourRoute, suitableFarmGround } from './sim/construction';
-import { CELL_SIZE, groundHeight, islandFor, ISLAND_COUNT, terrainOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
+import { demolitionPreview, footprintTileIssues, harbourRoute } from './sim/construction';
+import { CELL_SIZE, groundHeight, islandFor, ISLAND_COUNT, terrainOn, tileAtOn, tileIndexOn, worldPositionOn, GROUND_Y } from './sim/island';
 import { buildingStatus, getSummary, placement, roadPathPlacement, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
 import { animalQuarry } from './sim/wildlife';
 import { gatherReach } from './sim/gathering';
+import { fieldReach, fieldReport, isGrower, openFields, plantPlacement } from './sim/crops';
 import type { Building, BuildingKind, BuildTool, City, Placement, Resource, Rotation, StallGood, Tile, Tool, Walker, World } from './sim/types';
 import { createHud, type CityScope, type HudTool, type Stance } from './ui/hud';
 import { createSound } from './ui/sound';
@@ -145,6 +146,7 @@ export function boot(source: SharedBootSource): BootHandles {
   let tooltipTimer = 0;
   let drag: { tile: Tile; x: number; y: number; pointer: number; gestureWritable: boolean; gestureGeneration: number } | null = null;
   let bendVertical = false;
+  let planting: number | null = null;
   let renderedWritable = false;
   let showGrid = false;
   let artTime = 0;
@@ -214,8 +216,17 @@ export function boot(source: SharedBootSource): BootHandles {
     const canEdit = writable();
     renderedWritable = canEdit;
     if (foundWalker) hud.update(world, viewedScope, activeScope, { kind: 'person', name: walkerName(foundWalker.walker), role: WALKER_ROLES[foundWalker.walker.kind], status: walkerStatus(foundWalker.city, foundWalker.walker) }, canEdit);
-    else if (found) hud.update(world, viewedScope, activeScope, { kind: 'building', building: found.building, status: buildingStatus(world, found.city, found.building), editable: canEdit && found.city.id === active?.id }, canEdit);
-    else hud.update(world, viewedScope, activeScope, null, canEdit);
+    else if (found) {
+      if (planting !== null && planting !== found.building.id) armPlanting(null);
+      const fields = isGrower(found.building.kind) ? fieldReport(world, found.city, found.building) : undefined;
+      city.setFieldRing(fields && found.city.id === active?.id ? fieldReach(world, found.city, found.building) : []);
+      hud.update(world, viewedScope, activeScope, { kind: 'building', building: found.building, status: buildingStatus(world, found.city, found.building), editable: canEdit && found.city.id === active?.id, fields }, canEdit);
+    }
+    else {
+      if (planting !== null) armPlanting(null);
+      city.setFieldRing([]);
+      hud.update(world, viewedScope, activeScope, null, canEdit);
+    }
     const debt = (active?.money ?? 0) < 0;
     if (debt && !inDebt) hud.notify('The treasury is in debt: upkeep outweighs income.', true);
     inDebt = debt;
@@ -243,6 +254,7 @@ export function boot(source: SharedBootSource): BootHandles {
       if (!home) { hud.notify('Place your harbour first.', true); return; }
     }
     harbourArmed = next === 'harbour';
+    if (next !== 'inspect') armPlanting(null);
     tool = next === 'harbour' ? 'inspect' : next;
     drag = null;
     hud.setTool(next, rotation);
@@ -250,6 +262,33 @@ export function boot(source: SharedBootSource): BootHandles {
     applyGrid();
     updatePreview();
     stage.invalidate();
+  }
+
+  function armPlanting(id: number | null): void {
+    const home = activeCity(world, context);
+    const grower = id !== null && home ? home.buildings.find((building) => building.id === id) : null;
+    planting = grower && writable() ? grower.id : null;
+    hud.setPlanting(planting);
+    drag = null;
+    stage.controls.touches.ONE = planting === null ? T.TOUCH.ROTATE : null;
+    updatePreview();
+    stage.invalidate();
+  }
+
+  function plantingGrower(): Building | null {
+    const home = activeCity(world, context);
+    if (planting === null || !home) return null;
+    return home.buildings.find((building) => building.id === planting) ?? null;
+  }
+
+  function plantingPatch(): Tile[] {
+    if (!hover) return [];
+    const start = drag?.tile ?? hover;
+    const tiles: Tile[] = [];
+    for (let z = Math.min(start.z, hover.z); z <= Math.max(start.z, hover.z); z++) {
+      for (let x = Math.min(start.x, hover.x); x <= Math.max(start.x, hover.x); x++) tiles.push({ x, z });
+    }
+    return tiles;
   }
 
   function applyGrid(): void {
@@ -306,6 +345,7 @@ export function boot(source: SharedBootSource): BootHandles {
     tool: selectTool,
     rotate: () => { rotation = ((rotation + 1) % 4) as Rotation; hud.setTool(tool, rotation); updatePreview(); },
     vendor: (id, enabled, stall) => dispatchShared({ type: 'vendor', id, enabled, stall }),
+    plant: (id) => armPlanting(id),
     focus: (x, z) => { const point = worldPositionOn(map(), x + .5, z + .5); stage.focus(point.x, point.z); },
     grid: setGrid,
     menu: (open) => {
@@ -523,7 +563,12 @@ export function boot(source: SharedBootSource): BootHandles {
       return;
     }
     const homeCity = activeCity(world, context)!;
-    overlay.setFertileGround(tool === 'farm' ? suitableFarmGround(world, homeCity) : null);
+    const grower = plantingGrower();
+    if (grower) {
+      previewPlanting(homeCity, grower);
+      return;
+    }
+    overlay.setFertileGround(null);
     stage.canvas.style.cursor = tool === 'inspect' ? '' : 'crosshair';
     if (tool !== 'inspect') {
       city.clearHover();
@@ -572,6 +617,25 @@ export function boot(source: SharedBootSource): BootHandles {
     hud.setHint(preview.ok ? `${BUILDINGS[tool].name} · ${preview.cost} drachmas · R to rotate · Escape cancels` : preview.reason);
   }
 
+  function previewPlanting(homeCity: City, grower: Building): void {
+    const map3 = map();
+    const open = openFields(world, homeCity, grower).map((tile: number) => tileAtOn(map3, tile));
+    overlay.setFertileGround(open);
+    overlay.setDemolitionTarget([]);
+    overlay.setHarbourRoute(null);
+    city.setFieldRing(fieldReach(world, homeCity, grower));
+    city.hidePreview();
+    stage.canvas.style.cursor = 'crosshair';
+    const patch = hover ? plantingPatch() : [];
+    const preview = patch.length > 0 ? plantPlacement(world, homeCity, grower, patch) : null;
+    overlay.setBlockedTiles((preview?.blocked ?? []).map((tile: number) => tileAtOn(map3, tile)));
+    overlay.setHarbourRoute(preview?.ok ? preview.tiles : null);
+    const crop = grower.kind === 'farm' ? 'wheat' : 'olives';
+    if (!preview) hud.setHint(`Sowing ${crop} · drag to sow a patch · Escape stops`);
+    else if (preview.ok) hud.setHint(`Sow ${preview.tiles.length} ${preview.tiles.length === 1 ? 'field' : 'fields'} of ${crop} · Escape stops`);
+    else hud.setHint(preview.reason);
+  }
+
   stage.canvas.addEventListener('pointerdown', (event) => {
     stage.controls.mouseButtons.LEFT = event.altKey ? T.MOUSE.ROTATE : null;
   }, true);
@@ -595,11 +659,14 @@ export function boot(source: SharedBootSource): BootHandles {
     if (!drag || drag.pointer !== event.pointerId) return;
     hover = atPointer(event);
     const moved = dragMoved(event.clientX, event.clientY);
-    if (hover && (tool === 'road' || moved < DRAG_SLOP)) {
+    if (hover && (tool === 'road' || planting !== null || moved < DRAG_SLOP)) {
       const gestureStillValid = drag.gestureWritable && drag.gestureGeneration === stateGeneration;
       const home = gestureStillValid && writable() ? activeCity(world, context) : null;
       if (gestureStillValid && harbourArmed && siting()) {
         submitShared({ kind: 'claim', x: hover.x, z: hover.z, rotation });
+      } else if (planting !== null && home) {
+        const grower = plantingGrower();
+        if (grower) dispatchShared({ type: 'plant', id: grower.id, tiles: plantingPatch() });
       } else if (!home || tool === 'inspect') {
         const picked = city.pick(event.clientX, event.clientY);
         selectedId = picked.walker ?? picked.building;
@@ -639,8 +706,9 @@ export function boot(source: SharedBootSource): BootHandles {
     if (event.target instanceof HTMLElement && (event.target.closest('input,select,textarea,dialog') || event.target.isContentEditable)) return;
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     if (event.key === 'Escape') {
-      escapeOpensMenu = tool === 'inspect' && !harbourArmed;
-      if (!escapeOpensMenu) selectTool('inspect');
+      escapeOpensMenu = tool === 'inspect' && !harbourArmed && planting === null;
+      if (planting !== null) armPlanting(null);
+      else if (!escapeOpensMenu) selectTool('inspect');
     } else if (event.key.toLowerCase() === 'g') setGrid(!showGrid);
     else if (event.key.toLowerCase() === 'r') { rotation = ((rotation + 1) % 4) as Rotation; hud.setTool(tool, rotation); updatePreview(); }
     else if (event.key.toLowerCase() === 'b') selectTool('road');
@@ -920,6 +988,7 @@ export function boot(source: SharedBootSource): BootHandles {
       road: (tiles: Tile[]) => seamCommand({ type: 'roadPath', tiles }),
       demolish: (x: number, z: number) => seamCommand({ type: 'demolish', x, z }),
       vendor: (id: number, enabled: boolean, stall: StallGood = 'food') => seamCommand({ type: 'vendor', id, enabled, stall }),
+      plant: (id: number, tiles: Tile[]) => seamCommand({ type: 'plant', id, tiles }),
       checkClaim: (x: number, z: number, turn: Rotation = 0) => harbourPlacement(world, x, z, turn),
       checkBuild: (kind: Exclude<Tool, 'inspect' | 'demolish'>, x: number, z: number, turn: Rotation = 0) => {
         const home = activeCity(world, context);

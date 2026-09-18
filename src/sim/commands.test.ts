@@ -5,6 +5,9 @@ import { buildStarterNeighbourhood, planStarterNeighbourhood } from './scenario'
 import { spotFor } from './testing';
 import { advance, createWorld, getSummary } from './world';
 import { primaryCity } from './city';
+import { fieldCapacity, isGrower, openFields } from './crops';
+import { mapOf } from './grid';
+import { tileAtOn } from './island';
 
 const BUILD: CityCommand = { type: 'build', tool: 'house', x: 2, z: 3, rotation: 0 };
 
@@ -60,6 +63,11 @@ test('JSON commands found and grow exactly the same city as the direct simulatio
   expect(plan).not.toBeNull();
   for (const building of plan.buildings) execute({ type: 'build', tool: building.kind, x: building.x, z: building.z, rotation: 0 });
   execute({ type: 'roadPath', tiles: plan.roads });
+  for (const grower of primaryCity(world).buildings.filter((building) => isGrower(building.kind))) {
+    const map = mapOf(world, primaryCity(world));
+    const fields = openFields(world, primaryCity(world), grower).slice(0, fieldCapacity(grower.kind)).map((tile) => tileAtOn(map, tile));
+    execute({ type: 'plant', id: grower.id, tiles: fields });
+  }
   execute({ type: 'vendor', id: primaryCity(world).buildings.find((building) => building.kind === 'agora')!.id, enabled: true, stall: 'food' });
   for (const command of commands) expect(applyCommand(replay, primaryCity(replay).id, command).ok).toBe(true);
   const direct = createWorld(2, 0);

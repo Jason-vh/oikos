@@ -63,7 +63,7 @@ test('the founding purse buys a starter neighbourhood and little else', () => {
 
     expect(buildStarterNeighbourhood(world, city).ok).toBe(true);
     expect(city.buildings).toHaveLength(9);
-    expect(city.money).toBeLessThan(BUILDINGS.woodcutter.cost);
+    expect(city.money).toBeLessThan(BUILDINGS.granary.cost);
   }
 });
 

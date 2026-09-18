@@ -8,6 +8,7 @@ import { build, placement, placeRoadPath, recomputeConnectivity } from './world'
 import { HOUSE_CAPACITY } from './catalog';
 import { HOUSE_FOOD_CAP, HOUSE_OIL_CAP, HOUSE_WATER_CAP } from './balance';
 import { unlockRefusal } from './unlocks';
+import { fieldCapacity, openFieldsAt, sowFields } from './crops';
 import { primaryCity } from './city';
 import type { CityColor } from './colors';
 
@@ -30,6 +31,7 @@ export function foundSecondCity(world: World, home: number, name = 'Naxos', colo
     delivered: 0,
     roads: harbourApron(site.x, site.z, site.rotation).map((tile) => tileIndexOn(map, tile.x, tile.z)),
     buildings: [],
+    crops: [],
     walkers: [],
   };
   world.cities.push(city);
@@ -92,6 +94,13 @@ export function spotForInCity(world: World, city: City, kind: BuildTool, near?: 
 
 export function spotFor(world: World, kind: BuildTool, near?: Tile, rotation: Rotation = 0): Tile | null {
   return spotForInCity(world, primaryCity(world), kind, near, rotation);
+}
+
+export function growerSpotFor(world: World, kind: 'farm' | 'orchard', near?: Tile, city: City = primaryCity(world)): Tile | null {
+  return findTileInCity(world, city, (_map, x, z) => {
+    if (!placement(world, city, kind, x, z, 0).ok) return false;
+    return openFieldsAt(world, city, kind, x, z).length >= fieldCapacity(kind);
+  }, near);
 }
 
 export interface ShoreSpot { x: number; z: number; rotation: Rotation }
@@ -273,6 +282,10 @@ export function connectInCity(world: World, city: City, building: Building): Act
 
 export function connect(world: World, building: Building): ActionResult {
   return connectInCity(world, primaryCity(world), building);
+}
+
+export function sow(world: World, building: Building, city: City = primaryCity(world)): number {
+  return sowFields(world, city, building);
 }
 
 export function isolatedRoadPair(world: World, near: Tile): [Tile, Tile] | null {

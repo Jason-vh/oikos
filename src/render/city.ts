@@ -14,6 +14,8 @@ import { STAIR_WIDTH } from '../art/stairs';
 import { roadHeight, stairLayout, STAIR_STEPS, type Stair } from '../sim/stairs';
 import { addRoadMark } from './road-marks';
 import { reachOutline } from './reach';
+import { CropField } from './crops';
+import { FARM_STOCK_CAP } from '../sim/balance';
 import type { Animal, Building, BuildTool, City, Placement, Resource, Rotation, Tile, Walker, WalkerKind, WalkerTask, World } from '../sim/types';
 import type { Stage } from './stage';
 import { IslandScenery } from './island';
@@ -159,7 +161,10 @@ function skiffWithCatch(colour: number, load: Resource | null): T.Group {
 const WORK_CYCLE: Record<WalkerTask['kind'], WorkKind> = { chop: 'chop', hunt: 'thrust', net: 'cast' };
 
 function modelStage(building: Building): ModelStage {
-  if (building.kind === 'farm' || building.kind === 'orchard') return Math.min(3, Math.floor(building.progress * 4)) as ModelStage;
+  if (building.kind === 'farm' || building.kind === 'orchard') {
+    const stock = Object.values(building.stores).reduce((sum, amount) => sum + amount, 0);
+    return Math.min(3, Math.floor(stock / (FARM_STOCK_CAP / 4))) as ModelStage;
+  }
   if (building.kind === 'harbour') return (building.progress === 0 ? 0 : Math.min(3, 1 + Math.floor(building.progress * 3))) as ModelStage;
   return 3;
 }
@@ -210,6 +215,7 @@ export class CityScene {
   private readonly animals = new Map<number, AnimalEntry>();
   private readonly drawnAnimals = new Set<number>();
   private readonly wildlife: WildlifeField;
+  private readonly crops: CropField;
   private readonly departures: Departure[] = [];
   private readonly walkerExits: WalkerExit[] = [];
   private readonly dust: DustField;
@@ -228,6 +234,7 @@ export class CityScene {
   private previewKey = '';
   private ghost: T.Group | null = null;
   private reachMark: T.Mesh | null = null;
+  private ring: number[] = [];
   private selected: HoverTarget | null = null;
   private focus: T.Vector3 | null = null;
   private sight = 60;
@@ -254,6 +261,7 @@ export class CityScene {
     this.dust = new DustField(stage.scene);
     this.scenery = new IslandScenery(stage.scene, map, this.dust, this.motion);
     this.wildlife = new WildlifeField(stage.scene);
+    this.crops = new CropField(stage.scene, map);
     this.logistics = new LogisticsOverlay(stage.scene, map, (id) => this.buildingTop(id));
     const span = worldSpan(map);
     this.clouds = new CloudLayer(stage.scene, span, map.seed);
@@ -318,6 +326,7 @@ export class CityScene {
   sync(world: World): void {
     const settled = this.primed;
     this.lastWorld = world;
+    this.crops.sync(world);
     this.roadModels(world);
     const buildings = visibleBuildings(world);
     const ids = new Set(buildings.map((building) => building.id));
@@ -1153,7 +1162,13 @@ export class CityScene {
 
   hidePreview(): void {
     this.preview.clear();
-    this.setReach([]);
+    this.setReach(this.ring);
+    this.stage.invalidate();
+  }
+
+  setFieldRing(tiles: readonly number[]): void {
+    this.ring = [...tiles];
+    this.setReach(this.ring);
     this.stage.invalidate();
   }
 
@@ -1247,6 +1262,7 @@ export class CityScene {
   }
 
   dispose(): void {
+    this.crops.dispose();
     for (const entry of this.buildings.values()) {
       entry.model.removeFromParent();
       disposeModel(entry.model);

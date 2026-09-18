@@ -4,7 +4,8 @@ import { buildStarterNeighbourhood, planStarterNeighbourhood } from './scenario'
 import { BUILDINGS, ROAD_COST, SCENARIO_MONEY, VENDOR_COST } from './catalog';
 import { generateIsland, islandFor, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import { accessDoors, bfsShortest, exitTile, harbourDoors } from './grid';
-import { connect, farCorner, findTile, freshRoadSpot, isolatedRoadPair, mapOf, roadSpur, slopeFixture, spotAdjacentTo, spotFor, unevenFootprint, SLOPE_SEED } from './testing';
+import { connect, farCorner, findTile, freshRoadSpot, growerSpotFor, isolatedRoadPair, mapOf, roadSpur, slopeFixture, sow, spotAdjacentTo, spotFor, unevenFootprint, SLOPE_SEED } from './testing';
+import { fieldReach, plantPlacement } from './crops';
 import { primaryCity } from './city';
 import type { Building, BuildingKind, Tile, Walker, World } from './types';
 
@@ -20,17 +21,19 @@ describe('placement validation', () => {
     expect(result.reason).toBe('Out of bounds.');
   });
 
-  test('farms require fertile ground', () => {
+  test('a farmyard stands on ordinary ground; its fields need fertile soil', () => {
     const world = createWorld();
-    const nonFertile = findTile(world, (map, x, z) => ['grass', 'sand', 'scrub'].includes(terrainOn(map, x, z)));
-    const onOther = placement(world, primaryCity(world), 'farm', nonFertile!.x, nonFertile!.z);
-    expect(onOther.ok).toBe(false);
-    expect(onOther.reason).toBe('Farms need fertile ground.');
-
-    const fertileSpot = spotFor(world, 'farm')!;
-    const onFertile = placement(world, primaryCity(world), 'farm', fertileSpot.x, fertileSpot.z);
-    expect(onFertile.ok).toBe(true);
-    expect(onFertile.cost).toBe(BUILDINGS.farm.cost);
+    const city = primaryCity(world);
+    const spot = growerSpotFor(world, 'farm')!;
+    expect(placement(world, city, 'farm', spot.x, spot.z).ok).toBe(true);
+    expect(build(world, city, 'farm', spot.x, spot.z).ok).toBe(true);
+    const farm = city.buildings[city.buildings.length - 1];
+    const map = islandFor(world.seed);
+    const barren = fieldReach(world, city, farm).find((tile) => terrainOn(map, tile % map.width, Math.floor(tile / map.width)) !== 'fertile')!;
+    const refusal = plantPlacement(world, city, farm, [{ x: barren % map.width, z: Math.floor(barren / map.width) }]);
+    expect(refusal.ok).toBe(false);
+    expect(refusal.reason).toBe('Crops root only in fertile soil.');
+    expect(placement(world, city, 'farm', spot.x, spot.z).cost).toBe(BUILDINGS.farm.cost);
   });
 
   test('rejects cliff and water terrain for ordinary buildings', () => {
@@ -266,10 +269,9 @@ describe('failure reasons are full sentences', () => {
   test('matches the agreed phrasing for common failures', () => {
     const world = createWorld();
     const farmSpot = spotFor(world, 'farm')!;
-    const nonFertile = findTile(world, (map, x, z) => ['grass', 'sand', 'scrub'].includes(terrainOn(map, x, z)))!;
     primaryCity(world).money = 10;
     expect(placement(world, primaryCity(world), 'farm', farmSpot.x, farmSpot.z).reason).toBe('Not enough drachmas.');
-    expect(placement(world, primaryCity(world), 'farm', nonFertile.x, nonFertile.z).reason).toBe('Farms need fertile ground.');
+    expect(placement(world, primaryCity(world), 'road', 1000, 1000).reason).toBe('Out of bounds.');
     expect(placement(world, primaryCity(world), 'house', 1000, 1000).reason).toBe('Out of bounds.');
   });
 });
@@ -701,15 +703,17 @@ describe('player-facing building status', () => {
     expect(buildingStatus(world, primaryCity(world), farm)).toEqual(['Short of workers; more settlers are needed.']);
   });
 
-  test('a staffed farm reports harvest progress', () => {
+  test('a staffed farm reports the fields it tends', () => {
     const world = createWorld();
-    const spot = spotFor(world, 'farm')!;
-    build(world, primaryCity(world), 'farm', spot.x, spot.z);
+    const city = primaryCity(world);
+    const spot = growerSpotFor(world, 'farm')!;
+    build(world, city, 'farm', spot.x, spot.z);
     const farm = findByKind(world, 'farm');
     farm.connected = true;
     farm.workers = BUILDINGS.farm.jobs;
-    farm.progress = 0.4;
-    expect(buildingStatus(world, primaryCity(world), farm)).toEqual(['Growing wheat, 40% to harvest.']);
+    expect(buildingStatus(world, city, farm)).toEqual(['No fields sown; plant some within the tending ring.']);
+    expect(sow(world, farm)).toBeGreaterThan(0);
+    expect(buildingStatus(world, city, farm).join(' ')).toContain('Tending 12 of 12 fields');
   });
 
   test('an empty granary is waiting for a cart, a stocked one is ready', () => {

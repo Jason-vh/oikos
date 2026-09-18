@@ -4,20 +4,26 @@ import { BUILDINGS, VENDOR_COST } from './catalog';
 import { tileAtOn, tileIndexOn, terrainOn } from './island';
 import { harbourGate } from './world';
 import { build, createWorld, setVendor } from './world';
-import { freshRoadSpot, mapOf, spotFor } from './testing';
+import { freshRoadSpot, growerSpotFor, mapOf, spotFor } from './testing';
+import { openFields, plant } from './crops';
 import { primaryCity } from './city';
 
 const FOOTPRINT_SEED = 5_551_212;
 
 describe('suitableFarmGround', () => {
-  test('lists open fertile ground and drops it once occupied', () => {
+  test('lists open fertile ground and drops it once sown', () => {
     const world = createWorld();
-    const spot = spotFor(world, 'farm')!;
-    const before = suitableFarmGround(world, primaryCity(world));
-    expect(before.some((tile) => tile.x === spot.x && tile.z === spot.z)).toBe(true);
-    expect(build(world, primaryCity(world), 'farm', spot.x, spot.z).ok).toBe(true);
-    const after = suitableFarmGround(world, primaryCity(world));
-    expect(after.some((tile) => tile.x === spot.x && tile.z === spot.z)).toBe(false);
+    const city = primaryCity(world);
+    const spot = growerSpotFor(world, 'farm')!;
+    expect(build(world, city, 'farm', spot.x, spot.z).ok).toBe(true);
+    const farm = city.buildings[city.buildings.length - 1];
+    const map = mapOf(world);
+    const field = tileAtOn(map, openFields(world, city, farm)[0]);
+    const before = suitableFarmGround(world, city);
+    expect(before.some((tile) => tile.x === field.x && tile.z === field.z)).toBe(true);
+    expect(plant(world, city, farm.id, [field]).ok).toBe(true);
+    const after = suitableFarmGround(world, city);
+    expect(after.some((tile) => tile.x === field.x && tile.z === field.z)).toBe(false);
     expect(after.every((tile) => terrainOn(mapOf(world), tile.x, tile.z) === 'fertile')).toBe(true);
   });
 

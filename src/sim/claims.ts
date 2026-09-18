@@ -36,6 +36,7 @@ export function claimHarbour(world: World, name: string, color: CityColor, x: nu
     delivered: 0,
     roads: [],
     buildings: [],
+    crops: [],
     walkers: [],
   };
   world.cities.push(city);

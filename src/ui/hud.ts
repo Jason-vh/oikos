@@ -14,6 +14,7 @@ export interface HudActions {
   tool(tool: HudTool): void;
   rotate(): void;
   vendor(id: number, enabled: boolean, stall: StallGood): void;
+  plant(id: number | null): void;
   focus(x: number, z: number): void;
   grid(enabled: boolean): void;
   menu(open: boolean): void;
@@ -38,13 +39,16 @@ export interface Tooltip {
   y: number;
 }
 
+export interface FieldCount { tended: number; capacity: number; planted: number; }
+
 export type Selection =
-  | { kind: 'building'; building: Building; status: string[]; editable: boolean }
+  | { kind: 'building'; building: Building; status: string[]; editable: boolean; fields?: FieldCount }
   | { kind: 'person'; name: string; role: string; status: string[] };
 
 export interface Hud {
   update(world: World, viewed: CityScope | null, active: CityScope | null, selected: Selection | null, writable: boolean): void;
   setTool(tool: HudTool, rotation: Rotation): void;
+  setPlanting(id: number | null): void;
   notify(message: string, error?: boolean): void;
   setHint(message: string): void;
   setTooltip(tooltip: Tooltip | null): void;
@@ -234,10 +238,12 @@ const SKELETON = `
       <div data-row="workers" hidden><dt>Workers</dt><dd data-field="inspector-workers"></dd></div>
       <div data-row="food" hidden><dt>Food</dt><dd data-field="inspector-food"></dd></div>
       <div data-row="water" hidden><dt>Water</dt><dd data-field="inspector-water"></dd></div>
+      <div data-row="fields" hidden><dt>Fields</dt><dd data-field="inspector-fields"></dd></div>
     </dl>
     <p class="hud-inspector-note" data-field="inspector-status"></p>
     <button type="button" class="hud-vendor" data-action="vendor" hidden data-testid="vendor-toggle"></button>
     <button type="button" class="hud-vendor" data-action="oil-stall" hidden data-testid="oil-stall-toggle"></button>
+    <button type="button" class="hud-vendor" data-action="plant" hidden data-testid="plant-toggle"></button>
   </details>
   <div class="hud-bottom">
     <p class="hud-hint" data-field="hint" role="note" hidden></p>
@@ -480,6 +486,8 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
   const inspectorPanel = root.querySelector<HTMLDetailsElement>('.hud-inspector')!;
   const resources = root.querySelector<HTMLElement>('.hud-resources')!;
   let lastSelectedId: number | string | null = null;
+  let planting: number | null = null;
+  let lastSelection: Selection | null = null;
   let stance: Stance = 'building';
   let lastActive: CityScope | null = null;
   let armedTool: HudTool = 'inspect';
@@ -552,8 +560,10 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
   const rowWorkers = row(root, 'workers');
   const rowFood = row(root, 'food');
   const rowWater = row(root, 'water');
+  const rowFields = row(root, 'fields');
   const vendorButton = action(root, 'vendor');
   const oilButton = action(root, 'oil-stall');
+  const plantButton = action(root, 'plant');
   const stallButtons: Record<StallGood, HTMLButtonElement> = { food: vendorButton, oil: oilButton };
 
   function updateStall(building: Building, good: StallGood, editable: boolean): void {
@@ -595,13 +605,15 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
     inspectorTitle.textContent = selection.name;
     inspectorTier.hidden = false;
     inspectorTier.textContent = selection.role;
-    for (const element of [rowResidents, rowCondition, rowStock, rowWorkers, rowFood, rowWater]) element.hidden = true;
+    for (const element of [rowResidents, rowCondition, rowStock, rowWorkers, rowFood, rowWater, rowFields]) element.hidden = true;
     vendorButton.hidden = true;
     oilButton.hidden = true;
+    plantButton.hidden = true;
     inspectorStatus.textContent = selection.status.join(' ');
   }
 
   function updateInspector(selection: Selection | null): void {
+    lastSelection = selection;
     if (!selection) {
       inspectorPanel.hidden = true;
       showGuide(false);
@@ -656,6 +668,22 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
     }
 
     updateVendor(selected, selection.editable);
+    updatePlanting(selection);
+  }
+
+  function updatePlanting(selection: Extract<Selection, { kind: 'building' }>): void {
+    const fields = selection.fields;
+    rowFields.hidden = !fields;
+    plantButton.hidden = !fields;
+    if (!fields) return;
+    const beyond = fields.planted - fields.tended;
+    const surplus = beyond > 0 ? ` (+${beyond} untended)` : '';
+    field(rowFields, 'inspector-fields').textContent = `${fields.tended} / ${fields.capacity}${surplus}`;
+    plantButton.disabled = !selection.editable;
+    const crop = selection.building.kind === 'farm' ? 'wheat' : 'olives';
+    plantButton.textContent = planting === selection.building.id ? 'Stop planting' : `Plant ${crop}`;
+    plantButton.setAttribute('aria-pressed', String(planting === selection.building.id));
+    plantButton.onclick = () => actions.plant(planting === selection.building.id ? null : selection.building.id);
   }
 
   const unlockLine = field(root, 'unlock');
@@ -759,6 +787,11 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
     toolbar.dataset.rotation = String(rotation);
   }
 
+  function setPlanting(id: number | null): void {
+    planting = id;
+    updateInspector(lastSelection);
+  }
+
   function setGrid(enabled: boolean): void {
     gridButton.setAttribute('aria-pressed', String(enabled));
   }
@@ -850,7 +883,7 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
   }
 
   return {
-    update, setTool, notify, setHint, setTooltip, setGrid, setSound, toggleMenu, dispose,
+    update, setTool, setPlanting, notify, setHint, setTooltip, setGrid, setSound, toggleMenu, dispose,
     setConnection, setStance, announceFounding, setDiscardAvailable,
   };
 }

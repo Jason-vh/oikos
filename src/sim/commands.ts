@@ -2,14 +2,17 @@ import { BUILDINGS } from './catalog';
 import type { ActionResult, BuildTool, Rotation, StallGood, Tile, World } from './types';
 import { STALL_GOODS } from './stalls';
 import { build, demolish, placeRoadPath, setVendor } from './world';
+import { plant } from './crops';
 
 export type CityCommand =
   | { type: 'build'; tool: BuildTool; x: number; z: number; rotation: Rotation }
   | { type: 'roadPath'; tiles: Tile[] }
   | { type: 'demolish'; x: number; z: number }
-  | { type: 'vendor'; id: number; enabled: boolean; stall: StallGood };
+  | { type: 'vendor'; id: number; enabled: boolean; stall: StallGood }
+  | { type: 'plant'; id: number; tiles: Tile[] };
 
 export const MAX_ROAD_PATH = 1024;
+export const MAX_PLANTING = 256;
 
 export const BUILD_TOOLS = new Set<string>(['road', ...Object.keys(BUILDINGS).filter((kind) => kind !== 'harbour')]);
 
@@ -45,6 +48,16 @@ export function parseCommand(raw: unknown): CityCommand | null {
     if (!tile(raw)) return null;
     return { type: 'demolish', x: raw.x, z: raw.z };
   }
+  if (raw.type === 'plant') {
+    if (!integer(raw.id) || raw.id <= 0) return null;
+    if (!Array.isArray(raw.tiles) || raw.tiles.length === 0 || raw.tiles.length > MAX_PLANTING) return null;
+    const tiles: Tile[] = [];
+    for (const entry of raw.tiles) {
+      if (!tile(entry)) return null;
+      tiles.push({ x: entry.x, z: entry.z });
+    }
+    return { type: 'plant', id: raw.id, tiles };
+  }
   if (raw.type === 'vendor') {
     if (!integer(raw.id) || raw.id < 0 || typeof raw.enabled !== 'boolean') return null;
     const stall = raw.stall ?? 'food';
@@ -64,5 +77,6 @@ export function applyCommand(world: World, cityId: number, raw: unknown): Action
     case 'roadPath': return placeRoadPath(world, city, command.tiles);
     case 'demolish': return demolish(world, city, command.x, command.z);
     case 'vendor': return setVendor(city, command.id, command.enabled, command.stall);
+    case 'plant': return plant(world, city, command.id, command.tiles);
   }
 }

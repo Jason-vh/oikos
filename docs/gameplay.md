@@ -40,7 +40,7 @@ keeps the same silhouette and the same number of headlands rather than fraying i
 inlets. Soil and wood stay at absolute scale, so a larger island holds more fields
 and woods of the same size rather than bigger ones.
 Terrain kinds: `water`, `sand`, `grass`, `fertile`, `scrub`, `forest`, `rock`, `cliff`.
-Buildings need level ground on grass/fertile/sand/scrub (farms: fertile only); roads
+Buildings need level ground on grass/fertile/sand/scrub; roads
 can also cross forest and climb cliff edges using stairs. `cliff` and `rock` cannot
 hold buildings. The harbour entry is chosen on the widest flat south-facing shore, and the
 ground around it is cleared, with a fertile patch to its north-east. `islandFor(seed)`
@@ -132,7 +132,7 @@ as-is:
   `'The food stall is closed.'` / `'The food stall is open again.'` / `'The oil stall is already open.'`,
   `'Demolished, 70 drachmas refunded.'` (or `'Demolished. Roads are not
   refunded.'` for a road).
-- Failure: a full sentence too — `'Farms need fertile ground.'`,
+- Failure: a full sentence too — `'Crops root only in fertile soil.'`,
   `'Not enough drachmas.'`, `'Out of bounds.'`, `'That tile is occupied.'`,
   `'That tile is occupied by a road.'`, and so on.
 
@@ -140,8 +140,7 @@ as-is:
 stays `''`.
 
 Every building needs flat, unoccupied land: grass or fertile ground, never a hill
-tile or water. A farm additionally needs *every* tile of its footprint to be
-fertile. A shore building is the exception: its definition in `src/sim/catalog.ts`
+tile or water. A shore building is the exception: its definition in `src/sim/catalog.ts`
 declares how many of its rows stand on land, and `shoreSite` in `src/sim/shore.ts`
 walks the rest out to sea in whichever of the four ways it faces, exactly as the
 harbour's quay and pier do. Those front rows need level, buildable shore; the rows
@@ -186,13 +185,15 @@ and vendors take whichever food the source has most of.
 Nothing is delivered by radius. Every good moves along roads, carried by a walker
 that has to actually reach its destination.
 
-- **Farm → granary.** A farm with workers grows food on its own cycle, and when a
-  harvest completes, it
-  loads a cart with up to 100 units and sends it, by the shortest road route, to the
-  nearest connected granary with room. The cart drops its cargo and walks home.
-- **Orchard → press.** An olive orchard grows like a farm, slower, on grass, scrub
-  or fertile ground. Its cart carries olives to the nearest connected press with
-  room; olives never reach a granary and never reach a house.
+- **Fields → farm → granary.** A farm is a yard, not a field: it grows nothing on
+  its own footprint. What it works are crops sown tile by tile on fertile soil
+  within `FIELD_RANGE` walked tiles of the yard (see Fields, below). As each
+  harvest ripens the yard fills, and it loads a cart with up to 100 units and
+  sends it, by the shortest road route, to the nearest connected granary with
+  room. The cart drops its cargo and walks home.
+- **Orchard → press.** An olive orchard is the same arrangement, slower: its hands
+  plant olives on fertile soil and its cart carries them to the nearest connected
+  press with room; olives never reach a granary and never reach a house.
 - **Press → oil.** A staffed press takes a batch of olives off its own store and
   works it into oil over `PRESS_SECONDS`, scaled by how well it is staffed. It
   holds olives and oil together, up to `PRESS_CAP`.
@@ -220,6 +221,33 @@ A stall is a one-time purchase: `setVendor(city, agora.id, true, stall)` charges
 `VENDOR_COST` only the first time that stall is opened on a given agora. Closing it
 and opening it again doesn't charge a second time. The harbour's trade order takes
 the same call, keeps its own `vendorEnabled` switch, and is not a stall.
+
+## Fields
+
+A farm and an orchard are farmsteads: a yard of hands, and fields sown separately
+on the ground around them. `src/sim/crops.ts` owns the whole of it.
+
+- A **crop** is one tile: `{ tile, kind, progress }` on `city.crops`, `wheat` from a
+  farm and `olives` from an orchard. Both root only in fertile soil.
+- **Sowing** is free and comes from the yard: select it and the inspector offers
+  *Plant wheat*, which arms a planting tool; click or drag a rectangle. The command
+  is `{ type: 'plant', id, tiles }`, validated by `plantPlacement`: every tile must
+  be fertile, unsown, unbuilt, unpaved, and inside that yard's reach. A mixed
+  selection sows what it can and reports the rest as blocked.
+- The **tending ring** is walked, not drawn with a compass: a breadth-first walk out
+  of the yard's perimeter over open ground and roads, `FIELD_RANGE` steps, refusing
+  to cross a terrace except by a stair. It is what the ring on the ground shows, and
+  it is recomputed rather than stored.
+- **Tending** is capped by hands, not by land: a farm works `FIELDS_TENDED.farm`
+  fields and an orchard `FIELDS_TENDED.orchard`, nearest first. Fields are shared
+  between yards — each crop is claimed by exactly one yard per tick, so a second
+  farmstead beside a large patch doubles the throughput rather than double-counting
+  it. Surplus fields simply wait, and the inspector says how many.
+- **Growth** runs on the claimed fields only, scaled by staffing: each advances by
+  `dt / CROP_GROW_SECONDS[kind]`, and on ripening yields `CROP_YIELD` into the yard's
+  store and starts again. An unstaffed or unconnected yard tends nothing.
+- A sown tile is **occupied**: no building and no road may take it, and the wrecking
+  tool clears it (`'Field cleared.'`). Other cities' crops block as their own do.
 
 ## Living in a house
 
@@ -257,8 +285,8 @@ for the life of that entity, survives saving, and is the same on every client
 without storing anything. The base values live in `balance.ts`; the spread is the
 full width around them:
 
-- **Farm growth** (`FARM_GROW_SPREAD`, ±15%) — neighbouring farms drift out of
-  step, so harvests and the field's model stages stagger.
+- **Field sowing** — a crop starts part-grown by a hash of its tile and the yard
+  that sowed it, so a patch planted in one drag does not ripen in one moment.
 - **Walker pace** (`WALKER_PACE_SPREAD`, ±10%) — kinds keep their order (a laden
   cart is still slower than a vendor), but walkers no longer march in lockstep.
   Both the simulation clock and the renderer's extrapolation use `walkerPace`, so

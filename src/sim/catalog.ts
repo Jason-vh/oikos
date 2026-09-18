@@ -8,10 +8,8 @@ export function isFood(resource: Resource): resource is Food { return (FOODS as 
 
 export interface ShoreFootprint { land: number }
 
-export type GroundRule = 'buildable' | 'fertile' | 'grove';
 
 export interface BuildingDefinition {
-  ground?: GroundRule;
   name: string;
   width: number;
   depth: number;
@@ -24,8 +22,8 @@ export interface BuildingDefinition {
 
 export const BUILDINGS: Record<BuildingKind, BuildingDefinition> = {
   house: { name: 'Dwelling', width: 3, depth: 3, cost: 40, jobs: 0, upkeep: 0, description: 'A home for eight settlers. Food and water unlock better housing.' },
-  farm: { name: 'Wheat farm', width: 4, depth: 4, cost: 140, jobs: 6, upkeep: 4, ground: 'fertile', description: 'Grows food on fertile ground. A cart takes each harvest to a granary.' },
-  orchard: { name: 'Olive orchard', width: 4, depth: 4, cost: 160, jobs: 5, upkeep: 4, ground: 'grove', description: 'Olives root in grass, scrub or fertile ground, and ripen slowly. A cart takes the crop to a press.' },
+  farm: { name: 'Wheat farm', width: 3, depth: 3, cost: 140, jobs: 6, upkeep: 4, description: 'A farmyard whose hands sow and tend wheat on fertile soil within reach. A cart takes each harvest to a granary.' },
+  orchard: { name: 'Olive orchard', width: 3, depth: 3, cost: 160, jobs: 5, upkeep: 4, description: 'A grove yard whose hands plant olives on fertile soil within reach. They ripen slowly; a cart takes the crop to a press.' },
   press: { name: 'Olive press', width: 2, depth: 3, cost: 130, jobs: 4, upkeep: 3, description: 'Presses olives into oil in batches. An agora oil stall sends its buyer here.' },
   granary: { name: 'Granary', width: 3, depth: 3, cost: 120, jobs: 2, upkeep: 2, description: 'Stores food from farms. Agora buyers collect supplies here.' },
   agora: { name: 'Agora', width: 3, depth: 3, cost: 100, jobs: 3, upkeep: 3, description: 'Add a food vendor to fetch food and distribute it along roads.' },

@@ -6,6 +6,7 @@ export type Tool = BuildTool | 'inspect' | 'demolish';
 export type Rotation = 0 | 1 | 2 | 3;
 export type Terrain = 'water' | 'sand' | 'grass' | 'fertile' | 'scrub' | 'forest' | 'rock' | 'cliff';
 export type Food = 'wheat' | 'carrots' | 'fish' | 'meat' | 'olives';
+export type CropKind = Extract<Food, 'wheat' | 'olives'>;
 export type Material = 'lumber' | 'clay' | 'stone';
 export type Good = 'oil';
 export type Resource = Food | Material | Good;
@@ -15,6 +16,7 @@ export interface Stall { installed: boolean; enabled: boolean; }
 export type Stalls = Partial<Record<StallGood, Stall>>;
 export type Errand = 'water' | 'food' | 'repair' | 'goods';
 export interface Tile { x: number; z: number; }
+export interface Crop { tile: number; kind: CropKind; progress: number; }
 export interface Building extends Tile {
   id: number;
   kind: BuildingKind;
@@ -83,9 +85,10 @@ export interface City {
   delivered: number;
   roads: number[];
   buildings: Building[];
+  crops: Crop[];
   walkers: Walker[];
 }
-export const CURRENT_VERSION = 18 as const;
+export const CURRENT_VERSION = 19 as const;
 export const WORLD_LABEL = 'archipelago' as const;
 export interface World {
   version: typeof CURRENT_VERSION;

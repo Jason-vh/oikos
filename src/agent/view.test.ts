@@ -6,7 +6,7 @@ import { mapOf } from '../sim/grid';
 import { ISLAND_COUNT, terrainOn, tileIndexOn } from '../sim/island';
 import type { Terrain } from '../sim/types';
 import { buildStarterNeighbourhood } from '../sim/scenario';
-import { foundSecondCity, spotFor } from '../sim/testing';
+import { findTile, foundSecondCity, spotFor } from '../sim/testing';
 import { advance, build, createWorld, placeRoadPath } from '../sim/world';
 
 function starterCity() {
@@ -119,10 +119,10 @@ describe('the city report', () => {
     const report = cityReport(world, city);
     const farm = city.buildings.find((building) => building.kind === 'farm')!;
 
-    expect(report).toContain(`farm #${farm.id} at (${farm.x},${farm.z}) 4x4`);
-    expect(report).toContain('to harvest.');
+    expect(report).toContain(`farm #${farm.id} at (${farm.x},${farm.z}) 3x3`);
+    expect(report).toContain('fields, ripest');
     expect(report).toContain('Walkers (');
-    expect(report).toContain('Roads: 45 tiles.');
+    expect(report).toContain('Roads: 37 tiles.');
   });
 
 });
@@ -210,14 +210,14 @@ describe('dry runs', () => {
     const world = createWorld();
     const city = primaryCity(world);
     const grid = mapOf(world, city);
-    const dry = spotFor(world, 'granary')!;
+    const cliff = findTile(world, (map, x, z) => terrainOn(map, x, z) === 'cliff')!;
 
     expect(describePlacement(world, city, 'farm', 0, 0, 0)).toContain('refused.');
 
-    const answer = describePlacement(world, city, 'farm', dry.x, dry.z, 0);
+    const answer = describePlacement(world, city, 'farm', cliff.x, cliff.z, 0);
     const named = [...answer.matchAll(/\((\d+),(\d+)\) (\w+)/g)].slice(1);
 
-    expect(answer).toContain('Farms need fertile ground.');
+    expect(answer).toContain('Unsuitable terrain.');
     expect(answer).toContain('Blocked at');
     expect(named.length).toBeGreaterThan(0);
     expect(named.length).toBeLessThanOrEqual(6);

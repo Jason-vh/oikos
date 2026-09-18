@@ -6,6 +6,7 @@ import { harbourGate } from './world';
 import { doorTiles, stairLayout } from './stairs';
 import { foreignOccupancy } from './occupancy';
 import { stallsInstalled } from './stalls';
+import { cropTiles } from './crops';
 
 export interface FootprintTile extends Tile { blocked: boolean; }
 
@@ -31,12 +32,14 @@ export function suitableFarmGround(world: World, city: City): Tile[] {
   const foreign = foreignOccupancy(world, city);
   for (const tile of foreign.roads) occupied.add(tile);
   for (const tile of foreign.buildings) occupied.add(tile);
+  const sown = cropTiles(world);
   const tiles: Tile[] = [];
   const home = map.islands[map.home];
   for (let z = home.z; z < home.z + home.depth; z++) {
     for (let x = home.x; x < home.x + home.width; x++) {
       if (terrainOn(map, x, z) !== 'fertile') continue;
       if (occupied.has(tileIndexOn(map, x, z))) continue;
+      if (sown.has(tileIndexOn(map, x, z))) continue;
       tiles.push({ x, z });
     }
   }

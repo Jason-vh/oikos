@@ -6,12 +6,13 @@ import { harbourTiles } from './harbour';
 import { harbourApron, harbourSite } from './founding';
 import { build, placement, placeRoadPath, roadPathPlacement, setVendor } from './world';
 import { foreignOccupancy, type ForeignOccupancy } from './occupancy';
+import { fieldCapacity, isGrower, openFieldsAt, sowFields } from './crops';
 
 type PlaceableKind = Exclude<BuildingKind, 'harbour'>;
 export interface PlannedBuilding { kind: PlaceableKind; x: number; z: number; }
 export interface StarterPlan { buildings: PlannedBuilding[]; roads: Tile[]; }
 
-const ORDER: PlaceableKind[] = ['farm', 'granary', 'house', 'house', 'house', 'house', 'agora', 'fountain', 'maintenance'];
+const ORDER: PlaceableKind[] = ['granary', 'house', 'house', 'house', 'house', 'agora', 'fountain', 'maintenance', 'farm'];
 
 function ringAround(map: IslandMap, centre: Tile, radius: number): Tile[] {
   const tiles: Tile[] = [];
@@ -105,7 +106,11 @@ export function planStarterNeighbourhood(world: World, city: City): StarterPlan 
   for (const kind of ORDER) {
     let placed = false;
     for (let radius = 2; radius <= 22 && !placed; radius++) {
-      for (const tile of ringAround(map, roadTop, radius)) {
+      const ring = ringAround(map, roadTop, radius);
+      const ordered = isGrower(kind)
+        ? [...ring].sort((one, other) => openFieldsAt(trial, trialCity, kind, other.x, other.z).length - openFieldsAt(trial, trialCity, kind, one.x, one.z).length)
+        : ring;
+      for (const tile of ordered) {
         const check = placement(trial, trialCity, kind, tile.x, tile.z, 0);
         if (!check.ok) continue;
         const door = frontDoor(kind, tile.x, tile.z);
@@ -124,6 +129,7 @@ export function planStarterNeighbourhood(world: World, city: City): StarterPlan 
         const roadCheck = roadPathPlacement(trial, trialCity, path);
         if (!roadCheck.ok) continue;
         if (buildingCheck.cost + roadCheck.cost > trialCity.money) continue;
+        if (isGrower(kind) && openFieldsAt(trial, trialCity, kind, tile.x, tile.z).length < fieldCapacity(kind) * 2) continue;
         const built = build(trial, trialCity, kind, tile.x, tile.z, 0);
         if (!built.ok) continue;
         const laid = placeRoadPath(trial, trialCity, path);
@@ -154,6 +160,9 @@ export function buildStarterNeighbourhood(world: World, city: City): ActionResul
   }
   const laid = placeRoadPath(world, city, plan.roads);
   if (!laid.ok) return laid;
+  for (const building of city.buildings) {
+    if (isGrower(building.kind)) sowFields(world, city, building);
+  }
   const agora = city.buildings.find((building) => building.kind === 'agora');
   if (!agora) return { ok: false, reason: 'agora missing' };
   return setVendor(city, agora.id, true);

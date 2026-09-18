@@ -3,7 +3,7 @@ import { advance, build, buildingStatus, createWorld, getSummary, setVendor } fr
 import { deserializeWorld, serializeWorld } from './save';
 import { buildStarterNeighbourhood } from './scenario';
 import { primaryCity } from './city';
-import { connect, settleHouses, spotFor } from './testing';
+import { connect, growerSpotFor, settleHouses, sow, spotFor } from './testing';
 import { islandFor } from './island';
 import { HOUSE_CAPACITY, VENDOR_COST } from './catalog';
 import { PRESS_BATCH_OIL } from './balance';
@@ -19,9 +19,11 @@ function oilCity(world: World): { agora: Building; press: Building } {
   expect(buildStarterNeighbourhood(world, city).ok).toBe(true);
   settleHouses(world, city, 3, 24);
   const entry = islandFor(world.seed, city.home).entry;
-  const orchardSpot = spotFor(world, 'orchard', entry)!;
+  const orchardSpot = growerSpotFor(world, 'orchard', entry)!;
   expect(build(world, city, 'orchard', orchardSpot.x, orchardSpot.z).ok).toBe(true);
-  expect(connect(world, city.buildings[city.buildings.length - 1]).ok).toBe(true);
+  const orchard = city.buildings[city.buildings.length - 1];
+  expect(connect(world, orchard).ok).toBe(true);
+  expect(sow(world, orchard)).toBeGreaterThan(0);
   const pressSpot = spotFor(world, 'press', orchardSpot)!;
   expect(build(world, city, 'press', pressSpot.x, pressSpot.z).ok).toBe(true);
   const press = city.buildings[city.buildings.length - 1];

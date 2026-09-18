@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { advance, build, createWorld, getSummary, setVendor } from './world';
 import { buildStarterNeighbourhood } from './scenario';
 import { primaryCity } from './city';
-import { connect, spotFor } from './testing';
+import { connect, growerSpotFor, sow, spotFor } from './testing';
 import { islandFor } from './island';
 import type { Building, City, World } from './types';
 
@@ -13,11 +13,12 @@ function runUntil(world: World, seconds: number, done: () => boolean): number {
 }
 
 function raise(world: World, city: City, kind: 'orchard' | 'press' | 'wharf' | 'lodge' | 'woodcutter' | 'stockpile', near = islandFor(world.seed, city.home).entry): Building | null {
-  const spot = spotFor(world, kind, near);
+  const spot = kind === 'orchard' ? growerSpotFor(world, kind, near) : spotFor(world, kind, near);
   if (!spot) return null;
   if (!build(world, city, kind, spot.x, spot.z).ok) return null;
   const raised = city.buildings[city.buildings.length - 1];
   connect(world, raised);
+  sow(world, raised, city);
   return raised;
 }
 

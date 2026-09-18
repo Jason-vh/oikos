@@ -1,4 +1,4 @@
-import { CURRENT_VERSION, WORLD_LABEL, type Animal, type Building, type BuildingKind, type City, type Resource, type Rotation, type StallGood, type Stalls, type Stores, type Walker, type WalkerKind, type WalkerTask, type World } from './types';
+import { CURRENT_VERSION, WORLD_LABEL, type Animal, type Building, type BuildingKind, type City, type Crop, type CropKind, type Resource, type Rotation, type StallGood, type Stalls, type Stores, type Walker, type WalkerKind, type WalkerTask, type World } from './types';
 import { STALL_GOODS, stallsInstalled } from './stalls';
 
 
@@ -10,6 +10,7 @@ import { harbourIslandAt } from './founding';
 import { cityName } from './claims';
 import { cityColor, cityColorAt } from './colors';
 import { footprintTiles, neighbours } from './grid';
+import { CROP_KINDS } from './crops';
 import { dropInvalidWalkers, recomputeConnectivity } from './world';
 import { harbourAt, validateHarbourProgress } from './harbour';
 export { CURRENT_VERSION };
@@ -91,12 +92,58 @@ function vendorsBecameStalls(parsed: Record<string, unknown>): Record<string, un
   };
 }
 
+function fieldsSown(parsed: Record<string, unknown>): Record<string, unknown> {
+  const seed = isInteger(parsed.seed) ? parsed.seed : 0;
+  const cities = Array.isArray(parsed.cities) ? parsed.cities : [];
+  return {
+    ...parsed,
+    version: 19,
+    cities: cities.map((city) => {
+      if (!isPlainObject(city) || !isInteger(city.home) || !Array.isArray(city.buildings)) return city;
+      if (Array.isArray(city.crops)) return city;
+      const map = islandFor(seed, city.home);
+      const roads = new Set(Array.isArray(city.roads) ? city.roads : []);
+      const yards = new Set<number>();
+      const crops: Array<{ tile: number; kind: string; progress: number }> = [];
+      for (const entry of city.buildings) {
+        if (!isPlainObject(entry) || !isInteger(entry.x) || !isInteger(entry.z)) continue;
+        for (let dz = 0; dz < 3; dz++) {
+          for (let dx = 0; dx < 3; dx++) {
+            if (insideMapOn(map, entry.x + dx, entry.z + dz)) yards.add((entry.z + dz) * map.width + entry.x + dx);
+          }
+        }
+      }
+      for (const entry of city.buildings) {
+        if (!isPlainObject(entry) || !isInteger(entry.x) || !isInteger(entry.z)) continue;
+        const kind = entry.kind === 'farm' ? 'wheat' : entry.kind === 'orchard' ? 'olives' : null;
+        if (!kind) continue;
+        const ax = entry.x;
+        const az = entry.z;
+        for (let dz = 0; dz < 4; dz++) {
+          for (let dx = 0; dx < 4; dx++) {
+            const x = ax + dx;
+            const z = az + dz;
+            if (!insideMapOn(map, x, z)) continue;
+            const tile = z * map.width + x;
+            if (yards.has(tile) || roads.has(tile)) continue;
+            if (map.terrain[tile] !== 'fertile') continue;
+            if (crops.some((crop) => crop.tile === tile)) continue;
+            crops.push({ tile, kind, progress: 0 });
+          }
+        }
+      }
+      return { ...city, crops };
+    }),
+  };
+}
+
 const MIGRATIONS: Array<[number, (parsed: Record<string, unknown>) => Record<string, unknown>]> = [
   [12, rosterForgotten],
   [13, countdownsScheduled],
   [15, archipelagoRelabelled],
   [16, citiesColoured],
   [17, vendorsBecameStalls],
+  [18, fieldsSown],
 ];
 
 function raise(parsed: Record<string, unknown>): Record<string, unknown> {
@@ -274,6 +321,26 @@ function pathIsAdjacent(map: IslandMap, path: number[], roads: Set<number>, over
   return true;
 }
 
+function validateCrops(map: IslandMap, raw: unknown, roads: Set<number>, occupied: Set<number>): Crop[] | null {
+  if (!Array.isArray(raw)) return null;
+  const crops: Crop[] = [];
+  const sown = new Set<number>();
+  for (const entry of raw) {
+    if (!isPlainObject(entry)) return null;
+    const { tile, kind, progress } = entry;
+    if (!tileInBounds(map, tile)) return null;
+    if (typeof kind !== 'string' || !CROP_KINDS.includes(kind as CropKind)) return null;
+    if (!isFiniteNumber(progress) || progress < 0 || progress > 1) return null;
+    if (sown.has(tile) || roads.has(tile) || occupied.has(tile)) return null;
+    const x = tile % map.width;
+    const z = Math.floor(tile / map.width);
+    if (map.terrain[z * map.width + x] !== 'fertile') return null;
+    sown.add(tile);
+    crops.push({ tile, kind: kind as CropKind, progress });
+  }
+  return crops;
+}
+
 function validateWalker(map: IslandMap, time: number, raw: unknown, roads: Set<number>, buildingIds: Set<number>): Walker | null {
   if (!isPlainObject(raw)) return null;
   const { id, kind, homeId, targetId, path, departedAt, step, progress, food, cargo, returning, overland, quarry, task: rawTask } = raw;
@@ -356,7 +423,7 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
 
   for (const rawCity of rawCities) {
     if (!isPlainObject(rawCity)) return null;
-    const { id, name, color: rawColor, home, money, harbour: rawHarbour, produced, delivered, roads: rawRoads, buildings: rawBuildings, walkers: rawWalkers } = rawCity;
+    const { id, name, color: rawColor, home, money, harbour: rawHarbour, produced, delivered, roads: rawRoads, buildings: rawBuildings, crops: rawCrops, walkers: rawWalkers } = rawCity;
     if (!isSafeInteger(id) || id <= 0) return null;
     if (usedCityIds.has(id) || id >= (nextCityId as number)) return null;
     usedCityIds.add(id);
@@ -418,7 +485,10 @@ function parseWorld(raw: string, cityCountAllowed: (count: number) => boolean): 
       walkers.push(walker);
     }
 
-    const city: City = { id: id as number, name, color, home: home as number, money: money as number, harbour, produced: produced as number, delivered: delivered as number, roads, buildings, walkers };
+    const crops = validateCrops(map, rawCrops, roadSet, occupiedTiles);
+    if (!crops) return null;
+
+    const city: City = { id: id as number, name, color, home: home as number, money: money as number, harbour, produced: produced as number, delivered: delivered as number, roads, buildings, crops, walkers };
     cities.push(city);
   }
 

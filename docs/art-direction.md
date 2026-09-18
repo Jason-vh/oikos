@@ -287,10 +287,18 @@ cushions and held to the same full-soil rule, so a patch is not only speckle: at
 close zoom something stands up out of it.
 
 Flowers are decoration like any other: they clear under a building and return when
-it is demolished. A farm therefore turns violet meadow into the lighter earth and
-gold furrows of its plot, and a city's unused fertile land can be read at a glance.
-Because the painted edge no longer follows the grid, the farm tool's overlay is what
-says which tiles can actually take a farm.
+it is demolished. A sown field does the same: the violet meadow becomes the lighter
+earth and gold furrows of one tile of crop, so a city's unused fertile land can be
+read at a glance. Because the painted edge no longer follows the grid, the planting
+overlay is what says which tiles can actually take a field.
+
+A farm and an orchard are yards rather than plots: three by three of trodden earth
+with a shed, a threshing floor, a cart and a stack — or a hut, crates and a couple
+of trees. What they hold in store raises the stack and fills the crates, the way a
+granary shows its bays. The crop itself is authored a tile at a time
+(`wheatRows`, `oliveSapling`): four stages from bare furrows to full ears, from
+sapling to fruiting olive, laid down by `src/render/crops.ts` and swapped as the
+field ripens.
 
 The stair carver (`src/art/stairs.ts`) clips terrain triangles, so it interpolates
 vertex colour along with position; a flight cut through painted ground keeps its paint.

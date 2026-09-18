@@ -9,7 +9,7 @@ import { pressStatus, updatePress } from './olives';
 import { setStall, stallGoodOf, stallOf, stallServing, stallsInstalled, STALL_GOODS, STALL_TRADES } from './stalls';
 import { unlockRefusal } from './unlocks';
 import { buildable, insideMapOn, islandFor, levelOn, onHomeIsland, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
-import { appetitePerResident, growSeconds, oilDrawPerResident, thirstPerSecond, walkerPace, wearPerSecond } from './variation';
+import { appetitePerResident, oilDrawPerResident, thirstPerSecond, walkerPace, wearPerSecond } from './variation';
 import {
   accessDoors,
   accessTiles,
@@ -25,6 +25,7 @@ import {
 import { mixedEdgeAllowed, stairLayout, stairPlacementConflict, type Stair, type StairIssue } from './stairs';
 import { shoreSite } from './shore';
 import { foreignOccupancy, type ForeignOccupancy } from './occupancy';
+import { cropOf, cropTiles, growerStatus, isGrower, updateFields, uproot } from './crops';
 import {
   AGORA_CAP,
   ARRIVAL_INTERVAL,
@@ -32,13 +33,9 @@ import {
   BUYER_FETCH_CAPACITY,
   CART_CAPACITY,
   EMPLOYMENT_SHARE,
-  FARM_STOCK_CAP,
-  ORCHARD_GROW_SECONDS,
   PRESS_CAP,
-  FARM_GROW_SECONDS,
   GRACE_SECONDS,
   GRANARY_CAP,
-  HARVEST_UNITS,
   HOUSE_WATER_CAP,
   INCOME_PER_RESIDENT,
   REPAIR_AMOUNT,
@@ -65,6 +62,7 @@ export function createWorld(seed = DEFAULT_SEED, home?: number, name = 'Oikos', 
     delivered: 0,
     roads: harbourApron(site.x, site.z, site.rotation).map((tile) => tileIndexOn(map, tile.x, tile.z)),
     buildings: [],
+    crops: [],
     walkers: [],
   };
   const world: World = {
@@ -117,11 +115,10 @@ const REASON = {
   stairAmbiguous: 'A stair can only climb in one direction; that cliff edge already has another way down.',
   stairBackland: 'A stair needs solid, dry ground to land on at the top.',
   stairSideEntry: 'Stairs can only be entered from the front or back, not the side.',
-  needsFertileGround: 'Farms need fertile ground.',
-  needsGrove: 'Olives root in grass, scrub or fertile ground.',
   needsOpenWater: 'The jetty needs open water behind the quay.',
   needsShore: 'A wharf stands on flat, open shore with water behind it.',
   tileOccupied: 'That tile is occupied.',
+  tileSown: 'A field is sown there; clear it first.',
   tileOccupiedByRoad: 'That tile is occupied by a road.',
   notEnoughMoney: 'Not enough drachmas.',
   nothingToDemolish: 'Nothing to demolish there.',
@@ -140,9 +137,6 @@ function buildingAt(world: World, city: City, tile: number): Building | undefine
 function terrainAllows(map: IslandMap, kind: BuildTool, x: number, z: number): boolean {
   const terrain = terrainOn(map, x, z);
   if (kind === 'road') return buildable(terrain) || terrain === 'forest' || terrain === 'cliff';
-  const ground = BUILDINGS[kind].ground ?? 'buildable';
-  if (ground === 'fertile') return terrain === 'fertile';
-  if (ground === 'grove') return terrain === 'grass' || terrain === 'scrub' || terrain === 'fertile';
   return buildable(terrain);
 }
 
@@ -154,13 +148,6 @@ function gradeAllowed(map: IslandMap, ax: number, az: number, bx: number, bz: nu
   if (difference > 1) return false;
   const higherTerrain = levelA > levelB ? terrainOn(map, ax, az) : terrainOn(map, bx, bz);
   return higherTerrain === 'cliff';
-}
-
-function groundRefusal(tool: BuildTool): string {
-  const ground = tool === 'road' ? 'buildable' : BUILDINGS[tool].ground ?? 'buildable';
-  if (ground === 'fertile') return REASON.needsFertileGround;
-  if (ground === 'grove') return REASON.needsGrove;
-  return REASON.unsuitableTerrain;
 }
 
 function stairReason(issue: StairIssue): string {
@@ -204,6 +191,7 @@ function stairPlacementIssue(map: IslandMap, roads: ReadonlySet<number>, newTile
 function occupancyRefusal(world: World, city: City, foreign: ForeignOccupancy, tile: number): string {
   if (city.roads.includes(tile) || foreign.roads.has(tile)) return REASON.tileOccupiedByRoad;
   if (buildingAt(world, city, tile) || foreign.buildings.has(tile)) return REASON.tileOccupied;
+  if (cropTiles(world).has(tile)) return REASON.tileSown;
   return '';
 }
 
@@ -211,7 +199,7 @@ function footprintRefusal(world: World, city: City, foreign: ForeignOccupancy, t
   const map = mapOf(world, city);
   const { x, z } = tileAtOn(map, tile);
   if (levelOn(map, x, z) !== baseLevel) return REASON.unevenGround;
-  if (!terrainAllows(map, tool, x, z)) return groundRefusal(tool);
+  if (!terrainAllows(map, tool, x, z)) return REASON.unsuitableTerrain;
   if (!onHomeIsland(map, x, z)) return REASON.unsettledIsland;
   return occupancyRefusal(world, city, foreign, tile);
 }
@@ -245,6 +233,7 @@ function evaluatePlacement(world: World, city: City, tool: BuildTool, x: number,
     if (!onHomeIsland(map, x, z)) return { ok: false, reason: REASON.unsettledIsland, cost: 0, tiles: [tile] };
     if (buildingAt(world, city, tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: [tile] };
     if (foreign.buildings.has(tile)) return { ok: false, reason: REASON.tileOccupied, cost: 0, tiles: [tile] };
+    if (cropTiles(world).has(tile)) return { ok: false, reason: REASON.tileSown, cost: 0, tiles: [tile] };
     const already = city.roads.includes(tile);
     if (!already && foreign.roads.has(tile)) return { ok: false, reason: REASON.tileOccupiedByRoad, cost: 0, tiles: [tile] };
     if (neighbourGradeIssue(map, new Set(city.roads), tile)) return { ok: false, reason: REASON.roadTooSteep, cost: 0, tiles: [tile] };
@@ -395,6 +384,8 @@ export function demolish(world: World, city: City, x: number, z: number): Action
     recomputeConnectivity(world, city);
     return { ok: true, reason: `Demolished, ${refund} drachmas refunded.` };
   }
+
+  if (uproot(city, tile)) return { ok: true, reason: 'Field cleared.' };
 
   const index = city.roads.indexOf(tile);
   if (index === -1) return { ok: false, reason: REASON.nothingToDemolish };
@@ -580,25 +571,7 @@ function updateStaffing(city: City): void {
   }
 }
 
-const CROPS: Partial<Record<BuildingKind, { crop: Food; seconds: number }>> = {
-  farm: { crop: 'wheat', seconds: FARM_GROW_SECONDS },
-  orchard: { crop: 'olives', seconds: ORCHARD_GROW_SECONDS },
-};
 
-function updateGrower(world: World, city: City, field: Building, dt: number): void {
-  const growing = CROPS[field.kind]!;
-  if (field.connected && field.workers > 0) {
-    const ratio = field.workers / jobsOf(field);
-    field.progress += (dt / growSeconds(field, growing.seconds)) * ratio;
-    if (field.progress >= 1) {
-      field.progress -= 1;
-      addStore(field, growing.crop, Math.min(HARVEST_UNITS, FARM_STOCK_CAP - totalStock(field)));
-      city.produced += HARVEST_UNITS;
-    }
-  }
-
-  sendCart(world, city, field);
-}
 
 export function sendCart(world: World, city: City, producer: Building): void {
   if (!producer.connected || producer.workers <= 0) return;
@@ -952,8 +925,9 @@ function simulationStep(world: World, dt: number): void {
   world.time += dt;
   for (const city of world.cities) {
     updateStaffing(city);
+    updateFields(world, city, dt);
     for (const building of city.buildings) {
-      if (CROPS[building.kind]) updateGrower(world, city, building, dt);
+      if (isGrower(building.kind)) sendCart(world, city, building);
       else if (building.kind === 'press') updatePress(city, building, dt);
       else if (isGatherer(building.kind)) updateGatherer(world, city, building);
       else if (building.kind === 'agora') updateAgora(world, city, building, dt);
@@ -1055,12 +1029,12 @@ function agoraStatus(city: City, agora: Building): string[] {
   });
 }
 
-function growerStatus(city: City, field: Building): string[] {
-  const growing = CROPS[field.kind]!;
+function harvestStatus(world: World, city: City, field: Building): string[] {
+  const crop = cropOf(field.kind)!;
   if (totalStock(field) > 0 && !hasActiveWalker(city, field.id, 'cart')) {
-    return [`Harvest ready, but no ${BUILDINGS[storeKindFor(growing.crop)].name.toLowerCase()} to send it to.`];
+    return [`Harvest ready, but no ${BUILDINGS[storeKindFor(crop)].name.toLowerCase()} to send it to.`];
   }
-  return [`Growing ${growing.crop}, ${Math.round(field.progress * 100)}% to harvest.`];
+  return growerStatus(world, city, field);
 }
 
 function vendorServing(city: City): boolean {
@@ -1115,8 +1089,8 @@ export function buildingStatus(world: World, city: City, building: Building): st
 
   if (building.workers < definition.jobs * .999) {
     lines.push(building.workers > 0 ? 'Short of workers; more settlers are needed.' : 'Unstaffed; settlers are needed for work.');
-  } else if (CROPS[building.kind]) {
-    lines.push(...growerStatus(city, building));
+  } else if (isGrower(building.kind)) {
+    lines.push(...harvestStatus(world, city, building));
   } else if (building.kind === 'press') {
     lines.push(...pressStatus(building));
   } else if (building.kind === 'granary') {

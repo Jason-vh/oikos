@@ -3,17 +3,11 @@ import type { Stores } from '../sim/types';
 import { box, colors, group, lump, post, pot, roof } from './primitives';
 import { assemblyPart, modelAssembly, type ModelAssembly } from './assembly';
 
-const GROVE_ROWS: [number, number][] = [[-1.4, -1.35], [.2, -1.5], [1.6, -1.1], [-1.55, .25], [.05, .1], [1.5, .55], [-1.2, 1.6], [.5, 1.55]];
-
-function groveGround(parent: T.Object3D): void {
-  box(parent, colors.earth, 0, .05, 0, 4.6, .1, 4.6, .02);
-  for (const x of [-1.5, 0, 1.5]) box(parent, 0xb9ad82, x, .11, 0, 1.1, .04, 4.4, .02);
-}
-
 const TRUNK_HEIGHT = .62;
 
-function oliveTree(parent: T.Object3D, x: number, z: number, stage: number): void {
+function oliveTree(parent: T.Object3D, x: number, z: number, stage: number, scale = 1): void {
   const tree = group(parent, x, .1, z, x * 3 + z);
+  tree.scale.setScalar(scale);
   post(tree, colors.wood, 0, TRUNK_HEIGHT / 2, 0, .11, TRUNK_HEIGHT);
   post(tree, colors.wood, 0, TRUNK_HEIGHT * .9, 0, .16, .12);
   const crown = [.5, .56, .62, .66][stage];
@@ -25,34 +19,60 @@ function oliveTree(parent: T.Object3D, x: number, z: number, stage: number): voi
   for (const [dx, dz] of [[-.22, .14], [.24, -.08], [.02, .2]]) lump(tree, 0x4a4b3a, dx, TRUNK_HEIGHT + crown * .62, dz, .075, .075, .075);
 }
 
-function groveTrees(parent: T.Object3D, stage: number): void {
-  for (const [x, z] of GROVE_ROWS) oliveTree(parent, x, z, stage);
+export function oliveSapling(stage: number, seed = 0): T.Group {
+  const plant = new T.Group();
+  box(plant, colors.earth, 0, .03, 0, 1.1, .06, 1.1, .02);
+  oliveTree(plant, 0, 0, stage, .52 + stage * .13);
+  plant.rotation.y = (seed % 4) * Math.PI / 2;
+  return plant;
+}
+
+function groveGround(parent: T.Object3D): void {
+  box(parent, colors.earth, 0, .05, 0, 3.5, .1, 3.5, .02);
+  box(parent, colors.paving, 0, .11, .5, 2.3, .04, 2, .02);
+}
+
+function groveHut(parent: T.Object3D): void {
+  const hut = group(parent, -.95, 0, -1.05);
+  box(hut, colors.stone, 0, .08, 0, 1.5, .16, 1.25);
+  box(hut, colors.plaster, 0, .5, 0, 1.2, .74, 1, .06);
+  roof(hut, 1.35, 1.15, .87, .3, colors.roofDark);
+  box(hut, colors.dark, 0, .4, .52, .46, .64, .05);
+  box(hut, colors.blue, .42, .56, .52, .3, .3, .05);
 }
 
 function groveYard(parent: T.Object3D, stage: number): void {
-  const yard = group(parent, 1.5, 0, 1.8);
-  box(yard, colors.paving, 0, .12, 0, 1.4, .18, 1.1);
-  box(yard, colors.stone, 0, .34, -.42, 1.3, .32, .22, .05);
-  if (stage < 2) return;
-  for (const [dx, dz] of [[-.36, .18], [.3, .3]]) {
-    box(yard, colors.wood, dx, .3, dz, .44, .28, .4, .04);
-    if (stage === 3) for (const drop of [-.1, .08]) lump(yard, colors.oliveDark, dx + drop, .48, dz, .08, .07, .08);
+  const yard = group(parent, .95, 0, -.85);
+  box(yard, colors.paving, 0, .14, 0, 1.5, .2, 1.3);
+  box(yard, colors.stone, 0, .38, -.5, 1.4, .34, .24, .05);
+  if (stage < 1) return;
+  for (const [dx, dz] of [[-.36, .22], [.34, .34]]) {
+    box(yard, colors.wood, dx, .34, dz, .46, .3, .42, .04);
+    if (stage >= 2) for (const drop of [-.1, .08]) lump(yard, colors.oliveDark, dx + drop, .53, dz, .08, .07, .08);
   }
+  if (stage < 3) return;
+  for (const [dx, dz] of [[-.5, -.1], [.5, -.05]]) pot(yard, dx, .24, dz, .7, colors.oliveDark);
+}
+
+function groveTrees(parent: T.Object3D, stage: number): void {
+  for (const [x, z] of [[-1.1, 1.1], [.55, 1.15]] as [number, number][]) oliveTree(parent, x, z, stage, .78);
 }
 
 export function oliveOrchard(stage = 3): T.Group {
   const grove = new T.Group();
   groveGround(grove);
-  groveTrees(grove, stage);
+  groveHut(grove);
   groveYard(grove, stage);
+  groveTrees(grove, stage);
   return grove;
 }
 
 export function oliveOrchardPieces(stage: number): ModelAssembly {
   const assembly = modelAssembly(false);
   groveGround(assemblyPart(assembly, { name: 'ground', at: 0, lift: 0, dust: true }));
-  groveYard(assemblyPart(assembly, { name: 'yard', at: .2, lift: .3, duration: .3, dust: true }), stage);
-  groveTrees(assemblyPart(assembly, { name: 'saplings', at: .5, lift: .18, duration: .34 }), stage);
+  groveHut(assemblyPart(assembly, { name: 'hut', at: .24, lift: .34, duration: .32, dust: true }));
+  groveYard(assemblyPart(assembly, { name: 'yard', at: .54, lift: .3, duration: .3, dust: true }), stage);
+  groveTrees(assemblyPart(assembly, { name: 'saplings', at: .78, lift: .18, duration: .3 }), stage);
   return assembly;
 }
 

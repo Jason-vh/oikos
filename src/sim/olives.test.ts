@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { advance, build, buildingStatus, createWorld } from './world';
 import { islandFor, terrainOn } from './island';
-import { connect, settleHouses, spotFor } from './testing';
+import { connect, growerSpotFor, settleHouses, sow, spotFor } from './testing';
 import { primaryCity } from './city';
 import { PRESS_BATCH_OIL, PRESS_BATCH_OLIVES, PRESS_CAP } from './balance';
 import { BUILDINGS } from './catalog';
@@ -11,10 +11,11 @@ function buildOliveCity(world: World): { orchard: Building; press: Building } {
   const city = primaryCity(world);
   const entry = islandFor(world.seed).entry;
   expect(settleHouses(world, city, 3, 24).length).toBeGreaterThan(0);
-  const orchardSpot = spotFor(world, 'orchard', entry)!;
+  const orchardSpot = growerSpotFor(world, 'orchard', entry)!;
   expect(build(world, city, 'orchard', orchardSpot.x, orchardSpot.z).ok).toBe(true);
   const orchard = city.buildings[city.buildings.length - 1];
   expect(connect(world, orchard).ok).toBe(true);
+  expect(sow(world, orchard)).toBeGreaterThan(0);
   const pressSpot = spotFor(world, 'press', orchardSpot)!;
   expect(build(world, city, 'press', pressSpot.x, pressSpot.z).ok).toBe(true);
   const press = city.buildings[city.buildings.length - 1];
@@ -28,21 +29,22 @@ function runUntil(world: World, seconds: number, done: () => boolean): boolean {
 }
 
 describe('the olive orchard', () => {
-  test('roots in grass, scrub or fertile ground, and nowhere else', () => {
+  test('stands on any buildable ground and plants its olives on fertile soil', () => {
     const world = createWorld(1);
     const city = primaryCity(world);
     settleHouses(world, city, 3, 24);
     const map = islandFor(world.seed);
-    const spot = spotFor(world, 'orchard', map.entry)!;
-    for (let dz = 0; dz < 4; dz++) {
-      for (let dx = 0; dx < 4; dx++) {
-        expect(['grass', 'scrub', 'fertile']).toContain(terrainOn(map, spot.x + dx, spot.z + dz));
-      }
+    const spot = growerSpotFor(world, 'orchard', map.entry)!;
+    expect(build(world, city, 'orchard', spot.x, spot.z).ok).toBe(true);
+    const orchard = city.buildings[city.buildings.length - 1];
+    expect(connect(world, orchard).ok).toBe(true);
+    expect(sow(world, orchard)).toBeGreaterThan(0);
+    for (const crop of city.crops) {
+      const x = crop.tile % map.width;
+      const z = Math.floor(crop.tile / map.width);
+      expect(terrainOn(map, x, z)).toBe('fertile');
+      expect(crop.kind).toBe('olives');
     }
-    const sand = spotFor(world, 'house', map.entry)!;
-    const sandy = { x: sand.x, z: sand.z };
-    const refusal = build(world, city, 'orchard', sandy.x, sandy.z);
-    expect(refusal.ok || refusal.reason === 'Olives root in grass, scrub or fertile ground.').toBe(true);
   });
 
   test('its cart carries olives to a press, never to a granary', () => {
@@ -71,11 +73,10 @@ describe('the olive press', () => {
     const world = createWorld(1);
     const { press } = buildOliveCity(world);
     expect(runUntil(world, 900, () => press.progress > 0)).toBe(true);
-    const olives = press.stores.olives ?? 0;
     const oil = press.stores.oil ?? 0;
     expect(runUntil(world, 200, () => (press.stores.oil ?? 0) > oil)).toBe(true);
     expect(press.stores.oil).toBe(oil + PRESS_BATCH_OIL);
-    expect(press.stores.olives ?? 0).toBeLessThanOrEqual(olives + PRESS_BATCH_OLIVES);
+    expect(press.stores.olives ?? 0).toBeLessThanOrEqual(PRESS_CAP);
     advance(world, 1200);
     const total = Object.values(press.stores).reduce((sum, amount) => sum + amount, 0);
     expect(total).toBeLessThanOrEqual(PRESS_CAP);

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { BUILDINGS, ROAD_COST, VENDOR_COST } from '../sim/catalog';
+import { FIELD_RANGE, FIELDS_TENDED } from '../sim/balance';
 import { BUILD_TOOLS } from '../sim/commands';
 import { UNLOCKS, tierNoun } from '../sim/unlocks';
 import { ISLAND_COUNT } from '../sim/island';
@@ -23,6 +24,14 @@ const rotation = z.int().min(0).max(3).default(0).describe('Quarter turns clockw
 const ANCHOR = '(x,z) is the north-west corner of the footprint, which then runs east and south.';
 const bend = z.enum(['x-first', 'z-first']).default('x-first');
 const DEFAULT_WINDOW = { width: 40, depth: 28 };
+
+function rectangleTiles(from: Tile, to: Tile): Tile[] {
+  const tiles: Tile[] = [];
+  for (let z = Math.min(from.z, to.z); z <= Math.max(from.z, to.z); z++) {
+    for (let x = Math.min(from.x, to.x); x <= Math.max(from.x, to.x); x++) tiles.push({ x, z });
+  }
+  return tiles;
+}
 
 function elbowPath(from: Tile, to: Tile, corner: 'x-first' | 'z-first'): Tile[] {
   const stepX = Math.sign(to.x - from.x);
@@ -147,7 +156,7 @@ export const TOOLS: AgentTool[] = [
   }),
   tool({
     name: 'build',
-    description: `Put up a building. It needs level, clear ground and a door onto a road that reaches the harbour; farms need fertile soil, olives take grass, scrub or fertile ground, and a fishing wharf stands on the shore with its jetty over open water. Some tools are earned: ${unlockLines()} A refusal names the shortfall and costs nothing. ${ANCHOR}`,
+    description: `Put up a building. It needs level, clear ground and a door onto a road that reaches the harbour; a farm or an orchard is a yard that stands on any clear ground and sows its fields nearby with plant_fields, and a fishing wharf stands on the shore with its jetty over open water. Some tools are earned: ${unlockLines()} A refusal names the shortfall and costs nothing. ${ANCHOR}`,
     schema: { tool: buildTool, ...coordinates, rotation },
     async run(game, args) {
       const result = await game.submit({ type: 'build', tool: args.tool as never, x: args.x, z: args.z, rotation: args.rotation as Rotation });
@@ -169,6 +178,15 @@ export const TOOLS: AgentTool[] = [
     schema: coordinates,
     async run(game, args) {
       const result = await game.submit({ type: 'demolish', x: args.x, z: args.z });
+      return outcome(result, game.view().city);
+    },
+  }),
+  tool({
+    name: 'plant_fields',
+    description: `Sow the ground a farm or an orchard will tend: fertile soil within ${FIELD_RANGE} walked tiles of the yard, given as a rectangle of tiles. Wheat comes from a farm, olives from an orchard. A yard tends only so many fields at once (farm ${FIELDS_TENDED.farm}, orchard ${FIELDS_TENDED.orchard}); sow more and the surplus waits for another yard. Sowing is free; the wrecking tool clears a field.`,
+    schema: { id: tile, from: tileObject, to: tileObject },
+    async run(game, args) {
+      const result = await game.submit({ type: 'plant', id: args.id, tiles: rectangleTiles(args.from, args.to) });
       return outcome(result, game.view().city);
     },
   }),
