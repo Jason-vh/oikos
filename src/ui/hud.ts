@@ -5,7 +5,7 @@ import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, VENDO
 import { appetitePerResident, thirstPerSecond } from '../sim/variation';
 import { cityColors } from '../art/primitives';
 import type { CityColor } from '../sim/colors';
-import { resourceIcon, toolIcon } from './icons';
+import { chevronIcon, resourceIcon, toolIcon } from './icons';
 
 export type HudTool = Tool | 'harbour';
 export type Stance = 'founding' | 'watching' | 'building';
@@ -68,6 +68,7 @@ interface ToolDef {
 
 interface ToolGroup {
   name: string;
+  inline?: boolean;
   tools: ToolDef[];
 }
 
@@ -76,6 +77,7 @@ const HARBOUR_DEF: ToolDef = { tool: 'harbour', label: 'Harbour', cost: '', pric
 const TOOL_GROUPS: ToolGroup[] = [
   {
     name: 'Build',
+    inline: true,
     tools: [
       { tool: 'road', label: 'Road', cost: `${ROAD_COST} / tile`, price: ROAD_COST, key: 'B' },
       { tool: 'house', label: BUILDINGS.house.name, cost: String(BUILDINGS.house.cost), price: BUILDINGS.house.cost },
@@ -98,7 +100,7 @@ const TOOL_GROUPS: ToolGroup[] = [
     ],
   },
   {
-    name: 'Distribution',
+    name: 'Supply',
     tools: [
       { tool: 'granary', label: BUILDINGS.granary.name, cost: String(BUILDINGS.granary.cost), price: BUILDINGS.granary.cost },
       { tool: 'agora', label: BUILDINGS.agora.name, cost: String(BUILDINGS.agora.cost), price: BUILDINGS.agora.cost },
@@ -114,12 +116,14 @@ const TOOL_GROUPS: ToolGroup[] = [
   },
   {
     name: 'Clear',
+    inline: true,
     tools: [{ tool: 'demolish', label: 'Demolish', cost: 'half refunded', price: 0, key: 'X' }],
   },
 ];
 
 const TOOL_DEFS: ToolDef[] = TOOL_GROUPS.flatMap((group) => group.tools);
 
+const FLYOUT_GRACE = 220;
 const TOAST_LIFETIME = 3200;
 const BANNER_LIFETIME = 3600;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -328,22 +332,122 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
   }
   const harbourButton = addToolButton(HARBOUR_DEF, toolbar);
   harbourButton.hidden = true;
-  const groupPanels = TOOL_GROUPS.map((group) => {
+
+  interface GroupPanel {
+    name: string;
+    panel: HTMLElement;
+    opener: HTMLButtonElement | null;
+    glyph: HTMLElement | null;
+    flyout: HTMLElement | null;
+    tools: HudTool[];
+  }
+
+  let openGroup: GroupPanel | null = null;
+  let flyoutCloseTimer = 0;
+
+  function cancelFlyoutClose(): void {
+    window.clearTimeout(flyoutCloseTimer);
+    flyoutCloseTimer = 0;
+  }
+
+  function closeFlyout(): void {
+    cancelFlyoutClose();
+    const closing = openGroup;
+    openGroup = null;
+    if (!closing?.opener || !closing.flyout) return;
+    const flyout = closing.flyout;
+    closing.opener.setAttribute('aria-expanded', 'false');
+    if (stillMotion.matches) {
+      flyout.hidden = true;
+      return;
+    }
+    flyout.classList.add('hud-tool-flyout-leaving');
+    flyout.addEventListener('animationend', () => {
+      if (!flyout.classList.contains('hud-tool-flyout-leaving')) return;
+      flyout.classList.remove('hud-tool-flyout-leaving');
+      flyout.hidden = true;
+    }, { once: true });
+  }
+
+  function openFlyout(group: GroupPanel): void {
+    if (openGroup === group || !group.opener || !group.flyout) return;
+    closeFlyout();
+    group.flyout.classList.remove('hud-tool-flyout-leaving');
+    group.flyout.hidden = false;
+    group.opener.setAttribute('aria-expanded', 'true');
+    openGroup = group;
+  }
+
+  function toggleFlyout(group: GroupPanel): void {
+    if (openGroup === group) closeFlyout();
+    else openFlyout(group);
+  }
+
+  function armsOpenGroup(): boolean {
+    return openGroup !== null && openGroup.tools.includes(armedTool);
+  }
+
+  const groupPanels: GroupPanel[] = TOOL_GROUPS.map((group) => {
     const panel = document.createElement('div');
     panel.className = 'hud-tool-group';
     panel.dataset.group = group.name.toLowerCase();
-    panel.setAttribute('role', 'group');
-    panel.setAttribute('aria-label', group.name);
-    const caption = document.createElement('span');
-    caption.className = 'hud-tool-group-name';
-    caption.textContent = group.name;
-    const tools = document.createElement('div');
-    tools.className = 'hud-tool-group-tools';
-    panel.append(caption, tools);
-    for (const def of group.tools) addToolButton(def, tools);
+    const tools = group.tools.map((def) => def.tool);
+    if (group.inline) {
+      panel.setAttribute('role', 'group');
+      panel.setAttribute('aria-label', group.name);
+      for (const def of group.tools) addToolButton(def, panel);
+      toolbar.appendChild(panel);
+      return { name: group.name, panel, opener: null, glyph: null, flyout: null, tools };
+    }
+    const opener = document.createElement('button');
+    opener.type = 'button';
+    opener.className = 'hud-tool hud-tool-opener';
+    opener.dataset.opener = group.name.toLowerCase();
+    opener.setAttribute('aria-pressed', 'false');
+    opener.setAttribute('aria-expanded', 'false');
+    opener.setAttribute('aria-haspopup', 'true');
+    opener.setAttribute('aria-label', `${group.name} tools`);
+    opener.title = group.name;
+    opener.append(chevronIcon());
+    const glyph = document.createElement('span');
+    glyph.className = 'hud-tool-glyph';
+    glyph.append(toolIcon(group.tools[0].tool));
+    const label = document.createElement('span');
+    label.className = 'hud-tool-label';
+    label.textContent = group.name;
+    opener.append(glyph, label);
+    const flyout = document.createElement('div');
+    flyout.className = 'hud-tool-flyout';
+    flyout.setAttribute('role', 'group');
+    flyout.setAttribute('aria-label', group.name);
+    flyout.hidden = true;
+    for (const def of group.tools) addToolButton(def, flyout);
+    panel.append(opener, flyout);
     toolbar.appendChild(panel);
-    return { panel, tools: group.tools.map((def) => def.tool) };
+    const entry: GroupPanel = { name: group.name, panel, opener, glyph, flyout, tools };
+    opener.addEventListener('click', () => toggleFlyout(entry));
+    panel.addEventListener('pointerenter', cancelFlyoutClose);
+    panel.addEventListener('pointerleave', (event) => {
+      if (event.pointerType !== 'mouse' || openGroup !== entry || armsOpenGroup()) return;
+      cancelFlyoutClose();
+      flyoutCloseTimer = window.setTimeout(closeFlyout, FLYOUT_GRACE);
+    });
+    return entry;
   });
+
+  function dismissFlyout(event: Event): void {
+    if (!openGroup || armsOpenGroup()) return;
+    if (event.target instanceof Node && openGroup.panel.contains(event.target)) return;
+    closeFlyout();
+  }
+  window.addEventListener('pointerdown', dismissFlyout, true);
+
+  function escapeFlyout(event: KeyboardEvent): void {
+    if (event.key !== 'Escape' || !openGroup || armsOpenGroup()) return;
+    closeFlyout();
+    event.stopPropagation();
+  }
+  window.addEventListener('keydown', escapeFlyout, true);
 
   action(root, 'discard-pending').addEventListener('click', () => {
     if (window.confirm('This may abandon an action that already applied to the shared city. Discard the unresolved request?')) actions.discardPending();
@@ -378,7 +482,9 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
   let lastSelectedId: number | string | null = null;
   let stance: Stance = 'building';
   let lastActive: CityScope | null = null;
+  let armedTool: HudTool = 'inspect';
   const shownTools = new Set<HudTool>();
+  const shownGroups = new Set<string>();
   const stillMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let toolbarSettled = false;
 
@@ -387,17 +493,36 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
     button.addEventListener('animationend', () => button.classList.remove('hud-tool-entering'), { once: true });
   }
 
+  function paintOpener(group: GroupPanel): void {
+    if (!group.opener || !group.glyph) return;
+    const armed = group.tools.includes(armedTool);
+    group.opener.setAttribute('aria-pressed', String(armed));
+    const glyphTool = armed ? armedTool : group.tools.find((tool) => shownTools.has(tool));
+    if (!glyphTool || group.glyph.dataset.tool === glyphTool) return;
+    group.glyph.dataset.tool = glyphTool;
+    group.glyph.replaceChildren(toolIcon(glyphTool));
+  }
+
   function applyAvailability(): void {
     const building = stance === 'building';
+    const animate = toolbarSettled && !stillMotion.matches;
     for (const def of TOOL_DEFS) {
       const button = toolButtons.get(def.tool)!;
       const available = building && (!lastActive || unlocked(lastActive.city, def.tool as BuildTool));
-      if (available && !shownTools.has(def.tool) && toolbarSettled && !stillMotion.matches) revealTool(button);
+      if (available && !shownTools.has(def.tool) && animate) revealTool(button);
       button.hidden = !available;
       if (available) shownTools.add(def.tool);
       else shownTools.delete(def.tool);
     }
-    for (const group of groupPanels) group.panel.hidden = group.tools.every((tool) => !shownTools.has(tool));
+    for (const group of groupPanels) {
+      const available = group.tools.some((tool) => shownTools.has(tool));
+      if (available && !shownGroups.has(group.name) && animate && group.opener) revealTool(group.opener);
+      group.panel.hidden = !available;
+      if (available) shownGroups.add(group.name);
+      else shownGroups.delete(group.name);
+      if (!available && openGroup === group) closeFlyout();
+      paintOpener(group);
+    }
     toolbarSettled = building;
   }
 
@@ -611,6 +736,9 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
       button.disabled = !writable || !active;
       button.classList.toggle('hud-tool-unaffordable', !!active && def.price > active.city.money);
     }
+    for (const group of groupPanels) {
+      if (group.opener) group.opener.disabled = !writable || !active;
+    }
     applyAvailability();
     balanceField.textContent = formatSigned(viewed?.summary.balance ?? 0);
     employedField.textContent = `${viewed?.summary.workers ?? 0} / ${viewed?.summary.jobs ?? 0}`;
@@ -622,7 +750,12 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
   }
 
   function setTool(tool: HudTool, rotation: Rotation): void {
+    armedTool = tool;
+    const armedGroup = groupPanels.find((group) => group.flyout !== null && group.tools.includes(tool));
+    if (armedGroup) openFlyout(armedGroup);
+    else closeFlyout();
     for (const [key, button] of toolButtons) button.setAttribute('aria-pressed', String(key === tool));
+    for (const group of groupPanels) paintOpener(group);
     toolbar.dataset.rotation = String(rotation);
   }
 
@@ -682,6 +815,9 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
   function dispose(): void {
     for (const timer of toastTimers) window.clearTimeout(timer);
     toastTimers.clear();
+    cancelFlyoutClose();
+    window.removeEventListener('pointerdown', dismissFlyout, true);
+    window.removeEventListener('keydown', escapeFlyout, true);
     root.replaceChildren();
   }
 

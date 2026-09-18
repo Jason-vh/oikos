@@ -433,9 +433,10 @@ keeps working. The starter neighbourhood uses only tools that are always availab
 so a city of nobody can still build it.
 
 The toolbar carries only what the city may build: a locked tool is absent, and appears
-with a short slide-in the moment its line is met. Tools are grouped by trade — build,
-food, goods, distribution, services, clear — and a group whose tools are all locked is
-absent too. The guide shows the nearest unlock and how far away it is, and each one is
+with a short slide-in the moment its line is met. The road, the dwelling and the
+wrecking tool sit in the bar itself; food, goods, supply and services are one
+button each, opening upwards into their tools, and a group whose tools are all locked
+is absent too. The group button wears the icon of whatever is armed from it. The guide shows the nearest unlock and how far away it is, and each one is
 announced once per session. `cityReport` tells an agent the same thing.
 
 ## The goal

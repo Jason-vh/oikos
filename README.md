@@ -44,7 +44,8 @@ toolbar until enough people live at the tier it asks for, then slides into its g
 the guide names the next one.
 
 Left-click builds or inspects. Drag to lay roads. WASD / arrow keys or right-drag
-pan; scroll zooms; Alt-drag orbits. Tools are chosen in the toolbar, grouped by trade.
+pan; scroll zooms; Alt-drag orbits. The toolbar keeps the road, the dwelling and the
+wrecking tool to hand and folds the rest into groups that open upwards.
 `B` takes the road and `X` the wrecking tool. `R` rotates a
 building, `G` toggles the grid, `Q` rotates the camera, and `H` returns to the village.
 `Shift` switches the bend while laying roads. `Escape` cancels the current tool or

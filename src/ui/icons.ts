@@ -36,6 +36,10 @@ export function toolIcon(tool: ToolIconName): SVGSVGElement {
   return icon(ICONS[tool] ?? '', 'hud-tool-icon', 32);
 }
 
+export function chevronIcon(): SVGSVGElement {
+  return icon('<path d="m18 15-6-6-6 6" />', 'hud-tool-chevron', 24);
+}
+
 export function resourceIcon(resource: Resource): SVGSVGElement {
   return icon(RESOURCE_ICONS[resource], 'hud-resource-icon', 24);
 }
