@@ -9,6 +9,7 @@ import { roadSpur } from '../sim/testing';
 import { mapOf } from '../sim/grid';
 import { CELL_SIZE, tileAtOn, tileIndexOn, worldPositionOn } from '../sim/island';
 import { walkerSpeed } from '../sim/balance';
+import { walkerPace } from '../sim/variation';
 import type { Walker } from '../sim/types';
 
 function fixture() {
@@ -39,8 +40,8 @@ function fixture() {
 }
 
 test('a walker stands where the world clock puts it, not where a tween left it', () => {
-  const { city, at } = fixture();
-  const pace = walkerSpeed('porter');
+  const { city, at, walker } = fixture();
+  const pace = walkerPace(walker);
   city.setWorldTime(1 / pace);
   city.animate(0, 1 / 60, 1);
   const first = at();
@@ -54,8 +55,8 @@ test('a walker stands where the world clock puts it, not where a tween left it',
 });
 
 test('a repeated sync at the same instant moves nothing', () => {
-  const { city, world, at } = fixture();
-  city.setWorldTime(.5 / walkerSpeed('porter'));
+  const { city, world, at, walker } = fixture();
+  city.setWorldTime(.5 / walkerPace(walker));
   city.animate(0, 1 / 60, 1);
   const placed = at();
   for (let repeat = 0; repeat < 3; repeat++) city.sync(world);
@@ -275,7 +276,7 @@ test('a walker rounds a corner instead of pivoting on the spot', () => {
   try {
     const track: T.Vector3[] = [];
     for (let travelled = 0; travelled <= 3; travelled += .05) {
-      city.setWorldTime(travelled / walkerSpeed('porter'));
+      city.setWorldTime(travelled / walkerPace(walker));
       city.animate(0, 1 / 60, 1);
       track.push(city.moverPoint(walker.id)!.clone());
     }
@@ -341,7 +342,7 @@ test('a laden carter is slower than an empty-handed one, and still arrives on it
   city.sync(world);
   try {
     const last = spur.length - 1;
-    city.setWorldTime(last / walkerSpeed('cart'));
+    city.setWorldTime(last / walkerPace(walker));
     city.animate(0, 1 / 60, 1);
     const arrived = city.moverPoint(walker.id)!.clone();
     const end = tileAtOn(islandFor(world.seed), spur[last]);
@@ -353,8 +354,8 @@ test('a laden carter is slower than an empty-handed one, and still arrives on it
 });
 
 test('a walker eases off a standstill rather than leaving at full speed', () => {
-  const { city, at } = fixture();
-  const pace = walkerSpeed('porter');
+  const { city, at, walker } = fixture();
+  const pace = walkerPace(walker);
   const sample = (tiles: number) => {
     city.setWorldTime(tiles / pace);
     city.animate(0, 1 / 60, 1);
@@ -384,7 +385,7 @@ test('two walkers on one road do not stand in the same place', () => {
   city.setWorldTime(0);
   city.sync(world);
   try {
-    city.setWorldTime(2 / walkerSpeed('porter'));
+    city.setWorldTime(2 / walkerPace(pair[0]));
     city.animate(0, 1 / 60, 1);
     const [one, other] = pair.map((walker) => city.moverPoint(walker.id)!.clone());
     expect(one.distanceTo(other)).toBeGreaterThan(.15);
@@ -412,7 +413,7 @@ test('a cart rolls forward on its wheels, by the ground it covers', () => {
     const wheels = model.getObjectByName('cart')!.children.filter((part) => part.name === 'wheel');
     expect(wheels).toHaveLength(2);
     const turnAt = (tiles: number) => {
-      city.setWorldTime(tiles / walkerSpeed('cart'));
+      city.setWorldTime(tiles / walkerPace(carter));
       city.animate(0, 1 / 60, 1);
       return wheels.map((wheel) => wheel.rotation.x);
     };

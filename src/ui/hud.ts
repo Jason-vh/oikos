@@ -1,6 +1,6 @@
 import type { Building, City, Resource, Rotation, Summary, Tool, World } from '../sim/types';
 import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, VENDOR_COST } from '../sim/catalog';
-import { FOOD_CONSUMPTION_PER_RESIDENT, WATER_DECAY_PER_SECOND } from '../sim/balance';
+import { appetitePerResident, thirstPerSecond } from '../sim/variation';
 import { cityColors } from '../art/primitives';
 import type { CityColor } from '../sim/colors';
 import { resourceIcon, toolIcon } from './icons';
@@ -433,10 +433,10 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
       let foodReserve = 'Needed';
       if (selected.food > 0) {
         foodReserve = 'Stocked';
-        if (selected.residents > 0) foodReserve = `${Math.ceil(selected.food / (selected.residents * FOOD_CONSUMPTION_PER_RESIDENT))}s reserve`;
+        if (selected.residents > 0) foodReserve = `${Math.ceil(selected.food / (selected.residents * appetitePerResident(selected)))}s reserve`;
       }
       field(rowFood, 'inspector-food').textContent = foodReserve;
-      field(rowWater, 'inspector-water').textContent = selected.water > 0 ? `${Math.ceil(selected.water / WATER_DECAY_PER_SECOND)}s reserve` : 'Needed';
+      field(rowWater, 'inspector-water').textContent = selected.water > 0 ? `${Math.ceil(selected.water / thirstPerSecond(selected))}s reserve` : 'Needed';
     }
 
     updateVendor(selected, selection.editable);

@@ -12,6 +12,10 @@ export const EMPLOYMENT_SHARE = 0.5;
 export const INCOME_PER_RESIDENT = 3;
 
 export const FARM_GROW_SECONDS = 40;
+export const FARM_GROW_SPREAD = .3;
+export const WALKER_PACE_SPREAD = .2;
+export const WEAR_SPREAD = .4;
+export const HOUSEHOLD_SPREAD = .3;
 export const HARVEST_UNITS = 100;
 export const FARM_STOCK_CAP = 300;
 export const CART_CAPACITY = 100;

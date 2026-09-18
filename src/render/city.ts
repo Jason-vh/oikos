@@ -1,7 +1,8 @@
 import * as T from 'three';
 import { animateFigure, animateHauling, animateIdle, animateWork, axe, bake, box, bundle, bundleKey, chopStrikes, CHOP_SET, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, post, spear, workPeriod, type Idle, type ModelStage } from '../art';
 import { footprint } from '../sim/catalog';
-import { AGORA_SLOTS, GRANARY_SLOTS, walkerSpeed } from '../sim/balance';
+import { AGORA_SLOTS, GRANARY_SLOTS } from '../sim/balance';
+import { walkerPace } from '../sim/variation';
 import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, groundHeight, insideMapOn, tileAtOn, tileIndexOn, worldPositionOn, type IslandMap } from '../sim/island';
 import { buildRoads } from '../art/roads';
 import { alive, animalAt, animalStride, SPECIES, wildlifeObstacles } from '../sim/wildlife';
@@ -645,7 +646,7 @@ export class CityScene {
 
   private placeWalker(entry: WalkerEntry): void {
     const last = entry.path.length - 1;
-    const covered = Math.min(Math.max(walkerSpeed(entry.kind) * (this.worldTime - entry.departedAt), 0), last);
+    const covered = Math.min(Math.max(walkerPace(entry) * (this.worldTime - entry.departedAt), 0), last);
     const travelled = this.easedTravel(entry, covered, last);
     entry.travelled = travelled;
     entry.stepped = this.roundedPoint(entry, travelled, entry.model.position);

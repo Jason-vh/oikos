@@ -6,6 +6,7 @@ import { gatherArrival, gatherErrand, gatherFinished, gatherKind, GATHER_STOCK_C
 import { findHarbourSite, harbourApron } from './founding';
 import { freshHarbour, HARBOUR_DOCK_CAP, harbourStatus, harbourTiles, setHarbourTrade, updateHarbour } from './harbour';
 import { buildable, insideMapOn, islandFor, levelOn, onHomeIsland, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
+import { appetitePerResident, farmGrowSeconds, thirstPerSecond, walkerPace, wearPerSecond } from './variation';
 import {
   accessDoors,
   accessTiles,
@@ -26,11 +27,8 @@ import {
   IMMIGRANT_PARTY,
   BUYER_FETCH_CAPACITY,
   CART_CAPACITY,
-  CONDITION_DECAY_PER_SECOND,
   EMPLOYMENT_SHARE,
-  FARM_GROW_SECONDS,
   FARM_STOCK_CAP,
-  FOOD_CONSUMPTION_PER_RESIDENT,
   GRACE_SECONDS,
   GRANARY_CAP,
   HARVEST_UNITS,
@@ -43,8 +41,6 @@ import {
   UPGRADE_GRACE,
   VENDOR_DROP_AMOUNT,
   VENDOR_TRIP_CAPACITY,
-  walkerSpeed,
-  WATER_DECAY_PER_SECOND,
 } from './balance';
 
 export const DEFAULT_SEED = 1;
@@ -528,7 +524,7 @@ export function setTask(world: World, walker: Walker, kind: TaskKind, seconds: n
 }
 
 export function tilesTravelled(world: World, walker: Walker): number {
-  return Math.min(walkerSpeed(walker.kind) * (world.time - walker.departedAt), walker.path.length - 1);
+  return Math.min(walkerPace(walker) * (world.time - walker.departedAt), walker.path.length - 1);
 }
 
 function updateStaffing(city: City): void {
@@ -550,7 +546,7 @@ function updateStaffing(city: City): void {
 function updateFarm(world: World, city: City, farm: Building, dt: number): void {
   if (farm.connected && farm.workers > 0) {
     const ratio = farm.workers / jobsOf(farm);
-    farm.progress += (dt / FARM_GROW_SECONDS) * ratio;
+    farm.progress += (dt / farmGrowSeconds(farm)) * ratio;
     if (farm.progress >= 1) {
       farm.progress -= 1;
       addStore(farm, 'wheat', Math.min(HARVEST_UNITS, FARM_STOCK_CAP - totalStock(farm)));
@@ -822,10 +818,10 @@ function meetsTierNeed(tier: number, food: number, water: number): boolean {
 
 function tickHouse(world: World, city: City, house: Building, dt: number): void {
   if (house.residents > 0) {
-    house.food = Math.max(0, house.food - FOOD_CONSUMPTION_PER_RESIDENT * house.residents * dt);
+    house.food = Math.max(0, house.food - appetitePerResident(house) * house.residents * dt);
   }
-  house.water = Math.max(0, house.water - WATER_DECAY_PER_SECOND * dt);
-  house.condition = Math.max(0, house.condition - CONDITION_DECAY_PER_SECOND * dt);
+  house.water = Math.max(0, house.water - thirstPerSecond(house) * dt);
+  house.condition = Math.max(0, house.condition - wearPerSecond(house) * dt);
 
   const satisfied = meetsTierNeed(house.tier, house.food, house.water);
 
