@@ -31,7 +31,8 @@ export const HOUSE_NAMES = ['Vacant plot', 'Dwelling', 'Cottage', 'Courtyard hou
 export const HOUSE_CAPACITY = [0, 8, 12, 20];
 export const ROAD_COST = 2;
 export const VENDOR_COST = 50;
-export const STARTING_MONEY = 1600;
+export const STARTING_MONEY = 900;
+export const SCENARIO_MONEY = 2400;
 export const MONTH_SECONDS = 60;
 
 export function footprint(kind: BuildingKind, rotation: Rotation = 0): { width: number; depth: number } {

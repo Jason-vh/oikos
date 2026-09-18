@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 import { createWorld } from './world';
+import { BUILDINGS, STARTING_MONEY } from './catalog';
 import { primaryCity } from './city';
 import { foundSecondCity } from './testing';
 import { buildStarterNeighbourhood, planStarterNeighbourhood, roadReachable } from './scenario';
@@ -52,6 +53,18 @@ test('roadReachable detours around a foreign obstacle sitting on the only direct
   expect(detourPath).not.toBeNull();
   expect(detourPath!.some((tile) => tile.x === direct.x && tile.z === direct.z)).toBe(false);
   expect(detourPath!.some((tile) => tile.x === detour.x && tile.z === detour.z)).toBe(true);
+});
+
+test('the founding purse buys a starter neighbourhood and little else', () => {
+  for (const home of [0, 3, 6]) {
+    const world = createWorld(1, home);
+    const city = primaryCity(world);
+    city.money = STARTING_MONEY;
+
+    expect(buildStarterNeighbourhood(world, city).ok).toBe(true);
+    expect(city.buildings).toHaveLength(9);
+    expect(city.money).toBeLessThan(BUILDINGS.woodcutter.cost);
+  }
 });
 
 test('planning does not mutate the source World, and its plan still builds cleanly beside another city', () => {

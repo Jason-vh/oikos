@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { advance, build, buildingStatus, createWorld, demolish, getSummary, placeRoadPath, placement, roadPathPlacement, setVendor } from './world';
 import { buildStarterNeighbourhood, planStarterNeighbourhood } from './scenario';
-import { BUILDINGS, ROAD_COST, STARTING_MONEY, VENDOR_COST } from './catalog';
+import { BUILDINGS, ROAD_COST, SCENARIO_MONEY, VENDOR_COST } from './catalog';
 import { generateIsland, islandFor, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import { accessDoors, bfsShortest, exitTile, harbourDoors } from './grid';
 import { connect, farCorner, findTile, freshRoadSpot, isolatedRoadPair, mapOf, roadSpur, slopeFixture, spotAdjacentTo, spotFor, unevenFootprint, SLOPE_SEED } from './testing';
@@ -139,12 +139,12 @@ describe('build costs', () => {
     const spot = freshRoadSpot(world)!;
     const first = build(world, primaryCity(world), 'road', spot.x, spot.z);
     expect(first.ok).toBe(true);
-    const spent = STARTING_MONEY - primaryCity(world).money;
+    const spent = SCENARIO_MONEY - primaryCity(world).money;
     expect(spent).toBe(ROAD_COST);
 
     const again = build(world, primaryCity(world), 'road', spot.x, spot.z);
     expect(again.ok).toBe(true);
-    expect(STARTING_MONEY - primaryCity(world).money).toBe(spent);
+    expect(SCENARIO_MONEY - primaryCity(world).money).toBe(spent);
   });
 
   test('placeRoadPath is atomic and only charges new tiles', () => {

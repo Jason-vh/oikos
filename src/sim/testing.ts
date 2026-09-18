@@ -1,5 +1,5 @@
 import type { ActionResult, Building, BuildingKind, BuildTool, City, Rotation, Tile, World } from './types';
-import { STARTING_MONEY, footprint } from './catalog';
+import { SCENARIO_MONEY, footprint } from './catalog';
 import { buildable, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn, type IslandMap, type IslandPlacement } from './island';
 import { mapOf as gridMapOf, neighbours, perimeterTiles, footprintTiles, siteBuilding } from './grid';
 import { freshHarbour, harbourTiles } from './harbour';
@@ -21,7 +21,7 @@ export function foundSecondCity(world: World, home: number, name = 'Naxos', colo
     name,
     color,
     home,
-    money: STARTING_MONEY,
+    money: SCENARIO_MONEY,
     harbour: { ...freshHarbour(site), id: world.nextId++ },
     produced: 0,
     delivered: 0,

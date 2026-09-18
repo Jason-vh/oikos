@@ -1,5 +1,5 @@
 import { CURRENT_VERSION, WORLD_LABEL, type ActionResult, type Building, type BuildTool, type City, type Food, type Placement, type Resource, type Rotation, type Stores, type Summary, type TaskKind, type Tile, type Walker, type WalkerKind, type World } from './types';
-import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, STARTING_MONEY, VENDOR_COST, footprint, isFood } from './catalog';
+import { BUILDINGS, HOUSE_CAPACITY, MONTH_SECONDS, ROAD_COST, SCENARIO_MONEY, VENDOR_COST, footprint, isFood } from './catalog';
 import { retireRespawned, wildlifeRoster } from './wildlife';
 import type { CityColor } from './colors';
 import { gatherArrival, gatherErrand, gatherFinished, gatherKind, GATHER_STOCK_CAP, regrowForest, updateGatherer } from './gathering';
@@ -58,7 +58,7 @@ export function createWorld(seed = DEFAULT_SEED, home?: number, name = 'Oikos', 
     name,
     color,
     home: map.home,
-    money: STARTING_MONEY,
+    money: SCENARIO_MONEY,
     harbour: freshHarbour(site),
     produced: 0,
     delivered: 0,

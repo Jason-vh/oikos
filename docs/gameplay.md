@@ -60,11 +60,14 @@ toolbar and the guide are taken away and they watch, still able to look around a
 inspect. The name and colour come from the join,
 not the click; a player choosing where to land sees every claimed island glazed in
 its owner's colour, and the unclaimed ones in their own. There is no landing road and no free
-ground: a new city holds 1600 drachma, one harbour, and nothing else, and pays for
-its first road out of the quay.
+ground: a new city holds 900 drachma, one harbour, and nothing else, and pays for
+its first road out of the quay. A starter neighbourhood costs a little over 800, so
+the founding purse buys one of those and no more; anything else waits on taxes.
 
 `createWorld(seed = 1, home?, name?)` is the quick-start constructor used by tools
-and tests. It sites the harbour itself with `findHarbourSite`, which walks outward
+and tests. Its city opens with `SCENARIO_MONEY`, not the founding purse, so a
+fixture can build past the starter neighbourhood without the balance of the real
+game deciding what a test may try. It sites the harbour itself with `findHarbourSite`, which walks outward
 from the island's generated shore looking for a legal site with open ground behind
 it, and paves the two apron tiles in front of the quay so the city is ready to
 build. Nothing in the playable game calls it.
