@@ -16,6 +16,9 @@ const STORE_VARIANTS: Record<string, Stores> = {
   mixed: { wheat: 200, carrots: 100, fish: 100, meat: 100 },
   full: { wheat: 300, carrots: 200, fish: 100, meat: 100, olives: 100 },
   materials: { lumber: 300, clay: 100, stone: 100 },
+  catch: { fish: 200 },
+  oil: { oil: 120 },
+  olives: { olives: 100, oil: 60 },
 };
 import { Stage } from './render/stage';
 import { BuildingConstruction } from './render/assembly';

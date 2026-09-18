@@ -22,8 +22,8 @@ function raise(world: World, city: City, kind: 'orchard' | 'press' | 'wharf' | '
 }
 
 describe('the ladder keeps its pace', () => {
-  test('a courtyard neighbourhood with an orchard and a press raises a townhouse within six minutes', () => {
-    for (let seed = 1; seed <= 8; seed++) {
+  for (let seed = 1; seed <= 8; seed++) {
+    test(`seed ${seed}: a courtyard neighbourhood with an orchard and a press raises a townhouse within six minutes`, () => {
       const world = createWorld(seed);
       const city = primaryCity(world);
       expect(buildStarterNeighbourhood(world, city).ok).toBe(true);
@@ -35,11 +35,11 @@ describe('the ladder keeps its pace', () => {
       expect(setVendor(city, agora.id, true, 'oil').ok).toBe(true);
       const risen = runUntil(world, 360, () => getSummary(city).townhouses > 0);
       expect(risen).toBeLessThan(360);
-    }
-  });
+    });
+  }
 
-  test('a city that builds the whole ladder stays solvent on its own income', () => {
-    for (let seed = 1; seed <= 8; seed++) {
+  for (let seed = 1; seed <= 8; seed++) {
+    test(`seed ${seed}: a city that builds the whole ladder stays solvent on its own income`, () => {
       const world = createWorld(seed);
       const city = primaryCity(world);
       expect(buildStarterNeighbourhood(world, city).ok).toBe(true);
@@ -51,6 +51,6 @@ describe('the ladder keeps its pace', () => {
       const summary = getSummary(city);
       expect(summary.balance).toBeGreaterThanOrEqual(0);
       expect(city.money).toBeGreaterThan(0);
-    }
-  });
+    });
+  }
 });

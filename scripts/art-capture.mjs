@@ -19,7 +19,7 @@ try {
   await page.goto(new URL('/art.html', base).href, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => document.body.dataset.ready || document.body.dataset.error);
   assert.equal(await page.locator('body').getAttribute('data-ready'), 'true');
-  for (const value of ['house:1', 'house:2', 'house:3', 'farm:1:0', 'farm:1:2', 'farm:1:3', 'granary:1:empty', 'granary:1:mixed', 'granary:1:full', 'agora:1', 'agora:2:empty', 'agora:2:mixed', 'fountain:1', 'maintenance:1', 'lodge:1', 'woodcutter:1', 'stockpile:1:materials', 'harbour:1:0', 'harbour:2:0', 'road:straight', 'road:bend', 'road:junction', 'road:cross', 'road:stairs', 'outcrop:1', 'bush:cushion', 'bush:upright', 'bush:paired', 'tree:broadleaf', 'tree:cypress', 'tree:stump']) {
+  for (const value of ['house:1', 'house:2', 'house:3', 'house:4', 'farm:1:0', 'farm:1:2', 'farm:1:3', 'granary:1:empty', 'granary:1:mixed', 'granary:1:full', 'agora:1', 'agora:2:empty', 'agora:2:mixed', 'agora:3:oil', 'fountain:1', 'maintenance:1', 'lodge:1', 'woodcutter:1', 'stockpile:1:materials', 'orchard:1:0', 'orchard:1:3', 'press:1:empty', 'press:1:oil', 'wharf:1:empty', 'wharf:1:catch', 'harbour:1:0', 'harbour:2:0', 'road:straight', 'road:bend', 'road:junction', 'road:cross', 'road:stairs', 'outcrop:1', 'bush:cushion', 'bush:upright', 'bush:paired', 'tree:broadleaf', 'tree:cypress', 'tree:stump']) {
     await page.getByLabel('Model', { exact: true }).selectOption(value);
     await paint(page);
     assert.equal(await page.locator('body').getAttribute('data-model'), value);
