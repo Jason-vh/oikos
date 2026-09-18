@@ -32,9 +32,9 @@ try {
       }
     }
   }
-  for (const model of ['house:1', 'farm:1:3']) {
+  for (const [model, looks] of [['house:1', ['1', '2']], ['house:2', ['1']], ['house:3', ['1']], ['farm:1:3', ['1', '2']]]) {
     await page.getByLabel('Model', { exact: true }).selectOption(model);
-    for (const variant of ['1', '2']) {
+    for (const variant of looks) {
       await page.getByLabel('Variant', { exact: true }).selectOption(variant);
       await paint(page);
       assert.equal(await page.locator('body').getAttribute('data-variant'), variant);

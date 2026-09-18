@@ -144,7 +144,7 @@ describe('model variants', () => {
       picked.add(variant);
     }
     expect(picked.size).toBe(count);
-    expect(variantFor('house', 2, .99)).toBe(0);
+    expect(variantFor('house', 2, .99)).toBe(modelVariants('house', 2) - 1);
     expect(variantFor('granary', 1, .99)).toBe(0);
   });
 });

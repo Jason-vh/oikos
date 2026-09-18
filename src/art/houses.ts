@@ -27,6 +27,30 @@ function dwellingStyle(variant: number): DwellingStyle {
   return DWELLING_STYLES[variant % DWELLING_VARIANTS];
 }
 
+interface TownhouseStyle {
+  roof: number;
+  facing: 1 | -1;
+  awning: number;
+}
+
+const COTTAGE_STYLES: TownhouseStyle[] = [
+  { roof: colors.roof, facing: 1, awning: colors.blue },
+  { roof: colors.roofDark, facing: -1, awning: colors.blueLight },
+];
+
+const COURTYARD_STYLES: TownhouseStyle[] = [
+  { roof: colors.roof, facing: 1, awning: colors.blue },
+  { roof: colors.roofLight, facing: -1, awning: colors.blueLight },
+];
+
+export const COTTAGE_VARIANTS = COTTAGE_STYLES.length;
+export const COURTYARD_VARIANTS = COURTYARD_STYLES.length;
+
+function townhouseStyle(tier: 2 | 3, variant: number): TownhouseStyle {
+  const styles = tier === 2 ? COTTAGE_STYLES : COURTYARD_STYLES;
+  return styles[variant % styles.length];
+}
+
 const DWELLING_WIDTH = 1.7;
 const DWELLING_DEPTH = 1.65;
 const DWELLING_HEIGHT = 1.35;
@@ -108,38 +132,40 @@ export function dwelling(tier: 1 | 2 | 3, variant = 0): T.Group {
     return home;
   }
   if (tier === 2) {
+    const { roof: tone, facing, awning } = townhouseStyle(2, variant);
     const width = 2.15, depth = 2.05, height = 1.7;
     box(home, colors.stone, 0, .11, 0, 2.6, .22, 2.5);
     box(home, colors.plaster, 0, height / 2 + .2, 0, width, height, depth, .06);
     box(home, colors.cream, 0, height + .15, 0, width + .13, .18, depth + .13);
-    roof(home, width + .5, depth + .55, height + .21, .68);
-    box(home, colors.cream, -.4, .72, depth / 2 + .01, .78, 1.3, .13);
-    box(home, colors.wood, -.4, .68, depth / 2 + .1, .56, 1.18, .07);
-    box(home, colors.gold, -.2, .68, depth / 2 + .15, .05, .05, .035);
-    windowFrame(home, .62, 1.12, depth / 2 + .01);
+    roof(home, width + .5, depth + .55, height + .21, .68, tone);
+    box(home, colors.cream, facing * -.4, .72, depth / 2 + .01, .78, 1.3, .13);
+    box(home, colors.wood, facing * -.4, .68, depth / 2 + .1, .56, 1.18, .07);
+    box(home, colors.gold, facing * -.2, .68, depth / 2 + .15, .05, .05, .035);
+    windowFrame(home, facing * .62, 1.12, depth / 2 + .01);
     for (const [sx, sz, angle] of [[width / 2 + .01, -.15, Math.PI / 2], [-width / 2 - .01, .15, -Math.PI / 2]]) {
       const side = group(home, sx, 0, sz, angle);
       windowFrame(side, 0, 1.05, 0);
     }
     for (let stripe = 0; stripe < 4; stripe++) {
-      const cloth = box(home, stripe % 2 ? colors.linen : colors.blue, -.55 + stripe * .28, height + .55, depth / 2 + .3, .28, .05, .58, .02);
+      const cloth = box(home, stripe % 2 ? colors.linen : awning, -.55 + stripe * .28, height + .55, depth / 2 + .3, .28, .05, .58, .02);
       cloth.rotation.x = .15;
     }
-    for (const px of [-.68, .5]) box(home, colors.wood, px, height / 2 + .3, depth / 2 + .56, .08, height + .55, .08);
-    pot(home, .95, .18, depth / 2 + .35, .7);
+    for (const px of [-.68, .5]) box(home, colors.wood, facing * px, height / 2 + .3, depth / 2 + .56, .08, height + .55, .08);
+    pot(home, facing * .95, .18, depth / 2 + .35, .7);
     return home;
   }
+  const { roof: tone, facing, awning } = townhouseStyle(3, variant);
   const width = 2.35, depth = 2.2, height = 2.85;
   box(home, colors.stone, 0, .12, 0, 2.85, .24, 2.7);
   box(home, 0xe2cfa7, 0, height / 2 + .22, 0, width, height, depth, .07);
   box(home, colors.cream, 0, height + .16, 0, width + .14, .2, depth + .14);
-  roof(home, width + .5, depth + .55, height + .23, .78);
-  windowFrame(home, .68, 1.1, depth / 2 + .01);
-  windowFrame(home, -.6, 2.35, depth / 2 + .01);
-  windowFrame(home, .68, 2.35, depth / 2 + .01);
-  box(home, colors.blue, 0, 1.72, depth / 2 + .11, width + .04, .1, .16);
-  box(home, colors.cream, -.36, .58, depth / 2 + .01, .74, 1.1, .12);
-  box(home, colors.wood, -.36, .54, depth / 2 + .09, .52, .98, .07);
+  roof(home, width + .5, depth + .55, height + .23, .78, tone);
+  windowFrame(home, facing * .68, 1.1, depth / 2 + .01);
+  windowFrame(home, facing * -.6, 2.35, depth / 2 + .01);
+  windowFrame(home, facing * .68, 2.35, depth / 2 + .01);
+  box(home, awning, 0, 1.72, depth / 2 + .11, width + .04, .1, .16);
+  box(home, colors.cream, facing * -.36, .58, depth / 2 + .01, .74, 1.1, .12);
+  box(home, colors.wood, facing * -.36, .54, depth / 2 + .09, .52, .98, .07);
   for (const [sx, sz, angle] of [[width / 2 + .01, -.15, Math.PI / 2], [-width / 2 - .01, .15, -Math.PI / 2]]) {
     const side = group(home, sx, 0, sz, angle);
     windowFrame(side, 0, 1.1, 0);
@@ -151,8 +177,8 @@ export function dwelling(tier: 1 | 2 | 3, variant = 0): T.Group {
   box(home, colors.plaster, -(width - .1) / 2, .34, yardZ, .1, .5, yardDepth);
   box(home, colors.plaster, (width - .1) / 2, .34, yardZ, .1, .5, yardDepth);
   box(home, colors.plaster, 0, .34, yardZ - yardDepth / 2 - .05, width - .1, .5, .1);
-  pot(home, width / 2 - .3, .18, yardZ + yardDepth / 2 - .1, .55);
-  pot(home, 1.02, .2, depth / 2 + .32, .75);
+  pot(home, facing * (width / 2 - .3), .18, yardZ + yardDepth / 2 - .1, .55);
+  pot(home, facing * 1.02, .2, depth / 2 + .32, .75);
   return home;
 }
 
