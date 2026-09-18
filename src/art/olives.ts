@@ -2,6 +2,7 @@ import * as T from 'three';
 import type { Stores } from '../sim/types';
 import { box, colors, group, lump, post, pot, roof } from './primitives';
 import { assemblyPart, modelAssembly, type ModelAssembly } from './assembly';
+import { hash } from '../sim/island';
 
 const TRUNK_HEIGHT = .62;
 
@@ -19,9 +20,22 @@ function oliveTree(parent: T.Object3D, x: number, z: number, stage: number, scal
   for (const [dx, dz] of [[-.22, .14], [.24, -.08], [.02, .2]]) lump(tree, 0x4a4b3a, dx, TRUNK_HEIGHT + crown * .62, dz, .075, .075, .075);
 }
 
+const WINDFALL = [0, 0, 3, 6];
+
+function windfall(parent: T.Object3D, stage: number, seed: number): void {
+  for (let index = 0; index < WINDFALL[stage]; index++) {
+    const bearing = hash(seed, index, 3739) * Math.PI * 2;
+    const reach = .2 + hash(seed, index, 3761) * .34;
+    const size = .025 + hash(seed, index, 3767) * .014;
+    const shade = hash(seed, index, 3779) > .7 ? colors.olive : 0x4a4b3a;
+    lump(parent, shade, Math.cos(bearing) * reach, size * .7, Math.sin(bearing) * reach, size, size * .8, size);
+  }
+}
+
 export function oliveSapling(stage: number, seed = 0): T.Group {
   const plant = new T.Group();
   oliveTree(plant, 0, 0, stage, .52 + stage * .13);
+  windfall(plant, stage, seed);
   plant.rotation.y = (seed % 4) * Math.PI / 2;
   return plant;
 }

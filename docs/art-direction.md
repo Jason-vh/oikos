@@ -299,7 +299,9 @@ granary shows its bays. The crop itself is authored a tile at a time
 (`wheatRows`, `oliveSapling`): four stages from bare furrows to full ears, from
 sapling to fruiting olive, laid down by `src/render/crops.ts` and swapped as the
 field ripens. Wheat carries its own bed of soil; an olive does not — a tree stands
-in the ground it grows in, and a pad under it reads as a crate. Hovering either
+in the ground it grows in, and a pad under it reads as a crate. A fruiting olive
+drops a few windfalls around its foot, at wildflower scale: they say the tree is
+bearing without competing with it. Hovering either
 lights it and says how far along it is, the way a building or a walker does, and
 only at the zoom where crops can be aimed at.
 
