@@ -3,7 +3,7 @@ import type { BuildingKind, Stores } from '../sim/types';
 import { bake, box, colors, post } from './primitives';
 import { assemblyPart, modelAssembly, type ModelAssembly } from './assembly';
 import { dwelling, dwellingPieces, DWELLING_VARIANTS } from './houses';
-import { wheatFarm, wheatFarmPieces } from './vegetation';
+import { wheatFarm, wheatFarmPieces, FARM_VARIANTS } from './vegetation';
 import { fountain as fountainModel, fountainPieces, lodge as lodgeModel, lodgePieces, maintenance as maintenanceModel, maintenancePieces, stockpile as stockpileModel, stockpilePieces, woodcutter as woodcutterModel, woodcutterPieces } from './civic';
 import { granary, granaryPieces } from './granaries';
 import { harbour as harbourModel } from './harbour';
@@ -60,6 +60,7 @@ export interface ModelState { tier?: 1 | 2 | 3; vendorEnabled?: boolean; stage?:
 
 export function modelVariants(kind: BuildingKind, tier: 1 | 2 | 3 = 1): number {
   if (kind === 'house') return tier === 1 ? DWELLING_VARIANTS : 1;
+  if (kind === 'farm') return FARM_VARIANTS;
   return 1;
 }
 
@@ -79,7 +80,7 @@ export function getBuildingAssembly(kind: BuildingKind, state: ModelState = {}):
 function choreography(kind: BuildingKind, tier: 1 | 2 | 3, vendorEnabled: boolean, stage: ModelStage, stores: Stores, variant: number): ModelAssembly | null {
   switch (kind) {
     case 'house': return tier === 1 ? dwellingPieces(variant) : null;
-    case 'farm': return wheatFarmPieces(stage);
+    case 'farm': return wheatFarmPieces(stage, variant);
     case 'granary': return granaryPieces(stores);
     case 'agora': return agoraPieces(vendorEnabled, stores);
     case 'fountain': return fountainPieces();
@@ -99,7 +100,7 @@ export function getBuildingModel(kind: BuildingKind, state: ModelState = {}): T.
       model.add(dwelling(tier, variant));
       break;
     case 'farm':
-      model.add(wheatFarm(stage));
+      model.add(wheatFarm(stage, variant));
       break;
     case 'granary':
       model.add(granary(stores));

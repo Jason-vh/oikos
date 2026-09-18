@@ -68,7 +68,8 @@ A kind may have several looks so a street is not wallpaper. `modelVariants(kind,
 tier)` says how many; `getBuildingModel(kind, { variant })` picks one, and the
 renderer derives it from the building's id (`modelRoll` in `src/sim/variation.ts`),
 so a building keeps its look for life on every client. The dwelling has three: roof
-tone, door and window mirrored, and what stands in the yard.
+tone, door and window mirrored, and what stands in the yard. The farm has three:
+which corner the shed holds, and whether the furrows run across the plot or up it.
 
 A variant is a repaint, never a redesign. It keeps the kind's silhouette, footprint
 and `+Z` front — the entrance belongs to the simulation's access tiles. Variants are
