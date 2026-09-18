@@ -395,6 +395,26 @@ doing and carrying. The renderer shows cargo on the model: a carter's cart is he
 with its food on the way out and empty on the way back; jar-carriers carry a jar
 only while loaded.
 
+## The population ladder
+
+`src/sim/unlocks.ts` gates part of the catalogue on the city itself. A tool with a
+requirement can be built only while enough residents live in houses of the required
+tier or better: the woodcutter's cabin and the stockpile want 24 cottagers, the
+olive orchard and the press 20 courtyard residents. Houses of a better tier count
+toward every line below them.
+
+The gate is the first thing `placement` checks, so a locked tool is refused before
+terrain, occupancy or money are looked at, at no cost, with the shortfall spelled
+out: `Needs 24 cottagers; 9 live here.` Nothing about it is stored: a city that
+falls back below a line loses the tool again, while everything already standing
+keeps working. The starter neighbourhood uses only tools that are always available,
+so a city of nobody can still build it.
+
+The toolbar keeps locked tools visible but disabled, with a lock and the requirement
+where the price would be and the reason as the tooltip; the guide shows the nearest
+unlock and how far away it is, and each one is announced once per session.
+`cityReport` tells an agent the same thing.
+
 ## The goal
 
 `summary.goal` is `true` once at least four tier-3 houses are inhabited, the

@@ -3,7 +3,7 @@ import { footprintTileIssues, suitableFarmGround } from './construction';
 import { mapOf } from './grid';
 import { ISLAND_COUNT, onHomeIsland } from './island';
 import { deserializeWorld, serializeWorld } from './save';
-import { spotFor } from './testing';
+import { openLadder, spotFor } from './testing';
 import type { BuildTool } from './types';
 import { build, createWorld, demolish, placement, placeRoadPath, roadPathPlacement } from './world';
 import { primaryCity } from './city';
@@ -14,6 +14,8 @@ for (const tool of TOOLS) {
   test(`${tool} placement refuses another island without charging or mutating`, () => {
     const world = createWorld(1, 0);
     const other = createWorld(1, 7);
+    openLadder(world);
+    openLadder(other);
     const spot = spotFor(other, tool)!;
     expect(spot).not.toBeNull();
     expect(placement(other, primaryCity(other), tool, spot.x, spot.z).ok).toBe(true);

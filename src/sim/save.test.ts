@@ -5,7 +5,7 @@ import beforeTheResize from './fixtures/kalliste-before-the-resize.json' with { 
 import { advance, build, createWorld } from './world';
 import { buildStarterNeighbourhood } from './scenario';
 import { islandFor, tileIndexOn } from './island';
-import { connect, homeTiles, onHomeIsland, spotFor, slopeFixture, SLOPE_SEED } from './testing';
+import { SLOPE_SEED, built, connect, homeTiles, onHomeIsland, openLadder, slopeFixture, spotFor } from './testing';
 import { primaryCity } from './city';
 import { roadStepAllowed, stairLayout } from './stairs';
 import type { Walker } from './types';
@@ -19,16 +19,17 @@ function advancedWorld() {
 
 function huntingWorld() {
   const world = createWorld(1);
+  openLadder(world);
   const boar = world.wildlife.find((animal) => animal.kind === 'boar' && onHomeIsland(world, Math.floor(animal.homeX), Math.floor(animal.homeZ)))!;
   const lodgeSpot = spotFor(world, 'lodge', { x: Math.floor(boar.homeX), z: Math.floor(boar.homeZ) })!;
   build(world, primaryCity(world), 'lodge', lodgeSpot.x, lodgeSpot.z);
-  connect(world, primaryCity(world).buildings[0]);
+  connect(world, built(world, 'lodge'));
   const granarySpot = spotFor(world, 'granary', lodgeSpot)!;
   build(world, primaryCity(world), 'granary', granarySpot.x, granarySpot.z);
-  connect(world, primaryCity(world).buildings[1]);
+  connect(world, built(world, 'granary'));
   const houseSpot = spotFor(world, 'house', islandFor(world.seed).entry)!;
   build(world, primaryCity(world), 'house', houseSpot.x, houseSpot.z);
-  connect(world, primaryCity(world).buildings[2]);
+  connect(world, built(world, 'house'));
   return world;
 }
 
@@ -81,7 +82,7 @@ describe('gathering saves', () => {
     const world = huntingWorld();
     const stockpileSpot = spotFor(world, 'stockpile', islandFor(world.seed).entry)!;
     build(world, primaryCity(world), 'stockpile', stockpileSpot.x, stockpileSpot.z);
-    connect(world, primaryCity(world).buildings[3]);
+    connect(world, built(world, 'stockpile'));
     const restored = deserializeWorld(serializeWorld(world));
     expect(restored).not.toBeNull();
     expect(restored).toEqual(world);
@@ -107,6 +108,7 @@ describe('gathering saves', () => {
 
   test('a woodcutter carrying lumber home round-trips mid-work', () => {
     const world = createWorld(1);
+    openLadder(world);
     let spot = null;
     for (const tree of homeTiles(world, (map, x, z) => map.terrain[tileIndexOn(map, x, z)] === 'forest')) {
       if (spot) break;
@@ -115,13 +117,13 @@ describe('gathering saves', () => {
     }
     expect(spot).not.toBeNull();
     build(world, primaryCity(world), 'woodcutter', spot!.x, spot!.z);
-    connect(world, primaryCity(world).buildings[0]);
+    connect(world, built(world, 'woodcutter'));
     const pileSpot = spotFor(world, 'stockpile', spot!)!;
     build(world, primaryCity(world), 'stockpile', pileSpot.x, pileSpot.z);
-    connect(world, primaryCity(world).buildings[1]);
+    connect(world, built(world, 'stockpile'));
     const houseSpot = spotFor(world, 'house', islandFor(world.seed).entry)!;
     build(world, primaryCity(world), 'house', houseSpot.x, houseSpot.z);
-    connect(world, primaryCity(world).buildings[2]);
+    connect(world, built(world, 'house'));
 
     let carrying = false;
     for (let t = 0; t < 1600 && !carrying; t++) {
@@ -382,7 +384,7 @@ describe('legacy topology quarantine', () => {
 
     const spot = spotFor(world, 'maintenance', low)!;
     build(world, primaryCity(world), 'maintenance', spot.x, spot.z);
-    const home = primaryCity(world).buildings[0];
+    const home = built(world, 'maintenance');
 
     const eastWalker = bareWalker({ id: world.nextId++, homeId: home.id, path: [eastDownIndex, ambiguousIndex] });
     const northWalker = bareWalker({ id: world.nextId++, homeId: home.id, path: [northDownIndex, ambiguousIndex] });
@@ -408,7 +410,7 @@ describe('legacy topology quarantine', () => {
 
     const spot = spotFor(world, 'lodge', low)!;
     build(world, primaryCity(world), 'lodge', spot.x, spot.z);
-    const lodge = primaryCity(world).buildings[0];
+    const lodge = built(world, 'lodge');
     const boar = world.wildlife.find((animal) => animal.kind === 'boar' && onHomeIsland(world, Math.floor(animal.homeX), Math.floor(animal.homeZ)))!;
     boar.cornered = true;
 

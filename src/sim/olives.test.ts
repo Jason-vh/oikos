@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { advance, build, buildingStatus, createWorld } from './world';
 import { islandFor, terrainOn } from './island';
-import { connect, spotFor } from './testing';
+import { connect, settleHouses, spotFor } from './testing';
 import { primaryCity } from './city';
 import { PRESS_BATCH_OIL, PRESS_BATCH_OLIVES, PRESS_CAP } from './balance';
 import { BUILDINGS } from './catalog';
@@ -10,11 +10,7 @@ import type { Building, World } from './types';
 function buildOliveCity(world: World): { orchard: Building; press: Building } {
   const city = primaryCity(world);
   const entry = islandFor(world.seed).entry;
-  for (let count = 0; count < 3; count++) {
-    const houseSpot = spotFor(world, 'house', entry)!;
-    expect(build(world, city, 'house', houseSpot.x, houseSpot.z).ok).toBe(true);
-    expect(connect(world, city.buildings[city.buildings.length - 1]).ok).toBe(true);
-  }
+  expect(settleHouses(world, city, 3, 24).length).toBeGreaterThan(0);
   const orchardSpot = spotFor(world, 'orchard', entry)!;
   expect(build(world, city, 'orchard', orchardSpot.x, orchardSpot.z).ok).toBe(true);
   const orchard = city.buildings[city.buildings.length - 1];
@@ -35,6 +31,7 @@ describe('the olive orchard', () => {
   test('roots in grass, scrub or fertile ground, and nowhere else', () => {
     const world = createWorld(1);
     const city = primaryCity(world);
+    settleHouses(world, city, 3, 24);
     const map = islandFor(world.seed);
     const spot = spotFor(world, 'orchard', map.entry)!;
     for (let dz = 0; dz < 4; dz++) {
@@ -101,6 +98,7 @@ describe('the olive press', () => {
   test('an unstaffed press presses nothing', () => {
     const world = createWorld(1);
     const city = primaryCity(world);
+    settleHouses(world, city, 3, 24);
     const pressSpot = spotFor(world, 'press', islandFor(world.seed).entry)!;
     expect(build(world, city, 'press', pressSpot.x, pressSpot.z).ok).toBe(true);
     const press = city.buildings[city.buildings.length - 1];

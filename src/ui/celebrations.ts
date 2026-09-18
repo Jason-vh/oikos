@@ -1,6 +1,23 @@
 import { getSummary } from '../sim/world';
-import type { City } from '../sim/types';
+import { BUILDINGS } from '../sim/catalog';
+import { unlockedTools } from '../sim/unlocks';
+import type { BuildTool, City } from '../sim/types';
 import type { SoundCue } from './sound';
+
+export function cityUnlocks(city: City): BuildTool[] {
+  return unlockedTools(city);
+}
+
+export function unlockCelebration(previous: readonly BuildTool[], next: readonly BuildTool[]): { message: string; sound: SoundCue } | null {
+  const fresh = next.find((tool) => !previous.includes(tool));
+  if (!fresh) return null;
+  if (fresh === 'road') return null;
+  return { message: `${BUILDINGS[fresh].name} unlocked: your city has earned it.`, sound: 'upgrade' };
+}
+
+export function rememberUnlocks(previous: readonly BuildTool[], next: readonly BuildTool[]): BuildTool[] {
+  return [...new Set([...previous, ...next])];
+}
 
 export interface CityMilestones {
   settled: boolean;

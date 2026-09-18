@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { BUILDINGS, ROAD_COST, VENDOR_COST } from '../sim/catalog';
 import { BUILD_TOOLS } from '../sim/commands';
+import { UNLOCKS, tierNoun } from '../sim/unlocks';
 import { ISLAND_COUNT } from '../sim/island';
 import type { ActionResult, City, Rotation, Tile, World } from '../sim/types';
 import type { AgentGame } from './game';
@@ -58,6 +59,12 @@ const buildingCosts = Object.entries(BUILDINGS)
   .filter(([kind]) => kind !== 'harbour')
   .map(([kind, definition]) => `${kind} ${definition.width}x${definition.depth} ${definition.cost} dr`)
   .join(', ');
+
+function unlockLines(): string {
+  return (Object.entries(UNLOCKS) as [string, { tier: 1 | 2 | 3 | 4; residents: number }][])
+    .map(([kind, requirement]) => `${kind} needs ${requirement.residents} ${tierNoun(requirement.tier)}`)
+    .join(', ') + '.';
+}
 
 function tool<Shape extends z.ZodRawShape>(definition: AgentTool<Shape>): AgentTool {
   return definition as unknown as AgentTool;
@@ -140,7 +147,7 @@ export const TOOLS: AgentTool[] = [
   }),
   tool({
     name: 'build',
-    description: `Put up a building. It needs level, clear ground and a door onto a road that reaches the harbour; farms need fertile soil. ${ANCHOR}`,
+    description: `Put up a building. It needs level, clear ground and a door onto a road that reaches the harbour; farms need fertile soil, olives take grass, scrub or fertile ground, and a fishing wharf stands on the shore with its jetty over open water. Some tools are earned: ${unlockLines()} A refusal names the shortfall and costs nothing. ${ANCHOR}`,
     schema: { tool: buildTool, ...coordinates, rotation },
     async run(game, args) {
       const result = await game.submit({ type: 'build', tool: args.tool as never, x: args.x, z: args.z, rotation: args.rotation as Rotation });

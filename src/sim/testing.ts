@@ -4,7 +4,10 @@ import { buildable, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn, type I
 import { mapOf as gridMapOf, neighbours, perimeterTiles, footprintTiles, siteBuilding } from './grid';
 import { freshHarbour, harbourTiles } from './harbour';
 import { findHarbourSite, harbourApron, harbourSiteOf } from './founding';
-import { placement, placeRoadPath, recomputeConnectivity } from './world';
+import { build, placement, placeRoadPath, recomputeConnectivity } from './world';
+import { HOUSE_CAPACITY } from './catalog';
+import { HOUSE_FOOD_CAP, HOUSE_OIL_CAP, HOUSE_WATER_CAP } from './balance';
+import { unlockRefusal } from './unlocks';
 import { primaryCity } from './city';
 import type { CityColor } from './colors';
 
@@ -83,6 +86,7 @@ export function findTile(world: World, predicate: (map: IslandMap, x: number, z:
 }
 
 export function spotForInCity(world: World, city: City, kind: BuildTool, near?: Tile, rotation: Rotation = 0): Tile | null {
+  if (unlockRefusal(city, kind)) return null;
   return findTileInCity(world, city, (_map, x, z) => placement(world, city, kind, x, z, rotation).ok, near);
 }
 
@@ -134,6 +138,42 @@ export function roadSpur(world: World, length: number): Tile[] {
   }
   recomputeConnectivity(world, city);
   return spur;
+}
+
+export function settleHouses(world: World, city: City, tier: 1 | 2 | 3 | 4, residents: number): Building[] {
+  const map = gridMapOf(world, city);
+  const houses: Building[] = [];
+  let housed = 0;
+  while (housed < residents) {
+    const spot = spotForInCity(world, city, 'house', map.entry);
+    if (!spot) break;
+    if (!build(world, city, 'house', spot.x, spot.z).ok) break;
+    const house = city.buildings[city.buildings.length - 1];
+    connectInCity(world, city, house);
+    house.tier = tier;
+    house.residents = Math.min(HOUSE_CAPACITY[tier], residents - housed);
+    house.food = HOUSE_FOOD_CAP;
+    house.water = HOUSE_WATER_CAP;
+    house.oil = tier >= 4 ? HOUSE_OIL_CAP : 0;
+    housed += house.residents;
+    houses.push(house);
+  }
+  recomputeConnectivity(world, city);
+  return houses;
+}
+
+export function openLadder(world: World, city: City = primaryCity(world)): Building[] {
+  return settleHouses(world, city, 3, 24);
+}
+
+export function builtInCity(city: City, kind: BuildingKind, index = 0): Building {
+  const found = city.buildings.filter((building) => building.kind === kind)[index];
+  if (!found) throw new Error(`No ${kind} #${index} in ${city.name}.`);
+  return found;
+}
+
+export function built(world: World, kind: BuildingKind, index = 0): Building {
+  return builtInCity(primaryCity(world), kind, index);
 }
 
 export function farCorner(world: World): Tile {

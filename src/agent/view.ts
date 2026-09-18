@@ -4,6 +4,7 @@ import { footprintTiles, mapOf } from '../sim/grid';
 import { harbourStatus } from '../sim/harbour';
 import { ISLAND_COUNT, buildable, islandAt, islandFacts, islandFor, levelOn, terrainOn, tileAtOn, tileIndexOn } from '../sim/island';
 import { foreignOccupancy } from '../sim/occupancy';
+import { lockedTools, unlockRefusal } from '../sim/unlocks';
 import type { IslandMap, IslandPlacement } from '../sim/island';
 import type { Building, BuildingKind, BuildTool, City, Rotation, Terrain, Tile, World } from '../sim/types';
 import { WALKER_ROLES, buildingStatus, getSummary, placement, roadPathPlacement, storeCapacity, walkerStatus } from '../sim/world';
@@ -213,6 +214,13 @@ function walkerLines(city: City): string[] {
   return [`Walkers (${city.walkers.length}): ${tally}.`];
 }
 
+function lockedLine(city: City): string {
+  const locked = lockedTools(city);
+  if (locked.length === 0) return 'Catalogue: every tool is open to you.';
+  const named = locked.map((pending) => `${pending.tool} (${unlockRefusal(city, pending.tool)})`).join(' ');
+  return `Locked until the ladder earns them: ${named}`;
+}
+
 export function cityReport(world: World, city: City): string {
   const summary = getSummary(city);
   const months = world.time / MONTH_SECONDS;
@@ -223,6 +231,7 @@ export function cityReport(world: World, city: City): string {
     `Harvested ${Math.round(city.produced)} food, delivered ${Math.round(city.delivered)} to homes.`,
     `Goal: ${summary.prosperous} of 4 courtyard houses thriving with a balanced budget; ${summary.goal ? 'met' : 'not met yet'}.`,
     `Townhouses: ${summary.townhouses}.`,
+    lockedLine(city),
     describeBuilding(world, city, city.harbour).trimStart(),
   ];
   if (city.buildings.length) {

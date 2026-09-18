@@ -1,4 +1,5 @@
-import type { Building, City, Resource, Rotation, StallGood, Summary, Tool, World } from '../sim/types';
+import type { Building, BuildingKind, BuildTool, City, Resource, Rotation, StallGood, Summary, Tool, World } from '../sim/types';
+import { nextUnlock, requirementOf, tierNoun, unlockRefusal } from '../sim/unlocks';
 import { STALL_GOODS, STALL_TRADES, stallServing } from '../sim/stalls';
 import { BUILDINGS, HOUSE_CAPACITY, HOUSE_NAMES, MONTH_SECONDS, ROAD_COST, VENDOR_COST, storesGoods } from '../sim/catalog';
 import { FOOD_CONSUMPTION_PER_RESIDENT, WATER_DECAY_PER_SECOND } from '../sim/balance';
@@ -87,6 +88,12 @@ const TOAST_LIFETIME = 3200;
 const BANNER_LIFETIME = 3600;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const FOUNDING_YEAR_BC = 421;
+
+function lockLabel(tool: HudTool): string {
+  const requirement = requirementOf(tool as BuildTool);
+  if (!requirement) return '';
+  return `\u{1F512} ${requirement.residents} ${tierNoun(requirement.tier)}`;
+}
 
 function formatDrachma(value: number): string {
   return `${Math.round(value).toLocaleString('en-US')} dr`;
@@ -180,6 +187,7 @@ const SKELETON = `
       <li><label><input type="checkbox" disabled data-milestone="harbourTrade" /> The harbour rebuilt and trading lumber</label></li>
     </ol>
     <p class="hud-guide-note">Wheat only takes root in fertile soil: the darker, striped fields.</p>
+    <p class="hud-guide-unlock" data-field="unlock" data-testid="next-unlock" hidden></p>
   </details>
   <details class="hud-panel hud-inspector" data-testid="inspector" hidden>
     <summary>Inspector</summary>
@@ -263,6 +271,7 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
 
   const toolbar = root.querySelector<HTMLElement>('.hud-toolbar')!;
   const toolButtons = new Map<HudTool, HTMLButtonElement>();
+  const toolCosts = new Map<HudTool, HTMLElement>();
   function addToolButton(def: ToolDef): HTMLButtonElement {
     const button = document.createElement('button');
     button.type = 'button';
@@ -280,6 +289,7 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
       cost.className = 'hud-tool-cost';
       cost.textContent = def.cost;
       button.append(cost);
+      toolCosts.set(def.tool, cost);
     }
     button.addEventListener('click', () => actions.tool(def.tool));
     toolbar.appendChild(button);
@@ -454,6 +464,16 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
     updateVendor(selected, selection.editable);
   }
 
+  const unlockLine = field(root, 'unlock');
+
+  function showNextUnlock(city: City): void {
+    const pending = nextUnlock(city);
+    unlockLine.hidden = pending === null;
+    if (!pending) return;
+    const short = pending.requirement.residents - pending.living;
+    unlockLine.textContent = `Next: ${BUILDINGS[pending.tool as BuildingKind].name}, ${short} ${tierNoun(pending.requirement.tier)} away.`;
+  }
+
   function updateMilestones(active: CityScope | null): void {
     guidePanel.querySelector<HTMLElement>('.hud-milestones')!.hidden = !active;
     const guideTitle = field(guidePanel, 'guide-title');
@@ -482,6 +502,7 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
     const next = steps.find(([key]) => !milestones[key]);
     guideTitle.textContent = summary.goal ? `${active.city.name} is thriving` : `A home in ${active.city.name}`;
     guidePanel.querySelector('.hud-guide-note')!.textContent = next?.[1] ?? 'Your neighbourhood is thriving. Keep building at your own pace.';
+    showNextUnlock(active.city);
   }
 
   const hintElement = field(root, 'hint');
@@ -517,8 +538,13 @@ export function createHud(root: HTMLElement, actions: HudActions, features: HudF
     foodField.textContent = Math.round(viewed?.summary.food ?? 0).toLocaleString('en-US');
     for (const def of TOOL_DEFS) {
       const button = toolButtons.get(def.tool)!;
-      button.disabled = !writable || !active;
-      button.classList.toggle('hud-tool-unaffordable', !!active && def.price > active.city.money);
+      const locked = active && def.tool !== 'demolish' ? unlockRefusal(active.city, def.tool as BuildTool) : '';
+      button.disabled = !writable || !active || locked !== '';
+      button.classList.toggle('hud-tool-locked', locked !== '');
+      button.classList.toggle('hud-tool-unaffordable', !locked && !!active && def.price > active.city.money);
+      button.title = locked || def.label;
+      const cost = toolCosts.get(def.tool);
+      if (cost) cost.textContent = locked ? lockLabel(def.tool) : def.cost;
     }
     balanceField.textContent = formatSigned(viewed?.summary.balance ?? 0);
     employedField.textContent = `${viewed?.summary.workers ?? 0} / ${viewed?.summary.jobs ?? 0}`;

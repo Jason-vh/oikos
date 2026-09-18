@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { advance, build, buildingStatus, createWorld } from './world';
 import { islandFor, terrainOn, tileAtOn, tileIndexOn } from './island';
-import { connect, homeTiles, onHomeIsland, spotFor } from './testing';
+import { built, connect, homeTiles, onHomeIsland, openLadder, spotFor } from './testing';
 import { GATHER_RANGE, GATHER_STOCK_CAP, gatherReach, overlandPath } from './gathering';
 import { alive, animalAt, SPECIES, wildlifeObstacles } from './wildlife';
 import { primaryCity } from './city';
@@ -9,6 +9,7 @@ import { BUILDINGS } from './catalog';
 import type { Building, City, Tile, World } from './types';
 
 function nearForest(world: World, kind: 'lodge' | 'woodcutter'): Tile | null {
+  openLadder(world);
   const forest = homeTiles(world, (map, x, z) => terrainOn(map, x, z) === 'forest');
   for (const tree of forest) {
     const spot = spotFor(world, kind, tree);
@@ -23,14 +24,14 @@ describe('hunting', () => {
     const boar = world.wildlife.find((animal) => animal.kind === 'boar' && onHomeIsland(world, Math.floor(animal.homeX), Math.floor(animal.homeZ)))!;
     const spot = spotFor(world, 'lodge', { x: Math.floor(boar.homeX), z: Math.floor(boar.homeZ) })!;
     expect(build(world, primaryCity(world), 'lodge', spot.x, spot.z).ok).toBe(true);
-    const lodge = primaryCity(world).buildings[0];
+    const lodge = built(world, 'lodge');
     expect(connect(world, lodge).ok).toBe(true);
     const granarySpot = spotFor(world, 'granary', spot)!;
     expect(build(world, primaryCity(world), 'granary', granarySpot.x, granarySpot.z).ok).toBe(true);
-    expect(connect(world, primaryCity(world).buildings[1]).ok).toBe(true);
+    expect(connect(world, built(world, 'granary')).ok).toBe(true);
     const house = spotFor(world, 'house', islandFor(world.seed).entry)!;
     expect(build(world, primaryCity(world), 'house', house.x, house.z).ok).toBe(true);
-    expect(connect(world, primaryCity(world).buildings[2]).ok).toBe(true);
+    expect(connect(world, built(world, 'house')).ok).toBe(true);
     let hunted = false;
     for (let t = 0; t < 1600 && !hunted; t++) {
       advance(world, .25);
@@ -42,7 +43,7 @@ describe('hunting', () => {
     let stored = false;
     for (let t = 0; t < 400 && !stored; t++) {
       advance(world, 1);
-      stored = (primaryCity(world).buildings[1].stores.meat ?? 0) > 0;
+      stored = (built(world, 'granary').stores.meat ?? 0) > 0;
     }
     expect(stored).toBe(true);
     expect(primaryCity(world).produced).toBeGreaterThan(0);
@@ -66,13 +67,13 @@ describe('woodcutting', () => {
     const spot = nearForest(world, 'woodcutter')!;
     expect(spot).not.toBeNull();
     expect(build(world, primaryCity(world), 'woodcutter', spot.x, spot.z).ok).toBe(true);
-    expect(connect(world, primaryCity(world).buildings[0]).ok).toBe(true);
+    expect(connect(world, built(world, 'woodcutter')).ok).toBe(true);
     const pileSpot = spotFor(world, 'stockpile', spot)!;
     expect(build(world, primaryCity(world), 'stockpile', pileSpot.x, pileSpot.z).ok).toBe(true);
-    expect(connect(world, primaryCity(world).buildings[1]).ok).toBe(true);
+    expect(connect(world, built(world, 'stockpile')).ok).toBe(true);
     const house = spotFor(world, 'house', islandFor(world.seed).entry)!;
     expect(build(world, primaryCity(world), 'house', house.x, house.z).ok).toBe(true);
-    expect(connect(world, primaryCity(world).buildings[2]).ok).toBe(true);
+    expect(connect(world, built(world, 'house')).ok).toBe(true);
     let felled = false;
     for (let t = 0; t < 400 && !felled; t++) {
       advance(world, 1);
@@ -85,7 +86,7 @@ describe('woodcutting', () => {
     let stored = false;
     for (let t = 0; t < 400 && !stored; t++) {
       advance(world, 1);
-      stored = (primaryCity(world).buildings[1].stores.lumber ?? 0) > 0;
+      stored = (built(world, 'stockpile').stores.lumber ?? 0) > 0;
     }
     expect(stored).toBe(true);
   });
@@ -94,15 +95,15 @@ describe('woodcutting', () => {
     const world = createWorld(1);
     const spot = nearForest(world, 'woodcutter')!;
     build(world, primaryCity(world), 'woodcutter', spot.x, spot.z);
-    connect(world, primaryCity(world).buildings[0]);
+    connect(world, built(world, 'woodcutter'));
     const granarySpot = spotFor(world, 'granary', spot)!;
     build(world, primaryCity(world), 'granary', granarySpot.x, granarySpot.z);
-    connect(world, primaryCity(world).buildings[1]);
+    connect(world, built(world, 'granary'));
     const house = spotFor(world, 'house', islandFor(world.seed).entry)!;
     build(world, primaryCity(world), 'house', house.x, house.z);
-    connect(world, primaryCity(world).buildings[2]);
+    connect(world, built(world, 'house'));
     advance(world, 400);
-    expect(primaryCity(world).buildings[1].stores.lumber ?? 0).toBe(0);
+    expect(built(world, 'granary').stores.lumber ?? 0).toBe(0);
     expect(tileIndexOn(islandFor(1), 0, 0)).toBe(0);
   });
 });
@@ -112,10 +113,10 @@ describe('working at the site', () => {
     const world = createWorld(1);
     const spot = nearForest(world, 'woodcutter')!;
     build(world, primaryCity(world), 'woodcutter', spot.x, spot.z);
-    connect(world, primaryCity(world).buildings[0]);
+    connect(world, built(world, 'woodcutter'));
     const house = spotFor(world, 'house', islandFor(world.seed).entry)!;
     build(world, primaryCity(world), 'house', house.x, house.z);
-    connect(world, primaryCity(world).buildings[1]);
+    connect(world, built(world, 'house'));
     let working: number | null = null;
     for (let t = 0; t < 1600 && working === null; t++) {
       advance(world, .25);
@@ -230,7 +231,7 @@ describe('telling the player why a gatherer is idle', () => {
   function staffedCabin(world: World): Building {
     const spot = nearForest(world, 'woodcutter')!;
     build(world, primaryCity(world), 'woodcutter', spot.x, spot.z);
-    const cabin = primaryCity(world).buildings[0];
+    const cabin = built(world, 'woodcutter');
     connect(world, cabin);
     housed(world);
     staffed(world, cabin);
@@ -279,7 +280,7 @@ describe('telling the player why a gatherer is idle', () => {
     const boar = world.wildlife.find((animal) => animal.kind === 'boar' && onHomeIsland(world, Math.floor(animal.homeX), Math.floor(animal.homeZ)))!;
     const spot = spotFor(world, 'lodge', { x: Math.floor(boar.homeX), z: Math.floor(boar.homeZ) })!;
     build(world, primaryCity(world), 'lodge', spot.x, spot.z);
-    const lodge = primaryCity(world).buildings[0];
+    const lodge = built(world, 'lodge');
     connect(world, lodge);
     housed(world);
     staffed(world, lodge);
@@ -295,7 +296,7 @@ describe('the reach a gatherer is promised', () => {
     const world = createWorld(1);
     const spot = nearForest(world, 'woodcutter')!;
     build(world, primaryCity(world), 'woodcutter', spot.x, spot.z);
-    const cabin = primaryCity(world).buildings[0];
+    const cabin = built(world, 'woodcutter');
     connect(world, cabin);
     const map = islandFor(world.seed);
     const reach = gatherReach(world, primaryCity(world), 'woodcutter', cabin.x, cabin.z, cabin.rotation);
@@ -314,11 +315,11 @@ describe('the reach a gatherer is promised', () => {
     const world = createWorld(1);
     const spot = nearForest(world, 'woodcutter')!;
     build(world, primaryCity(world), 'woodcutter', spot.x, spot.z);
-    const cabin = primaryCity(world).buildings[0];
+    const cabin = built(world, 'woodcutter');
     connect(world, cabin);
     const house = spotFor(world, 'house', islandFor(world.seed).entry)!;
     build(world, primaryCity(world), 'house', house.x, house.z);
-    connect(world, primaryCity(world).buildings[1]);
+    connect(world, built(world, 'house'));
     const map = islandFor(world.seed);
     const inside = new Set(gatherReach(world, primaryCity(world), 'woodcutter', cabin.x, cabin.z, cabin.rotation));
 
@@ -336,7 +337,7 @@ describe('the reach a gatherer is promised', () => {
     const boar = world.wildlife.find((animal) => animal.kind === 'boar' && onHomeIsland(world, Math.floor(animal.homeX), Math.floor(animal.homeZ)))!;
     const spot = spotFor(world, 'lodge', { x: Math.floor(boar.homeX), z: Math.floor(boar.homeZ) })!;
     build(world, primaryCity(world), 'lodge', spot.x, spot.z);
-    const lodge = primaryCity(world).buildings[0];
+    const lodge = built(world, 'lodge');
     connect(world, lodge);
     const reach = gatherReach(world, primaryCity(world), 'lodge', lodge.x, lodge.z, lodge.rotation);
 

@@ -4,7 +4,7 @@ import { buildStarterNeighbourhood } from './scenario';
 import { buildServiceCircuit, exitTile } from './grid';
 import { ROAD_BUDGET } from './balance';
 import { deliveryRoutes, serviceRoute, walkerRoute, type DeliveryRoute } from './logistics';
-import { connect, farCorner, homeTiles, spotFor } from './testing';
+import { built, connect, farCorner, homeTiles, openLadder, spotFor } from './testing';
 import { primaryCity } from './city';
 import { islandFor, terrainOn } from './island';
 import { GATHER_RANGE } from './gathering';
@@ -87,6 +87,7 @@ describe('serviceRoute', () => {
 });
 
 function nearForest(world: World): Tile | null {
+  openLadder(world);
   for (const tree of homeTiles(world, (map, x, z) => terrainOn(map, x, z) === 'forest')) {
     const spot = spotFor(world, 'woodcutter', tree);
     if (spot && Math.abs(spot.x - tree.x) + Math.abs(spot.z - tree.z) < GATHER_RANGE / 2) return spot;
@@ -150,15 +151,15 @@ describe('deliveryRoutes', () => {
     const spot = nearForest(world)!;
     expect(spot).not.toBeNull();
     expect(build(world, primaryCity(world), 'woodcutter', spot.x, spot.z).ok).toBe(true);
-    const woodcutter = primaryCity(world).buildings[0];
+    const woodcutter = built(world, 'woodcutter');
     expect(connect(world, woodcutter).ok).toBe(true);
     const pileSpot = spotFor(world, 'stockpile', spot)!;
     expect(build(world, primaryCity(world), 'stockpile', pileSpot.x, pileSpot.z).ok).toBe(true);
-    const stockpile = primaryCity(world).buildings[1];
+    const stockpile = built(world, 'stockpile');
     expect(connect(world, stockpile).ok).toBe(true);
     const house = spotFor(world, 'house', islandFor(world.seed).entry)!;
     expect(build(world, primaryCity(world), 'house', house.x, house.z).ok).toBe(true);
-    expect(connect(world, primaryCity(world).buildings[2]).ok).toBe(true);
+    expect(connect(world, built(world, 'house')).ok).toBe(true);
     let route: DeliveryRoute | undefined;
     for (let t = 0; t < 1600 && !route; t++) {
       advance(world, .25);

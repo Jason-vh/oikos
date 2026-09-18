@@ -3,7 +3,7 @@ import { advance, build, buildingStatus, createWorld, getSummary, setVendor } fr
 import { deserializeWorld, serializeWorld } from './save';
 import { buildStarterNeighbourhood } from './scenario';
 import { primaryCity } from './city';
-import { connect, spotFor } from './testing';
+import { connect, settleHouses, spotFor } from './testing';
 import { islandFor } from './island';
 import { HOUSE_CAPACITY, VENDOR_COST } from './catalog';
 import { PRESS_BATCH_OIL } from './balance';
@@ -17,6 +17,7 @@ function runUntil(world: World, seconds: number, done: () => boolean): boolean {
 function oilCity(world: World): { agora: Building; press: Building } {
   const city = primaryCity(world);
   expect(buildStarterNeighbourhood(world, city).ok).toBe(true);
+  settleHouses(world, city, 3, 24);
   const entry = islandFor(world.seed, city.home).entry;
   const orchardSpot = spotFor(world, 'orchard', entry)!;
   expect(build(world, city, 'orchard', orchardSpot.x, orchardSpot.z).ok).toBe(true);

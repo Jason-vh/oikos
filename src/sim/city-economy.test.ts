@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { advance, build, createWorld, getSummary, placement, totalStock } from './world';
 import { primaryCity } from './city';
 import { buildStarterNeighbourhood } from './scenario';
-import { connectInCity, foundSecondCity, homeTilesInCity, spotForInCity } from './testing';
+import { connectInCity, foundSecondCity, homeTilesInCity, openLadder, spotForInCity } from './testing';
 import { serializeWorld, deserializeWorld } from './save';
 import { ISLAND_COUNT, islandFor, terrainOn, tileIndexOn } from './island';
 import { STEP } from './balance';
@@ -110,6 +110,7 @@ describe('two founded cities in one World', () => {
     const city2 = foundSecondCity(world, otherHome);
     expect(buildStarterNeighbourhood(world, city2).ok).toBe(true);
 
+    openLadder(world, city2);
     const forest = homeTilesInCity(world, city2, (map, x, z) => terrainOn(map, x, z) === 'forest');
     let woodcutterSpot: Tile | null = null;
     for (const tree of forest) {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { advance, addStore, build, createWorld, demolish, placement, setVendor } from './world';
-import { connect, homeTiles, mapOf, spotFor } from './testing';
+import { built, connect, homeTiles, mapOf, openLadder, spotFor } from './testing';
 import { terrainOn, tileAtOn } from './island';
 import { deserializeWorld, serializeWorld } from './save';
 import { HARBOUR_DOCK_CAP, HARBOUR_MIN_CARGO, HARBOUR_UPGRADE_LUMBER } from './harbour';
@@ -8,17 +8,18 @@ import { primaryCity } from './city';
 
 function stockpileWorld(seed = 1) {
   const world = createWorld(seed);
+  openLadder(world);
   const spot = spotFor(world, 'stockpile')!;
   expect(build(world, primaryCity(world), 'stockpile', spot.x, spot.z).ok).toBe(true);
-  const stockpile = primaryCity(world).buildings[0];
+  const stockpile = built(world, 'stockpile');
   expect(connect(world, stockpile).ok).toBe(true);
   return { world, stockpile };
 }
 
 function improvedWorld(seed = 1) {
-  const built = stockpileWorld(seed);
-  primaryCity(built.world).harbour.tier = 2;
-  return built;
+  const fixture = stockpileWorld(seed);
+  primaryCity(fixture.world).harbour.tier = 2;
+  return fixture;
 }
 
 describe('the harbour is always present', () => {
@@ -54,11 +55,15 @@ describe('rebuilding the harbour in stone', () => {
     }
     expect(upgraded).toBe(true);
     expect(primaryCity(world).harbour.stores.lumber ?? 0).toBe(0);
-    expect(primaryCity(world).walkers.some((walker) => walker.kind === 'porter')).toBe(false);
+    const inFlight = new Set(primaryCity(world).walkers.filter((walker) => walker.kind === 'porter').map((walker) => walker.id));
+    advance(world, 120);
+    const fresh = primaryCity(world).walkers.filter((walker) => walker.kind === 'porter' && !inFlight.has(walker.id));
+    expect(fresh).toEqual([]);
   });
 
   test('a woodcutter-fed stockpile eventually rebuilds it too', () => {
     const world = createWorld(1);
+    openLadder(world);
     const map = mapOf(world);
     let spot = null as ReturnType<typeof spotFor>;
     for (const tree of homeTiles(world, (island, x, z) => terrainOn(island, x, z) === 'forest')) {
@@ -68,13 +73,13 @@ describe('rebuilding the harbour in stone', () => {
     }
     expect(spot).not.toBeNull();
     build(world, primaryCity(world), 'woodcutter', spot!.x, spot!.z);
-    connect(world, primaryCity(world).buildings[0]);
+    connect(world, built(world, 'woodcutter'));
     const pileSpot = spotFor(world, 'stockpile', spot!)!;
     build(world, primaryCity(world), 'stockpile', pileSpot.x, pileSpot.z);
-    connect(world, primaryCity(world).buildings[1]);
+    connect(world, built(world, 'stockpile'));
     const houseSpot = spotFor(world, 'house', map.entry)!;
     build(world, primaryCity(world), 'house', houseSpot.x, houseSpot.z);
-    connect(world, primaryCity(world).buildings[2]);
+    connect(world, built(world, 'house'));
     let upgraded = false;
     for (let t = 0; t < 6000 && !upgraded; t++) {
       advance(world, .5);

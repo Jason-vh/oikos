@@ -5,7 +5,7 @@ import { islandFor, terrainOn } from '../sim/island';
 import { build, createWorld } from '../sim/world';
 import { buildStarterNeighbourhood } from '../sim/scenario';
 import { primaryCity } from '../sim/city';
-import { connect, foundSecondCity, homeTiles, spotFor } from '../sim/testing';
+import { connect, foundSecondCity, homeTiles, openLadder, spotFor } from '../sim/testing';
 
 test('the overlay resolves a building route by searching every city, not just the first', () => {
   const world = createWorld(1, 0);
@@ -53,6 +53,7 @@ test('an unknown building or walker id clears a previously drawn route instead o
 test('selecting a woodcutter draws the ground it can work, and clears it again', () => {
   const world = createWorld(1, 0);
   const city = primaryCity(world);
+  openLadder(world, city);
   const spot = spotFor(world, 'woodcutter', homeTiles(world, (map, x, z) => terrainOn(map, x, z) === 'forest')[0])!;
   expect(build(world, city, 'woodcutter', spot.x, spot.z).ok).toBe(true);
   const cabin = city.buildings.at(-1)!;

@@ -7,6 +7,7 @@ import { findHarbourSite, harbourApron } from './founding';
 import { freshHarbour, HARBOUR_DOCK_CAP, harbourStatus, harbourTiles, setHarbourTrade, updateHarbour } from './harbour';
 import { pressStatus, updatePress } from './olives';
 import { setStall, stallGoodOf, stallOf, stallServing, stallsInstalled, STALL_GOODS, STALL_TRADES } from './stalls';
+import { unlockRefusal } from './unlocks';
 import { buildable, insideMapOn, islandFor, levelOn, onHomeIsland, terrainOn, tileAtOn, tileIndexOn, type IslandMap } from './island';
 import {
   accessDoors,
@@ -237,6 +238,8 @@ function shoreWaterTiles(map: IslandMap, tool: BuildTool, x: number, z: number, 
 }
 
 function evaluatePlacement(world: World, city: City, tool: BuildTool, x: number, z: number, rotation: Rotation): Placement {
+  const locked = unlockRefusal(city, tool);
+  if (locked) return { ok: false, reason: locked, cost: 0, tiles: [] };
   const map = mapOf(world, city);
   const foreign = foreignOccupancy(world, city);
   if (tool === 'road') {

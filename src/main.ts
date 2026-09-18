@@ -11,10 +11,10 @@ import { CELL_SIZE, groundHeight, islandFor, ISLAND_COUNT, terrainOn, tileIndexO
 import { buildingStatus, getSummary, placement, roadPathPlacement, walkerName, walkerStatus, WALKER_ROLES } from './sim/world';
 import { animalQuarry } from './sim/wildlife';
 import { gatherReach } from './sim/gathering';
-import type { Building, BuildingKind, City, Placement, Rotation, StallGood, Tile, Tool, Walker, World } from './sim/types';
+import type { Building, BuildingKind, BuildTool, City, Placement, Rotation, StallGood, Tile, Tool, Walker, World } from './sim/types';
 import { createHud, type CityScope, type HudTool, type Stance } from './ui/hud';
 import { createSound } from './ui/sound';
-import { celebration, cityMilestones, NO_MILESTONES, rememberMilestones } from './ui/celebrations';
+import { celebration, cityMilestones, cityUnlocks, NO_MILESTONES, rememberMilestones, rememberUnlocks, unlockCelebration } from './ui/celebrations';
 import { harbourPlacement } from './sim/founding';
 import type { AuthorityRequest } from './server/authority';
 import { parseCommand, type CityCommand } from './sim/commands';
@@ -148,6 +148,7 @@ export function boot(source: SharedBootSource): BootHandles {
   let artTime = 0;
   let inDebt = false;
   let milestones = initialActive ? cityMilestones(initialActive) : NO_MILESTONES;
+  let openTools: BuildTool[] = initialActive ? cityUnlocks(initialActive) : [];
   const sound = createSound();
   window.addEventListener('pointerdown', sound.unlock, { capture: true });
   window.addEventListener('keydown', sound.unlock, { capture: true });
@@ -220,9 +221,13 @@ export function boot(source: SharedBootSource): BootHandles {
       const nextMilestones = cityMilestones(active);
       const event = celebration(milestones, nextMilestones, active.name);
       milestones = rememberMilestones(milestones, nextMilestones);
-      if (event) {
-        hud.notify(event.message);
-        sound.play(event.sound);
+      const nextTools = cityUnlocks(active);
+      const opened = unlockCelebration(openTools, nextTools);
+      openTools = rememberUnlocks(openTools, nextTools);
+      const announced = event ?? opened;
+      if (announced) {
+        hud.notify(announced.message);
+        sound.play(announced.sound);
       }
     }
   }
@@ -734,6 +739,7 @@ export function boot(source: SharedBootSource): BootHandles {
       if (realmChanged) cameraMemory.clear();
       const active = activeCity(world, context);
       milestones = active ? cityMilestones(active) : NO_MILESTONES;
+      openTools = active ? cityUnlocks(active) : [];
       selectedId = null;
       hover = null;
       drag = null;
