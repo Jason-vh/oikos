@@ -240,6 +240,11 @@ new shipping network to supply these sanctuaries.”
   visiting, camera and recovery stay available. It saves nothing locally.
 - Deployed at <https://oikos.vhtm.eu>: Caddy serves the built client and proxies
   the authority over the same origin.
+- The population ladder: a fishing wharf as a second starting livelihood, an
+  olive orchard and press feeding an oil stall on the agora, a fourth housing tier
+  that needs oil, and a catalogue gated on residents per tier, with the next
+  unlock shown in the guide. Needs are cumulative. Details in
+  [docs/gameplay.md](docs/gameplay.md).
 - Still ahead, in rough order:
   - **Snapshot cost.** Wildlife now rides its own once-a-second stream, so an
     action's frame is the cities alone: 133 gzipped bytes against 93 KB of animals,
@@ -278,13 +283,16 @@ same functioning shared world.
 
 Deepen the domestic economy before multiplying content.
 
-- Fishing as a proper starting livelihood.
 - Distinct residential types and their workforce requirements.
-- Automatic housing evolution with tier-specific needs.
+- Need categories with thresholds, so a tier is reachable by more than one
+  combination of goods and over-supply pays.
 - Appeal and the beginnings of meaningful neighbourhood design.
 - Warehouse reserves and workplace priorities.
 - Clear supply diagnostics and recoverable household decline.
-- Enough progression to create new decisions beyond repeating the starter block.
+- A long ambition visible from the first session.
+
+Done: fishing as a starting livelihood, automatic evolution with cumulative
+tier-specific needs, and a catalogue the city earns.
 
 **Milestone:** an evening of building offers several viable layouts, meaningful
 labour choices, and a clear next ambition.

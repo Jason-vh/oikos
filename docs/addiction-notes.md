@@ -176,48 +176,43 @@ beautifies while the other keeps the islands running.
 ## Where Οἶκος stands
 
 Has: the road ritual, physical cargo, evolving houses, status lines, distance-free
-labour, walker-pass service. Missing: the goal arrives in minutes, tiers need only
-food and water, nothing new unlocks, no space pressure, no visible long ambition,
-no side loops, no cast.
+labour, walker-pass service, fishing and hunting as first livelihoods, a
+four-tier ladder with cumulative needs and one processed good, and a catalogue
+gated on residents per tier with the next unlock shown. Missing: the goal arrives
+in minutes, one need per step with no choice in how to meet it, no space
+pressure, no visible long ambition, no side loops, no cast.
 
 ## Proposals
 
 In rough order of leverage. All fit roadmap phase 2 unless noted.
 
-1. **Population unlocks the catalogue.** Gate tools on resident counts per tier;
-   the HUD shows the next unlock and the distance to it.
-2. **Cascade one need chain.** Tier 3 wants a processed good (olive oil: orchard
-   and press) whose workforce competes with farms, so upgrading houses pulls
-   workers and forces more housing.
-3. **Keep needs cumulative.** Add categories with thresholds so tier 3 is reachable
-   by several combinations depending on the island. Over-fulfilment pays
-   attributes. This contradicts the roadmap line that later requirements can
-   replace earlier ones; the evidence favours cumulative.
-4. **Activate needs by tier headcount**, not on the first house.
-5. **Always show the next want**: per house, per district, and one city-wide "what
+1. **Need categories with thresholds**, so a tier is reachable by several
+   combinations depending on the island. Over-fulfilment pays attributes.
+2. **Activate needs by tier headcount**, not on the first house.
+3. **Always show the next want**: per house, per district, and one city-wide "what
    is stopping growth" line.
-6. **Problem list, not toasts.** Persistent, click-to-jump: "3 houses out of
+4. **Problem list, not toasts.** Persistent, click-to-jump: "3 houses out of
    water", "granary full, farm idle". Show whole information or none.
-7. **Long ambition visible from session one.** Show the sanctuary site and its bill
+5. **Long ambition visible from session one.** Show the sanctuary site and its bill
    greyed out. Sanctuary as the money and marble sink, capped per city, built tile
    by tile by artisans. (Phase 4.)
-8. **Gods and heroes as checklists.** "Athena takes residence when: 8 courtyard
+6. **Gods and heroes as checklists.** "Athena takes residence when: 8 courtyard
    houses, 200 olive oil stored, good appeal at the site." Then she walks and
    sanctifies presses. Gods visit before they are housed. A god has upkeep.
-9. **Space pressure.** Appeal so industry beside houses costs something; scarce
+7. **Space pressure.** Appeal so industry beside houses costs something; scarce
    fertile ground.
-10. **Beauty pays** via visitors, on a per-island rating with axes and
-    counterparts rather than an ornament count.
-11. **Requests between cities**, generated from actual shortages in the shared
-    world, with deadlines and favour. (Phase 3.)
-12. **Expeditions supplied from the stockpile**, morale-based, loot only. Never
-    the centre of the game. (Phase 5.)
-13. **Never abstract cargo.** Ships carry holds; routes are visible. (Phase 3.)
-14. **Personality tied to real state.** Cheap first step: a harbour-master or
-    oracle whose lines reference the actual shortage.
-15. **A first-session tutorial** as deliberate as Zeus's.
-16. **Pace for evenings, not weeks.** Anno 1800's late game is the cautionary
-    tale.
+8. **Beauty pays** via visitors, on a per-island rating with axes and
+   counterparts rather than an ornament count.
+9. **Requests between cities**, generated from actual shortages in the shared
+   world, with deadlines and favour. (Phase 3.)
+10. **Expeditions supplied from the stockpile**, morale-based, loot only. Never
+   the centre of the game. (Phase 5.)
+11. **Never abstract cargo.** Ships carry holds; routes are visible. (Phase 3.)
+12. **Personality tied to real state.** Cheap first step: a harbour-master or
+   oracle whose lines reference the actual shortage.
+13. **A first-session tutorial** as deliberate as Zeus's.
+14. **Pace for evenings, not weeks.** Anno 1800's late game is the cautionary
+   tale.
 
 ## Guardrails confirmed by the research
 
