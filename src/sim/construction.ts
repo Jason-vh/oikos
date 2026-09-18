@@ -25,32 +25,12 @@ function buildingOccupancy(map: IslandMap, city: City): Set<number> {
   return occupied;
 }
 
-export function suitableFarmGround(world: World, city: City): Tile[] {
-  const map = mapOf(world, city);
-  const occupied = buildingOccupancy(map, city);
-  for (const road of city.roads) occupied.add(road);
-  const foreign = foreignOccupancy(world, city);
-  for (const tile of foreign.roads) occupied.add(tile);
-  for (const tile of foreign.buildings) occupied.add(tile);
-  const sown = cropTiles(world);
-  const tiles: Tile[] = [];
-  const home = map.islands[map.home];
-  for (let z = home.z; z < home.z + home.depth; z++) {
-    for (let x = home.x; x < home.x + home.width; x++) {
-      if (terrainOn(map, x, z) !== 'fertile') continue;
-      if (occupied.has(tileIndexOn(map, x, z))) continue;
-      if (sown.has(tileIndexOn(map, x, z))) continue;
-      tiles.push({ x, z });
-    }
-  }
-  return tiles;
-}
-
 export function footprintTileIssues(world: World, city: City, tool: BuildingKind, x: number, z: number, rotation: Rotation): FootprintTile[] {
   const map = mapOf(world, city);
   const { width, depth } = footprint(tool, rotation);
   const baseLevel = levelOn(map, x, z);
   const occupiedByBuilding = buildingOccupancy(map, city);
+  const sown = cropTiles(world);
   const roads = new Set(city.roads);
   const foreign = foreignOccupancy(world, city);
   for (const tile of foreign.buildings) occupiedByBuilding.add(tile);
@@ -65,10 +45,10 @@ export function footprintTileIssues(world: World, city: City, tool: BuildingKind
         continue;
       }
       const terrain = terrainOn(map, tx, tz);
-      const wrongTerrain = tool === 'farm' ? terrain !== 'fertile' : !buildable(terrain);
+      const wrongTerrain = !buildable(terrain);
       const unevenGround = levelOn(map, tx, tz) !== baseLevel;
       const index = tileIndexOn(map, tx, tz);
-      const blocked = !onHomeIsland(map, tx, tz) || wrongTerrain || unevenGround || roads.has(index) || occupiedByBuilding.has(index);
+      const blocked = !onHomeIsland(map, tx, tz) || wrongTerrain || unevenGround || roads.has(index) || occupiedByBuilding.has(index) || sown.has(index);
       tiles.push({ x: tx, z: tz, blocked });
     }
   }

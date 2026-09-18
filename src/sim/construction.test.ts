@@ -1,41 +1,13 @@
 import { describe, expect, test } from 'bun:test';
-import { demolitionPreview, footprintTileIssues, harbourRoute, suitableFarmGround } from './construction';
+import { demolitionPreview, footprintTileIssues, harbourRoute } from './construction';
 import { BUILDINGS, VENDOR_COST } from './catalog';
-import { tileAtOn, tileIndexOn, terrainOn } from './island';
+import { tileAtOn, tileIndexOn } from './island';
 import { harbourGate } from './world';
 import { build, createWorld, setVendor } from './world';
-import { freshRoadSpot, growerSpotFor, mapOf, spotFor } from './testing';
-import { openFields, plant } from './crops';
+import { freshRoadSpot, mapOf, spotFor } from './testing';
 import { primaryCity } from './city';
 
 const FOOTPRINT_SEED = 5_551_212;
-
-describe('suitableFarmGround', () => {
-  test('lists open fertile ground and drops it once sown', () => {
-    const world = createWorld();
-    const city = primaryCity(world);
-    const spot = growerSpotFor(world, 'farm')!;
-    expect(build(world, city, 'farm', spot.x, spot.z).ok).toBe(true);
-    const farm = city.buildings[city.buildings.length - 1];
-    const map = mapOf(world);
-    const field = tileAtOn(map, openFields(world, city, farm)[0]);
-    const before = suitableFarmGround(world, city);
-    expect(before.some((tile) => tile.x === field.x && tile.z === field.z)).toBe(true);
-    expect(plant(world, city, farm.id, [field]).ok).toBe(true);
-    const after = suitableFarmGround(world, city);
-    expect(after.some((tile) => tile.x === field.x && tile.z === field.z)).toBe(false);
-    expect(after.every((tile) => terrainOn(mapOf(world), tile.x, tile.z) === 'fertile')).toBe(true);
-  });
-
-  test('excludes tiles under existing roads', () => {
-    const world = createWorld();
-    const map = mapOf(world);
-    const road = primaryCity(world).roads[0];
-    const { x, z } = tileAtOn(map, road);
-    const tiles = suitableFarmGround(world, primaryCity(world));
-    expect(tiles.some((tile) => tile.x === x && tile.z === z)).toBe(false);
-  });
-});
 
 describe('footprintTileIssues', () => {
   test('marks every tile clear when the whole footprint is buildable', () => {

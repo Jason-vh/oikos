@@ -1,7 +1,5 @@
 import { expect, test } from 'bun:test';
-import { footprintTileIssues, suitableFarmGround } from './construction';
-import { mapOf } from './grid';
-import { ISLAND_COUNT, onHomeIsland } from './island';
+import { footprintTileIssues } from './construction';
 import { deserializeWorld, serializeWorld } from './save';
 import { openLadder, spotFor } from './testing';
 import type { BuildTool } from './types';
@@ -41,16 +39,6 @@ test('a road batch reaching an unsettled island is rejected atomically', () => {
   expect(roadPathPlacement(world, primaryCity(world), tiles).reason).toContain('settled island');
   expect(placeRoadPath(world, primaryCity(world), tiles).ok).toBe(false);
   expect(serializeWorld(world)).toBe(before);
-});
-
-test('fertility overlays only advertise fields on the selected island', () => {
-  for (let home = 0; home < ISLAND_COUNT; home++) {
-    const world = createWorld(1, home);
-    const map = mapOf(world, primaryCity(world));
-    const fields = suitableFarmGround(world, primaryCity(world));
-    expect(fields.length).toBeGreaterThan(0);
-    expect(fields.every(({ x, z }) => onHomeIsland(map, x, z))).toBe(true);
-  }
 });
 
 test('legacy outlying construction remains loadable and can be removed', () => {
