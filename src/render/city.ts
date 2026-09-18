@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { animateFigure, animateIdle, animateWork, axe, bake, box, bundle, bundleKey, chopStrikes, CHOP_SET, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, post, spear, workPeriod, type Idle, type ModelStage } from '../art';
+import { animateFigure, animateHauling, animateIdle, animateWork, axe, bake, box, bundle, bundleKey, chopStrikes, CHOP_SET, colors, disposeModel, figure, getBuildingAssembly, getBuildingModel, post, spear, workPeriod, type Idle, type ModelStage } from '../art';
 import { footprint } from '../sim/catalog';
 import { AGORA_SLOTS, GRANARY_SLOTS, walkerSpeed } from '../sim/balance';
 import { CELL_SIZE, GROUND_Y, LEVEL_HEIGHT, groundHeight, insideMapOn, tileAtOn, tileIndexOn, worldPositionOn, type IslandMap } from '../sim/island';
@@ -75,8 +75,9 @@ const STRIDE_RAMP = .5;
 const TURN_GAIN = 1.5;
 const TURN_LIMIT = .16;
 const CART_TRAIL = 1.4;
-const CART_ROCK = .055;
-const AXLE = { y: .24, z: -.62 };
+const CART_ROCK = .035;
+const AXLE = { y: .24, z: -.78 };
+const GRIP = { x: .21, y: .076, z: .7 };
 const CADENCE_SPREAD = .24;
 const BOUNCE_SPREAD = .45;
 const CADENCE_SEED = 3.1;
@@ -497,6 +498,10 @@ export class CityScene {
       bed.name = 'bed';
       bed.position.set(0, AXLE.y, AXLE.z);
       box(bed, colors.wood, 0, .16, 0, .62, .38, .68);
+      for (const side of [-1, 1]) {
+        box(bed, colors.wood, side * GRIP.x, GRIP.y, (GRIP.z + .34) / 2, .07, .07, GRIP.z - .34, .02);
+        box(bed, colors.dark, side * GRIP.x, GRIP.y, GRIP.z, .105, .1, .1, .03);
+      }
       if (load) {
         const heap = new T.Group();
         heap.position.set(0, .24, 0);
@@ -794,7 +799,8 @@ export class CityScene {
         const spent = (this.worldTime - walker.task.since) * Math.max(1, speed) + drift;
         animateWork(walker.model, spent, walker.task.kind === 'hunt' ? 'thrust' : 'chop');
         if (walker.task.kind === 'chop') this.chopping(walker, spent, drift);
-      } else if (walker.moving) animateFigure(walker.model, phase, stride, walker.bounce);
+      } else if (walker.moving && walker.cart) animateHauling(walker.model, phase, stride, walker.bounce);
+      else if (walker.moving) animateFigure(walker.model, phase, stride, walker.bounce);
       else animateIdle(walker.model, (this.worldTime - walker.waitingSince) * Math.max(1, speed) + id, walker.mood);
       if (walker.cart) walker.cart.rotation.y = -walker.turn * CART_TRAIL;
       if (walker.cartBed) walker.cartBed.rotation.x = -Math.cos(phase * 2) * CART_ROCK * (stride / .55);

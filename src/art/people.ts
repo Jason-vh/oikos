@@ -216,6 +216,17 @@ export function animateWork(model: T.Object3D, elapsed: number, kind: 'chop' | '
   holdTool(model, pose.blade, pose.swing, true);
 }
 
+const HAUL_REACH = .34;
+const HAUL_TWIST = .3;
+
+export function animateHauling(model: T.Object3D, phase: number, stride: number, bounce = 1): void {
+  animateFigure(model, phase, stride, bounce);
+  const [body, , leftArm, , rightArm] = model.children;
+  leftArm.rotation.set(HAUL_REACH, 0, 0);
+  rightArm.rotation.set(HAUL_REACH, 0, 0);
+  body.rotation.y *= HAUL_TWIST;
+}
+
 export type Idle = 'breathe' | 'shift' | 'stretch';
 
 export function animateIdle(model: T.Object3D, spent: number, mood: Idle): void {

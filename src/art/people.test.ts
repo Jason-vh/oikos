@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import * as T from 'three';
-import { animateFigure, animateIdle, animateWork, axe, chopStrikes, CHOP_HEAD, CHOP_SET, citizen, figure, spear, workPeriod } from './people';
+import { animateFigure, animateHauling, animateIdle, animateWork, axe, chopStrikes, CHOP_HEAD, CHOP_SET, citizen, figure, spear, workPeriod } from './people';
 
 function parts(model: T.Object3D) {
   const [body, leftLeg, leftArm] = model.children;
@@ -261,4 +261,27 @@ test('a walking torso turns against the legs and stands square when still', () =
   expect(body.rotation.y).toBeCloseTo(0, 12);
   expect(body.rotation.z).toBeCloseTo(0, 12);
   expect(body.position.x).toBeCloseTo(0, 12);
+});
+
+test('a carter keeps both hands on the handles while its legs walk on', () => {
+  const model = citizen(0xd6ab53, false);
+  const [body, leftLeg, leftArm, rightLeg, rightArm] = model.children;
+  const poses = [1.2, 2.4, 3.9].map((phase) => {
+    animateHauling(model, phase, .55);
+    return {
+      arms: [leftArm.rotation.x, rightArm.rotation.x],
+      legs: [leftLeg.rotation.x, rightLeg.rotation.x],
+      twist: body.rotation.y,
+    };
+  });
+  for (const pose of poses) {
+    expect(pose.arms[0]).toBe(poses[0].arms[0]);
+    expect(pose.arms[0]).toBe(pose.arms[1]);
+    expect(pose.arms[0]).toBeGreaterThan(0);
+  }
+  expect(poses[0].legs).not.toEqual(poses[1].legs);
+
+  animateFigure(model, 1.2, .55);
+  expect(Math.abs(body.rotation.y)).toBeGreaterThan(Math.abs(poses[0].twist));
+  expect(leftArm.rotation.x).not.toBe(rightArm.rotation.x);
 });
