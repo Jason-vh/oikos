@@ -49,8 +49,34 @@ export function stump(parent: T.Object3D, x: number, y: number, z: number, scale
   log.rotation.set(0, .55, Math.PI / 2);
 }
 
-function farmShed(parent: T.Object3D): void {
-  const shed = group(parent, -1.35, 0, -1.55);
+interface FarmStyle {
+  shed: 'left' | 'right';
+  furrows: 'across' | 'along';
+}
+
+const FARM_STYLES: FarmStyle[] = [
+  { shed: 'left', furrows: 'across' },
+  { shed: 'right', furrows: 'across' },
+  { shed: 'left', furrows: 'along' },
+];
+
+export const FARM_VARIANTS = FARM_STYLES.length;
+
+function farmStyle(variant: number): FarmStyle {
+  return FARM_STYLES[variant % FARM_VARIANTS];
+}
+
+function sideOf(style: FarmStyle): number {
+  return style.shed === 'left' ? 1 : -1;
+}
+
+const SOIL = 0xd9c98a;
+const EARS = 0xe6c463;
+const CROP_HEIGHTS = [0, .12, .22, .26];
+const CROP_COLORS = [colors.oliveLight, colors.oliveLight, 0xc9bd6a, colors.gold];
+
+function farmShed(parent: T.Object3D, side: number): void {
+  const shed = group(parent, side * -1.35, 0, -1.55);
   box(shed, colors.stone, 0, .08, 0, 1.55, .16, 1.3);
   box(shed, colors.plaster, 0, .5, 0, 1.25, .74, 1.05, .06);
   roof(shed, 1.4, 1.2, .87, .32, colors.roofDark);
@@ -60,44 +86,65 @@ function farmShed(parent: T.Object3D): void {
   box(shed, colors.dark, 0, .9, .62, 1.15, .05, .05);
 }
 
-function farmGround(parent: T.Object3D): void {
-  box(parent, colors.earth, .35, .05, .3, 4.1, .1, 3.9, .02);
+function farmGround(parent: T.Object3D, side: number): void {
+  box(parent, colors.earth, side * .35, .05, .3, 4.1, .1, 3.9, .02);
 }
 
-function farmRows(parent: T.Object3D, stage: number): void {
-  const height = [0, .12, .22, .26][stage];
-  const crop = [colors.oliveLight, colors.oliveLight, 0xc9bd6a, colors.gold][stage];
+function furrowAcross(parent: T.Object3D, stage: number, side: number, ridge: number, near: boolean): void {
+  const height = CROP_HEIGHTS[stage];
+  const width = near ? 2.35 : 4;
+  const x = side * (near ? 1.15 : .35);
+  box(parent, SOIL, x, .15, ridge, width, .12, .22, .02);
+  if (stage === 0) return;
+  box(parent, CROP_COLORS[stage], x, .21 + height / 2, ridge, width - .08, height, .18, .03);
+  if (stage === 3) box(parent, EARS, x, .5, ridge, width - .12, .09, .12, .02);
+}
+
+function furrowAlong(parent: T.Object3D, stage: number, side: number, ridge: number, near: boolean): void {
+  const height = CROP_HEIGHTS[stage];
+  const depth = near ? 2.3 : 3.7;
+  const x = side * ridge;
+  const z = near ? .95 : .25;
+  box(parent, SOIL, x, .15, z, .22, .12, depth, .02);
+  if (stage === 0) return;
+  box(parent, CROP_COLORS[stage], x, .21 + height / 2, z, .18, height, depth - .08, .03);
+  if (stage === 3) box(parent, EARS, x, .5, z, .12, .09, depth - .12, .02);
+}
+
+function farmRows(parent: T.Object3D, stage: number, style: FarmStyle): void {
+  const side = sideOf(style);
   for (let row = 0; row < 7; row++) {
-    const z = -1.35 + row * .55;
-    const width = row < 3 ? 2.35 : 4;
-    const x = row < 3 ? 1.15 : .35;
-    box(parent, 0xd9c98a, x, .15, z, width, .12, .22, .02);
-    if (stage === 0) continue;
-    box(parent, crop, x, .21 + height / 2, z, width - .08, height, .18, .03);
-    if (stage === 3) box(parent, 0xe6c463, x, .5, z, width - .12, .09, .12, .02);
+    const ridge = -1.35 + row * .55;
+    const near = row < 3;
+    if (style.furrows === 'across') furrowAcross(parent, stage, side, ridge, near);
+    else furrowAlong(parent, stage, side, ridge, near);
   }
 }
 
-function farmFence(parent: T.Object3D): void {
-  box(parent, colors.stone, .35, .12, 2.3, 4.1, .1, .12);
-  for (const px of [-1.6, -.35, .9, 2.15]) post(parent, colors.wood, px, .27, 2.3, .035, .48);
-  box(parent, colors.wood, .35, .44, 2.3, 4.05, .05, .05);
+function farmFence(parent: T.Object3D, side: number): void {
+  box(parent, colors.stone, side * .35, .12, 2.3, 4.1, .1, .12);
+  for (const px of [-1.6, -.35, .9, 2.15]) post(parent, colors.wood, side * px, .27, 2.3, .035, .48);
+  box(parent, colors.wood, side * .35, .44, 2.3, 4.05, .05, .05);
 }
 
-export function wheatFarm(stage = 3): T.Group {
+export function wheatFarm(stage = 3, variant = 0): T.Group {
+  const style = farmStyle(variant);
+  const side = sideOf(style);
   const plot = new T.Group();
-  farmShed(plot);
-  farmGround(plot);
-  farmRows(plot, stage);
-  farmFence(plot);
+  farmShed(plot, side);
+  farmGround(plot, side);
+  farmRows(plot, stage, style);
+  farmFence(plot, side);
   return plot;
 }
 
-export function wheatFarmPieces(stage: number): ModelAssembly {
+export function wheatFarmPieces(stage: number, variant = 0): ModelAssembly {
+  const style = farmStyle(variant);
+  const side = sideOf(style);
   const assembly = modelAssembly(false);
-  farmGround(assemblyPart(assembly, { name: 'ground', at: 0, lift: 0, dust: true }));
-  farmFence(assemblyPart(assembly, { name: 'fence', at: .16, lift: .2, duration: .26 }));
-  farmShed(assemblyPart(assembly, { name: 'shed', at: .34, lift: .34, duration: .32, dust: true }));
-  farmRows(assemblyPart(assembly, { name: 'furrows', at: .6, lift: .12, duration: .3 }), stage);
+  farmGround(assemblyPart(assembly, { name: 'ground', at: 0, lift: 0, dust: true }), side);
+  farmFence(assemblyPart(assembly, { name: 'fence', at: .16, lift: .2, duration: .26 }), side);
+  farmShed(assemblyPart(assembly, { name: 'shed', at: .34, lift: .34, duration: .32, dust: true }), side);
+  farmRows(assemblyPart(assembly, { name: 'furrows', at: .6, lift: .12, duration: .3 }), stage, style);
   return assembly;
 }

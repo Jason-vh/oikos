@@ -10,6 +10,10 @@ import type { BuildingKind } from '../sim/types';
 
 const PLACEABLE = (Object.keys(BUILDINGS) as BuildingKind[]).filter((kind) => kind !== 'harbour');
 
+function variants(): { kind: BuildingKind; variant: number }[] {
+  return PLACEABLE.flatMap((kind) => Array.from({ length: modelVariants(kind) }, (_, variant) => ({ kind, variant })));
+}
+
 function triangles(root: T.Group): number {
   let total = 0;
   root.traverse((child) => { if (child instanceof T.Mesh) total += child.geometry.attributes.position.count / 3; });
@@ -26,33 +30,16 @@ function palette(root: T.Group): string[] {
 }
 
 describe('every assembly finishes as the model it stands in for', () => {
-  for (const kind of PLACEABLE) {
-    test(`${kind}`, () => {
-      const assembly = getBuildingAssembly(kind)!;
-      const finished = getBuildingModel(kind);
+  for (const { kind, variant } of variants()) {
+    test(`${kind} variant ${variant}`, () => {
+      const assembly = getBuildingAssembly(kind, { variant })!;
+      const finished = getBuildingModel(kind, { variant });
       poseAssembly(assembly, assemblyDuration(assembly));
       const raised = new T.Box3().setFromObject(assembly.model);
       const built = new T.Box3().setFromObject(finished);
       expect(raised.min.toArray()).toEqual(built.min.toArray());
       expect(raised.max.toArray()).toEqual(built.max.toArray());
       expect(palette(assembly.model)).toEqual(palette(finished));
-      disposeModel(assembly.model);
-      disposeModel(finished);
-    });
-  }
-});
-
-describe('every dwelling variant is raised as the dwelling it becomes', () => {
-  for (let variant = 0; variant < modelVariants('house'); variant++) {
-    test(`variant ${variant}`, () => {
-      const assembly = getBuildingAssembly('house', { variant })!;
-      const finished = getBuildingModel('house', { variant });
-      poseAssembly(assembly, assemblyDuration(assembly));
-      expect(palette(assembly.model)).toEqual(palette(finished));
-      const raised = new T.Box3().setFromObject(assembly.model);
-      const built = new T.Box3().setFromObject(finished);
-      expect(raised.min.toArray()).toEqual(built.min.toArray());
-      expect(raised.max.toArray()).toEqual(built.max.toArray());
       disposeModel(assembly.model);
       disposeModel(finished);
     });
@@ -79,9 +66,9 @@ test('the split walls are construction geometry and never reach the finished dwe
 });
 
 describe('every assembly pose stays inside every rotated footprint and above ground', () => {
-  for (const kind of PLACEABLE) {
-    test(`${kind}`, () => {
-      const assembly = getBuildingAssembly(kind)!;
+  for (const { kind, variant } of variants()) {
+    test(`${kind} variant ${variant}`, () => {
+      const assembly = getBuildingAssembly(kind, { variant })!;
       const floor = BUILDINGS[kind].shore ? WATERLINE - GROUND_Y - .4 : -.02;
       for (const rotation of [0, 1, 2, 3] as const) {
         assembly.model.rotation.y = -rotation * Math.PI / 2;
